@@ -1,0 +1,8 @@
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.pyc
+analysis/
+mlruns/
+*.egg-info/
+examples/__marimo__/

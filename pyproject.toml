@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aramis"
+version = "0.1.0"
+description = "Aramis cancer-classification product draft."
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+authors = [{ name = "EOS" }]
+dependencies = [
+  "numpy>=1.26,<3",
+  "pandas>=2.2",
+  "scikit-learn>=1.5",
+  "joblib>=1.4",
+  "pyarrow>=17",
+  "mlflow>=2.20",
+  "xrd-preprocessing",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3",
+  "ruff>=0.8",
+  "marimo>=0.10",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aramis"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--import-mode=importlib"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
