@@ -113,6 +113,44 @@ preprocessing_config
 model_dataset_fingerprint
 ```
 
+## Aramis Human-1 Versioning
+
+Product versioning is tracked in:
+
+```text
+config/aramis_product_versioning.json
+```
+
+Conservative K-alpha-only rule:
+
+```text
+include data_batch: 3, 4, 5, 7
+exclude data_batch: 1, 2, 6
+review required: null
+```
+
+Batch 7 is K-alpha and product-usable according to the canonical JSON.
+
+AGBH reference thickness:
+
+```text
+before 2026-04-22: 40 mm
+from 2026-04-22: 10 mm
+preferred H5/DataFrame field: agbh_thickness_mm
+```
+
+If the H5 container lacks these fields, add them before product dataset build:
+
+```text
+agbh_thickness_mm
+kbeta_absent
+xray_spectrum
+product_batch_usable
+product_batch_id
+human1_data_batch
+product_protocol_version
+```
+
 ## Standard Data Pipeline
 
 All products start from the same controlled preprocessing contract:
