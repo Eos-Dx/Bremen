@@ -20,13 +20,8 @@ def _():
     import aramis_product_notebook_helpers as helpers
     from xrd_preprocessing import (
         AzimuthalIntegration,
-        ConstantQRangeTransformer,
-        DropColumnsTransformer,
         FaultyPixelDetector,
         H5SessionFilter,
-        H5ToDataFrameTransformer,
-        ProductColumnBuilder,
-        ProductStatusGroupFilter,
         QRangeNormalizer,
         RadialProfileValueFilter,
         SNRFilter,
@@ -35,6 +30,13 @@ def _():
         calibrant_thickness_h5_filters,
         filter_h5_sessions,
         list_h5_measurement_sets,
+    )
+    from xrd_preprocessing.transformers import (
+        ConstantQRangeTransformer,
+        DropColumnsTransformer,
+        H5ToDataFrameTransformer,
+        ProductColumnBuilder,
+        ProductStatusGroupFilter,
     )
 
     helpers = importlib.reload(helpers)

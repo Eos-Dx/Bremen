@@ -4,12 +4,14 @@ from pathlib import Path
 
 from xrd_preprocessing import (
     H5SessionFilter,
-    H5ToDataFrameTransformer,
-    ProductColumnBuilder,
-    ProductStatusGroupFilter,
     calibrant_thickness_h5_filters,
     list_h5_sessions,
     load_preprocessing_config,
+)
+from xrd_preprocessing.transformers import (
+    H5ToDataFrameTransformer,
+    ProductColumnBuilder,
+    ProductStatusGroupFilter,
 )
 
 
@@ -23,7 +25,7 @@ ARAMIS_CONFIG = (
 )
 
 
-def test_real_h5_subset_uses_gfrm_reader_and_product_transformers():
+def test_real_h5_subset_uses_gfrm_reader_and_xrd_transformers():
     config = load_preprocessing_config(ARAMIS_CONFIG)
     config["filters"]["accepted_dates"] = ["2026-01-28"]
     config["labels"]["keep_after_grouping"] = ["BENIGN", "CANCER"]

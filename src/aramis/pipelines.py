@@ -9,22 +9,24 @@ import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from xrd_preprocessing import (
     ColumnValueFilter,
-    DropColumnsTransformer,
-    H5BlobDataFrameTransformer,
     H5SessionFilter,
-    H5ToDataFrameTransformer,
-    JoblibWriterTransformer,
-    PairedGroupFilter,
     PatientSpecimenValidityFilter,
-    ProductColumnBuilder,
-    ProductStatusGroupFilter,
     QRangeNormalizer,
     RadialProfileValueFilter,
     SNRFilter,
     SNRTransformer,
-    SimpleRadialProfileTransformer,
     calibrant_thickness_h5_filters,
     load_preprocessing_config,
+)
+from xrd_preprocessing.transformers import (
+    DropColumnsTransformer,
+    H5BlobDataFrameTransformer,
+    H5ToDataFrameTransformer,
+    JoblibWriterTransformer,
+    PairedGroupFilter,
+    ProductColumnBuilder,
+    ProductStatusGroupFilter,
+    SimpleRadialProfileTransformer,
 )
 
 
