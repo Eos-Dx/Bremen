@@ -211,27 +211,79 @@ def _(
         label="min measurements per specimen after SNR",
     )
 
+    return (
+        agbh_config_path_input,
+        aramis_preprocessing_config_path_input,
+        archive_path_input,
+        get_pipeline_settings,
+        max_sessions_input,
+        min_measurements_per_specimen_input,
+        npt_input,
+        output_joblib_path_input,
+        profile_gate_min_value_input,
+        profile_gate_q_input,
+        required_q_max_input,
+        set_pipeline_settings,
+        snr_threshold_input,
+    )
+
+
+@app.cell(hide_code=True)
+def _(
+    agbh_config_path_input,
+    aramis_preprocessing_config_path_input,
+    archive_path_input,
+    max_sessions_input,
+    min_measurements_per_specimen_input,
+    npt_input,
+    output_joblib_path_input,
+    profile_gate_min_value_input,
+    profile_gate_q_input,
+    required_q_max_input,
+    snr_threshold_input,
+):
+    def collect_pipeline_settings():
+        return {
+            "archive_path": archive_path_input.value,
+            "agbh_config_path": agbh_config_path_input.value,
+            "aramis_preprocessing_config_path": (
+                aramis_preprocessing_config_path_input.value
+            ),
+            "output_joblib_path": output_joblib_path_input.value,
+            "max_sessions": int(max_sessions_input.value),
+            "npt": int(npt_input.value),
+            "required_q_max_nm_inv": float(required_q_max_input.value),
+            "snr_threshold_db": float(snr_threshold_input.value),
+            "profile_gate_q_nm_inv": float(profile_gate_q_input.value),
+            "profile_gate_min_value": float(profile_gate_min_value_input.value),
+            "min_measurements_per_specimen": int(
+                min_measurements_per_specimen_input.value
+            ),
+        }
+
+    return (collect_pipeline_settings,)
+
+
+@app.cell(hide_code=True)
+def _(
+    agbh_config_path_input,
+    aramis_preprocessing_config_path_input,
+    archive_path_input,
+    collect_pipeline_settings,
+    max_sessions_input,
+    min_measurements_per_specimen_input,
+    mo,
+    npt_input,
+    output_joblib_path_input,
+    profile_gate_min_value_input,
+    profile_gate_q_input,
+    required_q_max_input,
+    set_pipeline_settings,
+    snr_threshold_input,
+):
     def _validated_settings(_value):
         _ = _value
-        set_pipeline_settings(
-            {
-                "archive_path": archive_path_input.value,
-                "agbh_config_path": agbh_config_path_input.value,
-                "aramis_preprocessing_config_path": (
-                    aramis_preprocessing_config_path_input.value
-                ),
-                "output_joblib_path": output_joblib_path_input.value,
-                "max_sessions": int(max_sessions_input.value),
-                "npt": int(npt_input.value),
-                "required_q_max_nm_inv": float(required_q_max_input.value),
-                "snr_threshold_db": float(snr_threshold_input.value),
-                "profile_gate_q_nm_inv": float(profile_gate_q_input.value),
-                "profile_gate_min_value": float(profile_gate_min_value_input.value),
-                "min_measurements_per_specimen": int(
-                    min_measurements_per_specimen_input.value
-                ),
-            }
-        )
+        set_pipeline_settings(collect_pipeline_settings())
 
     validate_settings_button = mo.ui.run_button(
         label="Validate settings",
@@ -255,7 +307,6 @@ def _(
     )
     return (
         controls,
-        get_pipeline_settings,
     )
 
 
