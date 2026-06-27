@@ -36,6 +36,20 @@
     "integration": "xrd_preprocessing.AzimuthalIntegration",
     "monochromaticity_qc": "xrd_preprocessing.AgBHMonochromaticityQualityControl"
   },
+  "selection_contract": {
+    "selection_source": "AgBH calibration monochromaticity QC plus detector-distance/q-range eligibility.",
+    "accepted_dates_meaning": "Calendar dates in selection.accepted_dates passed AgBH shoulder-metric QC and distance/q-range policy. Downstream Aramis DataFrame notebooks use these dates as an H5-level started_at date filter before GFRM loading.",
+    "rejected_dates_meaning": "Calendar dates in selection.rejected_dates failed the current AgBH monochromaticity threshold or distance/q-range policy and should not be used for the current Aramis research-draft product dataset.",
+    "monochromaticity_rule": "Pass when score <= parameters.max_score. Current score uses AgBH peak shoulder behavior with parameters.beta_ratio and parameters.beta_half_width_nm_inv.",
+    "h5_filter_level": "measurementId/session level before detector frame loading",
+    "downstream_yaml_fields": [
+      "filters.accepted_dates",
+      "filters.required_q_max_nm_inv",
+      "filters.require_sample_thickness_mm",
+      "filters.require_calibrant_thickness_mm"
+    ],
+    "safety_note": "This is a research-draft preprocessing selection artifact for decision support model development, not clinical validation."
+  },
   "parameters": {
     "selected_batches": [
       "1",

@@ -1,3 +1,6 @@
+# Aramis one-to-one preprocessing config.
+# Purpose: build a research-draft patientId-level paired-breast DataFrame for
+# symmetry/asymmetry modeling. This is not a trained classifier config.
 aramis_preprocessing:
   name: aramis_one_to_one_preprocessing
   version: 0.1
@@ -7,6 +10,9 @@ aramis_preprocessing:
   decision_unit: patientId
   row_unit: measurementId
   grouping_unit: specimenId
+
+# Provenance links this concrete Aramis YAML to the reusable XRD-preprocessing
+# template and to the AgBH monochromaticity JSON that supplies accepted dates.
 provenance:
   status: research draft product preprocessing config
   template: XRD-preprocessing/src/xrd_preprocessing/configs/preprocessing_branch_config_template.yaml
@@ -24,6 +30,9 @@ provenance:
 xrd_preprocessing:
   version: local
   release_tag: v0.1.2-beta
+
+# Product source policy. GFRM is mandatory for real product data at this stage;
+# NPY/TIFF are declared alternatives for controlled tests only.
 raw_data:
   source: gfrm
   location: h5_blob
@@ -44,6 +53,10 @@ raw_data:
 metadata:
   keep: all
   drop_payload_columns: true
+
+# H5-level filters run before GFRM loading. `accepted_dates` is intentionally
+# empty here because notebooks/pipelines fill it from
+# config/aramis_preprocessing_v0_1_config.json.
 filters:
   accepted_dates: []
   measurement_positions:
@@ -66,6 +79,9 @@ filters:
       require: true
       min_mm: 10.0
       max_mm: 40.0
+
+# Label grouping is specimenId-level. Original specimen_status is preserved in
+# DataFrames; product labels are written to a separate grouped column.
 labels:
   grouping:
     BENIGN: BENIGN
@@ -74,6 +90,9 @@ labels:
     PRE_CANCEROUS: CANCER
     NORMAL: NORMAL
     NA: exclude
+
+# One-to-one branch rule: keep only informative left/right patient pairs.
+# Same-same pairs are excluded from the first symmetry-model dataset.
 branch_settings:
   specimen_status_keep:
   - BENIGN
@@ -97,6 +116,9 @@ branch_settings:
     - CANCER
   min_measurements_per_specimen_after_snr: 1
   min_specimens_per_patient_after_snr: 2
+
+# Integration uses thickness correction. Sample and calibrant thickness columns
+# must match the H5-level filter columns above.
 integration:
   npt: 100
   q_range_nm_inv:
@@ -115,6 +137,8 @@ integration:
 snr:
   method: poisson
   min_snr_db: 18.0
+
+# Normalize each radial profile by area in 6.7..7.1 nm^-1.
 normalization:
   q_range_nm_inv:
   - 6.7

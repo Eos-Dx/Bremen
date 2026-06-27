@@ -103,10 +103,12 @@ Purpose:
 ```text
 Aramis AgBH monochromaticity product-selection config
 accepted AgBH dates
+rejected AgBH dates
 AgBH shoulder-metric threshold
 detector-distance/q-range eligibility policy
 reference AgBH rows
 calibrant-thickness policy used by downstream preprocessing notebooks
+selection_contract explaining how dates are produced and consumed
 ```
 
 Canonical location:
@@ -127,9 +129,11 @@ Initial exported artifact:
 Clinical_trials/analysis/aramis_preprocessing_v0_1/aramis_preprocessing_v0_1_config.json
 ```
 
-The JSON carries its own `provenance` block with notebook path, documentation
-links, generation summary, and downstream consumers. Product notebooks must use
-the Aramis-owned JSON, not the old Clinical_trials analysis export.
+The JSON carries its own `purpose`, `provenance`, and `selection_contract`
+blocks with notebook path, documentation links, generation summary,
+accepted-date meaning, rejected-date meaning, and downstream consumers. Product
+notebooks must use the Aramis-owned JSON, not the old Clinical_trials analysis
+export.
 
 Used by:
 

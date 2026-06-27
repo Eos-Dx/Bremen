@@ -38,8 +38,9 @@ config/aramis_preprocessing_v0_1_config.json
 ```
 
 This JSON stores provenance: source preprocessing notebook, generation summary,
-documentation links, and downstream notebook consumers. Override only when
-testing a controlled replacement:
+documentation links, downstream notebook consumers, and the `selection_contract`
+for AgBH monochromaticity accepted dates. Override only when testing a
+controlled replacement:
 
 ```bash
 python -m marimo run examples/aramis_dataframe_one_to_many_v0_1.py -- \
@@ -54,8 +55,10 @@ config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
 config/preprocessing/aramis_one_to_many_preprocessing_v0_1.yaml
 ```
 
-Each notebook reads its own branch YAML by default. Override only when testing a
-controlled replacement:
+Each notebook reads its own branch YAML by default. The YAML files are commented
+and describe raw data, metadata, H5 filters, label grouping, thickness
+correction, SNR, normalization, and profile gate settings. Override only when
+testing a controlled replacement:
 
 ```bash
 python -m marimo run examples/aramis_dataframe_one_to_one_v0_1.py -- \

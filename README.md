@@ -219,15 +219,27 @@ Product versioning/config:
 
 ```text
 config/aramis_product_versioning.json
+  Human-1 batch/source-line/calibrant-thickness product versioning
+
 config/aramis_preprocessing_v0_1_config.json
+  AgBH monochromaticity QC selection artifact
+  contains purpose/provenance/selection_contract
+  selection.accepted_dates drives H5-level date filtering before GFRM loading
+
 config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
+  commented one-to-one branch preprocessing config
+  decision unit: patientId
+
 config/preprocessing/aramis_one_to_many_preprocessing_v0_1.yaml
+  commented one-to-many branch preprocessing config
+  decision unit: specimenId
 ```
 
 Reusable preprocessing YAML template/contract lives in:
 
 ```text
 XRD-preprocessing/src/xrd_preprocessing/configs/preprocessing_branch_config_template.yaml
+  commented reusable branch YAML template
 ```
 
 Product metadata README:
