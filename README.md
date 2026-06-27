@@ -131,6 +131,65 @@ Machine-learning concept:
 docs/machine_learning_concept.md
 ```
 
+Data-preprocessing contract:
+
+```text
+docs/data_preprocessing.md
+```
+
+Preprocessing code split:
+
+```text
+src/aramis/pipelines.py
+  sklearn-style transformers:
+    AramisOneToOnePreprocessingPipeline(...).fit_transform(h5_path)
+    AramisOneToManyPreprocessingPipeline(...).fit_transform(h5_path)
+  run_one_to_one_preprocessing_pipeline(...)
+  run_one_to_many_preprocessing_pipeline(...)
+  optional DataFrame joblib export
+```
+
+Synthetic regression tests:
+
+```text
+tests/synthetic_aramis_h5.py
+  one known H5 fixture with raw/data and processed/data 2D arrays
+
+tests/test_aramis_preprocessing_one_to_one.py
+  checks one-to-one DataFrame fields and joblib roundtrip
+
+tests/test_aramis_preprocessing_one_to_many.py
+  checks one-to-many DataFrame fields and joblib roundtrip
+```
+
+Run real-H5 DataFrame examples:
+
+```bash
+conda activate eosproduct
+cd /Users/sad/dev/Aramis
+
+python -m marimo run examples/aramis_dataframe_one_to_one_v0_1.py -- \
+  --archive-path /Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5
+
+python -m marimo run examples/aramis_dataframe_one_to_many_v0_1.py -- \
+  --archive-path /Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5
+```
+
+Default output:
+
+```text
+examples/outputs/aramis_one_to_one_dataframe.joblib
+examples/outputs/aramis_one_to_many_dataframe.joblib
+```
+
+Override output:
+
+```bash
+python -m marimo run examples/aramis_dataframe_one_to_one_v0_1.py -- \
+  --archive-path /path/to/combined_archive.h5 \
+  --output-joblib-path /path/to/aramis_one_to_one_dataframe.joblib
+```
+
 Data-quality and monochromaticity limitations are tracked in:
 
 ```text
@@ -141,6 +200,15 @@ Product versioning/config:
 
 ```text
 config/aramis_product_versioning.json
+config/aramis_preprocessing_v0_1_config.json
+config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
+config/preprocessing/aramis_one_to_many_preprocessing_v0_1.yaml
+```
+
+Reusable preprocessing YAML template/contract lives in:
+
+```text
+XRD-preprocessing/src/xrd_preprocessing/configs/preprocessing_branch_config_template.yaml
 ```
 
 Product metadata README:

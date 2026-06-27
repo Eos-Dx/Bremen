@@ -53,6 +53,41 @@ suggested class: BENIGN or CANCER
 
 The output is a decision-support risk score/class, not autonomous diagnosis.
 
+The central modeling goal is to separate benign from malignant breast findings.
+Aramis therefore prepares two complementary dataset views that support two
+model families and then refine the final prediction together. The one-to-many
+model learns BENIGN vs CANCER at the specimen / breast-side level by comparing a
+single breast against a population reference. The one-to-one model learns from
+the patient-level bilateral context by comparing both breasts within the same
+patient, where the contralateral breast can provide control context for
+asymmetry.
+
+This requires a two-stage filtering strategy. First, filtering is broad at the
+H5 container level: keep patients for whom at least one breast / specimen is
+BENIGN or CANCER, but preserve all available breast-side context for those
+patients. After `h5_to_df`, split the DataFrame into two datasets. The
+one-to-many branch applies a narrow specimen-level filter and keeps only
+BENIGN/CANCER breast rows. The one-to-one branch keeps the broader patient
+context and then requires paired breast availability; NORMAL contralateral
+rows may remain because they can be needed for within-patient comparison. NA
+rows are non-informative and should be excluded before model dataset
+construction.
+
+Current label-mapping discussion:
+
+```text
+specimenId level: BENIGN -> BENIGN group
+specimenId level: CANCER -> CANCER group
+specimenId level: ATYPICAL -> CANCER group
+specimenId level: PRE_CANCEROUS -> CANCER group
+specimenId level: NORMAL -> separate NORMAL / control-context group
+specimenId level: NA -> non-informative; exclude before model dataset construction
+```
+
+The original `specimen_status` must be preserved. Any product label used for
+modeling should be written to a separate DataFrame column so that audit and
+label-mapping changes remain traceable.
+
 The first model family will use ordinary logistic regression because:
 
 ```text
@@ -174,8 +209,56 @@ if one breast is healthy and the other is malignant or suspicious,
 left-right distance may become abnormally large
 ```
 
+The one-to-one branch is not simply a binary specimen classifier. It works at
+patient paired-breast level, so the label semantics of left-right pairs are
+defined at patient level after specimen-side labels are grouped. Current ML
+training pair types after excluding NA are:
+
+```text
+BENIGN vs CANCER
+BENIGN vs NORMAL
+CANCER vs NORMAL
+```
+
+`NORMAL` is the current healthy/control-context group (`H`). Same-label pairs
+are excluded from the first one-to-one ML DataFrame:
+
+```text
+BENIGN vs BENIGN
+NORMAL vs NORMAL
+CANCER vs CANCER
+```
+
+Reason: the one-to-one symmetry model learns from left-right differences. With
+same-label pairs, the model may not see a useful disease-related difference and
+the pair can dilute the asymmetry signal.
+
+Current discussion rule:
+
+```text
+exclude NA specimen rows before paired-patient dataset construction
+map ATYPICAL/PRE_CANCEROUS into the broad CANCER-side group at specimenId level
+preserve NORMAL as a separate specimenId-level status group until training policy is fixed
+do not silently treat NORMAL as BENIGN
+train one-to-one first on BENIGN-CANCER, BENIGN-NORMAL, CANCER-NORMAL patientId-level pairs
+exclude BENIGN-BENIGN, NORMAL-NORMAL, CANCER-CANCER patientId-level pairs from the first ML dataset
+```
+
 This model is also sensitive to measurement quality, but less dependent on a
 large external population than the one-to-many model.
+
+Clinical interpretation:
+
+```text
+large left-right asymmetry is a suspicion signal
+asymmetry does not diagnose cancer by itself
+asymmetry increases concern and should push the patient toward closer review
+```
+
+The one-to-one model is therefore expected to produce a patient-level symmetry
+coefficient / asymmetry risk. This coefficient modifies how much trust and
+concern the final model assigns to the left and right breast-side population
+scores.
 
 ### 3. Fusion Logistic Regression
 
@@ -189,14 +272,28 @@ produce final p_cancer / BENIGN-CANCER suggested class
 Input candidates:
 
 ```text
-one-to-many model probability
-one-to-many model logit
-one-to-one symmetry model probability
-one-to-one symmetry model logit
+left breast one-to-many probability / logit
+right breast one-to-many probability / logit
+one-to-one symmetry coefficient / asymmetry risk
 data-quality flags
 replicate consistency metrics
 batch / calibration validity flags
 ```
+
+The first fusion concept is a three-signal model:
+
+```text
+left breast score
+right breast score
+patient symmetry coefficient
+-> final patient-level p_cancer
+```
+
+The one-to-many model gives side-specific evidence: the left breast can look
+more cancer-like while the right breast looks more benign-like, or the reverse.
+The one-to-one model adds whether the two breast profiles are unexpectedly
+asymmetric. When side-specific suspicion and strong asymmetry point in the same
+direction, the final patient-level risk should increase.
 
 Output:
 
@@ -223,8 +320,10 @@ flowchart TD
     G --> H["Patient structure: 3 left + 3 right measurements"]
     H --> I["One-to-many population LogisticRegression"]
     H --> J["One-to-one symmetry LogisticRegression"]
-    I --> K["Fusion LogisticRegression"]
-    J --> K
+    I --> I1["Left breast score + right breast score"]
+    J --> J1["Patient symmetry coefficient"]
+    I1 --> K["Fusion LogisticRegression"]
+    J1 --> K
     K --> L["p_cancer + BENIGN/CANCER decision-support class"]
 ```
 
@@ -414,3 +513,12 @@ out-of-distribution distance pattern
 
 9. On small data, what confidence interval / uncertainty reporting is acceptable
 for sensitivity-first threshold selection?
+
+10. Should later one-to-one model versions use same-label pairs as negative
+controls or quality-control examples?
+
+```text
+CANCER vs CANCER
+NORMAL vs NORMAL
+BENIGN vs BENIGN
+```

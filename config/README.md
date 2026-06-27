@@ -30,6 +30,142 @@ product filtering policy
 Use this file when deciding whether a measurement batch is product-usable for a
 K-alpha-only Aramis workflow.
 
+### `preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml`
+
+Purpose:
+
+```text
+Aramis one-to-one preprocessing config
+decision unit: patientId
+row unit: measurementId
+grouping unit: specimenId
+paired-breast patient rules
+BENIGN/CANCER/NORMAL context policy
+thickness correction requirements
+SNR / normalization / profile-gate parameters
+```
+
+### `preprocessing/aramis_one_to_many_preprocessing_v0_1.yaml`
+
+Purpose:
+
+```text
+Aramis one-to-many preprocessing config
+decision unit: specimenId
+row unit: measurementId
+grouping unit: specimenId
+BENIGN vs CANCER specimen-level policy
+raw detector source policy: gfrm | npy | tiff
+XRD-preprocessing version/tag tracking
+metadata retention policy
+H5-level filter rules
+canonical measurement-position rule: P1 / P2 / P3 only
+thickness correction requirements
+SNR / normalization / profile-gate parameters
+```
+
+Reusable preprocessing YAML template/contract is owned by XRD-preprocessing:
+
+```text
+XRD-preprocessing/src/xrd_preprocessing/configs/preprocessing_branch_config_template.yaml
+```
+
+These files are the concrete Aramis branch configs that follow that template.
+
+Current XRD-preprocessing dependency marker:
+
+```text
+version: local
+release_tag: v0.1.2-beta
+```
+
+Raw-data policy:
+
+```text
+gfrm:
+  preferred production path when original vendor bytes are available
+
+npy:
+  allowed for synthetic tests and declared H5 raw/processed 2D matrices
+
+tiff:
+  declared source option for future H5 blob support
+```
+
+Do not silently mix these source types in one product run. The selected source
+must be declared in the branch YAML and logged with the dataset artifacts.
+
+### `aramis_preprocessing_v0_1_config.json`
+
+Purpose:
+
+```text
+Aramis AgBH monochromaticity product-selection config
+accepted AgBH dates
+AgBH shoulder-metric threshold
+detector-distance/q-range eligibility policy
+reference AgBH rows
+calibrant-thickness policy used by downstream preprocessing notebooks
+```
+
+Canonical location:
+
+```text
+Aramis/config/aramis_preprocessing_v0_1_config.json
+```
+
+This config was generated from:
+
+```text
+Clinical_trials/Product/Aramis/Aramis_Preprocessing_v0_1.py
+```
+
+Initial exported artifact:
+
+```text
+Clinical_trials/analysis/aramis_preprocessing_v0_1/aramis_preprocessing_v0_1_config.json
+```
+
+The JSON carries its own `provenance` block with notebook path, documentation
+links, generation summary, and downstream consumers. Product notebooks must use
+the Aramis-owned JSON, not the old Clinical_trials analysis export.
+
+Used by:
+
+```text
+Aramis/examples/aramis_dataframe_one_to_one_v0_1.py
+Aramis/examples/aramis_dataframe_one_to_many_v0_1.py
+Aramis/packaging/eosproduct_bundle/scripts/run_aramis_notebooks.sh
+```
+
+Regeneration rule:
+
+```text
+regenerate with Aramis_Preprocessing_v0_1.py or equivalent scripted export
+update the JSON provenance block
+rerun Aramis tests and marimo checks
+rebuild eosproduct_onboarding_bundle.tar.gz
+```
+
+Thickness policy:
+
+```text
+filters.thickness.sample.column
+  H5/sample attribute used to require specimen thickness before frame loading
+
+filters.thickness.calibrant.column
+  H5/session attribute used to require calibrant thickness before frame loading
+
+integration.thickness_correction.sample_thickness_column
+integration.thickness_correction.calibrant_thickness_column
+  must match the filter columns
+  these names are passed directly to AzimuthalIntegration
+```
+
+Current AgBH calibrant safety range is `10..40 mm`. Missing sample thickness,
+missing calibrant thickness, or calibrant thickness outside this range means the
+measurement cannot enter thickness-corrected azimuthal integration.
+
 Current conservative rule recorded in JSON:
 
 ```text
@@ -167,4 +303,3 @@ notebooks/helpers
 selected/dropped measurement manifests
 MLflow artifacts
 ```
-

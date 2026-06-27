@@ -136,13 +136,13 @@ AGBH reference thickness:
 ```text
 before 2026-04-22: 40 mm
 from 2026-04-22: 10 mm
-preferred H5/DataFrame field: agbh_thickness_mm
+preferred H5/DataFrame field: calibrant_thickness_mm
 ```
 
 If the H5 container lacks these fields, add them before product dataset build:
 
 ```text
-agbh_thickness_mm
+calibrant_thickness_mm
 kbeta_absent
 xray_spectrum
 product_batch_usable
@@ -213,11 +213,20 @@ stored selected and dropped measurement IDs
 
 ## Label Rules
 
-Aramis draft labels:
+Aramis current label grouping is defined at `specimenId` / breast-side level.
+Full branch-specific preprocessing rules are in:
 
 ```text
-BENIGN/NORMAL -> 0
-CANCER/PRE_CANCEROUS/ATYPICAL -> 1
+docs/data_preprocessing.md
+```
+
+Current grouping:
+
+```text
+BENIGN -> BENIGN
+CANCER/PRE_CANCEROUS/ATYPICAL -> CANCER
+NORMAL -> NORMAL
+NA -> exclude
 ```
 
 If clinical team changes this mapping, create a new label mapping version.

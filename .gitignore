@@ -2,7 +2,11 @@
 .ruff_cache/
 __pycache__/
 *.pyc
+.idea/
 analysis/
+dist/
+examples/outputs/
 mlruns/
+reports/
 *.egg-info/
 examples/__marimo__/
