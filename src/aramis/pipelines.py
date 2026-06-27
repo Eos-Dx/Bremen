@@ -112,80 +112,93 @@ def build_aramis_preprocessing_steps(
 ) -> list[TransformerMixin]:
     """Build the ordered product route from xrd_preprocessing transformers."""
     _validate_branch(branch)
-    integration = config["integration"]
-    q_min, q_max = integration["q_range_nm_inv"]
-    norm_q_min, norm_q_max = config["normalization"]["q_range_nm_inv"]
-    gate = config["profile_gate"]
     branch_config = _branch_config(config, branch)
 
-    steps: list[TransformerMixin] = [
+    return [
         _reader_step(config=config, branch=branch),
         ProductColumnBuilder(),
         *_common_filter_steps(config),
+        *_label_steps(branch=branch, branch_config=branch_config),
+        _radial_profile_step(config["integration"]),
+        *_snr_and_validity_steps(config=config, branch_config=branch_config),
+        *_normalization_and_gate_steps(config),
+        DropColumnsTransformer(PAYLOAD_COLUMNS),
+        JoblibWriterTransformer(output_joblib_path),
+    ]
+
+
+def _label_steps(
+    *,
+    branch: str,
+    branch_config: dict[str, Any],
+) -> list[TransformerMixin]:
+    steps: list[TransformerMixin] = [
         ColumnValueFilter(
             "specimen_status",
             op="in",
             values=branch_config["specimen_status_keep"],
+        )
+    ]
+    if branch == "one_to_one":
+        return [
+            *steps,
+            ProductStatusGroupFilter(["BENIGN", "CANCER", "NORMAL"]),
+            PairedGroupFilter(allowed_pairs=branch_config["patient_pair_keep"]),
+        ]
+    return [*steps, ProductStatusGroupFilter(["BENIGN", "CANCER"])]
+
+
+def _radial_profile_step(integration: dict[str, Any]) -> TransformerMixin:
+    q_min, q_max = integration["q_range_nm_inv"]
+    thickness = integration["thickness_correction"]
+    return SimpleRadialProfileTransformer(
+        npt=integration["npt"],
+        q_min=q_min,
+        q_max=q_max,
+        thickness_adjustment_applied=thickness["enabled"],
+        sample_thickness_column=thickness["sample_thickness_column"],
+        thickness_reference_column=thickness["calibrant_thickness_column"],
+    )
+
+
+def _snr_and_validity_steps(
+    *,
+    config: dict[str, Any],
+    branch_config: dict[str, Any],
+) -> list[TransformerMixin]:
+    return [
+        SNRTransformer(snr_method=config["snr"]["method"]),
+        SNRFilter(min_snr_db=config["snr"]["min_snr_db"]),
+        PatientSpecimenValidityFilter(
+            min_measurements_per_specimen=branch_config[
+                "min_measurements_per_specimen_after_snr"
+            ],
+            min_specimens_per_patient=branch_config.get(
+                "min_specimens_per_patient_after_snr",
+                1,
+            ),
         ),
     ]
 
-    if branch == "one_to_one":
-        steps.extend(
-            [
-                ProductStatusGroupFilter(["BENIGN", "CANCER", "NORMAL"]),
-                PairedGroupFilter(
-                    allowed_pairs=branch_config["patient_pair_keep"],
-                ),
-            ]
-        )
-    else:
-        steps.append(ProductStatusGroupFilter(["BENIGN", "CANCER"]))
 
-    steps.extend(
-        [
-            SimpleRadialProfileTransformer(
-                npt=integration["npt"],
-                q_min=q_min,
-                q_max=q_max,
-                thickness_adjustment_applied=integration["thickness_correction"][
-                    "enabled"
-                ],
-                sample_thickness_column=integration["thickness_correction"][
-                    "sample_thickness_column"
-                ],
-                thickness_reference_column=integration["thickness_correction"][
-                    "calibrant_thickness_column"
-                ],
+def _normalization_and_gate_steps(config: dict[str, Any]) -> list[TransformerMixin]:
+    norm_q_min, norm_q_max = config["normalization"]["q_range_nm_inv"]
+    gate = config["profile_gate"]
+    return [
+        QRangeNormalizer(
+            q_min=norm_q_min,
+            q_max=norm_q_max,
+            save_initial_data=config["normalization"].get(
+                "save_initial_data",
+                False,
             ),
-            SNRTransformer(snr_method=config["snr"]["method"]),
-            SNRFilter(min_snr_db=config["snr"]["min_snr_db"]),
-            PatientSpecimenValidityFilter(
-                min_measurements_per_specimen=branch_config[
-                    "min_measurements_per_specimen_after_snr"
-                ],
-                min_specimens_per_patient=branch_config.get(
-                    "min_specimens_per_patient_after_snr",
-                    1,
-                ),
-            ),
-            QRangeNormalizer(
-                q_min=norm_q_min,
-                q_max=norm_q_max,
-                save_initial_data=config["normalization"].get(
-                    "save_initial_data",
-                    False,
-                ),
-            ),
-            RadialProfileValueFilter(
-                q_value_nm_inv=gate["q_nm_inv"],
-                threshold=gate["min_value"],
-                op=">",
-            ),
-            DropColumnsTransformer(PAYLOAD_COLUMNS),
-            JoblibWriterTransformer(output_joblib_path),
-        ]
-    )
-    return steps
+        ),
+        RadialProfileValueFilter(
+            q_value_nm_inv=gate["q_nm_inv"],
+            threshold=gate["min_value"],
+            op=">",
+        )
+    ]
 
 
 def run_one_to_one_preprocessing_pipeline(
