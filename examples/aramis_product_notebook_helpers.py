@@ -954,19 +954,21 @@ def build_branch_datasets(
 
 
 def normalize_branch_datasets(
-    QRangeNormalizer,
+    QRangeValueNormalizer,
     *,
     one_to_many_df: pd.DataFrame,
     one_to_one_df: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    one_to_many = QRangeNormalizer(
+    one_to_many = QRangeValueNormalizer(
         q_min=6.7,
         q_max=7.1,
+        statistic="median",
         save_initial_data=True,
     ).fit_transform(one_to_many_df)
-    one_to_one = QRangeNormalizer(
+    one_to_one = QRangeValueNormalizer(
         q_min=6.7,
         q_max=7.1,
+        statistic="median",
         save_initial_data=True,
     ).fit_transform(one_to_one_df)
     return one_to_many, one_to_one

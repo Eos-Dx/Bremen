@@ -29,9 +29,10 @@ COMMON_OUTPUT_COLUMNS = {
     "product_diagnosis",
     "product_status_group",
     "q_range",
-    "q_range_normalization_area",
     "q_range_normalization_max",
     "q_range_normalization_min",
+    "q_range_normalization_statistic",
+    "q_range_normalization_value",
     "radial_profile_data",
     "radial_profile_nearest_q_nm_inv",
     "radial_profile_q_delta_nm_inv",
@@ -179,6 +180,15 @@ def assert_common_output_contract(frame) -> None:
     assert all(
         len(values) == EXPECTED_PROFILE_LENGTH for values in frame["radial_profile_data"]
     )
+    for q_values, profile_values in zip(
+        frame["q_range"],
+        frame["radial_profile_data"],
+        strict=True,
+    ):
+        q = np.asarray(q_values, dtype=float)
+        profile = np.asarray(profile_values, dtype=float)
+        band = (q >= 6.7) & (q <= 7.1)
+        np.testing.assert_allclose(np.median(profile[band]), 1.0)
 
 
 def _write_measurement(

@@ -316,7 +316,7 @@ flowchart TD
     C --> D["FaultyPixelDetector"]
     D --> E["AzimuthalIntegration(error_model='poisson')"]
     E --> F["SNRTransformer + SNRFilter"]
-    F --> G["QRangeNormalizer"]
+    F --> G["QRangeValueNormalizer"]
     G --> H["Patient structure: 3 left + 3 right measurements"]
     H --> I["One-to-many population LogisticRegression"]
     H --> J["One-to-one symmetry LogisticRegression"]

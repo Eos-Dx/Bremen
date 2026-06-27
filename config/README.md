@@ -77,7 +77,7 @@ Current XRD-preprocessing dependency marker:
 
 ```text
 version: local
-release_tag: v0.1.2-beta
+release_tag: v0.1.3-beta
 ```
 
 Raw-data policy:

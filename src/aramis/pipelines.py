@@ -12,6 +12,7 @@ from xrd_preprocessing import (
     H5SessionFilter,
     PatientSpecimenValidityFilter,
     QRangeNormalizer,
+    QRangeValueNormalizer,
     RadialProfileValueFilter,
     SNRFilter,
     SNRTransformer,
@@ -184,23 +185,41 @@ def _snr_and_validity_steps(
 
 
 def _normalization_and_gate_steps(config: dict[str, Any]) -> list[TransformerMixin]:
-    norm_q_min, norm_q_max = config["normalization"]["q_range_nm_inv"]
+    normalization = config["normalization"]
+    norm_q_min, norm_q_max = normalization["q_range_nm_inv"]
     gate = config["profile_gate"]
+    normalizer = _normalizer_step(normalization, norm_q_min, norm_q_max)
     return [
-        QRangeNormalizer(
-            q_min=norm_q_min,
-            q_max=norm_q_max,
-            save_initial_data=config["normalization"].get(
-                "save_initial_data",
-                False,
-            ),
-        ),
+        normalizer,
         RadialProfileValueFilter(
             q_value_nm_inv=gate["q_nm_inv"],
             threshold=gate["min_value"],
             op=">",
         )
     ]
+
+
+def _normalizer_step(
+    normalization: dict[str, Any],
+    norm_q_min: float,
+    norm_q_max: float,
+) -> TransformerMixin:
+    mode = str(normalization.get("mode", "area")).lower()
+    save_initial_data = normalization.get("save_initial_data", False)
+    if mode == "value":
+        return QRangeValueNormalizer(
+            q_min=norm_q_min,
+            q_max=norm_q_max,
+            statistic=normalization.get("statistic", "median"),
+            save_initial_data=save_initial_data,
+        )
+    if mode == "area":
+        return QRangeNormalizer(
+            q_min=norm_q_min,
+            q_max=norm_q_max,
+            save_initial_data=save_initial_data,
+        )
+    raise ValueError(f"Unknown normalization mode: {mode!r}")
 
 
 def run_one_to_one_preprocessing_pipeline(

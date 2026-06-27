@@ -106,7 +106,7 @@ measurement-level XRD preprocessing:
    SNRFilter(min_snr_db=18.0 in current notebooks)
 
 5. measurementId level:
-   QRangeNormalizer(q_min=6.7, q_max=7.1)
+   QRangeValueNormalizer(q_min=6.7, q_max=7.1, statistic="median")
 
 6. measurementId level:
    radial-profile signal gate

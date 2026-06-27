@@ -23,7 +23,7 @@ def _():
         FaultyPixelDetector,
         H5SessionFilter,
         PatientSpecimenValidityFilter,
-        QRangeNormalizer,
+        QRangeValueNormalizer,
         RadialProfileValueFilter,
         SNRFilter,
         SNRTransformer,
@@ -73,7 +73,7 @@ def _():
         PatientSpecimenValidityFilter,
         ProductColumnBuilder,
         ProductStatusGroupFilter,
-        QRangeNormalizer,
+        QRangeValueNormalizer,
         RadialProfileValueFilter,
         SNRFilter,
         SNRTransformer,
@@ -856,10 +856,11 @@ def _(helpers, mo, snr_filtered_df, valid_df, validity_stats):
 
 
 @app.cell(hide_code=True)
-def _(QRangeNormalizer, valid_df):
-    normalized_df = QRangeNormalizer(
+def _(QRangeValueNormalizer, valid_df):
+    normalized_df = QRangeValueNormalizer(
         q_min=6.7,
         q_max=7.1,
+        statistic="median",
         save_initial_data=False,
     ).fit_transform(valid_df)
     return (normalized_df,)
@@ -872,7 +873,7 @@ def _(helpers, mo, normalized_df, valid_df):
             [
                 "## Step 11. Q 6.7..7.1 normalization",
                 "",
-                "Level: measurementId. Profiles are normalized in q window `6.7..7.1 nm^-1`.",
+                "Level: measurementId. Profiles are normalized by median value in q window `6.7..7.1 nm^-1`.",
                 "",
                 "```text",
                 helpers.stage_summary_text(

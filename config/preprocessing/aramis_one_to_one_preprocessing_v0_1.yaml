@@ -29,7 +29,7 @@ provenance:
     autonomous diagnosis.
 xrd_preprocessing:
   version: local
-  release_tag: v0.1.2-beta
+  release_tag: v0.1.3-beta
 
 # Product source policy. GFRM is mandatory for real product data at this stage;
 # NPY/TIFF are declared alternatives for controlled tests only.
@@ -138,8 +138,11 @@ snr:
   method: poisson
   min_snr_db: 18.0
 
-# Normalize each radial profile by area in 6.7..7.1 nm^-1.
+# Normalize each radial profile by median value in 6.7..7.1 nm^-1.
+# This keeps the typical intensity in the normalization window equal to 1.
 normalization:
+  mode: value
+  statistic: median
   q_range_nm_inv:
   - 6.7
   - 7.1

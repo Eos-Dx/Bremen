@@ -8,6 +8,7 @@ Files:
 ```text
 aramis_dataframe_one_to_one_v0_1.py
 aramis_dataframe_one_to_many_v0_1.py
+aramis_one_to_many_logistic_baseline_v0_1.py
 aramis_product_notebook_helpers.py
 ```
 
@@ -29,6 +30,9 @@ python -m marimo run examples/aramis_dataframe_one_to_one_v0_1.py -- \
 
 python -m marimo run examples/aramis_dataframe_one_to_many_v0_1.py -- \
   --archive-path /Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5
+
+python -m marimo run examples/aramis_one_to_many_logistic_baseline_v0_1.py -- \
+  --dataframe-joblib-path examples/outputs/aramis_one_to_many_dataframe.joblib
 ```
 
 Default Aramis product config:
@@ -72,3 +76,8 @@ Default output:
 examples/outputs/aramis_one_to_one_dataframe.joblib
 examples/outputs/aramis_one_to_many_dataframe.joblib
 ```
+
+The first model notebook starts from the one-to-many joblib and does not reopen
+the H5 container. It trains `LogisticRegression` on the full normalized
+`radial_profile_data` profile over 20 repeated patient-safe 70/30 splits and
+plots ROC curves for BENIGN vs CANCER.
