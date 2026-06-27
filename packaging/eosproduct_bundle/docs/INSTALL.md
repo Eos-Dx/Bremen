@@ -28,6 +28,9 @@ accepted, XRD-preprocessing and Aramis tests run together in a separate Terminal
 window. If notebooks are accepted, Aramis one-to-one and one-to-many notebooks
 open in separate Terminal windows.
 
+If git clone/update succeeds, installer uses latest pushed repositories. If git
+is unavailable or clone fails, installer uses the bundled repository fallback.
+
 If `conda` is not installed, the installer asks to install Miniforge into:
 
 ```text
@@ -54,10 +57,19 @@ Manual notebook command:
 ./run_aramis_notebooks.sh ~/dev/eosproduct
 ```
 
+Notebook behavior:
+
+```text
+default settings run automatically
+changed settings are frozen until Validate settings is clicked
+one-to-one and one-to-many open in separate Terminal windows
+```
+
 Data:
 
 ```text
 data/combined_archive.h5
+notebooks use this path automatically after bundle install
 ```
 
 Build full-data bundle:

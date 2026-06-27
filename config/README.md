@@ -23,6 +23,7 @@ data_batch definitions
 K-alpha / K-beta source-line rules
 Nova patient ranges
 AgBH reference thickness rules
+calibrant_thickness_mm field contract
 required H5 metadata fields
 product filtering policy
 ```
@@ -178,12 +179,13 @@ Important: AgBH shoulder-metric review can supersede this draft batch policy.
 If batch 5 is confirmed bad for the product workflow, update this JSON first,
 then update downstream notebooks, docs, and MLflow artifacts.
 
-AgBH thickness rule recorded in JSON:
+Calibrant thickness rule recorded in JSON:
 
 ```text
 before 2026-04-22: 40 mm
 from 2026-04-22: 10 mm
-preferred field: agbh_thickness_mm
+preferred field: calibrant_thickness_mm
+legacy alias: agbh_thickness_mm only for old backfill compatibility
 ```
 
 ### `human1_diagnoses_metadata.json`

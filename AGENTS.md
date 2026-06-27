@@ -40,8 +40,10 @@ Preserve the product lineage:
 
 ```text
 H5 container
--> h5_to_df
--> PatientFilter / product filter
+-> H5SessionSelectorTransformer / product H5 filters
+-> H5MeasurementSetAuditTransformer(optional metadata-only audit)
+-> H5ToDataFrameTransformer / h5_to_df
+-> ProductStatusGroupFilter / PatientFilter
 -> FaultyPixelDetector
 -> AzimuthalIntegration(error_model="poisson")
 -> SNRTransformer(snr_method="poisson")

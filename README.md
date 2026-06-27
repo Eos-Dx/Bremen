@@ -175,6 +175,25 @@ python -m marimo run examples/aramis_dataframe_one_to_many_v0_1.py -- \
   --archive-path /Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5
 ```
 
+Interactive edit mode:
+
+```bash
+python -m marimo edit examples/aramis_dataframe_one_to_one_v0_1.py -- \
+  --archive-path /Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5
+
+python -m marimo edit examples/aramis_dataframe_one_to_many_v0_1.py -- \
+  --archive-path /Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5
+```
+
+Notebook behavior:
+
+```text
+default settings run automatically
+changed settings are frozen until Validate settings is clicked
+visualizations stay inside the notebook
+joblib DataFrame export is the only default file output
+```
+
 Default output:
 
 ```text

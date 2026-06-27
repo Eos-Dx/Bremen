@@ -127,11 +127,24 @@ XRD-preprocessing/src/xrd_preprocessing/config.py
 
 XRD-preprocessing/src/xrd_preprocessing/configs/preprocessing_branch_config_template.yaml
   reusable branch-specific preprocessing YAML template/contract
-  reusable preprocessing YAML template/contract
+
+XRD-preprocessing H5SessionSelectorTransformer
+  H5 path -> selected H5 session manifest
+  applies H5-level filters before detector arrays are loaded
+
+XRD-preprocessing H5MeasurementSetAuditTransformer
+  selected H5 session manifest -> H5 stage frames/counts
+  builds metadata-only audit tables without GFRM decode
+
+XRD-preprocessing H5ToDataFrameTransformer
+  selected H5 session manifest -> decoded measurement DataFrame
+  materializes only selected SAMPLE/SAMPLE rows
 
 Aramis/config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
 Aramis/config/preprocessing/aramis_one_to_many_preprocessing_v0_1.yaml
   concrete Aramis project preprocessing config
+  separate branch configs because one-to-one and one-to-many use different
+  decision units and label-validity rules
 
 src/aramis/pipelines.py
   AramisOneToOnePreprocessingPipeline(...).fit_transform(h5_path)
