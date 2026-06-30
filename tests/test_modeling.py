@@ -6,11 +6,20 @@ import pytest
 
 from aramis.modeling import (
     aggregate_measurement_scores_by_specimen,
+    build_fusion_feature_table,
+    compute_binary_thresholds,
+    default_fusion_feature_sets,
+    fit_repeated_fusion_logistic_models,
     fit_repeated_one_to_many_product_logistic_comparison,
     fit_repeated_one_to_many_product_logistic,
     fit_repeated_one_to_many_logistic,
+    fusion_ablation_feature_sets,
+    load_one_to_many_dataframe,
     profile_matrix,
+    summarize_fusion_results,
+    summarize_one_to_many_datasets,
     summarize_one_to_many_dataframe,
+    summarize_one_to_many_product_results,
 )
 
 
@@ -32,6 +41,37 @@ def _one_to_many_model_frame() -> pd.DataFrame:
                     "q_range": q,
                 }
             )
+    return pd.DataFrame(rows)
+
+
+def _one_to_one_model_frame() -> pd.DataFrame:
+    rows = []
+    q = np.linspace(2.0, 23.0, 20)
+    for patient_idx in range(20):
+        label = "CANCER" if patient_idx % 2 else "BENIGN"
+        for side in ("LEFT", "RIGHT"):
+            specimen_id = f"P{patient_idx:02d}_{side}"
+            specimen_label = label if side == "RIGHT" else "NORMAL"
+            for measurement_idx in range(2):
+                baseline = 1.0 if specimen_label == "CANCER" else -1.0
+                if specimen_label == "NORMAL":
+                    baseline = -0.8
+                profile = baseline + np.cos(q / 4.0) + measurement_idx * 0.01
+                rows.append(
+                    {
+                        "patientId": f"P{patient_idx:02d}",
+                        "specimenId": specimen_id,
+                        "measurementId": f"{specimen_id}_M{measurement_idx}",
+                        "product_status_group": specimen_label,
+                        "radial_profile_data": profile,
+                        "q_range": q,
+                        "side": "Right" if side == "RIGHT" else "Left",
+                        "snr_db": 25.0 + measurement_idx,
+                        "age": 45 + patient_idx,
+                        "height_in": 65 + patient_idx % 3,
+                        "weight_lb": 130 + patient_idx,
+                    }
+                )
     return pd.DataFrame(rows)
 
 
@@ -104,6 +144,25 @@ def test_one_to_many_product_comparison_returns_named_summaries():
     assert result.metric_summary["roc_auc_mean"].between(0.0, 1.0).all()
 
 
+def test_summary_helpers_handle_named_product_results():
+    df = _one_to_many_model_frame()
+    result = fit_repeated_one_to_many_product_logistic(
+        df,
+        n_splits=2,
+        test_size=0.30,
+        random_state=21,
+        inner_splits=3,
+        aggregation="median",
+    )
+
+    dataset_summary = summarize_one_to_many_datasets({"standard": df})
+    metric_summary = summarize_one_to_many_product_results({"standard": result})
+
+    assert dataset_summary.loc[0, "dataset"] == "standard"
+    assert metric_summary.loc[0, "dataset"] == "standard"
+    assert metric_summary.loc[0, "splits"] == 2
+
+
 def test_aggregate_measurement_scores_by_specimen_uses_mean_score():
     df = _one_to_many_model_frame().head(4).copy()
     df["p_cancer_measurement"] = [0.1, 0.3, 0.8, 1.0]
@@ -115,6 +174,31 @@ def test_aggregate_measurement_scores_by_specimen_uses_mean_score():
 
     assert len(out) == 2
     np.testing.assert_allclose(sorted(out["p_cancer"]), [0.2, 0.9])
+
+
+def test_aggregate_measurement_scores_by_specimen_rejects_bad_inputs():
+    df = _one_to_many_model_frame().head(2).copy()
+    df["p_cancer_measurement"] = [0.1, 0.2]
+
+    with pytest.raises(ValueError, match="Unsupported aggregation"):
+        aggregate_measurement_scores_by_specimen(
+            df,
+            score_column="p_cancer_measurement",
+            aggregation="max",
+        )
+
+    conflicting = pd.concat(
+        [
+            df,
+            df.assign(product_status_group="CANCER"),
+        ],
+        ignore_index=True,
+    )
+    with pytest.raises(ValueError, match="has labels"):
+        aggregate_measurement_scores_by_specimen(
+            conflicting,
+            score_column="p_cancer_measurement",
+        )
 
 
 def test_one_to_many_summary_counts_rows_patients_specimens_and_labels():
@@ -135,3 +219,88 @@ def test_profile_matrix_rejects_different_profile_lengths():
 
     with pytest.raises(ValueError, match="equal length"):
         profile_matrix(df, "radial_profile_data")
+
+
+def test_profile_matrix_rejects_non_finite_profiles():
+    df = _one_to_many_model_frame().head(2).copy()
+    profile = np.asarray(df.iloc[0]["radial_profile_data"]).copy()
+    profile[0] = np.nan
+    df.at[df.index[0], "radial_profile_data"] = profile
+
+    with pytest.raises(ValueError, match="non-finite"):
+        profile_matrix(df, "radial_profile_data")
+
+
+def test_compute_binary_thresholds_handles_target_sensitivity():
+    thresholds = compute_binary_thresholds(
+        np.array([0, 0, 1, 1]),
+        np.array([0.1, 0.4, 0.6, 0.9]),
+        target_sensitivity=0.9,
+    )
+
+    assert thresholds["target_reached"] is True
+    assert thresholds["threshold_youden"] >= 0.0
+
+
+def test_load_one_to_many_dataframe_rejects_non_dataframe(tmp_path):
+    path = tmp_path / "bad.joblib"
+    import joblib
+
+    joblib.dump({"not": "a dataframe"}, path)
+
+    with pytest.raises(TypeError, match="pandas DataFrame"):
+        load_one_to_many_dataframe(path)
+
+
+def test_fusion_feature_table_and_model_comparison_run_on_shared_splits():
+    one_to_many = _one_to_many_model_frame()
+    one_to_one = _one_to_one_model_frame()
+
+    feature_table = build_fusion_feature_table(one_to_many, one_to_one)
+    result = fit_repeated_fusion_logistic_models(
+        one_to_many,
+        one_to_one,
+        n_splits=2,
+        test_size=0.30,
+        random_state=31,
+        inner_splits=3,
+        feature_sets={
+            "M0": ["logit_p_cancer_one_to_many"],
+            "M1": [
+                "logit_p_cancer_one_to_many",
+                "symmetry_available",
+                "symmetry_distance_x_available",
+            ],
+        },
+    )
+
+    assert len(feature_table) == one_to_many["specimenId"].nunique()
+    assert set(result.feature_sets) == {"M0", "M1"}
+    assert set(result.predictions["model_name"]) == {"M0", "M1"}
+    assert set(result.metric_summary["model_name"]) == {"M0", "M1"}
+    assert result.feature_table["symmetry_available"].isin([0, 1]).all()
+
+
+def test_fusion_helpers_expose_expected_feature_set_names():
+    assert "M0_one_to_many_only" in default_fusion_feature_sets()
+    assert "A0_age_only" in fusion_ablation_feature_sets()
+
+
+def test_summarize_fusion_results_accepts_precomputed_mean_curves():
+    metrics = pd.DataFrame(
+        {
+            "model_name": ["M0", "M0"],
+            "roc_auc": [0.5, 0.7],
+            "pr_auc": [0.4, 0.6],
+            "sensitivity_target": [1.0, 0.5],
+            "specificity_target": [0.2, 0.4],
+            "sensitivity_youden": [0.8, 0.9],
+            "specificity_youden": [0.7, 0.6],
+        }
+    )
+
+    out = summarize_fusion_results(metrics, {"M0": {"mean_auc": 0.61}})
+
+    assert out.loc[0, "model_name"] == "M0"
+    assert out.loc[0, "splits"] == 2
+    assert out.loc[0, "mean_auc_curve"] == 0.61

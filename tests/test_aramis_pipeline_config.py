@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import joblib
 import pandas as pd
+import pytest
 import yaml
 
 from aramis.__main__ import main
 from aramis.pipelines import (
+    _config_path,
+    _h5_filters,
+    _measurement_filters,
+    _normalizer_step,
     _output_column_steps,
     _quality_exclusion_h5_filters,
+    _validate_branch,
     payload_columns_to_drop,
 )
 
@@ -94,6 +100,58 @@ def test_quality_exclusion_filter_prefers_session_id_with_date_fallback():
     assert h5_filters[0].op == "not in"
     assert h5_filters[0].values == ["bad-session"]
     assert h5_filters[0].fallback["op"] == "date not in"
+
+
+def test_quality_exclusion_filter_can_use_date_only_or_disabled():
+    date_only = _quality_exclusion_h5_filters(
+        {
+            "quality_exclusions": {
+                "enabled": True,
+                "primary_key": {"excluded_values": []},
+                "fallback_date": {
+                    "column": "started_at",
+                    "excluded_dates": ["2026-03-16"],
+                },
+            }
+        }
+    )
+
+    assert date_only[0].column == "started_at"
+    assert date_only[0].op == "date not in"
+    assert _quality_exclusion_h5_filters({"quality_exclusions": {"enabled": False}}) == []
+
+
+def test_h5_and_measurement_filter_builders_use_yaml_rules():
+    config = load_synthetic_config("one_to_many_benign_cancer")
+    config["filters"]["accepted_dates"] = ["2026-05-01"]
+    config["filters"]["require_biopsy"] = True
+
+    h5_filters = _h5_filters(config, "one_to_many")
+    measurement_filters = _measurement_filters(config)
+
+    assert any(item.column == "started_at" for item in h5_filters)
+    assert any(item.column == "biopsy" for item in h5_filters)
+    assert any(item.column == "specimen_status" for item in h5_filters)
+    assert any(item.column == "position" for item in measurement_filters)
+
+
+def test_config_path_resolves_absolute_relative_and_missing(tmp_path):
+    config = {"io": {"input_h5_path": "data/input.h5", "output_joblib_path": ""}}
+    config_path = tmp_path / "config" / "preprocess.yaml"
+    config_path.parent.mkdir()
+
+    assert _config_path(config, config_path, "input_h5_path") == (
+        config_path.parent / "data" / "input.h5"
+    ).resolve()
+    with pytest.raises(ValueError, match="Missing io.output_joblib_path"):
+        _config_path(config, config_path, "output_joblib_path")
+
+
+def test_normalizer_and_branch_validation_errors():
+    with pytest.raises(ValueError, match="Unknown normalization mode"):
+        _normalizer_step({"mode": "bad"}, 6.7, 7.1)
+    with pytest.raises(ValueError, match="Unknown Aramis preprocessing branch"):
+        _validate_branch("bad")
 
 
 def test_preprocess_cli_reads_input_and_output_from_yaml(tmp_path):
