@@ -28,8 +28,15 @@ import aramis_product_notebook_helpers as helpers
 Run:
 
 ```bash
-cd /Users/sad/dev/Aramis
+cd ~/dev/eosproduct/Aramis
 conda activate eosproduct
+```
+
+For a test install that uses `ENV_NAME=eosproduct1`, use:
+
+```bash
+cd ~/dev/eosproduct1/Aramis
+conda activate eosproduct1
 ```
 
 Preprocess DataFrames directly from YAML:
