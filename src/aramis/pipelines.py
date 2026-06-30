@@ -8,7 +8,9 @@ from typing import Any
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from xrd_preprocessing import (
+    AzimuthalIntegration,
     ColumnValueFilter,
+    FaultyPixelDetector,
     H5SessionFilter,
     PatientSpecimenValidityFilter,
     QRangeNormalizer,
@@ -20,6 +22,7 @@ from xrd_preprocessing import (
     load_preprocessing_config,
 )
 from xrd_preprocessing.transformers import (
+    ConstantQRangeTransformer,
     DropColumnsTransformer,
     H5BlobDataFrameTransformer,
     H5ToDataFrameTransformer,
@@ -27,7 +30,6 @@ from xrd_preprocessing.transformers import (
     PairedGroupFilter,
     ProductColumnBuilder,
     ProductStatusGroupFilter,
-    SimpleRadialProfileTransformer,
 )
 
 
@@ -37,9 +39,13 @@ PAYLOAD_COLUMNS = (
     "raw_data",
     "processed_data",
     "detector_measurements",
+    "faulty_pixel_mask",
+    "invalid_pixel_mask",
     "pyfai_faulty_pixel_mask",
     "radial_profile_data_raw",
     "radial_profile_sigma",
+    "suspected_hot_pixel_mask",
+    "faulty_pixel_reason_map",
 )
 
 
@@ -122,12 +128,31 @@ def build_aramis_preprocessing_steps(
         ProductColumnBuilder(),
         *_common_filter_steps(config),
         *_label_steps(branch=branch, branch_config=branch_config),
-        _radial_profile_step(config["integration"]),
+        _faulty_pixel_step(),
+        _constant_q_range_step(config["integration"]),
+        _azimuthal_integration_step(config["integration"]),
         *_snr_and_validity_steps(config=config, branch_config=branch_config),
         *_normalization_and_gate_steps(config),
-        DropColumnsTransformer(PAYLOAD_COLUMNS),
+        *_payload_drop_steps(config),
         JoblibWriterTransformer(output_joblib_path),
     ]
+
+
+def payload_columns_to_drop(config: dict[str, Any]) -> tuple[str, ...]:
+    """Return payload columns that should be dropped before writing joblib."""
+    metadata = config.get("metadata", {})
+    if not bool(metadata.get("drop_payload_columns", True)):
+        return ()
+    keep = {str(column) for column in metadata.get("keep_payload_columns", [])}
+    drop = [column for column in PAYLOAD_COLUMNS if column not in keep]
+    return tuple(drop)
+
+
+def _payload_drop_steps(config: dict[str, Any]) -> list[TransformerMixin]:
+    columns = payload_columns_to_drop(config)
+    if len(columns) == 0:
+        return []
+    return [DropColumnsTransformer(columns)]
 
 
 def _label_steps(
@@ -151,14 +176,27 @@ def _label_steps(
     return [*steps, ProductStatusGroupFilter(["BENIGN", "CANCER"])]
 
 
-def _radial_profile_step(integration: dict[str, Any]) -> TransformerMixin:
+def _faulty_pixel_step() -> TransformerMixin:
+    return FaultyPixelDetector(
+        local_hot_min_value=500.0,
+        exclude_beam_center_radius=0.04,
+    )
+
+
+def _constant_q_range_step(integration: dict[str, Any]) -> TransformerMixin:
     q_min, q_max = integration["q_range_nm_inv"]
+    return ConstantQRangeTransformer(q_min=q_min, q_max=q_max)
+
+
+def _azimuthal_integration_step(integration: dict[str, Any]) -> TransformerMixin:
     thickness = integration["thickness_correction"]
-    return SimpleRadialProfileTransformer(
+    return AzimuthalIntegration(
         npt=integration["npt"],
-        q_min=q_min,
-        q_max=q_max,
-        thickness_adjustment_applied=thickness["enabled"],
+        calibration_mode="poni",
+        mask_column="pyfai_faulty_pixel_mask",
+        error_model=integration["error_model"],
+        thickness_adjustment=thickness["enabled"],
+        require_thickness_adjustment=thickness["enabled"],
         sample_thickness_column=thickness["sample_thickness_column"],
         thickness_reference_column=thickness["calibrant_thickness_column"],
     )
@@ -248,12 +286,46 @@ def run_one_to_many_preprocessing_pipeline(
     ).fit_transform(h5_path)
 
 
+def run_preprocessing_from_config(config_path: str | Path) -> pd.DataFrame:
+    """Run Aramis preprocessing using only paths and branch stored in YAML."""
+    config_path = Path(config_path)
+    config = load_preprocessing_config(config_path)
+    branch = config["aramis_preprocessing"]["branch"]
+    h5_path = _config_path(config, config_path, "input_h5_path")
+    output_joblib_path = _config_path(config, config_path, "output_joblib_path")
+    if branch == "one_to_one":
+        return run_one_to_one_preprocessing_pipeline(
+            h5_path,
+            config,
+            output_joblib_path=output_joblib_path,
+        )
+    if branch == "one_to_many":
+        return run_one_to_many_preprocessing_pipeline(
+            h5_path,
+            config,
+            output_joblib_path=output_joblib_path,
+        )
+    raise ValueError(f"Unknown Aramis preprocessing branch: {branch}")
+
+
+def _config_path(config: dict[str, Any], config_path: Path, key: str) -> Path:
+    value = config.get("io", {}).get(key)
+    if value in {None, ""}:
+        raise ValueError(f"Missing io.{key} in preprocessing config: {config_path}")
+    path = Path(str(value)).expanduser()
+    if path.is_absolute():
+        return path
+    return (config_path.parent / path).resolve()
+
+
 def _common_filter_steps(config: dict[str, Any]) -> list[TransformerMixin]:
     filters = config["filters"]
     thickness = filters.get("thickness", {})
     sample = thickness.get("sample", {})
     calibrant = thickness.get("calibrant", {})
     steps: list[TransformerMixin] = []
+    # Legacy compatibility: new product configs should use
+    # filters.quality_exclusions at H5 level instead of accepted date allowlists.
     if filters.get("accepted_dates"):
         steps.append(
             ColumnValueFilter(
@@ -294,6 +366,14 @@ def _common_filter_steps(config: dict[str, Any]) -> list[TransformerMixin]:
                 upper=calibrant.get("max_mm", 40.0),
             )
         )
+    if filters.get("require_biopsy"):
+        steps.append(
+            ColumnValueFilter(
+                filters.get("biopsy_column", "biopsy"),
+                op="==",
+                value=True,
+            )
+        )
     return steps
 
 
@@ -323,13 +403,22 @@ def _reader_step(config: dict[str, Any], branch: str) -> TransformerMixin:
 
 def _h5_filters(config: dict[str, Any], branch: str) -> list[H5SessionFilter]:
     filters = config["filters"]
-    out: list[H5SessionFilter] = []
+    out: list[H5SessionFilter] = _quality_exclusion_h5_filters(filters)
+    # Legacy compatibility: new product configs should use quality_exclusions.
     if filters.get("accepted_dates"):
         out.append(
             H5SessionFilter(
                 column="started_at",
                 op="date in",
                 values=filters["accepted_dates"],
+            )
+        )
+    if filters.get("require_biopsy"):
+        out.append(
+            H5SessionFilter(
+                column=filters.get("biopsy_column", "biopsy"),
+                op="==",
+                value=True,
             )
         )
     out.append(
@@ -346,6 +435,41 @@ def _h5_filters(config: dict[str, Any], branch: str) -> list[H5SessionFilter]:
         )
     )
     return out
+
+
+def _quality_exclusion_h5_filters(filters: dict[str, Any]) -> list[H5SessionFilter]:
+    exclusions = filters.get("quality_exclusions", {})
+    if not exclusions.get("enabled", False):
+        return []
+    primary = exclusions.get("primary_key", {})
+    fallback = exclusions.get("fallback_date", {})
+    excluded_values = primary.get("excluded_values") or []
+    excluded_dates = fallback.get("excluded_dates") or []
+    fallback_filter = None
+    if excluded_dates and fallback.get("use_when_primary_key_missing", True):
+        fallback_filter = {
+            "column": fallback.get("column", "started_at"),
+            "op": "date not in",
+            "values": excluded_dates,
+        }
+    if excluded_values:
+        return [
+            H5SessionFilter(
+                column=primary.get("column", "linked_agbh_session_uid"),
+                op="not in",
+                values=excluded_values,
+                fallback=fallback_filter,
+            )
+        ]
+    if excluded_dates:
+        return [
+            H5SessionFilter(
+                column=fallback.get("column", "started_at"),
+                op="date not in",
+                values=excluded_dates,
+            )
+        ]
+    return []
 
 
 def _measurement_filters(config: dict[str, Any]) -> list[H5SessionFilter]:

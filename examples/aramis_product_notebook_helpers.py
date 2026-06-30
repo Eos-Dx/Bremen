@@ -92,6 +92,28 @@ def read_aramis_preprocessing_config(path: Path) -> dict[str, Any]:
     return load_preprocessing_config(path)
 
 
+def resolve_config_path(config_path: Path, value: str) -> Path:
+    path = Path(str(value)).expanduser()
+    if path.is_absolute():
+        return path
+    return (config_path.parent / path).resolve()
+
+
+def preprocessing_io_paths(
+    config_path: Path,
+    config: dict[str, Any],
+) -> tuple[Path, Path]:
+    io = config.get("io", {})
+    if not io.get("input_h5_path"):
+        raise ValueError(f"Missing io.input_h5_path in {config_path}")
+    if not io.get("output_joblib_path"):
+        raise ValueError(f"Missing io.output_joblib_path in {config_path}")
+    return (
+        resolve_config_path(config_path, io["input_h5_path"]),
+        resolve_config_path(config_path, io["output_joblib_path"]),
+    )
+
+
 def thickness_settings_from_config(config: dict[str, Any]) -> dict[str, Any]:
     filters = config.get("filters", {})
     integration = config.get("integration", {})

@@ -53,9 +53,11 @@ def _():
         REPO_ROOT
         / "config"
         / "preprocessing"
-        / "aramis_one_to_many_preprocessing_v0_1.yaml"
+        / "aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml"
     )
-    DEFAULT_OUTPUT_JOBLIB_PATH = PRODUCT_DIR / "outputs" / "aramis_one_to_many_dataframe.joblib"
+    DEFAULT_OUTPUT_JOBLIB_PATH = (
+        PRODUCT_DIR / "outputs" / "aramis_one_to_many_benign_cancer_dataframe.joblib"
+    )
     return (
         AzimuthalIntegration,
         ConstantQRangeTransformer,
@@ -105,17 +107,11 @@ def _(mo):
 def _(
     DEFAULT_AGBH_CONFIG_PATH,
     DEFAULT_ARAMIS_PREPROCESSING_CONFIG_PATH,
-    DEFAULT_ARCHIVE_PATH,
-    DEFAULT_OUTPUT_JOBLIB_PATH,
     Path,
+    helpers,
     mo,
 ):
     _cli_args = mo.cli_args()
-    _archive_default = Path(
-        _cli_args.get("archive-path")
-        or _cli_args.get("archive_path")
-        or DEFAULT_ARCHIVE_PATH
-    )
     _agbh_default = Path(
         _cli_args.get("agbh-config-path")
         or _cli_args.get("agbh_config_path")
@@ -126,10 +122,12 @@ def _(
         or _cli_args.get("aramis_preprocessing_config_path")
         or DEFAULT_ARAMIS_PREPROCESSING_CONFIG_PATH
     )
-    _output_joblib_default = Path(
-        _cli_args.get("output-joblib-path")
-        or _cli_args.get("output_joblib_path")
-        or DEFAULT_OUTPUT_JOBLIB_PATH
+    _preprocessing_config = helpers.read_aramis_preprocessing_config(
+        _aramis_preprocessing_default
+    )
+    _archive_default, _output_joblib_default = helpers.preprocessing_io_paths(
+        _aramis_preprocessing_default,
+        _preprocessing_config,
     )
     _default_settings = {
         "archive_path": str(_archive_default),

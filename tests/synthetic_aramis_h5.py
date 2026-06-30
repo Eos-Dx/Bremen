@@ -8,6 +8,18 @@ from xrd_preprocessing import load_preprocessing_config
 
 
 EXPECTED_PROFILE_LENGTH = 100
+SYNTHETIC_PONI = """# Synthetic PONI for Aramis tests
+poni_version: 2.1
+Detector: Detector
+Detector_config: {"pixel1": 0.0001, "pixel2": 0.0001, "max_shape": [32, 32], "orientation": 3}
+Distance: 0.005
+Poni1: 0.0016
+Poni2: 0.0016
+Rot1: 0
+Rot2: 0
+Rot3: 0
+Wavelength: 1e-10
+"""
 COMMON_OUTPUT_COLUMNS = {
     "age",
     "biopsy",
@@ -24,6 +36,7 @@ COMMON_OUTPUT_COLUMNS = {
     "patient_specimen_valid",
     "patient_specimen_validity_reason",
     "patient_valid_specimen_count",
+    "ponifile",
     "poni_q_max_nm_inv",
     "position",
     "product_diagnosis",
@@ -54,9 +67,20 @@ COMMON_OUTPUT_COLUMNS = {
     "specimen_measurement_count",
     "specimen_status",
     "started_at",
-    "thickness_correction_applied",
-    "thickness_reference_column",
-    "thickness_sample_column",
+    "azimuthal_mask_pixels",
+    "azimuthal_mask_source",
+    "azimuthal_mode",
+    "azimuthal_npt",
+    "azimuthal_npt_azimuthal",
+    "calculated_distance",
+    "faulty_pixel_reason_counts",
+    "interpolation_q_range",
+    "thickness_adjusted_distance_m",
+    "thickness_adjustment_applied",
+    "thickness_adjustment_reliable",
+    "thickness_adjustment_warning",
+    "thickness_reference_mm",
+    "thickness_reference_source",
 }
 ONE_TO_ONE_OUTPUT_COLUMNS = COMMON_OUTPUT_COLUMNS | {
     "one_to_one_pair_type",
@@ -67,24 +91,33 @@ PAYLOAD_COLUMNS = {
     "raw_data",
     "processed_data",
     "detector_measurements",
+    "faulty_pixel_mask",
+    "invalid_pixel_mask",
     "pyfai_faulty_pixel_mask",
     "radial_profile_data_raw",
     "radial_profile_sigma",
+    "suspected_hot_pixel_mask",
+    "faulty_pixel_reason_map",
 }
 
 
 def load_synthetic_config(branch: str = "one_to_one") -> dict:
     config_file = {
         "one_to_one": "aramis_one_to_one_preprocessing_v0_1.yaml",
-        "one_to_many": "aramis_one_to_many_preprocessing_v0_1.yaml",
+        "one_to_many": "aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml",
+        "one_to_many_benign_cancer": "aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml",
+        "one_to_many_benign_cancer_biopsy": "aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml",
     }[branch]
     config_path = Path(__file__).parents[1] / "config" / "preprocessing" / config_file
     config = load_preprocessing_config(config_path)
     config["raw_data"]["source"] = "npy"
     config["raw_data"]["h5_dataset_candidates"]["npy"] = ["raw/data"]
     config["filters"]["accepted_dates"] = ["2026-05-01"]
-    config["snr"]["min_snr_db"] = 0.0
-    config["profile_gate"]["min_value"] = 0.0
+    config["snr"]["min_snr_db"] = -100.0
+    config["integration"]["q_range_nm_inv"] = [2.0, 23.0]
+    config["normalization"]["q_range_nm_inv"] = [6.7, 7.1]
+    config["profile_gate"]["q_nm_inv"] = 14.0
+    config["profile_gate"]["min_value"] = -1_000_000.0
     return config
 
 
@@ -98,6 +131,7 @@ def write_known_synthetic_h5(path: Path) -> None:
             side="Left",
             status="BENIGN",
             seed=1,
+            biopsy=True,
         )
         _write_measurement(
             h5,
@@ -168,9 +202,10 @@ def write_known_synthetic_h5(path: Path) -> None:
 
 def assert_common_output_contract(frame) -> None:
     assert PAYLOAD_COLUMNS.isdisjoint(set(frame.columns))
-    assert bool(frame["thickness_correction_applied"].all())
-    assert set(frame["thickness_sample_column"]) == {"sample_thickness_mm"}
-    assert set(frame["thickness_reference_column"]) == {"calibrant_thickness_mm"}
+    assert bool(frame["thickness_adjustment_applied"].all())
+    assert bool(frame["thickness_adjustment_reliable"].all())
+    assert set(frame["thickness_reference_source"]) == {"calibrant_thickness_mm"}
+    assert set(frame["thickness_reference_mm"]) == {10.0}
     assert set(frame["calibrant_thickness_mm"]) == {10.0}
     assert frame["sample_thickness_mm"].notna().all()
     assert set(frame["measurement_data_source"]).issubset(
@@ -200,9 +235,11 @@ def _write_measurement(
     side: str,
     status: str,
     seed: int,
-    sample_thickness_mm: float | None = 70.0,
+    sample_thickness_mm: float | None = 10.0,
     calibrant_thickness_mm: float = 10.0,
+    biopsy: bool | None = None,
 ) -> None:
+    biopsy_flag = status not in {"NORMAL", "BENIGN"} if biopsy is None else bool(biopsy)
     group = h5.require_group(f"measurements/{name}")
     raw = group.require_group("raw")
     processed = group.require_group("processed")
@@ -211,13 +248,14 @@ def _write_measurement(
     group.attrs.update(
         {
             "patientId": patient_id,
+            "ponifile": SYNTHETIC_PONI,
             "specimenId": specimen_id,
             "side": side,
             "position": "P1",
             "started_at": "2026-05-01 10:00:00",
             "specimen_status": status,
-            "biopsy": status not in {"NORMAL", "BENIGN"},
-            "sample_biopsy": status not in {"NORMAL", "BENIGN"},
+            "biopsy": biopsy_flag,
+            "sample_biopsy": biopsy_flag,
             "sample_biopsy_type": "Post-biopsy" if status == "CANCER" else "Pre-biopsy",
             "age": 55.0 + seed,
             "sample_height_in": 64.0,

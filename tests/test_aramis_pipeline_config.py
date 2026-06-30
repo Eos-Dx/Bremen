@@ -1,0 +1,87 @@
+from __future__ import annotations
+
+import joblib
+import pandas as pd
+import yaml
+
+from aramis.__main__ import main
+from aramis.pipelines import _quality_exclusion_h5_filters, payload_columns_to_drop
+
+from .synthetic_aramis_h5 import load_synthetic_config, write_known_synthetic_h5
+
+
+def test_payload_drop_columns_follow_metadata_config():
+    config = {"metadata": {"drop_payload_columns": True}}
+
+    columns = payload_columns_to_drop(config)
+
+    assert "measurement_data" in columns
+    assert "radial_profile_data_raw" in columns
+
+
+def test_payload_drop_columns_can_keep_selected_debug_profiles():
+    config = {
+        "metadata": {
+            "drop_payload_columns": True,
+            "keep_payload_columns": ["radial_profile_data_raw", "radial_profile_sigma"],
+        }
+    }
+
+    columns = payload_columns_to_drop(config)
+
+    assert "measurement_data" in columns
+    assert "radial_profile_data_raw" not in columns
+    assert "radial_profile_sigma" not in columns
+
+
+def test_payload_drop_columns_can_be_disabled_for_debug_exports():
+    config = {"metadata": {"drop_payload_columns": False}}
+
+    assert payload_columns_to_drop(config) == ()
+
+
+def test_quality_exclusion_filter_prefers_session_id_with_date_fallback():
+    filters = {
+        "quality_exclusions": {
+            "enabled": True,
+            "primary_key": {
+                "column": "linked_agbh_session_uid",
+                "excluded_values": ["bad-session"],
+            },
+            "fallback_date": {
+                "column": "started_at",
+                "excluded_dates": ["2026-03-16"],
+                "use_when_primary_key_missing": True,
+            },
+        }
+    }
+
+    h5_filters = _quality_exclusion_h5_filters(filters)
+
+    assert len(h5_filters) == 1
+    assert h5_filters[0].column == "linked_agbh_session_uid"
+    assert h5_filters[0].op == "not in"
+    assert h5_filters[0].values == ["bad-session"]
+    assert h5_filters[0].fallback["op"] == "date not in"
+
+
+def test_preprocess_cli_reads_input_and_output_from_yaml(tmp_path):
+    h5_path = tmp_path / "known_synthetic_aramis.h5"
+    output_path = tmp_path / "out" / "one_to_many.joblib"
+    config_path = tmp_path / "preprocess.yaml"
+    config = load_synthetic_config("one_to_many_benign_cancer")
+    config["io"] = {
+        "input_h5_path": "known_synthetic_aramis.h5",
+        "output_joblib_path": "out/one_to_many.joblib",
+    }
+    config["raw_data"]["h5_dataset_candidates"]["npy"] = ["processed/data"]
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+    write_known_synthetic_h5(h5_path)
+
+    exit_code = main(["preprocess", "--config", str(config_path)])
+
+    assert exit_code == 0
+    assert output_path.exists()
+    df = joblib.load(output_path)
+    assert isinstance(df, pd.DataFrame)
+    assert set(df["product_status_group"]) == {"BENIGN", "CANCER"}

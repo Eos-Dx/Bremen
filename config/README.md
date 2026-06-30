@@ -44,14 +44,15 @@ paired-breast patient rules
 BENIGN/CANCER/NORMAL context policy
 thickness correction requirements
 SNR / normalization / profile-gate parameters
+quality_exclusions by linked AgBH session ID with date fallback
 ```
 
-### `preprocessing/aramis_one_to_many_preprocessing_v0_1.yaml`
+### `preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml`
 
 Purpose:
 
 ```text
-Aramis one-to-many preprocessing config
+Aramis standard one-to-many BENIGN/CANCER preprocessing config
 decision unit: specimenId
 row unit: measurementId
 grouping unit: specimenId
@@ -63,7 +64,34 @@ H5-level filter rules
 canonical measurement-position rule: P1 / P2 / P3 only
 thickness correction requirements
 SNR / normalization / profile-gate parameters
+quality_exclusions by linked AgBH session ID with date fallback
 ```
+
+This is the standard one-to-many research-draft dataset. It keeps breast-side
+specimens with `specimen_status` BENIGN, CANCER, ATYPICAL, or PRE_CANCEROUS,
+then maps ATYPICAL/PRE_CANCEROUS to the product CANCER group at `specimenId`
+level.
+
+### `preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml`
+
+Purpose:
+
+```text
+Aramis biopsy-only one-to-many BENIGN/CANCER preprocessing config
+decision unit: specimenId
+row unit: measurementId
+grouping unit: specimenId
+biopsy-confirmed BENIGN vs CANCER specimen-level policy
+same XRD preprocessing as standard one-to-many
+```
+
+This is the stricter one-to-many dataset requested for first model work. It
+uses the same branch logic as the standard one-to-many YAML, but additionally
+requires `biopsy == true`. The biopsy filter is applied at H5 metadata level
+before GFRM loading and repeated at DataFrame level as a safety check.
+
+The rule follows the Human clinical-trial FDA notebook convention where the
+biopsy-only cohort is selected with `biopsy_flag == True`.
 
 Reusable preprocessing YAML template/contract is owned by XRD-preprocessing:
 
@@ -72,12 +100,24 @@ XRD-preprocessing/src/xrd_preprocessing/configs/preprocessing_branch_config_temp
 ```
 
 These files are the concrete Aramis branch configs that follow that template.
+Each preprocessing YAML owns its own runtime paths:
+
+```text
+io.input_h5_path
+io.output_joblib_path
+```
+
+The product command should receive only the YAML path:
+
+```text
+python -m aramis preprocess --config config/preprocessing/<branch>.yaml
+```
 
 Current XRD-preprocessing dependency marker:
 
 ```text
 version: local
-release_tag: v0.1.3-beta
+release_tag: v0.1.4-beta
 ```
 
 Raw-data policy:
@@ -101,14 +141,14 @@ must be declared in the branch YAML and logged with the dataset artifacts.
 Purpose:
 
 ```text
-Aramis AgBH monochromaticity product-selection config
-accepted AgBH dates
-rejected AgBH dates
+Aramis AgBH monochromaticity product-selection audit artifact
+rejected AgBH session IDs
+rejected AgBH dates for older-container fallback
 AgBH shoulder-metric threshold
 detector-distance/q-range eligibility policy
 reference AgBH rows
 calibrant-thickness policy used by downstream preprocessing notebooks
-selection_contract explaining how dates are produced and consumed
+selection_contract explaining how exclusions were produced and consumed
 ```
 
 Canonical location:
@@ -116,6 +156,10 @@ Canonical location:
 ```text
 Aramis/config/aramis_preprocessing_v0_1_config.json
 ```
+
+The runtime preprocessing configs are the Aramis branch YAML files. Their
+`filters.quality_exclusions` blocks hold the controlled exclusion lists. This
+JSON explains how those lists were produced.
 
 This config was generated from:
 
@@ -130,10 +174,14 @@ Clinical_trials/analysis/aramis_preprocessing_v0_1/aramis_preprocessing_v0_1_con
 ```
 
 The JSON carries its own `purpose`, `provenance`, and `selection_contract`
-blocks with notebook path, documentation links, generation summary,
-accepted-date meaning, rejected-date meaning, and downstream consumers. Product
-notebooks must use the Aramis-owned JSON, not the old Clinical_trials analysis
-export.
+blocks with notebook path, documentation links, generation summary, rejected
+session IDs, rejected-date fallback, and downstream consumers.
+
+Exclusion rationale:
+
+```text
+Aramis/docs/agbh_quality_exclusions.md
+```
 
 Used by:
 

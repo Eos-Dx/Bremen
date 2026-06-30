@@ -33,7 +33,9 @@ model DataFrame.
 
 ```text
 1. measurementId/session level:
-   keep sessions whose dates pass AgBH monochromaticity QC
+   exclude sessions whose AgBH calibration failed quality QC
+   primary key: linked_agbh_session_uid
+   fallback only when primary key column is absent: started_at date
 
 2. measurementId/session level:
    keep sessions whose PONI geometry can provide the required q range
@@ -65,6 +67,22 @@ prefer gfrm when original vendor bytes are available
 use npy/tiff only when explicitly declared in the branch preprocessing YAML
 do not silently mix gfrm, npy, and tiff source types in one product run
 ```
+
+Runtime quality exclusions live in the branch preprocessing YAML:
+
+```text
+filters.quality_exclusions.primary_key.excluded_values
+filters.quality_exclusions.fallback_date.excluded_dates
+```
+
+The reason and session-linking policy are documented in:
+
+```text
+Aramis/docs/agbh_quality_exclusions.md
+```
+
+Date fallback is compatibility-only. If `linked_agbh_session_uid` exists in H5,
+preprocessing excludes by session ID, not by calendar date.
 
 Thickness correction is required for azimuthal integration:
 
@@ -141,10 +159,11 @@ XRD-preprocessing H5ToDataFrameTransformer
   materializes only selected SAMPLE/SAMPLE rows
 
 Aramis/config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
-Aramis/config/preprocessing/aramis_one_to_many_preprocessing_v0_1.yaml
+Aramis/config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+Aramis/config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
   concrete Aramis project preprocessing config
-  separate branch configs because one-to-one and one-to-many use different
-  decision units and label-validity rules
+  separate branch configs because one-to-one, standard one-to-many, and
+  biopsy-only one-to-many use different cohort rules
 
 src/aramis/pipelines.py
   AramisOneToOnePreprocessingPipeline(...).fit_transform(h5_path)
@@ -174,6 +193,46 @@ fit_transform(X):
 
 Each pipeline returns the final DataFrame and can write the same DataFrame to a
 `.joblib` file. This is preprocessing output, not a trained classifier.
+
+## Product Command Shape
+
+The intended product code is split into three command/config stages:
+
+```text
+python -m aramis preprocess --config /path/to/preprocess.yaml
+python -m aramis training --config /path/to/training.yaml
+python -m aramis predict --config /path/to/predict.yaml
+```
+
+Current work covers the preprocessing stage. The preprocessing config must be
+self-contained: it defines input H5 path, output DataFrame/joblib path,
+raw-data source, branch rules, quality exclusions, thickness correction, SNR,
+normalization, and payload retention. Training and prediction configs are
+separate future contracts.
+
+For preprocessing, input and output paths are not command-line data parameters.
+They live in YAML:
+
+```text
+io.input_h5_path
+io.output_joblib_path
+```
+
+The command receives only the config path:
+
+```text
+python -m aramis preprocess --config Aramis/config/preprocessing/<branch>.yaml
+```
+
+Prediction draft input:
+
+```text
+one H5 container
+one patient
+two breast-side specimen groups when available
+fixed preprocessing config and fixed trained model
+machine-readable JSON/YAML output for report generation
+```
 
 Synthetic tests use one known H5 container with both `raw/data` and
 `processed/data` 2D arrays:
@@ -222,6 +281,15 @@ specimenId level: NORMAL -> NORMAL
 specimenId level: NA -> exclude
 ```
 
+The broad CANCER group is the current product grouping:
+
+```text
+CANCER + ATYPICAL + PRE_CANCEROUS -> CANCER
+```
+
+This grouping is applied at `specimenId` / breast-side level before the branch
+datasets are finalized.
+
 Preserve the original `specimen_status`. Write product labels to a separate
 column so label mapping remains auditable.
 
@@ -240,14 +308,41 @@ sample_status:
   Non-cancer / Cancer / Prior cancer context when present
 ```
 
-## One-To-Many Dataset
+## One-To-Many BENIGN/CANCER Datasets
 
 Purpose:
 
 ```text
 specimenId-level BENIGN vs CANCER classifier
-compare one breast side against breast sides from other patients
+compare the suspicious / target breast side against breast sides from other patients
 ```
+
+Clinical level:
+
+```text
+patient has a suspicious side after mammography or other breast imaging
+target side is measured at three nearby positions around the suspicious region
+one-to-many training uses specimenId-level BENIGN/CANCER labels for such breast sides
+contralateral-side rows may exist in the H5 container but are not required for
+one-to-many validity
+```
+
+Two one-to-many preprocessing YAMLs are currently defined:
+
+```text
+standard:
+  Aramis/config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+  no biopsy requirement
+
+biopsy-only:
+  Aramis/config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+  H5 measurementId/session level: require biopsy == true before GFRM loading
+  DataFrame measurementId level: require biopsy == true as a safety check
+```
+
+The biopsy-only rule follows the Clinical_trials FDA model notebook convention:
+use only rows where the biopsy flag is true. In the Aramis H5 container this is
+the scalar metadata field `biopsy`.
 
 Preprocessing steps:
 
@@ -292,8 +387,22 @@ splits must be patient-safe
 Purpose:
 
 ```text
-patientId-level paired-breast symmetry model
-compare left and right breast profiles within the same patient
+patientId-level paired-breast symmetry feature generation
+compare target and contralateral breast profiles within the same patient
+```
+
+Clinical level:
+
+```text
+target side:
+  side with suspicious finding after mammography / breast imaging
+  first product build uses biopsy-only patients
+  target-side biopsy label is BENIGN or CANCER
+
+contralateral side:
+  patient-internal comparison side
+  not assumed to be perfectly healthy
+  may carry NORMAL, BENIGN, CANCER, ATYPICAL, or PRE_CANCEROUS metadata
 ```
 
 Preprocessing steps:
@@ -303,8 +412,8 @@ Preprocessing steps:
    apply shared AgBH-date, q-range, sample-thickness, and calibrant-thickness filters
 
 2. H5 patientId level:
-   keep patients with at least one informative breast-side status:
-   BENIGN, CANCER, ATYPICAL, or PRE_CANCEROUS
+   keep biopsy-associated patients with at least one target breast-side status:
+   BENIGN or CANCER
 
 3. H5 specimenId level:
    exclude NA specimen rows
@@ -320,10 +429,19 @@ Preprocessing steps:
      NORMAL -> NORMAL
 
 6. DataFrame patientId level:
-   keep first ML pair types:
+   keep first ML pair types as unordered grouped pairs:
      BENIGN-CANCER
      BENIGN-NORMAL
      CANCER-NORMAL
+
+   BENIGN-CANCER includes both target-BENIGN/contralateral-CANCER and
+   target-CANCER/contralateral-BENIGN orientation. Target/contralateral
+   orientation is preserved as metadata for audit and side-specific reporting,
+   but the first one-to-one feature generator uses symmetric distance features.
+
+   BENIGN-NORMAL, BENIGN-CANCER, and CANCER-NORMAL distances are expected to be
+   nonzero. The preprocessing contract does not assume zero distance for any
+   valid pair.
 
 7. DataFrame patientId level:
    exclude first ML pair types:
@@ -344,11 +462,39 @@ Preprocessing steps:
 Output unit:
 
 ```text
-model features are derived from paired breast profiles
+symmetry features are derived from paired breast profiles
 pair validity is patientId-level
 breast labels are specimenId-level
 raw profiles remain measurementId-level
+target/contralateral orientation remains metadata-level for reporting
+symmetry_available records whether a valid feature was computed
 ```
+
+If both breast sides are clinically suspicious, the first Aramis version does
+not treat this as one coupled bilateral decision. The product should create
+side-specific decision-support reports for each breast, so the clinical user can
+review whether left, right, or both sides need biopsy / further work-up.
+
+The first symmetry metric follows the Ulster mammary-gland symmetry pattern:
+
+```text
+between_mean:
+  all pairwise target-vs-contralateral profile distances
+
+within_left_mean / within_right_mean:
+  pairwise replicate distances inside each breast side
+
+within_mean:
+  mean(within_left_mean, within_right_mean)
+
+asymmetry_score:
+  between_mean - within_mean
+```
+
+If this cannot be computed, do not set the feature to 0. Keep the one-to-many
+side-specific output available, mark `symmetry_available = false`, and exclude
+the row from first fusion-model training unless an explicit fallback model is
+versioned.
 
 ## Fusion Dataset
 
@@ -363,9 +509,11 @@ Fusion input concept:
 
 ```text
 patientId level:
-  left breast one-to-many score
-  right breast one-to-many score
+  target breast one-to-many score
   one-to-one symmetry coefficient / asymmetry risk
+  symmetry_available flag
+  quality summaries
+  age/BMI candidate covariates when available before biopsy decision
 
 output:
   patient-level p_cancer
@@ -380,18 +528,40 @@ Preprocessing contract:
 
 2. specimenId level:
    preserve side-specific one-to-many scores and product labels
-   keep left and right breast scores separately
+   keep target-side score and target/contralateral orientation metadata
 
 3. patientId level:
    preserve one-to-one symmetry coefficient / asymmetry risk
+   encode missing symmetry explicitly:
+     symmetry_available = 0
+     symmetry_distance_value = 0
+     symmetry_distance_x_available = 0
 
 4. patientId level:
+   add candidate quality features:
+     snr_db_mean
+     n_valid_target_measurements
+     n_valid_contralateral_measurements
+     target_profile_replicate_distance
+
+5. patientId level:
+   add candidate clinical covariates only if available before biopsy decision:
+     age
+     bmi
+     age_available
+     bmi_available
+
+6. patientId level:
    train fusion model with patient-safe splits only
 ```
 
 The fusion model must not re-split measurement rows independently. Patient,
 specimen, and measurement lineage must remain traceable to the original H5
 container.
+
+Biopsy-derived metadata, biopsy type, and post-biopsy status are allowed for
+filtering, label confidence, and audit. They must not be used as prediction
+features in the decision-support model.
 
 ## Required Audit Artifacts
 

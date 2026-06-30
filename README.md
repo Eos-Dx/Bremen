@@ -117,6 +117,30 @@ H5 container
 -> MLflow lineage
 ```
 
+Planned command-level product interface:
+
+```text
+python -m aramis preprocess --config /path/to/preprocess.yaml
+python -m aramis training --config /path/to/training.yaml
+python -m aramis predict --config /path/to/predict.yaml
+```
+
+`preprocess` config owns input H5 path, output DataFrame/joblib path, raw-data
+source, H5 quality exclusions, branch rules, and XRD preprocessing parameters.
+`training` config will own dataset paths, split logic, model family, MLflow
+tracking, and trained model output. `predict` config will own one-patient H5
+input, fixed preprocessing/model versions, and JSON/YAML report output.
+
+Prediction input contract for the first draft:
+
+```text
+one H5 container
+one patient
+two breast-side specimen groups when available
+output: p_cancer / suggested class for decision support
+requires radiologist review
+```
+
 MLflow is part of the product run because preprocessing defines the dataset.
 
 Product-development rules:
@@ -168,21 +192,25 @@ Run real-H5 DataFrame examples:
 conda activate eosproduct
 cd /Users/sad/dev/Aramis
 
-python -m marimo run examples/aramis_dataframe_one_to_one_v0_1.py -- \
-  --archive-path /Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5
+python -m aramis preprocess --config \
+  config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
 
-python -m marimo run examples/aramis_dataframe_one_to_many_v0_1.py -- \
-  --archive-path /Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5
+python -m aramis preprocess --config \
+  config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
 ```
 
 Interactive edit mode:
 
 ```bash
 python -m marimo edit examples/aramis_dataframe_one_to_one_v0_1.py -- \
-  --archive-path /Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5
+  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
 
 python -m marimo edit examples/aramis_dataframe_one_to_many_v0_1.py -- \
-  --archive-path /Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5
+  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+
+python -m marimo edit examples/aramis_one_to_many_product_model_v0_1.py -- \
+  --standard-dataframe-joblib-path examples/outputs/aramis_one_to_many_benign_cancer_dataframe.joblib \
+  --biopsy-dataframe-joblib-path examples/outputs/aramis_one_to_many_benign_cancer_biopsy_dataframe.joblib
 ```
 
 Notebook behavior:
@@ -198,16 +226,19 @@ Default output:
 
 ```text
 examples/outputs/aramis_one_to_one_dataframe.joblib
-examples/outputs/aramis_one_to_many_dataframe.joblib
+examples/outputs/aramis_one_to_many_benign_cancer_dataframe.joblib
 ```
 
-Override output:
+Biopsy-only one-to-many output is produced by running the same one-to-many
+notebook with:
 
-```bash
-python -m marimo run examples/aramis_dataframe_one_to_one_v0_1.py -- \
-  --archive-path /path/to/combined_archive.h5 \
-  --output-joblib-path /path/to/aramis_one_to_one_dataframe.joblib
+```text
+config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+examples/outputs/aramis_one_to_many_benign_cancer_biopsy_dataframe.joblib
 ```
+
+Input H5 and output joblib paths are owned by each preprocessing YAML under
+`io.input_h5_path` and `io.output_joblib_path`.
 
 Data-quality and monochromaticity limitations are tracked in:
 
@@ -222,16 +253,19 @@ config/aramis_product_versioning.json
   Human-1 batch/source-line/calibrant-thickness product versioning
 
 config/aramis_preprocessing_v0_1_config.json
-  AgBH monochromaticity QC selection artifact
+  AgBH monochromaticity QC audit artifact
   contains purpose/provenance/selection_contract
-  selection.accepted_dates drives H5-level date filtering before GFRM loading
+  YAML filters.quality_exclusions drives H5-level filtering before GFRM loading
 
 config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
   commented one-to-one branch preprocessing config
   decision unit: patientId
 
-config/preprocessing/aramis_one_to_many_preprocessing_v0_1.yaml
-  commented one-to-many branch preprocessing config
+config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+  commented standard one-to-many BENIGN/CANCER branch preprocessing config
+
+config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+  commented biopsy-only one-to-many BENIGN/CANCER branch preprocessing config
   decision unit: specimenId
 ```
 

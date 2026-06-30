@@ -26,7 +26,7 @@ def _():
 
     PRODUCT_DIR = Path(__file__).resolve().parent
     DEFAULT_DATAFRAME_JOBLIB_PATH = (
-        PRODUCT_DIR / "outputs" / "aramis_one_to_many_dataframe.joblib"
+        PRODUCT_DIR / "outputs" / "aramis_one_to_many_benign_cancer_dataframe.joblib"
     )
     return (
         DEFAULT_DATAFRAME_JOBLIB_PATH,
@@ -175,10 +175,10 @@ def _(mo, split_metrics_df):
 @app.cell(hide_code=True)
 def _(model_result, plt):
     fig, ax = plt.subplots(figsize=(7.5, 6.0))
-    for curve in model_result.roc_curves:
+    for _curve in model_result.roc_curves:
         ax.plot(
-            curve["fpr"],
-            curve["tpr"],
+            _curve["fpr"],
+            _curve["tpr"],
             color="#6b7280",
             alpha=0.25,
             linewidth=1.0,
