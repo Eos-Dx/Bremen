@@ -93,6 +93,28 @@ before GFRM loading and repeated at DataFrame level as a safety check.
 The rule follows the Human clinical-trial FDA notebook convention where the
 biopsy-only cohort is selected with `biopsy_flag == True`.
 
+### `preprocessing/*_minimal_v0_1.yaml`
+
+Purpose:
+
+```text
+compact preprocessing config
+inherits full branch config through local extends
+keeps only metadata.output_columns in final joblib
+uses separate minimal output_joblib_path
+```
+
+Use minimal YAMLs when a collaborator needs only the final normalized profiles
+and basic product metadata:
+
+```text
+patientId, specimenId, side, position, dates
+product_status_group / product_diagnosis
+sample and calibrant thickness
+q_range and radial_profile_data
+snr_db and source trace
+```
+
 Reusable preprocessing YAML template/contract is owned by XRD-preprocessing:
 
 ```text
@@ -117,7 +139,7 @@ Current XRD-preprocessing dependency marker:
 
 ```text
 version: local
-release_tag: v0.1.4-beta
+release_tag: v0.1.5-beta
 ```
 
 Raw-data policy:

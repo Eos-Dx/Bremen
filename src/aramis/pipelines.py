@@ -30,6 +30,7 @@ from xrd_preprocessing.transformers import (
     PairedGroupFilter,
     ProductColumnBuilder,
     ProductStatusGroupFilter,
+    SelectColumnsTransformer,
 )
 
 
@@ -134,6 +135,7 @@ def build_aramis_preprocessing_steps(
         *_snr_and_validity_steps(config=config, branch_config=branch_config),
         *_normalization_and_gate_steps(config),
         *_payload_drop_steps(config),
+        *_output_column_steps(config),
         JoblibWriterTransformer(output_joblib_path),
     ]
 
@@ -153,6 +155,16 @@ def _payload_drop_steps(config: dict[str, Any]) -> list[TransformerMixin]:
     if len(columns) == 0:
         return []
     return [DropColumnsTransformer(columns)]
+
+
+def _output_column_steps(config: dict[str, Any]) -> list[TransformerMixin]:
+    columns = tuple(
+        str(column)
+        for column in config.get("metadata", {}).get("output_columns", [])
+    )
+    if len(columns) == 0:
+        return []
+    return [SelectColumnsTransformer(columns)]
 
 
 def _label_steps(

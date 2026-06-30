@@ -15,6 +15,9 @@ aramis_product_notebook_helpers.py
 preprocess_one_to_one.sh
 preprocess_one_to_many.sh
 preprocess_one_to_many_biopsy.sh
+preprocess_one_to_one_minimal.sh
+preprocess_one_to_many_minimal.sh
+preprocess_one_to_many_biopsy_minimal.sh
 preprocess_all.sh
 ```
 
@@ -47,12 +50,23 @@ python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_ben
 python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
 ```
 
+Minimal joblib exports:
+
+```bash
+python -m aramis preprocess --config config/preprocessing/aramis_one_to_one_minimal_v0_1.yaml
+python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_benign_cancer_minimal_v0_1.yaml
+python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_minimal_v0_1.yaml
+```
+
 Equivalent example scripts:
 
 ```bash
 ./examples/preprocess_one_to_one.sh
 ./examples/preprocess_one_to_many.sh
 ./examples/preprocess_one_to_many_biopsy.sh
+./examples/preprocess_one_to_one_minimal.sh
+./examples/preprocess_one_to_many_minimal.sh
+./examples/preprocess_one_to_many_biopsy_minimal.sh
 ./examples/preprocess_all.sh
 ```
 
@@ -123,6 +137,19 @@ examples/outputs/aramis_one_to_many_benign_cancer_dataframe.joblib
 ```
 
 To keep more columns in preprocessing joblib, edit the branch YAML:
+
+```yaml
+metadata:
+  output_columns:
+    - patientId
+    - specimenId
+    - q_range
+    - radial_profile_data
+```
+
+If `metadata.output_columns` is empty, the joblib keeps all scalar/audit columns
+after dropping heavy detector payloads. If it is set, the final joblib contains
+only those columns.
 
 ```yaml
 metadata:

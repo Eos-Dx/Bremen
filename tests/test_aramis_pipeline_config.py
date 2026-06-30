@@ -5,7 +5,11 @@ import pandas as pd
 import yaml
 
 from aramis.__main__ import main
-from aramis.pipelines import _quality_exclusion_h5_filters, payload_columns_to_drop
+from aramis.pipelines import (
+    _output_column_steps,
+    _quality_exclusion_h5_filters,
+    payload_columns_to_drop,
+)
 
 from .synthetic_aramis_h5 import load_synthetic_config, write_known_synthetic_h5
 
@@ -38,6 +42,19 @@ def test_payload_drop_columns_can_be_disabled_for_debug_exports():
     config = {"metadata": {"drop_payload_columns": False}}
 
     assert payload_columns_to_drop(config) == ()
+
+
+def test_output_columns_build_select_columns_transformer():
+    steps = _output_column_steps(
+        {"metadata": {"output_columns": ["patientId", "radial_profile_data"]}}
+    )
+
+    assert len(steps) == 1
+    assert steps[0].columns == ("patientId", "radial_profile_data")
+
+
+def test_output_columns_are_optional():
+    assert _output_column_steps({"metadata": {}}) == []
 
 
 def test_quality_exclusion_filter_prefers_session_id_with_date_fallback():
@@ -85,3 +102,25 @@ def test_preprocess_cli_reads_input_and_output_from_yaml(tmp_path):
     df = joblib.load(output_path)
     assert isinstance(df, pd.DataFrame)
     assert set(df["product_status_group"]) == {"BENIGN", "CANCER"}
+
+
+def test_preprocess_cli_can_write_minimal_output_columns(tmp_path):
+    h5_path = tmp_path / "known_synthetic_aramis.h5"
+    output_path = tmp_path / "out" / "minimal.joblib"
+    config_path = tmp_path / "preprocess_minimal.yaml"
+    output_columns = ["patientId", "specimenId", "q_range", "radial_profile_data"]
+    config = load_synthetic_config("one_to_many_benign_cancer")
+    config["io"] = {
+        "input_h5_path": "known_synthetic_aramis.h5",
+        "output_joblib_path": "out/minimal.joblib",
+    }
+    config["metadata"]["output_columns"] = output_columns
+    config["raw_data"]["h5_dataset_candidates"]["npy"] = ["processed/data"]
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+    write_known_synthetic_h5(h5_path)
+
+    exit_code = main(["preprocess", "--config", str(config_path)])
+
+    assert exit_code == 0
+    df = joblib.load(output_path)
+    assert df.columns.tolist() == output_columns
