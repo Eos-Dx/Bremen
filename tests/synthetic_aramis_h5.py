@@ -73,7 +73,6 @@ COMMON_OUTPUT_COLUMNS = {
     "azimuthal_npt",
     "azimuthal_npt_azimuthal",
     "calculated_distance",
-    "faulty_pixel_reason_counts",
     "interpolation_q_range",
     "thickness_adjusted_distance_m",
     "thickness_adjustment_applied",
@@ -98,6 +97,7 @@ PAYLOAD_COLUMNS = {
     "radial_profile_sigma",
     "suspected_hot_pixel_mask",
     "faulty_pixel_reason_map",
+    "faulty_pixel_reason_counts",
 }
 
 

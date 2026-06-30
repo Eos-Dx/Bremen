@@ -39,12 +39,17 @@ HEAVY_DETECTOR_COLUMNS = (
     "raw_data",
     "processed_data",
     "detector_measurements",
-    "pyfai_faulty_pixel_mask",
 )
 NON_OUTPUT_PAYLOAD_COLUMNS = (
     *HEAVY_DETECTOR_COLUMNS,
+    "faulty_pixel_mask",
+    "invalid_pixel_mask",
+    "pyfai_faulty_pixel_mask",
     "radial_profile_data_raw",
     "radial_profile_sigma",
+    "suspected_hot_pixel_mask",
+    "faulty_pixel_reason_map",
+    "faulty_pixel_reason_counts",
 )
 
 
@@ -1355,9 +1360,7 @@ def plot_patient_specimen_histogram(
 
 def plot_faulty_summary(df: pd.DataFrame):
     fig, ax = plt.subplots(figsize=(7.5, 4.2))
-    counts = df["faulty_pixel_reason_counts"].apply(
-        lambda value: int(sum(value.values())) if isinstance(value, dict) else 0
-    )
+    counts = df["faulty_pixel_mask"].apply(lambda value: int(len(value)))
     ax.hist(counts, bins=30, color="#6f9d55", alpha=0.85)
     ax.set_title("Faulty pixels per frame")
     ax.set_xlabel("faulty pixels")

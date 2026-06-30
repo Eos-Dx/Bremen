@@ -41,12 +41,15 @@ PAYLOAD_COLUMNS = (
     "processed_data",
     "detector_measurements",
     "faulty_pixel_mask",
-    "invalid_pixel_mask",
-    "pyfai_faulty_pixel_mask",
     "radial_profile_data_raw",
     "radial_profile_sigma",
+)
+LEGACY_DEBUG_PAYLOAD_COLUMNS = (
+    "invalid_pixel_mask",
+    "pyfai_faulty_pixel_mask",
     "suspected_hot_pixel_mask",
     "faulty_pixel_reason_map",
+    "faulty_pixel_reason_counts",
 )
 
 
@@ -147,7 +150,11 @@ def payload_columns_to_drop(config: dict[str, Any]) -> tuple[str, ...]:
         return ()
     keep = {str(column) for column in metadata.get("keep_payload_columns", [])}
     keep.update(str(column) for column in metadata.get("output_columns", []))
-    drop = [column for column in PAYLOAD_COLUMNS if column not in keep]
+    drop = [
+        column
+        for column in (*PAYLOAD_COLUMNS, *LEGACY_DEBUG_PAYLOAD_COLUMNS)
+        if column not in keep
+    ]
     return tuple(drop)
 
 
@@ -206,7 +213,7 @@ def _azimuthal_integration_step(integration: dict[str, Any]) -> TransformerMixin
     return AzimuthalIntegration(
         npt=integration["npt"],
         calibration_mode="poni",
-        mask_column="pyfai_faulty_pixel_mask",
+        mask_column="faulty_pixel_mask",
         error_model=integration["error_model"],
         thickness_adjustment=thickness["enabled"],
         require_thickness_adjustment=thickness["enabled"],

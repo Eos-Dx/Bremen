@@ -685,7 +685,7 @@ def _(
     integrator = AzimuthalIntegration(
         npt=npt,
         calibration_mode="poni",
-        mask_column="pyfai_faulty_pixel_mask",
+        mask_column="faulty_pixel_mask",
         error_model="poisson",
         thickness_adjustment=thickness_settings["enabled"],
         require_thickness_adjustment=thickness_settings["enabled"],
