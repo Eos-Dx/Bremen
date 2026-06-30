@@ -12,6 +12,10 @@ aramis_one_to_many_logistic_baseline_v0_1.py
 aramis_one_to_many_product_model_v0_1.py
 aramis_final_experimental_model_v0_1.py
 aramis_product_notebook_helpers.py
+preprocess_one_to_one.sh
+preprocess_one_to_many.sh
+preprocess_one_to_many_biopsy.sh
+preprocess_all.sh
 ```
 
 The helper file intentionally lives beside the notebooks because marimo examples
@@ -26,6 +30,36 @@ Run:
 ```bash
 cd /Users/sad/dev/Aramis
 conda activate eosproduct
+```
+
+Preprocess DataFrames directly from YAML:
+
+```bash
+python -m aramis preprocess --config config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
+python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+```
+
+Equivalent example scripts:
+
+```bash
+./examples/preprocess_one_to_one.sh
+./examples/preprocess_one_to_many.sh
+./examples/preprocess_one_to_many_biopsy.sh
+./examples/preprocess_all.sh
+```
+
+Each branch YAML owns both input and output paths:
+
+```yaml
+io:
+  input_h5_path: ../../../data/combined_archive.h5
+  output_joblib_path: ../../examples/outputs/aramis_one_to_one_dataframe.joblib
+```
+
+Run marimo notebooks:
+
+```bash
 
 python -m marimo run examples/aramis_dataframe_one_to_one_v0_1.py -- \
   --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
