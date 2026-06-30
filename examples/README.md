@@ -144,12 +144,18 @@ metadata:
     - patientId
     - specimenId
     - q_range
+    - radial_profile_data_raw
     - radial_profile_data
+
+normalization:
+  save_initial_data: true
 ```
 
 If `metadata.output_columns` is empty, the joblib keeps all scalar/audit columns
 after dropping heavy detector payloads. If it is set, the final joblib contains
-only those columns.
+only those columns. Columns listed in `metadata.output_columns` are protected
+from payload-drop, so `radial_profile_data_raw` is kept automatically when it is
+listed there.
 
 ```yaml
 metadata:

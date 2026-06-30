@@ -23,6 +23,10 @@ metadata:
     - sample_thickness_mm
     - calibrant_thickness_mm
     - q_range
+    - radial_profile_data_raw
     - radial_profile_data
     - snr_db
     - measurement_data_source
+
+normalization:
+  save_initial_data: true

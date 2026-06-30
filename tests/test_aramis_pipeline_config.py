@@ -38,6 +38,20 @@ def test_payload_drop_columns_can_keep_selected_debug_profiles():
     assert "radial_profile_sigma" not in columns
 
 
+def test_payload_drop_keeps_columns_requested_for_output():
+    config = {
+        "metadata": {
+            "drop_payload_columns": True,
+            "output_columns": ["radial_profile_data_raw"],
+        }
+    }
+
+    columns = payload_columns_to_drop(config)
+
+    assert "measurement_data" in columns
+    assert "radial_profile_data_raw" not in columns
+
+
 def test_payload_drop_columns_can_be_disabled_for_debug_exports():
     config = {"metadata": {"drop_payload_columns": False}}
 
@@ -108,13 +122,20 @@ def test_preprocess_cli_can_write_minimal_output_columns(tmp_path):
     h5_path = tmp_path / "known_synthetic_aramis.h5"
     output_path = tmp_path / "out" / "minimal.joblib"
     config_path = tmp_path / "preprocess_minimal.yaml"
-    output_columns = ["patientId", "specimenId", "q_range", "radial_profile_data"]
+    output_columns = [
+        "patientId",
+        "specimenId",
+        "q_range",
+        "radial_profile_data_raw",
+        "radial_profile_data",
+    ]
     config = load_synthetic_config("one_to_many_benign_cancer")
     config["io"] = {
         "input_h5_path": "known_synthetic_aramis.h5",
         "output_joblib_path": "out/minimal.joblib",
     }
     config["metadata"]["output_columns"] = output_columns
+    config["normalization"]["save_initial_data"] = True
     config["raw_data"]["h5_dataset_candidates"]["npy"] = ["processed/data"]
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
     write_known_synthetic_h5(h5_path)
@@ -124,3 +145,4 @@ def test_preprocess_cli_can_write_minimal_output_columns(tmp_path):
     assert exit_code == 0
     df = joblib.load(output_path)
     assert df.columns.tolist() == output_columns
+    assert not df["radial_profile_data_raw"].equals(df["radial_profile_data"])

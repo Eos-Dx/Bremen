@@ -146,6 +146,7 @@ def payload_columns_to_drop(config: dict[str, Any]) -> tuple[str, ...]:
     if not bool(metadata.get("drop_payload_columns", True)):
         return ()
     keep = {str(column) for column in metadata.get("keep_payload_columns", [])}
+    keep.update(str(column) for column in metadata.get("output_columns", []))
     drop = [column for column in PAYLOAD_COLUMNS if column not in keep]
     return tuple(drop)
 
