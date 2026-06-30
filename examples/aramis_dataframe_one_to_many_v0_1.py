@@ -567,7 +567,7 @@ def _(binary_df, binary_label_stats, decoded_df, helpers, mo):
 @app.cell(hide_code=True)
 def _(FaultyPixelDetector, binary_df):
     faulty_detector = FaultyPixelDetector(
-        local_hot_min_value=500.0,
+        bright_pixel_min_value=500.0,
         exclude_beam_center_radius=0.04,
     )
     faulty_df = faulty_detector.fit_transform(binary_df)
@@ -580,7 +580,7 @@ def _(binary_df, faulty_df, faulty_stats, helpers, mo):
     mo.md(
         "\n".join(
             [
-                "## Step 4. Measurement-level hot/faulty pixel mask",
+                "## Step 4. Measurement-level faulty pixel mask",
                 "",
                 f"total faulty pixels: `{faulty_stats['total_faulty_pixels']}`",
                 "",

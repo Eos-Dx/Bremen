@@ -44,13 +44,6 @@ PAYLOAD_COLUMNS = (
     "radial_profile_data_raw",
     "radial_profile_sigma",
 )
-LEGACY_DEBUG_PAYLOAD_COLUMNS = (
-    "invalid_pixel_mask",
-    "pyfai_faulty_pixel_mask",
-    "suspected_hot_pixel_mask",
-    "faulty_pixel_reason_map",
-    "faulty_pixel_reason_counts",
-)
 
 
 class AramisPreprocessingPipeline(TransformerMixin, BaseEstimator):
@@ -150,11 +143,7 @@ def payload_columns_to_drop(config: dict[str, Any]) -> tuple[str, ...]:
         return ()
     keep = {str(column) for column in metadata.get("keep_payload_columns", [])}
     keep.update(str(column) for column in metadata.get("output_columns", []))
-    drop = [
-        column
-        for column in (*PAYLOAD_COLUMNS, *LEGACY_DEBUG_PAYLOAD_COLUMNS)
-        if column not in keep
-    ]
+    drop = [column for column in PAYLOAD_COLUMNS if column not in keep]
     return tuple(drop)
 
 
@@ -198,7 +187,7 @@ def _label_steps(
 
 def _faulty_pixel_step() -> TransformerMixin:
     return FaultyPixelDetector(
-        local_hot_min_value=500.0,
+        bright_pixel_min_value=500.0,
         exclude_beam_center_radius=0.04,
     )
 

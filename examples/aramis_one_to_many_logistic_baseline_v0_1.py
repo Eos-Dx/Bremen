@@ -51,7 +51,7 @@ def _(mo):
                 "",
                 "Goal: first BENIGN vs CANCER decision-support baseline from the one-to-many preprocessing DataFrame.",
                 "",
-                "Input is a preprocessed joblib DataFrame. H5 decoding, filtering, hot-pixel masking, azimuthal integration, SNR filtering, and q-range normalization must already be completed by `aramis_dataframe_one_to_many_v0_1.py`.",
+                "Input is a preprocessed joblib DataFrame. H5 decoding, filtering, faulty-pixel masking, azimuthal integration, SNR filtering, and q-range normalization must already be completed by `aramis_dataframe_one_to_many_v0_1.py`.",
                 "",
                 "Model test: `LogisticRegression` on the full normalized `radial_profile_data` profile, evaluated over repeated 70/30 patient-safe splits. The same `patientId` is never allowed in train and test for one split.",
             ]

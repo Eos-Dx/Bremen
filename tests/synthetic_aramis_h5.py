@@ -91,13 +91,8 @@ PAYLOAD_COLUMNS = {
     "processed_data",
     "detector_measurements",
     "faulty_pixel_mask",
-    "invalid_pixel_mask",
-    "pyfai_faulty_pixel_mask",
     "radial_profile_data_raw",
     "radial_profile_sigma",
-    "suspected_hot_pixel_mask",
-    "faulty_pixel_reason_map",
-    "faulty_pixel_reason_counts",
 }
 
 

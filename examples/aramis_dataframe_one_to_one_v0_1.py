@@ -610,7 +610,7 @@ def _(grouped_df, helpers, mo, pair_filter_stats, paired_context_df):
 @app.cell(hide_code=True)
 def _(FaultyPixelDetector, paired_context_df):
     faulty_detector = FaultyPixelDetector(
-        local_hot_min_value=500.0,
+        bright_pixel_min_value=500.0,
         exclude_beam_center_radius=0.04,
     )
     faulty_df = faulty_detector.fit_transform(paired_context_df)
@@ -623,7 +623,7 @@ def _(faulty_df, faulty_stats, helpers, mo, paired_context_df):
     mo.md(
         "\n".join(
             [
-                "## Step 5. Measurement-level hot/faulty pixel mask",
+                "## Step 5. Measurement-level faulty pixel mask",
                 "",
                 f"total faulty pixels: `{faulty_stats['total_faulty_pixels']}`",
                 "",
