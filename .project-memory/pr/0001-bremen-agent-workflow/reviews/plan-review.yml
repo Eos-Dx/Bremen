@@ -1,0 +1,92 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: approve
+
+BLOCKERS
+- none
+
+WARNINGS
+- Working tree shows untracked entries (.DS_Store, .project-memory/, agents/). agents/ contains the source-material templates required for plan-review; ensure future implementation PRs stage only the exact files approved by the Plan Drift Gate and avoid committing incidental files like .DS_Store.
+- PLAN.md references future adapted agent files (agents/plan-review.yml, agents/coder.yml, agents/precommit-review.yml). These are present as source-material templates and must be adapted only by the stated roles after plan approval; coder/precommit changes must enumerate exact file lists per the Plan Drift Gate.
+
+VALIDATION
+- Confirmed PLAN.md exists at .project-memory/pr/0001-bremen-agent-workflow/PLAN.md and is planning-only; it authorizes only that path for this PR.
+- Confirmed required source-material files exist under agents/ and are readable, matching the PLAN.md required reads.
+- Verified PLAN.md uses exact repo-relative required-read paths and explicitly distinguishes source-material (agents/* templates) from adapted Bremen output files.
+- Verified PLAN.md enumerates exact future implementation files and forbids edits to src/, tests/, Docker, CI, API, H5, model, preprocessing, and inference logic in this planning PR.
+- Verified PLAN.md preserves two-stage workflow roles and permissions and forbids an Aramis->Bremen rename in this PR.
+- Verified Bremen-specific safety rules are present and sufficiently explicit for later enforcement (H5 metadata validation, target/control same-patient/opposite-side, feature schema checks, model checksum verification, required prediction metadata fields, Matador as SOR, abstraction of platform paths).
+- Verified Plan Drift Gate is specified with actionable checks (plan hash match, file list freeze, safety-invariant checklist, legacy name policy, evidence capture) and includes concrete validation commands for precommit-review.
+- Verified STOP conditions are enumerated with the required blocking behaviours.
+
+FILES READ
+- .project-memory/pr/0001-bremen-agent-workflow/PLAN.md
+- agents/universal_agent_workflow_anti_drift_manual.md (source-material)
+- agents/01_platform_architect.md
+- agents/02_repository_scaffolder.md
+- agents/03_runner_patch_engineer.md
+- agents/04_qa_contracts_reviewer.md
+- agents/architect.yml
+- agents/plan-review.yml
+- agents/coder.yml
+- agents/precommit-review.yml
+
+FILES WRITTEN
+- .project-memory/pr/0001-bremen-agent-workflow/reviews/plan-review.yml (this review artifact)
+
+SNAPSHOT DELTA
+- git rev-parse --verify HEAD: 04e853ab3623b67939ec11b4b7998c40b7f97d3b
+- git status --short output (observed):
+  ?? .DS_Store
+  ?? .project-memory/
+  ?? agents/
+- Present PR plan file: .project-memory/pr/0001-bremen-agent-workflow/PLAN.md
+- Present source-material under agents/: plan-review.yml, precommit-review.yml, architect.yml, 01_platform_architect.md, 02_repository_scaffolder.md, 03_runner_patch_engineer.md, 04_qa_contracts_reviewer.md, coder.yml, universal_agent_workflow_anti_drift_manual.md
+
+SCOPE CHECK
+- PLAN.md is planning-only and limits this planner PR to a single file (.project-memory/pr/0001-bremen-agent-workflow/PLAN.md).
+- PLAN.md enumerates allowed future implementation files and forbids runtime/CI/Docker/API/H5/model/preprocessing/inference edits in this PR.
+- PLAN.md does not authorize source renames and preserves the stated role permissions and human commit requirement.
+
+BREMEN SAFETY CHECK
+- Bremen-specific safety invariants are clearly listed and aligned with Bremen identity: non-diagnostic language, H5 metadata gate, explicit target/control validation rules, same-patient/opposite-side rule, feature schema and model checksum checks, required prediction metadata fields, Matador SOR, abstraction of platform paths. These are appropriately deferred for enforcement in future coder/precommit PRs.
+
+SOURCE MATERIAL CHECK
+- Required source-material templates are present under agents/ and have been read. PLAN.md correctly treats them as read-only source reference for plan-review verification.
+- PLAN.md distinguishes source-material from adapted Bremen agent files and requires adapted files to be created/modified only after plan approval by the appropriate roles.
+
+OLD-PROJECT-NAME CHECK
+- PLAN.md forbids Aramis/Ariadne renames in this PR and requires explicit mapping in the first coder PR that touches source. This satisfies the old-project-name handling requirement for the planning PR.
+
+VALIDATION STRATEGY CHECK
+- PLAN.md contains exact validation commands (shell tests and git-diff checks) for precommit-review to implement. These are actionable and executable by the precommit agent or human reviewer.
+- The Plan Drift Gate is concrete: plan hash match, file list freeze, safety-invariant checklist, legacy name policy, and evidence capture in .project-memory/pr/<pr-id>/evidence/.
+
+PLAN DRIFT GATE CHECK
+- The Plan Drift Gate is present and enforceable given the agents/precommit-review.yml template and precommit validation commands in PLAN.md. Ensure precommit-review encodes the plan hash verification and file list freeze before merging implementation PRs.
+
+DEFERRED CAPABILITIES CHECK
+- PLAN.md explicitly defers Docker, CI, API, H5 reader, preprocessing, model loading/inference/training and automated renames to later PRs; this is preserved.
+
+EVIDENCE COMPLETENESS CHECK
+- Planner claimed to have consulted the listed governance materials; those materials are present in agents/ now and were read by the reviewer. This satisfies Bremen principle that agent narrative must be backed by filesystem evidence.
+
+CLAIM-TO-EVIDENCE CONSISTENCY CHECK
+- Claims in PLAN.md about consulted materials and required reads now match observed files in the repository (agents/). No inconsistency found.
+
+DIRTY-TREE CHECK
+- Untracked directories exist (.project-memory/ and agents/). agents/ is expected to contain source-material templates; .project-memory/ contains the planner PR and review artifact. Ensure that when implementation PRs are prepared, the staged changes match the approved PLAN.md file list and do not include extraneous files.
+
+BOUNDARY CONFIRMATIONS
+- Planner wrote only .project-memory/pr/0001-bremen-agent-workflow/PLAN.md: confirmed.
+- No code, tests, Docker, CI, API, H5, model, preprocessing, or inference logic were modified in this PR: confirmed.
+- Plan Drift Gate required and detailed: confirmed.
+- Stop conditions enumerated: confirmed.
+
+RECOMMENDATIONS (for coder/precommit reviewers)
+- When preparing coder PRs, enumerate the exact files to be modified in the coder PR description and in agents/plan-review.yml per the Plan Drift Gate file-list freeze.
+- Implement plan hash signing in agents/plan-review.yml and ensure precommit-review verifies the on-disk PLAN.md matches the approved hash before allowing merges.
+- Ensure precommit-review implements the source-material existence checks listed in PLAN.md (test -f agents/...).
+- Exclude incidental files like .DS_Store from commits via .gitignore to reduce accidental noise.
+
+CONCLUSION
+- The PLAN.md is safe, precise, executable-first, and aligns with Bremen-specific contracts and safety gates. Required source-material templates are present and readable under agents/. The Plan Drift Gate and validation commands are explicit and actionable. I approve this PLAN.md for progression to the plan-review-to-coder handoff; implementation remains gated by precommit-review checks described in the plan.
