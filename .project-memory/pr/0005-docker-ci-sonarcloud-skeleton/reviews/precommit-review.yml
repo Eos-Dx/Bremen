@@ -1,0 +1,141 @@
+review:
+  artifact_written: yes
+  verdict: warning
+  blockers: []
+  warnings:
+    - "Docker hardening is explicitly deferred in the workflow, which matches the requested scope decision."
+    - "The working tree contains an unexpected swap file under .project-memory/pr/0005-docker-ci-sonarcloud-skeleton/.PLAN.md.swp; it is not part of the allowed implementation scope and should be removed before commit if it persists."
+  validation:
+    - command: "git rev-parse --verify HEAD"
+      exit_code: 0
+      output: |
+        bec36c5ceec6e9973862f642d3ed2c697232bbcf
+    - command: "git status --short"
+      exit_code: 0
+      output: |
+        ?? .dockerignore
+        ?? .github/
+        ?? .project-memory/pr/0005-docker-ci-sonarcloud-skeleton/.PLAN.md.swp
+        ?? .project-memory/pr/0005-docker-ci-sonarcloud-skeleton/reviews/precommit-review.yml
+        ?? Dockerfile
+        ?? sonar-project.properties
+    - command: "git diff --name-only"
+      exit_code: 0
+      output: |
+        <no output>
+    - command: "git diff --stat"
+      exit_code: 0
+      output: |
+        <no output>
+    - command: "test -f Dockerfile"
+      exit_code: 0
+      output: |
+        OK
+    - command: "test -f .dockerignore"
+      exit_code: 0
+      output: |
+        OK
+    - command: "test -f .github/workflows/quality.yml"
+      exit_code: 0
+      output: |
+        OK
+    - command: "test -f sonar-project.properties"
+      exit_code: 0
+      output: |
+        OK
+    - command: "grep -R -I -n -E \"ARG BREMEN_CI_SSH_PRIVATE_KEY|--build-arg.*BREMEN_CI_SSH_PRIVATE_KEY|BEGIN OPENSSH|BEGIN RSA|ssh-add|SONAR_TOKEN=.*|BREMEN_CI_SSH_PRIVATE_KEY=.*|password=|token=|secret=|github_pat_|ghp_\" Dockerfile .dockerignore .github/workflows/quality.yml sonar-project.properties 2>/dev/null || true"
+      exit_code: 0
+      output: |
+        .github/workflows/quality.yml:9:#   BREMEN_CI_SSH_PRIVATE_KEY  — SSH deploy key with read access to
+        .github/workflows/quality.yml:40:          cat > ~/.ssh/id_rsa <<< "${{ secrets.BREMEN_CI_SSH_PRIVATE_KEY }}"
+    - command: "grep -nE \"continue-on-error|docker build|Docker hardening|deferred|BREMEN_CI_SSH_PRIVATE_KEY\" .github/workflows/quality.yml || true"
+      exit_code: 0
+      output: |
+        9:#   BREMEN_CI_SSH_PRIVATE_KEY  — SSH deploy key with read access to
+        40:          cat > ~/.ssh/id_rsa <<< "${{ secrets.BREMEN_CI_SSH_PRIVATE_KEY }}"
+        81:      # Docker hardening and private dependency image build are deferred to a later PR.
+        85:        continue-on-error: true
+        87:          docker build -t bremen-ci-smoke:ci .
+    - command: "grep -nE \"sonar.organization|sonar.projectKey|sonar.projectName|sonar.host.url|sonar.sources|sonar.tests|sonar.python.version\" sonar-project.properties"
+      exit_code: 0
+      output: |
+        9:sonar.organization=eos-dx
+        10:sonar.projectKey=Eos-Dx_Bremen
+        11:sonar.projectName=Bremen
+        13:sonar.host.url=https://sonarcloud.io
+        15:sonar.sources=src
+        16:sonar.tests=tests
+        18:sonar.python.version=3.13
+    - command: "python -c 'import xrd_preprocessing; import container; from container.registry import VERSION_REGISTRY; print(\"xrd_preprocessing import OK\"); print(\"container import OK\"); print(\"container supported versions:\", sorted(VERSION_REGISTRY.keys())); assert \"0_3\" in VERSION_REGISTRY'"
+      exit_code: 0
+      output: |
+        xrd_preprocessing import OK
+        container import OK
+        container supported versions: ['0_2', '0_3']
+    - command: "python -m compileall src tests"
+      exit_code: 0
+      output: |
+        Listing 'src'...
+        Listing 'src/bremen'...
+        Listing 'tests'...
+        Listing 'tests/data'...
+    - command: "python -m pytest -q tests/test_bremen_import_identity.py"
+      exit_code: 0
+      output: |
+        10 passed in 0.01s
+    - command: "python -m pytest -q"
+      exit_code: 0
+      output: |
+        46 passed, 28 warnings in 3.85s
+    - command: "git diff --name-only -- tests/data"
+      exit_code: 0
+      output: |
+        <no output>
+    - command: "find . -path \"./.git\" -prune -o -path \"./venv\" -prune -o -path \"./.venv\" -prune -o -type f \( -name \"*.h5\" -o -name \"*.hdf5\" \) -print"
+      exit_code: 0
+      output: |
+        ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5
+    - command: "find . -name \".DS_Store\" -print"
+      exit_code: 0
+      output: |
+        <no output>
+    - command: "date -u +%Y-%m-%dT%H:%M:%SZ"
+      exit_code: 0
+      output: |
+        2026-07-02T17:26:41Z
+  files_read:
+    - .project-memory/pr/0005-docker-ci-sonarcloud-skeleton/PLAN.md
+    - .project-memory/pr/0005-docker-ci-sonarcloud-skeleton/reviews/plan-review.yml
+    - Dockerfile
+    - .dockerignore
+    - .github/workflows/quality.yml
+    - sonar-project.properties
+    - pyproject.toml
+    - tests/test_bremen_import_identity.py
+    - AGENTS.md
+  files_written:
+    - .project-memory/pr/0005-docker-ci-sonarcloud-skeleton/reviews/precommit-review.yml
+  snapshot_delta:
+    - "HEAD captured"
+    - "allowed implementation files present and untracked"
+    - "no tracked source/test/config/docs changes"
+    - "dependency import proof passed"
+    - "compileall passed"
+    - "focused identity test passed"
+    - "full pytest passed"
+    - "Docker hardening deferred in workflow"
+    - "SonarCloud config present with concrete values"
+  scope_check: pass
+  docker_secret_handling_check: pass
+  docker_hardening_deferral_check: pass
+  github_actions_check: pass
+  sonarcloud_check: pass
+  validation_check: pass
+  runtime_drift_check: pass
+  plan_drift_gate: warning
+  dirty_tree_check: warning
+  boundary_confirmations:
+    - "no Docker run"
+    - "no dependency installation"
+    - "no git mutation commands"
+    - "no implementation files edited by reviewer"
