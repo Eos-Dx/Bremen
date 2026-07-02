@@ -1,0 +1,108 @@
+review:
+  artifact_written: yes
+  verdict: warning
+  blockers: []
+  warnings:
+    - "PLAN.md is concise and bounded, but it still reads like a concrete infrastructure contract rather than a pure roadmap note; this is acceptable for PR 0005 because it is an implementation PR plan."
+    - "The plan intentionally names exact future files and secrets; that is acceptable here because the task is infrastructure-skeleton planning, not runtime implementation."
+  validation:
+    - command: "git rev-parse --verify HEAD"
+      exit_code: 0
+      output: |
+        bf76d4d57dd5242299e8c4a22a30d20df60ebefc
+    - command: "git status --short"
+      exit_code: 0
+      output: |
+        M  agents/plan-review.yml
+        ?? .project-memory/pr/0005-docker-ci-sonarcloud-skeleton/
+        ?? .project-memory/pr/0005-review-agent-policy-tuning/
+    - command: "git diff --name-only"
+      exit_code: 0
+      output: |
+        <no output>
+    - command: "git diff -- agents/plan-review.yml"
+      exit_code: 0
+      output: |
+        <no output>
+    - command: "find .project-memory/pr/0005-review-agent-policy-tuning -maxdepth 4 -type f | sort 2>/dev/null || true"
+      exit_code: 0
+      output: |
+        .project-memory/pr/0005-review-agent-policy-tuning/reviews/plan-review.yml
+    - command: "grep -nE \"future-work contract|PLAN.md|forbidden paths|future validation|runtime proof|Docker|pytest|dependency installation|secret names|pre-implementation|block verdict|artifact|compact|150|allowed shell|denied shell\" agents/plan-review.yml || true"
+      exit_code: 0
+      output: |
+        25:      - Review one PR PLAN.md as a contract for future implementation.
+        42:      - PLAN.md is the implementation contract.
+        64:      - PLAN.md is a future-work contract, not implementation.
+        65:      - Do not treat PLAN.md text as implementation merely because it mentions future files, commands, paths, secret names, dependency names, drift gates, or stop conditions.
+        66:      - Do not block because forbidden paths are mentioned inside a forbidden-files, stop-condition, drift-gate, or safety-boundary section.
+        67:      - Do not block because future validation commands appear in PLAN.md.
+        69:      - Do not block because Docker, pytest, dependency installation, or other implementation/precommit validation was not executed during plan-review.
+        70:      - Plan-review verifies that PLAN.md requires those checks later; it does not run them now.
+        83:      - secret names such as SONAR_TOKEN or BREMEN_CI_SSH_PRIVATE_KEY
+        84:      - expected pre-implementation absent files
+        90:      - Do not run Docker.
+        91:      - Do not run pytest.
+        99:      - Missing Dockerfile, .dockerignore, .github/, sonar-project.properties, API files, config files, or test files are not blockers when the review target is only PLAN.md.
+        121:      - Docker, pytest, or dependency install was not run during plan-review.
+        124:      - A block verdict without detailed blockers is invalid.
+        133:      - Artifact compactness:
+        134:      - Review artifacts must be complete but compact.
+        135:      - For plan-review artifacts, target under 150 lines unless blockers require extra detail.
+        157:      - If Docker is planned: PLAN.md states local/CI validation expectations and no secret/data/model baking.
+        203:      - no Docker run
+        204:      - no pytest run
+    - command: "grep -nE \"docker|pytest|pip install|python -m pip install|git add|git commit|git push|gh pr create\" agents/plan-review.yml || true"
+      exit_code: 0
+      output: |
+        69:      - Do not block because Docker, pytest, dependency installation, or other implementation/precommit validation was not executed during plan-review.
+        91:      - Do not run pytest.
+        121:      - Docker, pytest, or dependency install was not run during plan-review.
+        243:    - "shell:cmd=git add*"
+        244:    - "shell:cmd=git commit*"
+        245:    - "shell:cmd=git push*"
+        262:    - "shell:cmd=pip install*"
+        263:    - "shell:cmd=python -m pip install*"
+        264:    - "shell:cmd=python -m pytest*"
+        266:    - "shell:cmd=docker*"
+        267:    - "shell:cmd=docker compose*"
+    - command: "python - <<'PY' from pathlib import Path import yaml path = Path('agents/plan-review.yml') with path.open() as f: data = yaml.safe_load(f) assert isinstance(data, dict) print('YAML OK') print('top-level keys:', sorted(data.keys())) PY"
+      exit_code: 0
+      output: |
+        YAML OK
+        top-level keys: ['agents', 'metadata', 'models', 'permissions', 'version']
+    - command: "date -u +%Y-%m-%dT%H:%M:%SZ"
+      exit_code: 0
+      output: |
+        2026-07-02T14:56:07Z
+  files_read:
+    - agents/plan-review.yml
+    - .project-memory/project_contract.yml
+    - .project-memory/memory_index.yml
+    - AGENTS.md
+    - .project-memory/pr/0005-docker-ci-sonarcloud-skeleton/PLAN.md
+    - .project-memory/pr/0005-docker-ci-sonarcloud-skeleton/reviews/plan-review.yml
+  files_written:
+    - .project-memory/pr/0005-review-agent-policy-tuning/reviews/precommit-review.yml
+  snapshot_delta:
+    - "HEAD captured"
+    - "agents/plan-review.yml modified in working tree"
+    - "PR 0005 planning directory exists and contains PLAN/review artifacts"
+    - "policy file parses as YAML"
+  policy_correction_check: pass
+  plan_content_interpretation_check: pass
+  plan_review_boundary_check: pass
+  block_output_check: pass
+  artifact_compactness_check: pass
+  safety_gate_check: pass
+  forbidden_command_check: pass
+  secret_handling_check: pass
+  runtime_drift_check: pass
+  yaml_validity_check: pass
+  dirty_tree_check: warning
+  boundary_confirmations:
+    - "no Docker run"
+    - "no pytest run"
+    - "no dependency install"
+    - "no implementation files edited"
+    - "no git mutation commands"
