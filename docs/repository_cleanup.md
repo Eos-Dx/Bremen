@@ -94,3 +94,15 @@ These files document the original Aramis dataset and product metadata. They are 
 - No Docker/CI work
 - No dependency changes
 - No H5/HDF5 file modifications
+
+## Future PR Sequencing
+
+After the identity migration completed in PR 0003, the following follow-up PRs are planned. See [docs/roadmap.md](roadmap.md) for the authoritative roadmap.
+
+| PR | Description |
+|----|-------------|
+| PR 0005 | Add Docker packaging, GitHub Actions workflow, and SonarCloud configuration for quality visibility |
+| PR 0006 | Converge to a unified Bremen entrypoint with config selection by name, path, or default discovery |
+| PR 0007 | Introduce config validation with a schema contract, strict error reporting, and integration with the unified entrypoint |
+
+These PRs are planned in sequence. No implementation work for these features has been performed in PR 0004.

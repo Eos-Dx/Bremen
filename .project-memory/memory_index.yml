@@ -5,6 +5,31 @@
 version: 1
 
 index:
+  - path: docs/roadmap.md
+    kind: planning
+    description: "Bremen development roadmap — completed milestones, future PR sequencing, and future test policy."
+    steward: "coder + reviewers"
+
+  - path: pr/0004-roadmap-quality-docker-entrypoint/
+    kind: directory
+    description: "PR 0004 — docs-only roadmap update for Docker, quality gates, CI, and unified entrypoint planning."
+    steward: "coder + reviewers"
+
+  - path: pr/0005-docker-gha-sonarcloud/
+    kind: planned
+    description: "Future PR — Docker packaging, GitHub Actions workflow, and SonarCloud configuration."
+    steward: "planned"
+
+  - path: pr/0006-unified-entrypoint-config-discovery/
+    kind: planned
+    description: "Future PR — unified Bremen entrypoint with config selection by name, path, or default discovery."
+    steward: "planned"
+
+  - path: pr/0007-config-validation/
+    kind: planned
+    description: "Future PR — config validation schema contract, strict error reporting, and entrypoint integration."
+    steward: "planned"
+
   - path: project_contract.yml
     kind: contract
     description: "Canonical project contract for Bremen — identity, roles, safety invariants, drift gate requirements, legacy mappings."

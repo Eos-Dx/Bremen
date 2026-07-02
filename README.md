@@ -295,6 +295,18 @@ Open:
 http://127.0.0.1:5000
 ```
 
+## Development Roadmap
+
+See [docs/roadmap.md](docs/roadmap.md) for the authoritative Bremen development roadmap.
+
+Planned upcoming PRs:
+
+- **PR 0005** will add Docker packaging, GitHub Actions workflow, and SonarCloud quality visibility.
+- **PR 0006** will converge Bremen to a unified entrypoint with config discovery and loading.
+- **PR 0007** will introduce config validation with a schema contract and strict error reporting.
+
+No implementation work for these features has been performed in PR 0004.
+
 ## Repository Cleanup Status
 
 See [docs/repository_cleanup.md](docs/repository_cleanup.md) for the current status of repository identity cleanup, Aramis legacy classification, and deferred items.

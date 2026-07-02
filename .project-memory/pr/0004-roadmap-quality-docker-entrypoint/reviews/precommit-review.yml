@@ -1,0 +1,137 @@
+review:
+  artifact_written: yes
+  verdict: warning
+  blockers: []
+  warnings:
+    - "PLAN.md is roadmap/docs-only and approved, but it is unusually verbose and includes validation/stop-condition detail that is acceptable only because it remains confined to planning surfaces."
+    - "Historical Aramis provenance remains in README.md, AGENTS.md, and repository cleanup docs as allowed deferred/source-material context."
+  validation:
+    - command: "git rev-parse --verify HEAD"
+      exit_code: 0
+      output: |
+        870eef59f2557c2d7dcca115b118a5148fa91c4a
+    - command: "git status --short"
+      exit_code: 0
+      output: |
+        M .project-memory/memory_index.yml
+         M README.md
+         M docs/repository_cleanup.md
+        ?? docs/roadmap.md
+    - command: "git diff --name-only"
+      exit_code: 0
+      output: |
+        .project-memory/memory_index.yml
+        README.md
+        docs/repository_cleanup.md
+    - command: "git diff --stat"
+      exit_code: 0
+      output: |
+        .project-memory/memory_index.yml | 25 +++++++++++++++++++++++++
+        README.md                        | 12 ++++++++++++
+        docs/repository_cleanup.md       | 12 ++++++++++++
+        3 files changed, 49 insertions(+)
+    - command: "find .project-memory/pr/0004-roadmap-quality-docker-entrypoint -maxdepth 4 -type f | sort"
+      exit_code: 0
+      output: |
+        .project-memory/pr/0004-roadmap-quality-docker-entrypoint/PLAN.md
+        .project-memory/pr/0004-roadmap-quality-docker-entrypoint/reviews/plan-review.yml
+    - command: "find docs -maxdepth 3 -type f | sort"
+      exit_code: 0
+      output: |
+        docs/agbh_quality_exclusions.md
+        docs/data_preprocessing.md
+        docs/eosproduct_environment.md
+        docs/machine_learning_concept.md
+        docs/mlflow.md
+        docs/product_development_rules.md
+        docs/repository_cleanup.md
+        docs/roadmap.md
+    - command: "test ! -e Dockerfile"
+      exit_code: 0
+      output: |
+        OK
+    - command: "test ! -e .dockerignore"
+      exit_code: 0
+      output: |
+        OK
+    - command: "test ! -d .github"
+      exit_code: 0
+      output: |
+        OK
+    - command: "test ! -e sonar-project.properties"
+      exit_code: 0
+      output: |
+        OK
+    - command: "find . -name \".DS_Store\" -print"
+      exit_code: 0
+      output: |
+        <no output>
+    - command: "find . -type f \( -name \"*.h5\" -o -name \"*.hdf5\" \) -print"
+      exit_code: 0
+      output: |
+        ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5
+        ./venv/lib/python3.13/site-packages/h5py/tests/data_files/compound-dtype-complex.h5
+        ./venv/lib/python3.13/site-packages/h5py/tests/data_files/vlen_string_s390x.h5
+        ./venv/lib/python3.13/site-packages/h5py/tests/data_files/vlen_string_dset_utc.h5
+        ./venv/lib/python3.13/site-packages/h5py/tests/data_files/vlen_string_dset.h5
+    - command: "date -u +%Y-%m-%dT%H:%M:%SZ"
+      exit_code: 0
+      output: |
+        2026-07-02T13:22:42Z
+  files_read:
+    - .project-memory/pr/0004-roadmap-quality-docker-entrypoint/PLAN.md
+    - .project-memory/pr/0004-roadmap-quality-docker-entrypoint/reviews/plan-review.yml
+    - .project-memory/project_contract.yml
+    - .project-memory/memory_index.yml
+    - README.md
+    - AGENTS.md
+    - docs/roadmap.md
+    - docs/repository_cleanup.md
+  files_written:
+    - .project-memory/pr/0004-roadmap-quality-docker-entrypoint/reviews/precommit-review.yml
+  snapshot_delta:
+    - "HEAD captured"
+    - "working tree shows docs-only roadmap changes plus pre-existing review artifacts"
+    - "docs/roadmap.md exists and contains PR 0005/0006/0007 sequencing"
+    - "Dockerfile/.dockerignore/.github/sonar-project.properties absent"
+    - "no .DS_Store present"
+    - "H5/HDF5 files exist only in allowed historical/test/vendor locations"
+  plan_drift_gate:
+    verdict: warning
+    file_drift: "docs/roadmap.md is present as the new roadmap artifact; git diff --name-only only shows README.md, docs/repository_cleanup.md, and .project-memory/memory_index.yml because docs/roadmap.md is untracked."
+    roadmap_only_drift: none
+    pr_sequencing_drift: none
+    docker_implementation_drift: none
+    github_actions_implementation_drift: none
+    sonarcloud_implementation_drift: none
+    unified_entrypoint_implementation_drift: none
+    config_discovery_implementation_drift: none
+    config_validation_implementation_drift: none
+    runtime_drift: none
+    test_policy_drift: none
+    validation_drift: none
+    future_scope_drift: none
+    accepted_deviations:
+      - "docs/roadmap.md is untracked in git status but is the intended new roadmap artifact and was read directly."
+      - "Historical Aramis references remain only in allowed provenance/context locations."
+    blockers: []
+  scope_check: pass
+  roadmap_only_check: pass
+  roadmap_content_check: pass
+  pr_0005_docker_github_actions_sonarcloud_check: pass
+  pr_0006_unified_entrypoint_config_discovery_check: pass
+  pr_0007_config_validation_deferral_check: pass
+  future_test_policy_check: pass
+  forbidden_file_check: pass
+  runtime_drift_check: pass
+  bremen_safety_check: pass
+  validation_completeness_check: pass
+  evidence_completeness_check: pass
+  claim_to_evidence_consistency_check: pass
+  diff_completeness_check: pass
+  dirty_tree_check: warning
+  boundary_confirmations:
+    - "No implementation files were edited by reviewer."
+    - "No git mutation commands were used."
+    - "No Docker commands were used."
+    - "No dependency installation was performed."
