@@ -1,0 +1,93 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: approve
+
+BLOCKERS
+- none
+
+WARNINGS
+- git status shows untracked `.project-memory/pr/0002-aramis-to-bremen-cleanup/` (expected for planner PR). Ensure only the PLAN.md is committed in this planner PR.
+- grep for project name tokens returned no matches in some files due to binary/large files or silence; reviewers should still run the specified validation commands in precommit-review to ensure no residual public references remain.
+
+VALIDATION
+- Read .project-memory/pr/0002-aramis-to-bremen-cleanup/PLAN.md and crosschecked required files listed under Files read section within the PLAN.md (project_contract, memory_index, PR 0001 artifacts, AGENTS.md, README.md, pyproject.toml, src/aramis/*, agents/* templates).
+- Executed allowed git commands: git rev-parse --verify HEAD; git status --short; find .project-memory/pr/0002-aramis-to-bremen-cleanup -maxdepth 4 -type f | sort; find src -maxdepth 3 -type f | sort; grep for Aramis/Bremen tokens across allowed paths.
+- Confirmed PLAN.md is planning-only and authorizes only `.project-memory/pr/0002-aramis-to-bremen-cleanup/PLAN.md` for this PR.
+- Confirmed PLAN.md selects exact allowed files for future coder changes (README.md, AGENTS.md, pyproject.toml (description), docs/repository_cleanup.md) and forbids touching runtime, tests, config, packaging, agents, and project-memory.
+- Confirmed the Plan Drift Gate contains concrete validations and stop conditions and is consistent with PR 0001 plan-review and project_contract.yml statements.
+
+FILES READ
+- .project-memory/pr/0002-aramis-to-bremen-cleanup/PLAN.md
+- .project-memory/project_contract.yml
+- .project-memory/memory_index.yml
+- .project-memory/pr/0001-bremen-agent-workflow/PLAN.md
+- .project-memory/pr/0001-bremen-agent-workflow/reviews/plan-review.yml
+- .project-memory/pr/0001-bremen-agent-workflow/reviews/precommit-review.yml
+- README.md
+- pyproject.toml
+- AGENTS.md
+- src/aramis/__init__.py
+- src/aramis/__main__.py
+- agents/architect.yml
+- agents/plan-review.yml
+- agents/coder.yml
+- agents/precommit-review.yml
+
+FILES WRITTEN
+- .project-memory/pr/0002-aramis-to-bremen-cleanup/reviews/plan-review.yml (this review artifact)
+
+SNAPSHOT DELTA
+- git rev-parse --verify HEAD: 04e853ab3623b67939ec11b4b7998c40b7f97d3b
+- git status --short output: ?? .project-memory/pr/0002-aramis-to-bremen-cleanup/
+- find src -maxdepth 3 -type f | sort: src/aramis/__init__.py, src/aramis/__main__.py, ...
+
+SCOPE CHECK
+- PLAN.md exists and is planning-only; it authorizes only the planner write path.
+- PLAN.md selects exact future implementation files limited to public/project surfaces and forbids runtime and infra changes.
+- PLAN.md prevents automated mass rename and import/entrypoint changes in this PR.
+
+REPOSITORY IDENTITY CHECK
+- PLAN.md correctly identifies the public/project surfaces to update to Bremen and retains source-material references in code, tests, config, and docs.
+- `README.md` and `AGENTS.md` are explicitly targeted for identity update; `pyproject.toml` limited to description-only change.
+
+ARAMIS REFERENCE CLASSIFICATION CHECK
+- PLAN.md classifies Aramis references into active identity (change), inherited code (defer), historical/source-material (keep), test fixtures (keep), and incidental (ignore). The classification aligns with observed files under src/, config/, tests/, and docs.
+
+RUNTIME DRIFT CHECK
+- PLAN.md forbids any runtime code changes and enumerates forbidden paths. Observed `src/aramis/*` and tests are present but not to be modified.
+- No runtime/H5/model/joblib/Docker/CI/API changes are planned in this PR.
+
+BREMEN SAFETY CHECK
+- PLAN.md preserves Bremen safety invariants by avoiding runtime/ML changes and keeping safety-critical items deferred to future PRs.
+
+VALIDATION STRATEGY CHECK
+- Validation commands (10 blocks) are precise, actionable, and executable by precommit-review. They cover allowed files, forbidden path checks, pyproject limited diffs, AGENTS.md content checks, README H1 presence, cleanup doc presence, and workspace cleanliness.
+
+PLAN DRIFT GATE CHECK
+- Plan Drift Gate is present and enforces file-list freeze, scope freeze, safety-invariant checklist, legacy name policy, and evidence capture. It aligns with the project_contract.yml plan_drift_gate_requirements.
+
+DEFERRED CAPABILITIES CHECK
+- Explicitly defers package rename, import/entrypoint rename, class/function renames, config/test/example changes, Docker/CI/API/H5/model changes.
+
+EVIDENCE COMPLETENESS CHECK
+- PLAN.md lists files it read; those files were present and readable in the repository and match project_contract.yml references.
+
+CLAIM-TO-EVIDENCE CONSISTENCY CHECK
+- Claims in PLAN.md about consulted files and decisions are consistent with observable files: agents templates, project_contract, PR 0001 artifacts, README, pyproject.toml, and src/aramis runtime package remain present.
+
+DIRTY-TREE CHECK
+- Dirty tree contains untracked .project-memory/pr/0002-aramis-to-bremen-cleanup/ (expected). No unexpected modifications observed.
+
+BOUNDARY CONFIRMATIONS
+- Planner wrote only .project-memory/pr/0002-aramis-to-bremen-cleanup/PLAN.md: confirmed.
+- No code/tests/Docker/CI/API/H5/model changes were made in this PR: confirmed.
+- Plan Drift Gate required: present.
+- Stop conditions enumerated: present.
+
+RECOMMENDATIONS
+- Ensure precommit-review executes the validation commands exactly and stores outputs under `.project-memory/pr/0002-aramis-to-bremen-cleanup/evidence/` before allowing merge.
+- When changing README.md and AGENTS.md, include explicit provenance sentences referencing Aramis as source material to satisfy legacy name policy.
+- Add `docs/repository_cleanup.md` with a clear checklist of deferred work and a mapping of legacy names/locations to planned rename PRs.
+- Ensure `pyproject.toml` changes are limited to description field. The provided git diff validation command is sufficient but must be enforced in precommit-review.
+
+CONCLUSION
+- The PLAN.md for PR 0002 is safe, well-scoped, preserves runtime and ML boundaries, includes precise validation commands and a Plan Drift Gate consistent with Bremen contracts. I approve this PLAN.md to proceed to coder implementation with strong precommit-review enforcement.
