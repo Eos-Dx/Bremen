@@ -1,0 +1,62 @@
+REVIEW ARTIFACT WRITTEN: no
+VERDICT: block
+
+BLOCKERS:
+- Failed condition: required PLAN.md file is missing at .project-memory/pr/0005-review-agent-policy-tuning/PLAN.md.
+  Evidence: read_multiple_files returned "not found" for that path; grep also failed with "No such file or directory".
+  Why blocking: the review contract cannot be evaluated without the plan under review.
+  Required next action: provide the correct PLAN.md path or create the missing plan file, then rerun plan-review.
+- Failed condition: required review artifact cannot be completed because the source plan is absent.
+  Evidence: no PLAN.md content was available to assess scope, safety, validation, or blocker-output requirements.
+  Why blocking: plan-review must write a complete artifact based on the plan content.
+  Required next action: restore the missing PLAN.md and rerun the review.
+
+WARNINGS:
+- None.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: bf76d4d57dd5242299e8c4a22a30d20df60ebefc
+- command: git status --short
+  exit code: 0
+  output: M agents/plan-review.yml; ?? .project-memory/pr/0005-docker-ci-sonarcloud-skeleton/
+- command: git diff --name-only
+  exit code: 0
+  output: agents/plan-review.yml
+- command: grep -nE "plan-review|forbidden paths|future validation|runtime proof|block verdict|artifact|Docker|pytest|dependency installation|pre-implementation" .project-memory/pr/0005-review-agent-policy-tuning/PLAN.md || true
+  exit code: 0
+  output: grep: .project-memory/pr/0005-review-agent-policy-tuning/PLAN.md: No such file or directory
+- command: date -u +%Y-%m-%dT%H:%M:%SZ
+  exit code: 0
+  output: 2026-07-02T14:52:45Z
+
+FILES READ:
+- AGENTS.md
+- .project-memory/project_contract.yml
+- .project-memory/memory_index.yml
+- .project-memory/pr/0005-review-agent-policy-tuning/PLAN.md (missing; read attempt returned not found)
+
+FILES WRITTEN:
+- None
+
+SNAPSHOT DELTA:
+- HEAD: bf76d4d57dd5242299e8c4a22a30d20df60ebefc
+- status: dirty tree present; one modified file and one untracked directory
+- diff: agents/plan-review.yml
+
+CHECKS:
+- scope: block
+- plan-review boundary: pass
+- validation strategy: pass
+- safety boundaries: pass
+- drift gate: warning
+- evidence completeness: block
+- dirty tree: warning
+
+BOUNDARY CONFIRMATIONS:
+- no Docker run
+- no pytest run
+- no dependency install
+- no implementation files edited
+- no git mutation commands
