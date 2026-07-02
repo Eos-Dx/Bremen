@@ -1,8 +1,12 @@
-# Codex Rules For Aramis Product Development
+# Codex Rules For Bremen Product Development
 
 These instructions control Codex behavior in this repository.
 
-Aramis and related EOS products are medical decision-support software.
+Bremen and related EOS products are medical decision-support software.
+
+## Historical Context
+
+This repository was derived from the Aramis project. Specific Aramis references remain in inherited source code, tests, configs, and examples. These are classified as legacy/source-material and will be renamed in future refactor PRs. See `docs/repository_cleanup.md` for the full classification.
 
 ## Regulatory Posture
 
@@ -15,7 +19,7 @@ Aramis and related EOS products are medical decision-support software.
 
 ## Product Intent
 
-Aramis:
+Aramis (legacy — inherited context):
 
 ```text
 Target population: women with BI-RADS 3 or BI-RADS 4 findings
@@ -24,7 +28,7 @@ Clinical user: radiologist / qualified breast-imaging clinician
 Output: p_cancer and BENIGN/CANCER decision-support class
 ```
 
-Bremen:
+Bremen (active product):
 
 ```text
 Clinical question: should patient continue to MRI?
@@ -165,9 +169,9 @@ threshold
 confidence intervals when available
 ```
 
-For Aramis, false negatives are safety-critical.
+For Aramis (legacy—inherited context), false negatives are safety-critical.
 
-For Bremen, track both false negatives and MRI-workflow burden.
+For Bremen (active product), track both false negatives and MRI-workflow burden.
 
 ## Release Language
 
@@ -202,3 +206,5 @@ replacement for biopsy/MRI/radiologist
 - Add tests for every reusable function.
 - Run `ruff check .` and `pytest -q` after code edits.
 - For marimo notebooks, also run `python -m marimo check <notebook.py>`.
+
+> **Note:** The `src/aramis` package path is inherited from the Aramis project. It will be renamed to `src/bremen` in a future refactor PR after CI and tests are in place.

@@ -1,18 +1,12 @@
-# Aramis
+# Bremen
 
-Aramis is the EOS research draft product for breast XRD decision support.
+Bremen is an XRD-based ML decision-support product candidate. It processes HDF5 target/control scan containers, validates metadata, runs preprocessing and feature extraction, loads a controlled joblib model package, and returns prediction, QC, and model metadata to the platform.
 
-The assembly-plan source is:
-
-```text
-/Users/sad/Downloads/aramis_assembly_plan_v1.docx
-```
+This repository was derived from the Aramis project. Aramis was the EOS research draft product for breast XRD decision support. Bremen carries forward the inherited source code and pipeline architecture while establishing an independent product identity.
 
 ## Product Description
 
-Aramis is planned as an ML classifier deployed on the EOS platform and connected
-to client-facing software. For XRD scans from patients referred to biopsy, it
-provides a breast-level malignancy risk output for decision support.
+Bremen is planned as an ML classifier deployed on the EOS platform and connected to client-facing software. For XRD scans from patients referred to biopsy, it provides a breast-level malignancy risk output for decision support.
 
 Clinical problem:
 
@@ -39,9 +33,7 @@ low/high p_cancer class
 breast/sample-level output for suspicious side
 ```
 
-This repository must not present Aramis as autonomous diagnosis, biopsy
-replacement, radiologist replacement, FDA-cleared, or clinically validated unless
-separate validation and regulatory evidence is added.
+This repository must not present Bremen as autonomous diagnosis, biopsy replacement, radiologist replacement, FDA-cleared, or clinically validated unless separate validation and regulatory evidence is added.
 
 ## Planned Product Deliverables
 
@@ -72,8 +64,7 @@ output:
   classifier training QC criteria
 ```
 
-Assembly-plan target QC criteria are planning targets, not validated product
-performance:
+Assembly-plan target QC criteria are planning targets, not validated product performance:
 
 ```text
 sensitivity target: >95%
@@ -82,7 +73,7 @@ specificity target: maximize, target >50%
 
 ## Repository Split
 
-`XRD-preprocessing` is the common preprocessing core for Aramis and Bremen:
+`XRD-preprocessing` is the common preprocessing core for Bremen and Aramis:
 
 ```text
 H5 raw data
@@ -90,16 +81,16 @@ H5 raw data
 -> intensity vs q
 ```
 
-This Aramis repository owns Aramis-specific processing and modeling:
+This Bremen repository owns Bremen-specific processing and modeling:
 
 ```text
 azimuthally integrated curves
--> Aramis features
+-> Bremen features
 -> ML classifier training
 -> report/QC artifacts
 ```
 
-Planned Aramis feature families from the assembly plan:
+Planned Bremen feature families from the assembly plan:
 
 ```text
 complete azimuthal integration, components approach
@@ -125,11 +116,11 @@ python -m aramis training --config /path/to/training.yaml
 python -m aramis predict --config /path/to/predict.yaml
 ```
 
-`preprocess` config owns input H5 path, output DataFrame/joblib path, raw-data
-source, H5 quality exclusions, branch rules, and XRD preprocessing parameters.
-`training` config will own dataset paths, split logic, model family, MLflow
-tracking, and trained model output. `predict` config will own one-patient H5
-input, fixed preprocessing/model versions, and JSON/YAML report output.
+> **Note:** CLI entrypoints still use the inherited `aramis` package name. A coordinated rename to `bremen` is planned for a future refactor PR after CI and tests are in place.
+
+`preprocess` config owns input H5 path, output DataFrame/joblib path, raw-data source, H5 quality exclusions, branch rules, and XRD preprocessing parameters.
+`training` config will own dataset paths, split logic, model family, MLflow tracking, and trained model output.
+`predict` config will own one-patient H5 input, fixed preprocessing/model versions, and JSON/YAML report output.
 
 Prediction input contract for the first draft:
 
@@ -173,6 +164,8 @@ src/aramis/pipelines.py
   optional DataFrame joblib export
 ```
 
+> **Note:** The `src/aramis/` package and class names (`AramisOneToManyPreprocessingPipeline`, etc.) are inherited from the Aramis project and will be renamed in a future refactor PR.
+
 Synthetic regression tests:
 
 ```text
@@ -198,6 +191,8 @@ python -m aramis preprocess --config \
 python -m aramis preprocess --config \
   config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
 ```
+
+> **Note:** The examples above reference a legacy Aramis workspace path. Bremen development should use updated paths once the repository is fully migrated.
 
 Interactive edit mode:
 
@@ -229,16 +224,14 @@ examples/outputs/aramis_one_to_one_dataframe.joblib
 examples/outputs/aramis_one_to_many_benign_cancer_dataframe.joblib
 ```
 
-Biopsy-only one-to-many output is produced by running the same one-to-many
-notebook with:
+Biopsy-only one-to-many output is produced by running the same one-to-many notebook with:
 
 ```text
 config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
 examples/outputs/aramis_one_to_many_benign_cancer_biopsy_dataframe.joblib
 ```
 
-Input H5 and output joblib paths are owned by each preprocessing YAML under
-`io.input_h5_path` and `io.output_joblib_path`.
+Input H5 and output joblib paths are owned by each preprocessing YAML under `io.input_h5_path` and `io.output_joblib_path`.
 
 Data-quality and monochromaticity limitations are tracked in:
 
@@ -301,3 +294,7 @@ Open:
 ```text
 http://127.0.0.1:5000
 ```
+
+## Repository Cleanup Status
+
+See [docs/repository_cleanup.md](docs/repository_cleanup.md) for the current status of repository identity cleanup, Aramis legacy classification, and deferred items.
