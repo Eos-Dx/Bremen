@@ -1,0 +1,57 @@
+# Bremen .dockerignore — exclude unnecessary artifacts from Docker build context
+#
+# Files required for smoke validation (src/, tests/, pyproject.toml) are NOT excluded.
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Virtual environments
+.venv
+venv
+
+# Python caches
+__pycache__
+*.pyc
+*.pyo
+
+# Test and tool caches
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Project memory (planning/review artifacts)
+.project-memory
+
+# macOS artifacts
+.DS_Store
+
+# H5/HDF5 data files
+*.h5
+*.hdf5
+
+# Model / joblib artifacts
+*.joblib
+*.pkl
+
+# Local environment files and secrets
+.env
+.env.*
+*.env
+**/secrets*
+
+# IDE and editor configs
+.idea
+.vscode
+*.swp
+*.swo
+
+# Build artifacts
+*.egg-info
+dist
+build
+
+# Local output directories
+examples/outputs
+mlruns

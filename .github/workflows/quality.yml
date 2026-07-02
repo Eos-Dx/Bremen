@@ -1,0 +1,99 @@
+# Bremen CI Quality Workflow
+#
+# Runs on pull requests to main, pushes to main, and manual dispatch.
+# Performs: Python dependency setup (including SSH private dependencies),
+# compile check, import identity test, full pytest, Docker build smoke,
+# and SonarCloud quality scan.
+#
+# Required GitHub Secrets:
+#   BREMEN_CI_SSH_PRIVATE_KEY  — SSH deploy key with read access to
+#                                 Eos-Dx/XRD-preprocessing and
+#                                 Eos-Dx/container (branch feat/v0_3-eoscan-session-container)
+#   SONAR_TOKEN                 — SonarCloud project token
+
+name: Bremen CI Quality
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Configure SSH for private dependency access
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
+          cat > ~/.ssh/id_rsa <<< "${{ secrets.BREMEN_CI_SSH_PRIVATE_KEY }}"
+          chmod 0600 ~/.ssh/id_rsa
+
+      - name: Install Python dependencies (including private)
+        run: |
+          pip install --upgrade pip
+          # Install private dependencies over SSH
+          GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new" \
+            pip install git+ssh://git@github.com/Eos-Dx/XRD-preprocessing.git
+          GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new" \
+            pip install git+ssh://git@github.com/Eos-Dx/container.git@feat/v0_3-eoscan-session-container
+          # Install bremen package (resolves remaining dependencies)
+          pip install .
+        env:
+          GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=accept-new"
+
+      - name: Verify private dependency imports
+        run: |
+          python -c "
+import xrd_preprocessing
+import container
+from container.registry import VERSION_REGISTRY
+print('xrd_preprocessing import OK')
+print('container import OK')
+print('container supported versions:', sorted(VERSION_REGISTRY.keys()))
+assert '0_3' in VERSION_REGISTRY, 'VERSION_REGISTRY must contain 0_3'
+print('VERSION_REGISTRY contains 0_3: OK')
+"
+        env:
+          GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=accept-new"
+
+      - name: Compile check (src and tests)
+        run: python -m compileall src tests
+
+      - name: Focused Bremen import identity test
+        run: python -m pytest -q tests/test_bremen_import_identity.py
+
+      - name: Full pytest suite
+        run: python -m pytest -q
+
+      # --- Docker skeleton smoke ---
+      # Docker hardening and private dependency image build are deferred to a later PR.
+      # PR 0005 must not pass private keys into Docker build.
+      # This step is non-blocking in PR 0005.
+      - name: Docker build smoke (skeleton)
+        continue-on-error: true
+        run: |
+          docker build -t bremen-ci-smoke:ci .
+          docker run --rm bremen-ci-smoke:ci \
+            python -m pytest -q tests/test_bremen_import_identity.py
+
+      - name: SonarCloud scan
+        uses: SonarSource/sonarcloud-github-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+            -Dsonar.projectName=Bremen
