@@ -1,10 +1,9 @@
-name: Bremen CI Quality
+name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["**"]
   pull_request:
-    branches: ["main"]
   workflow_dispatch:
 
 permissions:
@@ -15,41 +14,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python 3.13
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
-      - name: Configure SSH for private dependency access
-        run: |
-          test -n "${{ secrets.BREMEN_CI_SSH_PRIVATE_KEY }}" || {
-            echo "BREMEN_CI_SSH_PRIVATE_KEY secret is missing"
-            false
-          }
-
-          mkdir -p ~/.ssh
-          ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
-          cat > ~/.ssh/id_rsa <<< "${{ secrets.BREMEN_CI_SSH_PRIVATE_KEY }}"
-          chmod 0600 ~/.ssh/id_rsa
-
-      - name: Install Python dependencies
-        env:
-          GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=accept-new"
+      - name: Install dev dependencies
         run: |
           python -m pip install --upgrade pip
-
-          python -m pip install \
-            "git+ssh://git@github.com/Eos-Dx/XRD-preprocessing.git"
-
-          python -m pip install \
-            "git+ssh://git@github.com/Eos-Dx/container.git@feat/v0_3-eoscan-session-container"
-
           python -m pip install .
+          python -m pip install pytest-cov
 
-      - name: Verify private dependency imports
+      - name: Verify dependency imports
         run: |
           python - <<'PY'
           import xrd_preprocessing
@@ -67,38 +45,36 @@ jobs:
       - name: Compile check
         run: python -m compileall src tests
 
-      - name: Focused Bremen import identity test
-        run: python -m pytest -q tests/test_bremen_import_identity.py
-
-      - name: Full pytest suite
-        run: python -m pytest -q
+      - name: Run tests with coverage
+        run: |
+          python -m pytest \
+            --cov=bremen \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --cov-fail-under=80 \
+            -q
 
       - name: SonarQube Cloud scan
         uses: SonarSource/sonarqube-scan-action@v6
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: |
-            -Dsonar.organization=eos-dx
-            -Dsonar.projectKey=Eos-Dx_Bremen
-            -Dsonar.projectName=Bremen
+            -Dsonar.python.coverage.reportPaths=coverage.xml
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-  docker-smoke:
-    needs: test
-    runs-on: ubuntu-latest
-    continue-on-error: true
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # Docker hardening and private dependency image build are deferred to a later PR.
-      # PR 0005 must not pass private keys into Docker build.
-      # This job is visibility-only and non-blocking in PR 0005.
-      - name: Build image for smoke test
-        run: docker build -t bremen-ci-smoke:ci .
-
-      - name: Run Docker smoke test
-        run: |
-          docker run --rm bremen-ci-smoke:ci \
-            python -m pytest -q tests/test_bremen_import_identity.py
+  # TODO(PR-0006): enable Docker smoke after Docker dependency handling is hardened.
+  #
+  # build:
+  #   needs: test
+  #   runs-on: ubuntu-latest
+  #
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - name: Build image for smoke test
+  #       run: docker build -t bremen:ci .
+  #
+  #     - name: Run container and smoke test
+  #       run: |
+  #         docker run --rm bremen:ci \
+  #           python -m pytest -q tests/test_bremen_import_identity.py
