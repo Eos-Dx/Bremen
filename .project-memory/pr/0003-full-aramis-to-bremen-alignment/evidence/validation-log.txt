@@ -1,0 +1,141 @@
+command: git rev-parse --verify HEAD
+exit_code: 0
+output: acc22293fa85d369fe42b59825f65f4ec6581f2f
+---
+command: git status --short
+exit_code: 0
+output: M AGENTS.md; M README.md; M pyproject.toml; ?? docs/repository_cleanup.md
+---
+command: git diff --name-only
+exit_code: 0
+output: AGENTS.md; README.md; pyproject.toml
+---
+command: git diff --stat
+exit_code: 0
+output: AGENTS.md |  8 ++++++--
+README.md  |  8 ++++++--
+pyproject.toml | 4 ++--
+---
+command: find .project-memory/pr/0003-full-aramis-to-bremen-alignment -maxdepth 5 -type f | sort
+exit_code: 0
+output: .project-memory/pr/0003-full-aramis-to-bremen-alignment/PLAN.md
+---
+command: find src -maxdepth 5 -type f | sort
+exit_code: 0
+output: src/bremen/__init__.py
+src/bremen/__main__.py
+src/bremen/__pycache__/__init__.cpython-310.pyc
+src/bremen/__pycache__/__init__.cpython-313.pyc
+src/bremen/__pycache__/__main__.cpython-310.pyc
+src/bremen/__pycache__/mlflow_tracking.cpython-310.pyc
+src/bremen/__pycache__/mlflow_tracking.cpython-313.pyc
+src/bremen/__pycache__/modeling.cpython-310.pyc
+src/bremen/__pycache__/pipelines.cpython-310.pyc
+src/bremen/mlflow_tracking.py
+src/bremen/modeling.py
+src/bremen/pipelines.py
+---
+command: find tests -maxdepth 5 -type f | sort
+exit_code: 0
+output: tests/__pycache__/synthetic_bremen_h5.cpython-310.pyc
+tests/__pycache__/test_bremen_import_identity.cpython-310-pytest-9.0.2.pyc
+tests/__pycache__/test_bremen_import_identity.cpython-310.pyc
+tests/__pycache__/test_bremen_mlflow_tracking.cpython-310-pytest-9.0.2.pyc
+tests/__pycache__/test_bremen_mlflow_tracking.cpython-310.pyc
+tests/__pycache__/test_bremen_modeling.cpython-310-pytest-9.0.2.pyc
+tests/__pycache__/test_bremen_modeling.cpython-310.pyc
+tests/__pycache__/test_bremen_pipeline_config.cpython-310-pytest-9.0.2.pyc
+tests/__pycache__/test_bremen_pipeline_config.cpython-310.pyc
+tests/__pycache__/test_bremen_preprocessing_one_to_many.cpython-310-pytest-9.0.2.pyc
+tests/__pycache__/test_bremen_preprocessing_one_to_many.cpython-310.pyc
+tests/__pycache__/test_bremen_preprocessing_one_to_one.cpython-310-pytest-9.0.2.pyc
+tests/__pycache__/test_bremen_preprocessing_one_to_one.cpython-310.pyc
+tests/__pycache__/test_bremen_real_h5_subset_reader.cpython-310-pytest-9.0.2.pyc
+tests/__pycache__/test_bremen_real_h5_subset_reader.cpython-310.pyc
+tests/data/aramis_real_h5_subset_20260128_5_patients.h5
+tests/data/README.md
+tests/synthetic_bremen_h5.py
+tests/test_bremen_import_identity.py
+tests/test_bremen_mlflow_tracking.py
+tests/test_bremen_modeling.py
+tests/test_bremen_pipeline_config.py
+tests/test_bremen_preprocessing_one_to_many.py
+tests/test_bremen_preprocessing_one_to_one.py
+tests/test_bremen_real_h5_subset_reader.py
+---
+command: find config -maxdepth 5 -type f | sort
+exit_code: 0
+output: config/aramis_preprocessing_v0_1_config.json
+config/aramis_product_versioning.json
+config/human1_diagnoses_metadata_h5_audit.json
+config/human1_diagnoses_metadata_h5_mismatches.csv
+config/human1_diagnoses_metadata.json
+config/preprocessing/bremen_one_to_many_benign_cancer_biopsy_minimal_v0_1.yaml
+config/preprocessing/bremen_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+config/preprocessing/bremen_one_to_many_benign_cancer_minimal_v0_1.yaml
+config/preprocessing/bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+config/preprocessing/bremen_one_to_one_minimal_v0_1.yaml
+config/preprocessing/bremen_one_to_one_preprocessing_v0_1.yaml
+config/README.md
+---
+command: find examples -maxdepth 5 -type f | sort
+exit_code: 0
+output: examples/aramis_dataframe_one_to_many_v0_1.py
+examples/aramis_dataframe_one_to_one_v0_1.py
+examples/aramis_final_experimental_model_v0_1.py
+examples/aramis_mlflow_draft.py
+examples/aramis_one_to_many_logistic_baseline_v0_1.py
+examples/aramis_one_to_many_product_model_v0_1.py
+examples/aramis_product_notebook_helpers.py
+examples/preprocess_all.sh
+examples/preprocess_one_to_many_biopsy_minimal.sh
+examples/preprocess_one_to_many_biopsy.sh
+examples/preprocess_one_to_many_minimal.sh
+examples/preprocess_one_to_many.sh
+examples/preprocess_one_to_one_minimal.sh
+examples/preprocess_one_to_one.sh
+examples/README.md
+---
+command: find docs -maxdepth 5 -type f | sort
+exit_code: 0
+output: docs/agbh_quality_exclusions.md
+docs/data_preprocessing.md
+docs/eosproduct_environment.md
+docs/machine_learning_concept.md
+docs/mlflow.md
+docs/product_development_rules.md
+docs/repository_cleanup.md
+---
+command: test -d src/bremen; echo $?; test ! -d src/aramis; echo $?; test -f tests/test_bremen_import_identity.py; echo $?
+exit_code: 0
+output: 0
+1
+0
+---
+command: python -m compileall src tests
+exit_code: 0
+output: Listing 'src'...
+Listing 'src/bremen'...
+Compiling 'src/bremen/modeling.py'...
+Listing 'tests'...
+Listing 'tests/data'...
+---
+command: python -m pytest -q tests/test_bremen_import_identity.py
+exit_code: 1
+output: FFFFF [100%] ... ImportError: cannot import name 'UTC' from 'datetime' ...
+---
+command: python -m pytest -q
+exit_code: 2
+output: ERROR collecting tests/test_bremen_mlflow_tracking.py ... ImportError: cannot import name 'UTC' ... ModuleNotFoundError: No module named 'xrd_preprocessing'
+---
+command: find . -name ".DS_Store" -print
+exit_code: 0
+output: <no output>
+---
+command: find . -type f ( -name "*.h5" -o -name "*.hdf5" ) -print
+exit_code: 0
+output: tests/data/aramis_real_h5_subset_20260128_5_patients.h5
+---
+command: date -u +%Y-%m-%dT%H:%M:%SZ
+exit_code: 0
+output: 2026-07-02T09:24:11Z
