@@ -6,9 +6,9 @@ import joblib
 import pandas as pd
 import yaml
 
-from aramis.pipelines import AramisOneToOnePreprocessingPipeline
+from bremen.pipelines import BremenOneToOnePreprocessingPipeline
 
-from .synthetic_aramis_h5 import (
+from .synthetic_bremen_h5 import (
     ONE_TO_ONE_OUTPUT_COLUMNS,
     assert_common_output_contract,
     load_synthetic_config,
@@ -17,14 +17,14 @@ from .synthetic_aramis_h5 import (
 
 
 def test_one_to_one_pipeline_dataframe_and_joblib_contract(tmp_path: Path):
-    h5_path = tmp_path / "known_synthetic_aramis.h5"
-    config_path = tmp_path / "aramis_one_to_one_preprocessing_v0_1.yaml"
-    joblib_path = tmp_path / "aramis_one_to_one_dataframe.joblib"
+    h5_path = tmp_path / "known_synthetic_bremen.h5"
+    config_path = tmp_path / "bremen_one_to_one_preprocessing_v0_1.yaml"
+    joblib_path = tmp_path / "bremen_one_to_one_dataframe.joblib"
     config = load_synthetic_config("one_to_one")
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
     write_known_synthetic_h5(h5_path)
 
-    pipeline = AramisOneToOnePreprocessingPipeline(
+    pipeline = BremenOneToOnePreprocessingPipeline(
         config=config_path,
         output_joblib_path=joblib_path,
     )

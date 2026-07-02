@@ -7,7 +7,7 @@ import types
 import joblib
 import pandas as pd
 
-from aramis import build_run_name, dataset_fingerprint, log_product_run
+from bremen import build_run_name, dataset_fingerprint, log_product_run
 
 
 def test_dataset_fingerprint_changes_when_values_change():
@@ -24,7 +24,7 @@ def test_dataset_fingerprint_is_stable_for_same_frame():
 
 
 def test_build_run_name_contains_product_prefix():
-    assert build_run_name("Aramis").startswith("aramis_draft_")
+    assert build_run_name("Bremen").startswith("bremen_draft_")
 
 
 def test_log_product_run_dry_run_writes_required_artifacts(tmp_path):
@@ -33,9 +33,9 @@ def test_log_product_run_dry_run_writes_required_artifacts(tmp_path):
 
     result = log_product_run(
         tracking_uri="file:///tmp/mlruns",
-        experiment_name="Aramis",
+        experiment_name="Bremen",
         run_name="unit",
-        product_name="Aramis",
+        product_name="Bremen",
         preprocessing_config={"raw_data": {"source": "npy"}},
         product_filter_rules={"branch": "one_to_many"},
         dataset_df=df,
@@ -85,13 +85,13 @@ def test_log_product_run_non_dry_run_uses_mlflow_api(monkeypatch, tmp_path):
         log_artifact=lambda path: calls.append(("artifact", path)),
     )
     monkeypatch.setitem(sys.modules, "mlflow", fake_mlflow)
-    monkeypatch.setenv("ARAMIS_LOG_MLFLOW_MODEL", "1")
+    monkeypatch.setenv("BREMEN_LOG_MLFLOW_MODEL", "1")
 
     result = log_product_run(
         tracking_uri="file:///tmp/mlruns",
-        experiment_name="Aramis",
+        experiment_name="Bremen",
         run_name="unit",
-        product_name="Aramis",
+        product_name="Bremen",
         preprocessing_config={},
         product_filter_rules={},
         dataset_df=pd.DataFrame({"a": [1]}),
@@ -104,7 +104,7 @@ def test_log_product_run_non_dry_run_uses_mlflow_api(monkeypatch, tmp_path):
 
     assert result["mlflow_run_id"] == "run-1"
     assert ("tracking_uri", "file:///tmp/mlruns") in calls
-    assert ("experiment", "Aramis") in calls
+    assert ("experiment", "Bremen") in calls
     assert ("metric", "roc_auc") in calls
     assert ("param", "n_splits") in calls
     assert ("log_model", "sklearn_model") in calls

@@ -1,4 +1,4 @@
-"""Aramis preprocessing pipeline entrypoints."""
+"""Bremen preprocessing pipeline entrypoints."""
 
 from __future__ import annotations
 
@@ -46,8 +46,8 @@ PAYLOAD_COLUMNS = (
 )
 
 
-class AramisPreprocessingPipeline(TransformerMixin, BaseEstimator):
-    """Aramis product route composed only from xrd_preprocessing transformers."""
+class BremenPreprocessingPipeline(TransformerMixin, BaseEstimator):
+    """Bremen product route composed only from xrd_preprocessing transformers."""
 
     def __init__(
         self,
@@ -68,7 +68,7 @@ class AramisPreprocessingPipeline(TransformerMixin, BaseEstimator):
     def transform(self, X: str | Path) -> pd.DataFrame:
         config = _load_config(self.config)
         data: Any = X
-        self.steps_ = build_aramis_preprocessing_steps(
+        self.steps_ = build_bremen_preprocessing_steps(
             config=config,
             branch=self.branch,
             output_joblib_path=self.output_joblib_path,
@@ -78,7 +78,7 @@ class AramisPreprocessingPipeline(TransformerMixin, BaseEstimator):
         return data
 
 
-class AramisOneToOnePreprocessingPipeline(AramisPreprocessingPipeline):
+class BremenOneToOnePreprocessingPipeline(BremenPreprocessingPipeline):
     """One-to-one paired-breast preprocessing route."""
 
     def __init__(
@@ -94,7 +94,7 @@ class AramisOneToOnePreprocessingPipeline(AramisPreprocessingPipeline):
         )
 
 
-class AramisOneToManyPreprocessingPipeline(AramisPreprocessingPipeline):
+class BremenOneToManyPreprocessingPipeline(BremenPreprocessingPipeline):
     """One-to-many specimen-level preprocessing route."""
 
     def __init__(
@@ -110,7 +110,7 @@ class AramisOneToManyPreprocessingPipeline(AramisPreprocessingPipeline):
         )
 
 
-def build_aramis_preprocessing_steps(
+def build_bremen_preprocessing_steps(
     *,
     config: dict[str, Any],
     branch: str,
@@ -276,7 +276,7 @@ def run_one_to_one_preprocessing_pipeline(
     output_joblib_path: str | Path | None = None,
 ) -> pd.DataFrame:
     """Build the one-to-one paired-breast preprocessing DataFrame."""
-    return AramisOneToOnePreprocessingPipeline(
+    return BremenOneToOnePreprocessingPipeline(
         config=config,
         output_joblib_path=output_joblib_path,
     ).fit_transform(h5_path)
@@ -289,17 +289,17 @@ def run_one_to_many_preprocessing_pipeline(
     output_joblib_path: str | Path | None = None,
 ) -> pd.DataFrame:
     """Build the one-to-many specimen-level preprocessing DataFrame."""
-    return AramisOneToManyPreprocessingPipeline(
+    return BremenOneToManyPreprocessingPipeline(
         config=config,
         output_joblib_path=output_joblib_path,
     ).fit_transform(h5_path)
 
 
 def run_preprocessing_from_config(config_path: str | Path) -> pd.DataFrame:
-    """Run Aramis preprocessing using only paths and branch stored in YAML."""
+    """Run Bremen preprocessing using only paths and branch stored in YAML."""
     config_path = Path(config_path)
     config = load_preprocessing_config(config_path)
-    branch = config["aramis_preprocessing"]["branch"]
+    branch = config["bremen_preprocessing"]["branch"]
     h5_path = _config_path(config, config_path, "input_h5_path")
     output_joblib_path = _config_path(config, config_path, "output_joblib_path")
     if branch == "one_to_one":
@@ -314,7 +314,7 @@ def run_preprocessing_from_config(config_path: str | Path) -> pd.DataFrame:
             config,
             output_joblib_path=output_joblib_path,
         )
-    raise ValueError(f"Unknown Aramis preprocessing branch: {branch}")
+    raise ValueError(f"Unknown Bremen preprocessing branch: {branch}")
 
 
 def _config_path(config: dict[str, Any], config_path: Path, key: str) -> Path:
@@ -503,11 +503,11 @@ def _load_config(config: dict[str, Any] | str | Path) -> dict[str, Any]:
 
 
 def _branch_config(config: dict[str, Any], branch: str) -> dict[str, Any]:
-    if config.get("aramis_preprocessing", {}).get("branch") == branch:
+    if config.get("bremen_preprocessing", {}).get("branch") == branch:
         return config["branch_settings"]
     return config[branch]
 
 
 def _validate_branch(branch: str) -> None:
     if branch not in {"one_to_one", "one_to_many"}:
-        raise ValueError(f"Unknown Aramis preprocessing branch: {branch}")
+        raise ValueError(f"Unknown Bremen preprocessing branch: {branch}")

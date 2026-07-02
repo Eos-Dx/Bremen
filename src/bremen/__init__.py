@@ -1,4 +1,4 @@
-"""Aramis product draft package."""
+"""Bremen product draft package."""
 
 from .mlflow_tracking import (
     DEFAULT_EXPERIMENT_NAME,
@@ -27,9 +27,9 @@ from .modeling import (
     summarize_one_to_many_product_results,
 )
 from .pipelines import (
-    AramisOneToManyPreprocessingPipeline,
-    AramisOneToOnePreprocessingPipeline,
-    AramisPreprocessingPipeline,
+    BremenOneToManyPreprocessingPipeline,
+    BremenOneToOnePreprocessingPipeline,
+    BremenPreprocessingPipeline,
     run_preprocessing_from_config,
     run_one_to_many_preprocessing_pipeline,
     run_one_to_one_preprocessing_pipeline,
@@ -37,9 +37,9 @@ from .pipelines import (
 
 __all__ = [
     "DEFAULT_EXPERIMENT_NAME",
-    "AramisOneToManyPreprocessingPipeline",
-    "AramisOneToOnePreprocessingPipeline",
-    "AramisPreprocessingPipeline",
+    "BremenOneToManyPreprocessingPipeline",
+    "BremenOneToOnePreprocessingPipeline",
+    "BremenPreprocessingPipeline",
     "FusionModelComparisonResult",
     "OneToManyProductComparisonResult",
     "OneToManyProductLogisticResult",

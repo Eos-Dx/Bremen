@@ -8,7 +8,7 @@ from xrd_preprocessing import load_preprocessing_config
 
 
 EXPECTED_PROFILE_LENGTH = 100
-SYNTHETIC_PONI = """# Synthetic PONI for Aramis tests
+SYNTHETIC_PONI = """# Synthetic PONI for Bremen tests
 poni_version: 2.1
 Detector: Detector
 Detector_config: {"pixel1": 0.0001, "pixel2": 0.0001, "max_shape": [32, 32], "orientation": 3}
@@ -98,10 +98,10 @@ PAYLOAD_COLUMNS = {
 
 def load_synthetic_config(branch: str = "one_to_one") -> dict:
     config_file = {
-        "one_to_one": "aramis_one_to_one_preprocessing_v0_1.yaml",
-        "one_to_many": "aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml",
-        "one_to_many_benign_cancer": "aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml",
-        "one_to_many_benign_cancer_biopsy": "aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml",
+        "one_to_one": "bremen_one_to_one_preprocessing_v0_1.yaml",
+        "one_to_many": "bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml",
+        "one_to_many_benign_cancer": "bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml",
+        "one_to_many_benign_cancer_biopsy": "bremen_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml",
     }[branch]
     config_path = Path(__file__).parents[1] / "config" / "preprocessing" / config_file
     config = load_preprocessing_config(config_path)

@@ -1,11 +1,11 @@
-extends: aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+extends: bremen_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
 
 provenance:
   status: research draft compact preprocessing config
-  canonical_location: Aramis/config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_minimal_v0_1.yaml
+  canonical_location: config/preprocessing/bremen_one_to_many_benign_cancer_biopsy_minimal_v0_1.yaml
 
 io:
-  output_joblib_path: ../../examples/outputs/aramis_one_to_many_benign_cancer_biopsy_minimal_dataframe.joblib
+  output_joblib_path: ../../examples/outputs/bremen_one_to_many_benign_cancer_biopsy_minimal_dataframe.joblib
 
 metadata:
   output_columns:

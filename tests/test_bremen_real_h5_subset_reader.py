@@ -17,16 +17,16 @@ from xrd_preprocessing.transformers import (
 
 DATA_DIR = Path(__file__).parent / "data"
 REAL_H5_SUBSET = DATA_DIR / "aramis_real_h5_subset_20260128_5_patients.h5"
-ARAMIS_CONFIG = (
+BREMEN_CONFIG = (
     Path(__file__).parents[1]
     / "config"
     / "preprocessing"
-    / "aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml"
+    / "bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml"
 )
 
 
 def test_real_h5_subset_uses_gfrm_reader_and_xrd_transformers():
-    config = load_preprocessing_config(ARAMIS_CONFIG)
+    config = load_preprocessing_config(BREMEN_CONFIG)
     config["filters"]["accepted_dates"] = ["2026-01-28"]
     config["labels"]["keep_after_grouping"] = ["BENIGN", "CANCER"]
     calibrant_min_mm, calibrant_max_mm = config["filters"][

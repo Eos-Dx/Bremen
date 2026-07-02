@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from aramis.modeling import (
+from bremen.modeling import (
     aggregate_measurement_scores_by_specimen,
     build_fusion_feature_table,
     compute_binary_thresholds,

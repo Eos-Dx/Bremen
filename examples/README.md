@@ -1,4 +1,4 @@
-# Aramis Examples
+# Bremen Examples
 
 These marimo notebooks are package examples. They should run from this folder
 without importing helper code from `Clinical_trials/Product/Aramis`.
@@ -6,12 +6,13 @@ without importing helper code from `Clinical_trials/Product/Aramis`.
 Files:
 
 ```text
-aramis_dataframe_one_to_one_v0_1.py
-aramis_dataframe_one_to_many_v0_1.py
-aramis_one_to_many_logistic_baseline_v0_1.py
-aramis_one_to_many_product_model_v0_1.py
-aramis_final_experimental_model_v0_1.py
-aramis_product_notebook_helpers.py
+bremen_dataframe_one_to_one_v0_1.py          (content updated)
+bremen_dataframe_one_to_many_v0_1.py         (content updated)
+bremen_one_to_many_logistic_baseline_v0_1.py (imports updated)
+bremen_one_to_many_product_model_v0_1.py     (imports updated)
+bremen_mlflow_draft.py                       (imports and identity updated)
+bremen_final_experimental_model_v0_1.py      (imports updated)
+bremen_product_notebook_helpers.py           (helper module)
 preprocess_one_to_one.sh
 preprocess_one_to_many.sh
 preprocess_one_to_many_biopsy.sh
@@ -21,41 +22,36 @@ preprocess_one_to_many_biopsy_minimal.sh
 preprocess_all.sh
 ```
 
+> **Note:** Example filenames have been renamed from `aramis_*` to `bremen_*` as part of the full package alignment.
+
 The helper file intentionally lives beside the notebooks because marimo examples
 import it directly:
 
 ```python
-import aramis_product_notebook_helpers as helpers
+import bremen_product_notebook_helpers as helpers
 ```
 
 Run:
 
 ```bash
-cd ~/dev/eosproduct/Aramis
+cd ~/dev/eosproduct/Bremen
 conda activate eosproduct
-```
-
-For a test install that uses `ENV_NAME=eosproduct1`, use:
-
-```bash
-cd ~/dev/eosproduct1/Aramis
-conda activate eosproduct1
 ```
 
 Preprocess DataFrames directly from YAML:
 
 ```bash
-python -m aramis preprocess --config config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
-python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
-python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+python -m bremen preprocess --config config/preprocessing/bremen_one_to_one_preprocessing_v0_1.yaml
+python -m bremen preprocess --config config/preprocessing/bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+python -m bremen preprocess --config config/preprocessing/bremen_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
 ```
 
 Minimal joblib exports:
 
 ```bash
-python -m aramis preprocess --config config/preprocessing/aramis_one_to_one_minimal_v0_1.yaml
-python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_benign_cancer_minimal_v0_1.yaml
-python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_minimal_v0_1.yaml
+python -m bremen preprocess --config config/preprocessing/bremen_one_to_one_minimal_v0_1.yaml
+python -m bremen preprocess --config config/preprocessing/bremen_one_to_many_benign_cancer_minimal_v0_1.yaml
+python -m bremen preprocess --config config/preprocessing/bremen_one_to_many_benign_cancer_biopsy_minimal_v0_1.yaml
 ```
 
 Equivalent example scripts:
@@ -75,32 +71,31 @@ Each branch YAML owns both input and output paths:
 ```yaml
 io:
   input_h5_path: ../../../data/combined_archive.h5
-  output_joblib_path: ../../examples/outputs/aramis_one_to_one_dataframe.joblib
+  output_joblib_path: ../../examples/outputs/bremen_one_to_one_dataframe.joblib
 ```
 
 Run marimo notebooks:
 
 ```bash
+python -m marimo run examples/bremen_dataframe_one_to_one_v0_1.py -- \
+  --bremen-preprocessing-config-path config/preprocessing/bremen_one_to_one_preprocessing_v0_1.yaml
 
-python -m marimo run examples/aramis_dataframe_one_to_one_v0_1.py -- \
-  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
+python -m marimo run examples/bremen_dataframe_one_to_many_v0_1.py -- \
+  --bremen-preprocessing-config-path config/preprocessing/bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml
 
-python -m marimo run examples/aramis_dataframe_one_to_many_v0_1.py -- \
-  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+python -m marimo run examples/bremen_one_to_many_logistic_baseline_v0_1.py -- \
+  --dataframe-joblib-path examples/outputs/bremen_one_to_many_benign_cancer_dataframe.joblib
 
-python -m marimo run examples/aramis_one_to_many_logistic_baseline_v0_1.py -- \
-  --dataframe-joblib-path examples/outputs/aramis_one_to_many_benign_cancer_dataframe.joblib
+python -m marimo run examples/bremen_one_to_many_product_model_v0_1.py -- \
+  --standard-dataframe-joblib-path examples/outputs/bremen_one_to_many_benign_cancer_dataframe.joblib \
+  --biopsy-dataframe-joblib-path examples/outputs/bremen_one_to_many_benign_cancer_biopsy_dataframe.joblib
 
-python -m marimo run examples/aramis_one_to_many_product_model_v0_1.py -- \
-  --standard-dataframe-joblib-path examples/outputs/aramis_one_to_many_benign_cancer_dataframe.joblib \
-  --biopsy-dataframe-joblib-path examples/outputs/aramis_one_to_many_benign_cancer_biopsy_dataframe.joblib
-
-python -m marimo run examples/aramis_final_experimental_model_v0_1.py -- \
-  --one-to-many-joblib-path examples/outputs/aramis_one_to_many_benign_cancer_biopsy_dataframe.joblib \
-  --one-to-one-joblib-path examples/outputs/aramis_one_to_one_dataframe.joblib
+python -m marimo run examples/bremen_final_experimental_model_v0_1.py -- \
+  --one-to-many-joblib-path examples/outputs/bremen_one_to_many_benign_cancer_biopsy_dataframe.joblib \
+  --one-to-one-joblib-path examples/outputs/bremen_one_to_one_dataframe.joblib
 ```
 
-Default Aramis product config:
+Default product config:
 
 ```text
 config/aramis_preprocessing_v0_1_config.json
@@ -114,9 +109,9 @@ the branch YAML, not passed as command-line paths.
 Default branch preprocessing YAMLs:
 
 ```text
-config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
-config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
-config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+config/preprocessing/bremen_one_to_one_preprocessing_v0_1.yaml
+config/preprocessing/bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+config/preprocessing/bremen_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
 ```
 
 Each notebook reads its own branch YAML by default. The YAML files are commented
@@ -125,15 +120,15 @@ correction, SNR, normalization, and profile gate settings. Override only when
 testing a controlled replacement:
 
 ```bash
-python -m marimo run examples/aramis_dataframe_one_to_one_v0_1.py -- \
-  --aramis-preprocessing-config-path /path/to/aramis_one_to_one_preprocessing_v0_1.yaml
+python -m marimo run examples/bremen_dataframe_one_to_one_v0_1.py -- \
+  --bremen-preprocessing-config-path /path/to/bremen_one_to_one_preprocessing_v0_1.yaml
 ```
 
 Default output:
 
 ```text
-examples/outputs/aramis_one_to_one_dataframe.joblib
-examples/outputs/aramis_one_to_many_benign_cancer_dataframe.joblib
+examples/outputs/bremen_one_to_one_dataframe.joblib
+examples/outputs/bremen_one_to_many_benign_cancer_dataframe.joblib
 ```
 
 To keep more columns in preprocessing joblib, edit the branch YAML:
@@ -183,8 +178,8 @@ normalization.
 Biopsy-only one-to-many output:
 
 ```bash
-python -m marimo run examples/aramis_dataframe_one_to_many_v0_1.py -- \
-  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+python -m marimo run examples/bremen_dataframe_one_to_many_v0_1.py -- \
+  --bremen-preprocessing-config-path config/preprocessing/bremen_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
 ```
 
 The first model notebook starts from the one-to-many joblib and does not reopen

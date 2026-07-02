@@ -1,13 +1,13 @@
-# Aramis Human-1 Product Metadata
+# Bremen Human-1 Product Metadata
 
-This directory contains canonical JSON/CSV metadata for the Aramis Human-1
-research draft product workflow.
+This directory contains canonical JSON/CSV metadata for the Bremen Human-1
+research draft product workflow (derived from Aramis Human-1).
 
-These files are product metadata prepared for Aramis by Slava Shcherbakov
+These files are product metadata prepared for Bremen by Slava Shcherbakov
 (Viacheslav SHCHERBAKOV). Treat them as controlled product inputs, not as
 ad-hoc notebook outputs.
 
-Aramis is clinical decision support research draft work. These metadata do not
+Bremen is clinical decision support research draft work. These metadata do not
 make the model clinically validated, FDA-cleared, or suitable for autonomous
 diagnosis.
 
@@ -132,7 +132,7 @@ io.output_joblib_path
 The product command should receive only the YAML path:
 
 ```text
-python -m aramis preprocess --config config/preprocessing/<branch>.yaml
+python -m bremen preprocess --config config/preprocessing/<branch>.yaml
 ```
 
 Current XRD-preprocessing dependency marker:
