@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "aramis"
 version = "0.1.0"
-description = "Aramis cancer-classification product draft."
+description = "Bremen — XRD-based ML decision-support product candidate. Derived from the Aramis project (cancer-classification product draft)."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 authors = [{ name = "EOS" }]
