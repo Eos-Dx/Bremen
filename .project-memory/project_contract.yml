@@ -1,0 +1,74 @@
+# Bremen Project Contract
+# Canonical project contract for Bremen — a controlled XRD ML decision-support product.
+# Created/maintained by coder + reviewers as specified in .project-memory/pr/*/PLAN.md.
+
+project:
+  name: Bremen
+  kind: "XRD-based ML decision-support product candidate"
+  status: "in development — workflow foundation"
+  system_of_record: Matador
+
+roles:
+  - planner
+  - plan_review
+  - coder
+  - precommit_review
+
+human_gates:
+  git_mutation: "only humans run git add/commit/push/merge. No agent may execute git mutation commands."
+  plan_approval: "coder may only implement after plan-review approves PLAN.md."
+  precommit_gate: "merge requires passing precommit-review artifact."
+
+project_memory_structure:
+  root: .project-memory/
+  subdirectories:
+    - pr/<pr-id>/               # per-PR artifacts: PLAN.md, reviews/, evidence/
+    - agents/                   # adapted agent configs and mapping docs
+
+source_of_truth_order:
+  - 1: "Current task prompt"
+  - 2: ".project-memory/pr/<pr-id>/PLAN.md"
+  - 3: ".project-memory/pr/<pr-id>/reviews/plan-review.yml"
+  - 4: "ROADMAP.md (when named by PLAN.md)"
+  - 5: "docs/architecture.md (when named by PLAN.md)"
+  - 6: "docs/api_contract.md (when named by PLAN.md)"
+  - 7: "docs/h5_metadata_contract.md (when named by PLAN.md)"
+  - 8: "docs/model_release_package.md (when named by PLAN.md)"
+  - 9: "docs/qc_gates.md (when named by PLAN.md)"
+  - 10: "Exact source/test files named by PLAN.md"
+
+bremen_safety_invariants:
+  - "Bremen is a controlled ML decision-support product, not just a joblib file."
+  - "Bremen must never be described or marketed as a standalone diagnostic system."
+  - "No prediction made unless required H5 metadata is present and validated."
+  - "Target/control scan roles must be explicit and validated against H5 metadata before any downstream action."
+  - "Target and control scans must belong to the same patient/study and be opposite anatomical sides."
+  - "Feature schema must be explicit and must match the model package schema before inference."
+  - "Joblib model packages are controlled artifacts; joblib must be loaded only from checksum-verified model packages."
+  - "Every prediction result MUST include: prediction_id, model_version, model_checksum, feature_schema_version, threshold version/value, qc_status, qc_flags."
+  - "Matador remains the system of record for measurements and prediction results."
+  - "Platform API MUST NOT depend on local machine paths; all platform paths must be abstracted in project_contract.yml."
+  - "Clinical/report wording must remain supplementary decision-support language only."
+
+plan_drift_gate_requirements:
+  plan_hash_match: "Committed PLAN.md must match the approved plan-review artifact hash."
+  file_list_freeze: "Files modified by coder must be explicitly enumerated in approved PLAN.md or plan-review.yml."
+  safety_invariant_checklist: "PRs introducing runtime behavior must include passing tests or TODOs for H5 validation, target/control checks, joblib checksum, feature schema matching, model metadata output."
+  legacy_name_policy: "No silent rename of legacy project names; any rename must be in a separate, explicitly approved PR."
+  evidence_capture: "Agent claims must be accompanied by runtime-captured or explicitly observed evidence stored under .project-memory/pr/<pr-id>/evidence/ before merge."
+
+legacy_project_names:
+  - name: Aramis
+    status: "source material — original project from which Bremen was adapted"
+    rename_policy: "No automated rename in PR 0001. First coder PR touching source must include mapping of legacy names."
+  - name: Ariadne
+    status: "legacy project name referenced in agent instruction templates"
+    rename_policy: "Do not reintroduce except in explicit legacy cleanup tasks."
+
+agent_workflow:
+  four_role_workflow: true
+  planner_writes_only: ".project-memory/pr/<pr-id>/PLAN.md"
+  plan_review_writes_only: ".project-memory/pr/<pr-id>/reviews/plan-review.yml"
+  coder_changes_only: "files explicitly approved by PLAN.md"
+  precommit_review_writes_only: ".project-memory/pr/<pr-id>/reviews/precommit-review.yml"
+  human_only_git_mutation: true

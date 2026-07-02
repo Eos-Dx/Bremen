@@ -10,3 +10,4 @@ mlruns/
 reports/
 *.egg-info/
 examples/__marimo__/
+.DS_Store

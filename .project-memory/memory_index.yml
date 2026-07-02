@@ -1,0 +1,55 @@
+# Project Memory Index
+# Canonical index of .project-memory/ structure for Bremen.
+# This file enables agents and reviewers to navigate project-memory artifacts without scanning.
+
+version: 1
+
+index:
+  - path: project_contract.yml
+    kind: contract
+    description: "Canonical project contract for Bremen — identity, roles, safety invariants, drift gate requirements, legacy mappings."
+    steward: "coder + reviewers"
+
+  - path: memory_index.yml
+    kind: index
+    description: "This file — index of all project-memory artifacts."
+    steward: "coder"
+
+  - path: agents/
+    kind: directory
+    description: "Adapted Bremen agent configs and legacy workflow mappings."
+    steward: "coder + reviewers"
+
+  - path: agents/archived_workflow_mappings.yml
+    kind: mapping
+    description: "Optional mapping of legacy source-material roles to Bremen-adapted agent configs."
+    steward: "coder"
+
+  - path: review-artifact.schema.yml
+    kind: schema
+    description: "Schema for plan-review and precommit-review artifacts."
+    steward: "coder"
+
+  - path: pr/
+    kind: directory
+    description: "Per-PR artifacts including PLAN.md, review artifacts, and evidence."
+
+  - path: pr/<pr-id>/PLAN.md
+    kind: plan
+    description: "PLAN.md for a specific PR — written by planner role."
+    steward: "planner"
+
+  - path: pr/<pr-id>/reviews/plan-review.yml
+    kind: review
+    description: "Plan-review artifact for a specific PR — written by plan-review role."
+    steward: "plan-review"
+
+  - path: pr/<pr-id>/reviews/precommit-review.yml
+    kind: review
+    description: "Precommit-review artifact for a specific PR — written by precommit-review role."
+    steward: "precommit-review"
+
+  - path: pr/<pr-id>/evidence/
+    kind: directory
+    description: "Runtime-captured evidence for a specific PR — populated by human reviewers or automated validation."
+    steward: "human reviewers"

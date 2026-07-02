@@ -1,0 +1,60 @@
+# Archived Workflow Mappings
+# Optional mapping of legacy source-material agent roles/scripts to Bremen-adapted configs.
+# Source-material files exist under agents/ as templates reviewed during plan-review verification.
+# Adapted Bremen configs are under agents/ (same directory) written by the respective roles.
+#
+# Policy: Do not perform Aramis-to-Bremen source package rename in PR 0001.
+# Legacy names appear only as historical/source references, not active Bremen behavior.
+
+version: 1
+
+source_material_templates:
+  - role: "planner"
+    source_file: "N/A (planner writes PLAN.md per workflow contract)"
+    bomen_equivalent: ".project-memory/pr/<pr-id>/PLAN.md"
+    status: "active — same workflow, Bremen-specific rules"
+
+  - role: "plan-review"
+    source_files:
+      - "agents/plan-review.yml"
+      - "agents/04_qa_contracts_reviewer.md"
+    bomen_equivalent: "agents/plan-review.yml"
+    status: "adapted to Bremen — safety gates, contract checks, four-role workflow preserved"
+
+  - role: "coder"
+    source_files:
+      - "agents/coder.yml"
+      - "agents/03_runner_patch_engineer.md"
+    bomen_equivalent: "agents/coder.yml"
+    status: "adapted to Bremen — scoped implementation, Bremen-specific safety rules, validation rules"
+
+  - role: "precommit-review"
+    source_files:
+      - "agents/precommit-review.yml"
+      - "agents/02_repository_scaffolder.md"
+    bomen_equivalent: "agents/precommit-review.yml"
+    status: "adapted to Bremen — evidence gate, drift gate, contract checks"
+
+  - role: "architect"
+    source_files:
+      - "agents/architect.yml"
+      - "agents/01_platform_architect.md"
+    bomen_equivalent: "agents/architect.yml"
+    status: "adapted to Bremen — product architecture, ADR/roadmap, safety invariants"
+
+  - role: "none (manual)"
+    source_file: "agents/universal_agent_workflow_anti_drift_manual.md"
+    bomen_equivalent: "N/A — content distributed across .project-memory/project_contract.yml (drift gate), agents/ plan-review/coder/precommit configs, and docs/plan_drift_gate.md (deferred)"
+    status: "not present as separate file — drift gate requirements encoded in project_contract.yml and agent configs"
+
+legacy_project_references:
+  - project: "Aramis"
+    status: "source material — original XRD ML project from which Bremen was adapted"
+    location: "config/, examples/, packaging/, src/aramis/, tests/data/, docs/"
+    rename_policy: "Not renamed in PR 0001. First coder PR touching source must include legacy name mapping."
+  - project: "Ariadne"
+    status: "legacy project name referenced in agent instruction template comments"
+    rename_policy: "Do not reintroduce except in explicit legacy cleanup tasks."
+  - project: "eosproduct"
+    status: "legacy product bundle name in packaging/"
+    rename_policy: "Deferred to later PR."

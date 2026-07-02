@@ -1,0 +1,69 @@
+# Review Artifact Schema
+# Canonical schema for plan-review and precommit-review artifacts in Bremen.
+# Validates structure and required fields when parsed by yq or PyYAML.
+
+version: 1
+
+artifact_types:
+  plan-review:
+    required_fields:
+      - REVIEW ARTIFACT WRITTEN
+      - VERDICT
+      - BLOCKERS
+      - WARNINGS
+      - VALIDATION
+      - FILES READ
+      - FILES WRITTEN
+      - SNAPSHOT DELTA
+      - SCOPE CHECK
+      - BREMEN CONTRACT CHECK
+      - VALIDATION STRATEGY CHECK
+      - EVIDENCE COMPLETENESS CHECK
+      - BOUNDARY CONFIRMATIONS
+    verdict_values:
+      - approve
+      - warning
+      - block
+    description: "Plan-review artifact written by plan-review role after reviewing a PLAN.md."
+
+  precommit-review:
+    required_fields:
+      - REVIEW ARTIFACT WRITTEN
+      - VERDICT
+      - BLOCKERS
+      - WARNINGS
+      - VALIDATION
+      - FILES READ
+      - FILES WRITTEN
+      - SNAPSHOT DELTA
+      - PLAN COMPLIANCE
+      - BREMEN CONTRACT CHECK
+      - VALIDATION COMPLETENESS CHECK
+      - EVIDENCE COMPLETENESS CHECK
+      - DIFF COMPLETENESS CHECK
+      - BOUNDARY CONFIRMATIONS
+    verdict_values:
+      - pass
+      - warning
+      - block
+    description: "Precommit-review artifact written by precommit-review role before merge."
+
+boundary_confirmations_plan_review:
+  - "Planner wrote only PLAN.md: confirmed | not confirmed"
+  - "No code written: confirmed | not confirmed"
+  - "No tests written: confirmed | not confirmed"
+  - "No review artifact written: confirmed | not confirmed"
+  - "No Aramis-to-Bremen source rename performed: confirmed | not confirmed"
+  - "No Docker/CI/API/H5/model implementation planned: confirmed | not confirmed"
+  - "Plan Drift Gate required: yes | no"
+  - "No git mutation commands run: confirmed | not confirmed"
+
+boundary_confirmations_precommit:
+  - "Implementation followed approved PLAN.md: confirmed | not confirmed"
+  - "No review artifact written: confirmed | not confirmed"
+  - "PLAN.md not modified: confirmed | not confirmed"
+  - "plan-review artifact not modified: confirmed | not confirmed"
+  - "Only PLAN.md-approved paths changed: confirmed | not confirmed"
+  - "Validation commands run and recorded: confirmed | not confirmed"
+  - "No git mutation commands run: confirmed | not confirmed"
+  - "No registry push or secrets introduced: confirmed | not confirmed"
