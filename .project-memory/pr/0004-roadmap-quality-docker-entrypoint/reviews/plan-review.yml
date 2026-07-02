@@ -1,0 +1,121 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: approve
+
+BLOCKERS
+
+WARNINGS
+- The plan is now cleanly bounded as docs-only, but it still references future implementation PRs with concrete acceptance criteria; that is acceptable because it is framed as roadmap language only.
+- Historical Aramis provenance remains in README.md and AGENTS.md, which is allowed by the task and prior PR context.
+
+VALIDATION
+- Read current HEAD/status/diff metadata.
+- Read `.project-memory/pr/0004-roadmap-quality-docker-entrypoint/PLAN.md`.
+- Read `.project-memory/project_contract.yml`.
+- Read `.project-memory/memory_index.yml`.
+- Read `.project-memory/pr/0001-bremen-agent-workflow/PLAN.md`.
+- Read `.project-memory/pr/0001-bremen-agent-workflow/reviews/precommit-review.yml`.
+- Read `.project-memory/pr/0003-full-aramis-to-bremen-alignment/PLAN.md`.
+- Read `.project-memory/pr/0003-full-aramis-to-bremen-alignment/reviews/precommit-review.yml`.
+- Read `README.md`.
+- Read `AGENTS.md`.
+- Inspected `.project-memory/pr/0004-roadmap-quality-docker-entrypoint` and `docs/` directory listings.
+- Verified absence of `Dockerfile`, `.dockerignore`, `.github/`, and `sonar-project.properties` with read-only existence checks.
+
+FILES READ
+- `.project-memory/pr/0004-roadmap-quality-docker-entrypoint/PLAN.md`
+- `.project-memory/project_contract.yml`
+- `.project-memory/memory_index.yml`
+- `.project-memory/pr/0001-bremen-agent-workflow/PLAN.md`
+- `.project-memory/pr/0001-bremen-agent-workflow/reviews/precommit-review.yml`
+- `.project-memory/pr/0003-full-aramis-to-bremen-alignment/PLAN.md`
+- `.project-memory/pr/0003-full-aramis-to-bremen-alignment/reviews/precommit-review.yml`
+- `README.md`
+- `AGENTS.md`
+
+FILES WRITTEN
+- `.project-memory/pr/0004-roadmap-quality-docker-entrypoint/reviews/plan-review.yml`
+
+SNAPSHOT DELTA
+- No repository files were modified.
+- No implementation code, tests, Docker, CI, or runtime files were changed.
+- The review artifact path existed and was updated.
+
+SCOPE CHECK
+- PR 0004 is now explicitly documentation-only.
+- The allowed files are limited to roadmap/docs and memory index updates.
+- Forbidden runtime/config/example/source paths are excluded.
+
+ROADMAP-ONLY CHECK
+- Pass: PLAN.md defines PR 0004 as docs/roadmap-only.
+- Pass: no implementation code, tests, configs, examples, or packaging changes are planned for PR 0004.
+
+ROADMAP CHECK
+- Pass: roadmap includes PR 0005, PR 0006, PR 0007, and later PRs.
+- Pass: roadmap uses future-tense language and high-level acceptance criteria.
+
+DOCKER ROADMAP CHECK
+- Pass: Docker is included only as future PR 0005 scope.
+- Pass: PR 0004 does not implement Docker.
+
+SONARCLOUD ROADMAP CHECK
+- Pass: SonarCloud is included only as future PR 0005 scope.
+- Pass: SonarCloud is described as quality visibility, not a release gate.
+
+GITHUB ACTIONS ROADMAP CHECK
+- Pass: GitHub Actions is included only as future PR 0005 scope.
+- Pass: PR 0004 does not create workflow files.
+
+UNIFIED ENTRYPOINT ROADMAP CHECK
+- Pass: unified entrypoint is included only as future PR 0006 scope.
+- Pass: PR 0004 does not implement entrypoint behavior.
+
+CONFIG DISCOVERY ROADMAP CHECK
+- Pass: config discovery/loading is included only as future PR 0006 scope.
+- Pass: PR 0004 does not implement config discovery.
+
+CONFIG VALIDATION DEFERRAL CHECK
+- Pass: config validation is deferred to PR 0007.
+- Pass: PR 0004 does not implement config validation.
+
+TEST POLICY CHECK
+- Pass: PLAN.md explicitly requires tests/checks for PR 0005, PR 0006, PR 0007, and later PRs.
+- Pass: the future test policy is centralized in the roadmap.
+
+RUNTIME DRIFT CHECK
+- Pass: no runtime/source/test/config/example changes are planned for PR 0004.
+- Pass: no implementation drift is present in the reviewed plan.
+
+BREMEN SAFETY CHECK
+- Pass: Bremen identity and decision-support posture are preserved.
+- Pass: no unsupported clinical replacement claims are introduced.
+
+VALIDATION STRATEGY CHECK
+- Pass: validation commands are present and appropriate for a docs-only roadmap PR.
+- Pass: the commands focus on roadmap content, forbidden-file absence, and tree hygiene.
+
+PLAN DRIFT GATE CHECK
+- Pass: Plan Drift Gate is present.
+- Pass: drift categories cover file drift, roadmap-only drift, sequencing, Docker/CI/SonarCloud, unified entrypoint, config discovery, config validation, runtime drift, test policy, validation, future scope, and blockers.
+
+DEFERRED CAPABILITIES CHECK
+- Pass: later PRs are described at high level only.
+- Pass: architecture docs are explicitly deferred.
+
+EVIDENCE COMPLETENESS CHECK
+- Pass: required source-of-truth files were read.
+- Pass: the plan’s claims are supported by the observed files.
+
+CLAIM-TO-EVIDENCE CONSISTENCY CHECK
+- Pass: claims in PLAN.md are consistent with the reviewed repository state and task constraints.
+
+DIRTY-TREE CHECK
+- Pass: no unexpected dirty-tree evidence was introduced by this review.
+- Observed state includes review artifacts under `.project-memory/pr/0004-roadmap-quality-docker-entrypoint/` as expected.
+
+BOUNDARY CONFIRMATIONS
+- confirm: no code written: yes
+- confirm: no tests written: yes
+- confirm: no Docker/CI/runtime implementation performed: yes
+- confirm: no source/runtime files modified: yes
+- confirm: no git mutation commands run: yes
+- confirm: review artifact written only: yes
