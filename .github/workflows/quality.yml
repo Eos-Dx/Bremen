@@ -55,19 +55,18 @@ jobs:
 
       - name: Verify private dependency imports
         run: |
-          python -c "
-import xrd_preprocessing
-import container
-from container.registry import VERSION_REGISTRY
-print('xrd_preprocessing import OK')
-print('container import OK')
-print('container supported versions:', sorted(VERSION_REGISTRY.keys()))
-assert '0_3' in VERSION_REGISTRY, 'VERSION_REGISTRY must contain 0_3'
-print('VERSION_REGISTRY contains 0_3: OK')
-"
+          python - <<'PY'
+          import xrd_preprocessing
+          import container
+          from container.registry import VERSION_REGISTRY
+          print("xrd_preprocessing import OK")
+          print("container import OK")
+          print("container supported versions:", sorted(VERSION_REGISTRY.keys()))
+          assert "0_3" in VERSION_REGISTRY, "VERSION_REGISTRY must contain 0_3"
+          print("VERSION_REGISTRY contains 0_3: OK")
+          PY
         env:
           GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=accept-new"
-
       - name: Compile check (src and tests)
         run: python -m compileall src tests
 
