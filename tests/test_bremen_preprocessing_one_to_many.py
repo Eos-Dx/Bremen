@@ -6,9 +6,9 @@ import joblib
 import pandas as pd
 import yaml
 
-from aramis.pipelines import AramisOneToManyPreprocessingPipeline
+from bremen.pipelines import BremenOneToManyPreprocessingPipeline
 
-from .synthetic_aramis_h5 import (
+from .synthetic_bremen_h5 import (
     ONE_TO_MANY_OUTPUT_COLUMNS,
     assert_common_output_contract,
     load_synthetic_config,
@@ -17,15 +17,15 @@ from .synthetic_aramis_h5 import (
 
 
 def test_one_to_many_pipeline_dataframe_and_joblib_contract(tmp_path: Path):
-    h5_path = tmp_path / "known_synthetic_aramis.h5"
-    config_path = tmp_path / "aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml"
-    joblib_path = tmp_path / "aramis_one_to_many_benign_cancer_dataframe.joblib"
+    h5_path = tmp_path / "known_synthetic_bremen.h5"
+    config_path = tmp_path / "bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml"
+    joblib_path = tmp_path / "bremen_one_to_many_benign_cancer_dataframe.joblib"
     config = load_synthetic_config("one_to_many_benign_cancer")
     config["raw_data"]["h5_dataset_candidates"]["npy"] = ["processed/data"]
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
     write_known_synthetic_h5(h5_path)
 
-    pipeline = AramisOneToManyPreprocessingPipeline(
+    pipeline = BremenOneToManyPreprocessingPipeline(
         config=config_path,
         output_joblib_path=joblib_path,
     )
@@ -54,17 +54,17 @@ def test_one_to_many_pipeline_dataframe_and_joblib_contract(tmp_path: Path):
 
 
 def test_one_to_many_biopsy_pipeline_keeps_only_biopsy_rows(tmp_path: Path):
-    h5_path = tmp_path / "known_synthetic_aramis.h5"
+    h5_path = tmp_path / "known_synthetic_bremen.h5"
     config_path = (
-        tmp_path / "aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml"
+        tmp_path / "bremen_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml"
     )
-    joblib_path = tmp_path / "aramis_one_to_many_benign_cancer_biopsy_dataframe.joblib"
+    joblib_path = tmp_path / "bremen_one_to_many_benign_cancer_biopsy_dataframe.joblib"
     config = load_synthetic_config("one_to_many_benign_cancer_biopsy")
     config["raw_data"]["h5_dataset_candidates"]["npy"] = ["processed/data"]
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
     write_known_synthetic_h5(h5_path)
 
-    pipeline = AramisOneToManyPreprocessingPipeline(
+    pipeline = BremenOneToManyPreprocessingPipeline(
         config=config_path,
         output_joblib_path=joblib_path,
     )

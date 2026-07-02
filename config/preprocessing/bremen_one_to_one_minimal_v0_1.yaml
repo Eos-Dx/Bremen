@@ -1,11 +1,11 @@
-extends: aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+extends: bremen_one_to_one_preprocessing_v0_1.yaml
 
 provenance:
   status: research draft compact preprocessing config
-  canonical_location: Aramis/config/preprocessing/aramis_one_to_many_benign_cancer_minimal_v0_1.yaml
+  canonical_location: config/preprocessing/bremen_one_to_one_minimal_v0_1.yaml
 
 io:
-  output_joblib_path: ../../examples/outputs/aramis_one_to_many_benign_cancer_minimal_dataframe.joblib
+  output_joblib_path: ../../examples/outputs/bremen_one_to_one_minimal_dataframe.joblib
 
 metadata:
   output_columns:
@@ -18,6 +18,8 @@ metadata:
     - specimen_status
     - product_status_group
     - product_diagnosis
+    - patient_product_diagnosis
+    - one_to_one_pair_type
     - age
     - biopsy
     - sample_thickness_mm

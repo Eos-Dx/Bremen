@@ -17,7 +17,7 @@ def _():
     import joblib
     from pathlib import Path
 
-    import aramis_product_notebook_helpers as helpers
+    import bremen_product_notebook_helpers as helpers
     from xrd_preprocessing import (
         AzimuthalIntegration,
         FaultyPixelDetector,

@@ -18,7 +18,7 @@ def _():
     import matplotlib.pyplot as plt
     import numpy as np
     import pandas as pd
-    from aramis.modeling import (
+    from bremen.modeling import (
         fit_repeated_fusion_logistic_models,
         fusion_ablation_feature_sets,
         load_one_to_many_dataframe,

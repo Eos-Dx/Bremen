@@ -5,8 +5,8 @@ import pandas as pd
 import pytest
 import yaml
 
-from aramis.__main__ import main
-from aramis.pipelines import (
+from bremen.__main__ import main
+from bremen.pipelines import (
     _config_path,
     _h5_filters,
     _measurement_filters,
@@ -17,7 +17,7 @@ from aramis.pipelines import (
     payload_columns_to_drop,
 )
 
-from .synthetic_aramis_h5 import load_synthetic_config, write_known_synthetic_h5
+from .synthetic_bremen_h5 import load_synthetic_config, write_known_synthetic_h5
 
 
 def test_payload_drop_columns_follow_metadata_config():
@@ -150,17 +150,17 @@ def test_config_path_resolves_absolute_relative_and_missing(tmp_path):
 def test_normalizer_and_branch_validation_errors():
     with pytest.raises(ValueError, match="Unknown normalization mode"):
         _normalizer_step({"mode": "bad"}, 6.7, 7.1)
-    with pytest.raises(ValueError, match="Unknown Aramis preprocessing branch"):
+    with pytest.raises(ValueError, match="Unknown Bremen preprocessing branch"):
         _validate_branch("bad")
 
 
 def test_preprocess_cli_reads_input_and_output_from_yaml(tmp_path):
-    h5_path = tmp_path / "known_synthetic_aramis.h5"
+    h5_path = tmp_path / "known_synthetic_bremen.h5"
     output_path = tmp_path / "out" / "one_to_many.joblib"
     config_path = tmp_path / "preprocess.yaml"
     config = load_synthetic_config("one_to_many_benign_cancer")
     config["io"] = {
-        "input_h5_path": "known_synthetic_aramis.h5",
+        "input_h5_path": "known_synthetic_bremen.h5",
         "output_joblib_path": "out/one_to_many.joblib",
     }
     config["raw_data"]["h5_dataset_candidates"]["npy"] = ["processed/data"]
@@ -177,7 +177,7 @@ def test_preprocess_cli_reads_input_and_output_from_yaml(tmp_path):
 
 
 def test_preprocess_cli_can_write_minimal_output_columns(tmp_path):
-    h5_path = tmp_path / "known_synthetic_aramis.h5"
+    h5_path = tmp_path / "known_synthetic_bremen.h5"
     output_path = tmp_path / "out" / "minimal.joblib"
     config_path = tmp_path / "preprocess_minimal.yaml"
     output_columns = [
@@ -189,7 +189,7 @@ def test_preprocess_cli_can_write_minimal_output_columns(tmp_path):
     ]
     config = load_synthetic_config("one_to_many_benign_cancer")
     config["io"] = {
-        "input_h5_path": "known_synthetic_aramis.h5",
+        "input_h5_path": "known_synthetic_bremen.h5",
         "output_joblib_path": "out/minimal.joblib",
     }
     config["metadata"]["output_columns"] = output_columns

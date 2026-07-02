@@ -6,7 +6,7 @@ Bremen and related EOS products are medical decision-support software.
 
 ## Historical Context
 
-This repository was derived from the Aramis project. Specific Aramis references remain in inherited source code, tests, configs, and examples. These are classified as legacy/source-material and will be renamed in future refactor PRs. See `docs/repository_cleanup.md` for the full classification.
+This repository was derived from the Aramis project. The initial identity cleanup (PR 0002) updated public identity surfaces. PR 0003 completed the alignment: the source package was renamed from `src/aramis/` to `src/bremen/`, imports were updated, tests were renamed, and configs/examples were aligned. The Aramis derivation is acknowledged here as historical context only.
 
 ## Regulatory Posture
 
@@ -202,9 +202,9 @@ replacement for biopsy/MRI/radiologist
 
 - Prefer repo-local reusable modules over notebook-only logic.
 - Keep notebooks thin.
-- Put reusable training, MLflow, filtering, and evaluation code in `src/aramis`.
+- Put reusable training, MLflow, filtering, and evaluation code in `src/bremen`.
 - Add tests for every reusable function.
 - Run `ruff check .` and `pytest -q` after code edits.
 - For marimo notebooks, also run `python -m marimo check <notebook.py>`.
 
-> **Note:** The `src/aramis` package path is inherited from the Aramis project. It will be renamed to `src/bremen` in a future refactor PR after CI and tests are in place.
+> **Note:** The package was renamed from `src/aramis` to `src/bremen` in PR 0003. All imports now use `bremen`.

@@ -3,7 +3,7 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "aramis"
+name = "bremen"
 version = "0.1.0"
 description = "Bremen — XRD-based ML decision-support product candidate. Derived from the Aramis project (cancer-classification product draft)."
 readme = "README.md"
@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.scripts]
-aramis = "aramis.__main__:main"
+bremen = "bremen.__main__:main"
 
 [project.optional-dependencies]
 dev = [
@@ -33,7 +33,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/aramis"]
+packages = ["src/bremen"]
 
 [tool.hatch.metadata]
 allow-direct-references = true

@@ -1,30 +1,22 @@
-# Aramis one-to-one preprocessing config.
-# Purpose: build a research-draft patientId-level paired-breast DataFrame for
-# symmetry/asymmetry modeling. This is not a trained classifier config.
-aramis_preprocessing:
-  name: aramis_one_to_one_preprocessing
+# Bremen one-to-many BENIGN/CANCER biopsy-only preprocessing config.
+# Purpose: stricter specimenId-level BENIGN/CANCER DataFrame containing only
+# breast specimens marked as biopsy-confirmed in H5 metadata.
+bremen_preprocessing:
+  name: bremen_one_to_many_benign_cancer_biopsy_preprocessing
   version: 0.1
-  product: Aramis
+  product: Bremen
   clinical_stage: research draft
-  branch: one_to_one
-  decision_unit: patientId
+  branch: one_to_many
+  decision_unit: specimenId
   row_unit: measurementId
   grouping_unit: specimenId
+  cohort: biopsy_only
 
-# Provenance links this concrete Aramis YAML to the reusable XRD-preprocessing
-# template and to the AgBH monochromaticity JSON that supplies accepted dates.
 provenance:
   status: research draft product preprocessing config
   template: XRD-preprocessing/src/xrd_preprocessing/configs/preprocessing_branch_config_template.yaml
-  agbh_config: Aramis/config/aramis_preprocessing_v0_1_config.json
-  canonical_location: Aramis/config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
-  used_by:
-  - Aramis/examples/aramis_dataframe_one_to_one_v0_1.py
-  - Aramis/src/aramis/pipelines.py
-  documentation:
-  - Aramis/config/README.md
-  - Aramis/docs/data_preprocessing.md
-  - Aramis/examples/README.md
+  agbh_config: config/aramis_preprocessing_v0_1_config.json
+  canonical_location: config/preprocessing/bremen_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
   clinical_safety_note: Research draft decision-support preprocessing only; not for
     autonomous diagnosis.
 xrd_preprocessing:
@@ -33,10 +25,8 @@ xrd_preprocessing:
 
 io:
   input_h5_path: ../../../data/combined_archive.h5
-  output_joblib_path: ../../examples/outputs/aramis_one_to_one_dataframe.joblib
+  output_joblib_path: ../../examples/outputs/bremen_one_to_many_benign_cancer_biopsy_dataframe.joblib
 
-# Product source policy. GFRM is mandatory for real product data at this stage;
-# NPY/TIFF are declared alternatives for controlled tests only.
 raw_data:
   source: gfrm
   location: h5_blob
@@ -56,17 +46,15 @@ raw_data:
     - raw_file
 metadata:
   keep: all
-  # true keeps joblib lightweight. Set false for debug/export builds that need
-  # all intermediate columns. Or keep selected payload/debug columns below.
   drop_payload_columns: true
   keep_payload_columns: []
 
-# H5-level filters run before GFRM loading. `quality_exclusions` is the runtime
-# rule. `accepted_dates` remains empty as legacy compatibility only.
+# Biopsy filter runs at H5 metadata level before GFRM loading and again as a
+# DataFrame safety filter after h5_to_df.
 filters:
   quality_exclusions:
     enabled: true
-    reason_doc: Aramis/docs/agbh_quality_exclusions.md
+    reason_doc: docs/agbh_quality_exclusions.md
     primary_key:
       column: linked_agbh_session_uid
       excluded_values:
@@ -143,6 +131,8 @@ filters:
   required_q_max_nm_inv: 23.0
   require_sample_thickness_mm: true
   require_calibrant_thickness_mm: true
+  require_biopsy: true
+  biopsy_column: biopsy
   calibrant_thickness_range_mm:
   - 10.0
   - 40.0
@@ -157,8 +147,6 @@ filters:
       min_mm: 10.0
       max_mm: 40.0
 
-# Label grouping is specimenId-level. Original specimen_status is preserved in
-# DataFrames; product labels are written to a separate grouped column.
 labels:
   grouping:
     BENIGN: BENIGN
@@ -168,34 +156,15 @@ labels:
     NORMAL: NORMAL
     NA: exclude
 
-# One-to-one branch rule: keep only informative left/right patient pairs.
-# Same-same pairs are excluded from the first symmetry-model dataset.
 branch_settings:
   specimen_status_keep:
   - BENIGN
   - CANCER
-  - NORMAL
   - ATYPICAL
   - PRE_CANCEROUS
-  patient_pair_keep:
-  - - BENIGN
-    - CANCER
-  - - BENIGN
-    - NORMAL
-  - - CANCER
-    - NORMAL
-  patient_pair_exclude:
-  - - BENIGN
-    - BENIGN
-  - - NORMAL
-    - NORMAL
-  - - CANCER
-    - CANCER
   min_measurements_per_specimen_after_snr: 1
-  min_specimens_per_patient_after_snr: 2
+  min_specimens_per_patient_after_snr: 1
 
-# Integration uses thickness correction. Sample and calibrant thickness columns
-# must match the H5-level filter columns above.
 integration:
   npt: 100
   q_range_nm_inv:
@@ -215,16 +184,12 @@ snr:
   method: poisson
   min_snr_db: 18.0
 
-# Normalize each radial profile by median value in 6.7..7.1 nm^-1.
-# This keeps the typical intensity in the normalization window equal to 1.
 normalization:
   mode: value
   statistic: median
   q_range_nm_inv:
   - 6.7
   - 7.1
-  # true creates radial_profile_data_raw before normalization. To keep it in
-  # final joblib, add radial_profile_data_raw to metadata.keep_payload_columns.
   save_initial_data: false
 profile_gate:
   q_nm_inv: 14.0

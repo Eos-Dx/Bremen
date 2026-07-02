@@ -1,0 +1,128 @@
+review:
+  artifact_written: yes
+  verdict: warning
+  blockers: []
+  warnings:
+    - "Active repository identity is now Bremen, but README/AGENTS still retain historical Aramis provenance notes and legacy config references as allowed deferred source-material."
+  validation:
+    - command: "python -m compileall src tests"
+      exit_code: 0
+      output: |
+        Listing 'src'...
+        Listing 'src/bremen'...
+        Listing 'tests'...
+        Listing 'tests/data'...
+    - command: "python -m pytest -q tests/test_bremen_import_identity.py"
+      exit_code: 0
+      output: |
+        10 passed in 0.01s
+    - command: "python -m pytest -q"
+      exit_code: 0
+      output: |
+        46 passed, 28 warnings in 4.26s
+    - command: "python - <<'PY' import xrd_preprocessing; import container; from container.registry import VERSION_REGISTRY; print('xrd_preprocessing import OK'); print('container import OK'); print('container supported versions:', sorted(VERSION_REGISTRY.keys())); assert '0_3' in VERSION_REGISTRY; PY"
+      exit_code: 0
+      output: |
+        xrd_preprocessing import OK
+        container import OK
+        container supported versions: ['0_1', '0_2', '0_3']
+  files_read:
+    - .project-memory/pr/0003-full-aramis-to-bremen-alignment/PLAN.md
+    - .project-memory/pr/0003-full-aramis-to-bremen-alignment/reviews/plan-review.yml
+    - .project-memory/project_contract.yml
+    - .project-memory/memory_index.yml
+    - README.md
+    - AGENTS.md
+    - pyproject.toml
+    - src/bremen/__init__.py
+    - src/bremen/__main__.py
+    - src/bremen/pipelines.py
+    - src/bremen/modeling.py
+    - src/bremen/mlflow_tracking.py
+    - tests/synthetic_bremen_h5.py
+    - tests/test_bremen_import_identity.py
+    - tests/test_bremen_preprocessing_one_to_one.py
+    - tests/test_bremen_preprocessing_one_to_many.py
+    - tests/test_bremen_pipeline_config.py
+    - tests/test_bremen_mlflow_tracking.py
+    - tests/test_bremen_modeling.py
+    - tests/test_bremen_real_h5_subset_reader.py
+    - config/README.md
+    - config/preprocessing/bremen_one_to_one_preprocessing_v0_1.yaml
+    - config/preprocessing/bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+    - config/preprocessing/bremen_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+    - config/preprocessing/bremen_one_to_one_minimal_v0_1.yaml
+    - config/preprocessing/bremen_one_to_many_benign_cancer_minimal_v0_1.yaml
+    - config/preprocessing/bremen_one_to_many_benign_cancer_biopsy_minimal_v0_1.yaml
+    - examples/README.md
+    - examples/bremen_dataframe_one_to_one_v0_1.py
+    - examples/bremen_dataframe_one_to_many_v0_1.py
+    - examples/bremen_one_to_many_logistic_baseline_v0_1.py
+    - examples/bremen_one_to_many_product_model_v0_1.py
+    - examples/bremen_final_experimental_model_v0_1.py
+    - examples/bremen_mlflow_draft.py
+    - examples/bremen_product_notebook_helpers.py
+    - examples/preprocess_all.sh
+    - examples/preprocess_one_to_one.sh
+    - examples/preprocess_one_to_many.sh
+    - examples/preprocess_one_to_many_biopsy.sh
+    - examples/preprocess_one_to_many_biopsy_minimal.sh
+    - examples/preprocess_one_to_many_minimal.sh
+    - docs/repository_cleanup.md
+    - docs/data_preprocessing.md
+    - docs/eosproduct_environment.md
+    - docs/machine_learning_concept.md
+    - docs/mlflow.md
+    - docs/agbh_quality_exclusions.md
+    - docs/product_development_rules.md
+  files_written:
+    - .project-memory/pr/0003-full-aramis-to-bremen-alignment/reviews/precommit-review.yml
+  evidence_written: []
+  snapshot_delta:
+    - "src/bremen exists"
+    - "src/aramis absent"
+    - "tests/test_bremen_import_identity.py present"
+    - "container.VERSION_REGISTRY includes 0_3"
+    - "compileall passed"
+    - "focused identity tests passed"
+    - "full pytest passed"
+  plan_drift_gate:
+    verdict: warning
+    file_drift: none
+    package_path_drift: none
+    import_drift: none
+    cli_drift: none
+    test_drift: none
+    config_example_drift: none
+    behavior_drift: none
+    ml_preprocessing_h5_joblib_drift: none
+    validation_drift: none
+    semantic_drift: none
+    future_scope_drift: none
+    aramis_reference_drift: allowed historical/provenance references only
+    bremen_safety_drift: none
+    accepted_deviations:
+      - "Historical Aramis references remain only in allowed provenance/context locations."
+    blockers: []
+  scope_check: pass
+  package_rename_check: pass
+  import_rename_check: pass
+  cli_entrypoint_check: pass
+  test_check: pass
+  config_example_check: pass
+  repository_identity_check: pass
+  aramis_reference_policy_check: pass
+  runtime_drift_check: pass
+  ml_preprocessing_h5_joblib_safety_check: pass
+  dependency_check: pass
+  autonomy_safety_check: pass
+  validation_completeness_check: pass
+  evidence_completeness_check: warning
+  claim_to_evidence_consistency_check: warning
+  diff_completeness_check: pass
+  dirty_tree_check: pass
+  boundary_confirmations:
+    - "No implementation files were edited by reviewer."
+    - "No git mutation commands were used."
+    - "No Docker commands were used."
+    - "No dependency installation was performed."

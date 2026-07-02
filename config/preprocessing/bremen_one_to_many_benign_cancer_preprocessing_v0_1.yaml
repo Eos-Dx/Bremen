@@ -1,9 +1,9 @@
 extends: preprocessing_branch_config_template.yaml
 
-aramis_preprocessing:
-  name: aramis_one_to_many_benign_cancer_preprocessing
+bremen_preprocessing:
+  name: bremen_one_to_many_benign_cancer_preprocessing
   version: 0.1
-  product: Aramis
+  product: Bremen
   clinical_stage: research draft
   branch: one_to_many
   decision_unit: specimenId
@@ -14,22 +14,21 @@ aramis_preprocessing:
 provenance:
   status: research draft product preprocessing config
   template: XRD-preprocessing/src/xrd_preprocessing/configs/preprocessing_branch_config_template.yaml
-  canonical_location: Aramis/config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
-  quality_exclusion_source: Aramis/config/aramis_preprocessing_v0_1_config.json
-  quality_exclusion_reason_doc: Aramis/docs/agbh_quality_exclusions.md
+  canonical_location: config/preprocessing/bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+  quality_exclusion_source: config/aramis_preprocessing_v0_1_config.json
+  quality_exclusion_reason_doc: docs/agbh_quality_exclusions.md
   used_by:
-    - Aramis/examples/aramis_dataframe_one_to_many_v0_1.py
-    - Aramis/src/aramis/pipelines.py
+    - src/bremen/pipelines.py
   clinical_safety_note: Research draft decision-support preprocessing only; not for autonomous diagnosis.
 
 io:
   input_h5_path: ../../../data/combined_archive.h5
-  output_joblib_path: ../../examples/outputs/aramis_one_to_many_benign_cancer_dataframe.joblib
+  output_joblib_path: ../../examples/outputs/bremen_one_to_many_benign_cancer_dataframe.joblib
 
 filters:
   quality_exclusions:
     enabled: true
-    reason_doc: Aramis/docs/agbh_quality_exclusions.md
+    reason_doc: docs/agbh_quality_exclusions.md
     primary_key:
       column: linked_agbh_session_uid
       excluded_values:

@@ -1,10 +1,15 @@
-# Aramis Data Preprocessing
+# Bremen Data Preprocessing
 
 Status: research draft.
 
-This document defines the current Aramis data-preprocessing contract for model
-development. Aramis output remains decision support: `p_cancer` and suggested
+This document defines the current Bremen data-preprocessing contract for model
+development. Bremen output remains decision support: `p_cancer` and suggested
 BENIGN/CANCER class, requiring radiologist / qualified clinician review.
+
+> **Note:** This document was originally authored as part of the Aramis project.
+> Active command paths, imports, and code references have been updated to Bremen.
+> Historical references to Aramis in dataset descriptions and clinical context
+> are preserved as source-material documentation.
 
 ## Identifier Levels
 
@@ -158,16 +163,16 @@ XRD-preprocessing H5ToDataFrameTransformer
   selected H5 session manifest -> decoded measurement DataFrame
   materializes only selected SAMPLE/SAMPLE rows
 
-Aramis/config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
-Aramis/config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
-Aramis/config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
-  concrete Aramis project preprocessing config
+Aramis/config/preprocessing/bremen_one_to_one_preprocessing_v0_1.yaml
+Aramis/config/preprocessing/bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+Aramis/config/preprocessing/bremen_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+  concrete Bremen project preprocessing config (inherited from Aramis)
   separate branch configs because one-to-one, standard one-to-many, and
   biopsy-only one-to-many use different cohort rules
 
-src/aramis/pipelines.py
-  AramisOneToOnePreprocessingPipeline(...).fit_transform(h5_path)
-  AramisOneToManyPreprocessingPipeline(...).fit_transform(h5_path)
+src/bremen/pipelines.py
+  BremenOneToOnePreprocessingPipeline(...).fit_transform(h5_path)
+  BremenOneToManyPreprocessingPipeline(...).fit_transform(h5_path)
   run_one_to_one_preprocessing_pipeline(...)
   run_one_to_many_preprocessing_pipeline(...)
 ```
@@ -199,9 +204,9 @@ Each pipeline returns the final DataFrame and can write the same DataFrame to a
 The intended product code is split into three command/config stages:
 
 ```text
-python -m aramis preprocess --config /path/to/preprocess.yaml
-python -m aramis training --config /path/to/training.yaml
-python -m aramis predict --config /path/to/predict.yaml
+python -m bremen preprocess --config /path/to/preprocess.yaml
+python -m bremen training --config /path/to/training.yaml
+python -m bremen predict --config /path/to/predict.yaml
 ```
 
 Current work covers the preprocessing stage. The preprocessing config must be
@@ -221,7 +226,7 @@ io.output_joblib_path
 The command receives only the config path:
 
 ```text
-python -m aramis preprocess --config Aramis/config/preprocessing/<branch>.yaml
+python -m bremen preprocess --config Bremen/config/preprocessing/<branch>.yaml
 ```
 
 Prediction draft input:
@@ -238,7 +243,7 @@ Synthetic tests use one known H5 container with both `raw/data` and
 `processed/data` 2D arrays:
 
 ```text
-tests/synthetic_aramis_h5.py
+tests/synthetic_bremen_h5.py
 ```
 
 Expected fixture behavior:
@@ -331,11 +336,11 @@ Two one-to-many preprocessing YAMLs are currently defined:
 
 ```text
 standard:
-  Aramis/config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+  Bremen/config/preprocessing/bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml
   no biopsy requirement
 
 biopsy-only:
-  Aramis/config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+  Bremen/config/preprocessing/bremen_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
   H5 measurementId/session level: require biopsy == true before GFRM loading
   DataFrame measurementId level: require biopsy == true as a safety check
 ```

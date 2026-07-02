@@ -111,12 +111,12 @@ H5 container
 Planned command-level product interface:
 
 ```text
-python -m aramis preprocess --config /path/to/preprocess.yaml
-python -m aramis training --config /path/to/training.yaml
-python -m aramis predict --config /path/to/predict.yaml
+python -m bremen preprocess --config /path/to/preprocess.yaml
+python -m bremen training --config /path/to/training.yaml
+python -m bremen predict --config /path/to/predict.yaml
 ```
 
-> **Note:** CLI entrypoints still use the inherited `aramis` package name. A coordinated rename to `bremen` is planned for a future refactor PR after CI and tests are in place.
+> **Note:** CLI entrypoints now use the `bremen` package name. The inherited `aramis` entrypoint is preserved as a backward-compatibility alias.
 
 `preprocess` config owns input H5 path, output DataFrame/joblib path, raw-data source, H5 quality exclusions, branch rules, and XRD preprocessing parameters.
 `training` config will own dataset paths, split logic, model family, MLflow tracking, and trained model output.
@@ -155,60 +155,60 @@ docs/data_preprocessing.md
 Preprocessing code split:
 
 ```text
-src/aramis/pipelines.py
+src/bremen/pipelines.py
   sklearn-style transformers:
-    AramisOneToOnePreprocessingPipeline(...).fit_transform(h5_path)
-    AramisOneToManyPreprocessingPipeline(...).fit_transform(h5_path)
+    BremenOneToOnePreprocessingPipeline(...).fit_transform(h5_path)
+    BremenOneToManyPreprocessingPipeline(...).fit_transform(h5_path)
   run_one_to_one_preprocessing_pipeline(...)
   run_one_to_many_preprocessing_pipeline(...)
   optional DataFrame joblib export
 ```
 
-> **Note:** The `src/aramis/` package and class names (`AramisOneToManyPreprocessingPipeline`, etc.) are inherited from the Aramis project and will be renamed in a future refactor PR.
+> **Note:** Classes were renamed from `Aramis*` to `Bremen*` as part of the full alignment.
 
 Synthetic regression tests:
 
 ```text
-tests/synthetic_aramis_h5.py
+tests/synthetic_bremen_h5.py
   one known H5 fixture with raw/data and processed/data 2D arrays
 
-tests/test_aramis_preprocessing_one_to_one.py
+tests/test_bremen_preprocessing_one_to_one.py
   checks one-to-one DataFrame fields and joblib roundtrip
 
-tests/test_aramis_preprocessing_one_to_many.py
+tests/test_bremen_preprocessing_one_to_many.py
   checks one-to-many DataFrame fields and joblib roundtrip
 ```
 
 Run real-H5 DataFrame examples:
 
 ```bash
-conda activate eosproduct
-cd /Users/sad/dev/Aramis
+conda activate bremen
+cd /Users/alexred/Projects/Bremen
 
-python -m aramis preprocess --config \
-  config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
+python -m bremen preprocess --config \
+  config/preprocessing/bremen_one_to_one_preprocessing_v0_1.yaml
 
-python -m aramis preprocess --config \
-  config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+python -m bremen preprocess --config \
+  config/preprocessing/bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml
 ```
 
-> **Note:** The examples above reference a legacy Aramis workspace path. Bremen development should use updated paths once the repository is fully migrated.
+> **Note:** The examples above reference the Bremen project path. The original Aramis workspace path was `cd /Users/sad/dev/Aramis` with old `aramis_*` config filenames.
 
 Interactive edit mode:
 
 ```bash
-python -m marimo edit examples/aramis_dataframe_one_to_one_v0_1.py -- \
-  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
+python -m marimo edit examples/bremen_dataframe_one_to_one_v0_1.py -- \
+  --bremen-preprocessing-config-path config/preprocessing/bremen_one_to_one_preprocessing_v0_1.yaml
 
-python -m marimo edit examples/aramis_dataframe_one_to_many_v0_1.py -- \
-  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+python -m marimo edit examples/bremen_dataframe_one_to_many_v0_1.py -- \
+  --bremen-preprocessing-config-path config/preprocessing/bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml
 
-python -m marimo edit examples/aramis_one_to_many_product_model_v0_1.py -- \
-  --standard-dataframe-joblib-path examples/outputs/aramis_one_to_many_benign_cancer_dataframe.joblib \
-  --biopsy-dataframe-joblib-path examples/outputs/aramis_one_to_many_benign_cancer_biopsy_dataframe.joblib
+python -m marimo edit examples/bremen_one_to_many_product_model_v0_1.py -- \
+  --standard-dataframe-joblib-path examples/outputs/bremen_one_to_many_benign_cancer_dataframe.joblib \
+  --biopsy-dataframe-joblib-path examples/outputs/bremen_one_to_many_benign_cancer_biopsy_dataframe.joblib
 ```
 
-Notebook behavior:
+> **Note:** Example notebooks and helper filenames have been renamed from `aramis_*` to `bremen_*` as part of the full package alignment.
 
 ```text
 default settings run automatically
@@ -220,15 +220,15 @@ joblib DataFrame export is the only default file output
 Default output:
 
 ```text
-examples/outputs/aramis_one_to_one_dataframe.joblib
-examples/outputs/aramis_one_to_many_benign_cancer_dataframe.joblib
+examples/outputs/bremen_one_to_one_dataframe.joblib
+examples/outputs/bremen_one_to_many_benign_cancer_dataframe.joblib
 ```
 
 Biopsy-only one-to-many output is produced by running the same one-to-many notebook with:
 
 ```text
-config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
-examples/outputs/aramis_one_to_many_benign_cancer_biopsy_dataframe.joblib
+config/preprocessing/bremen_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+examples/outputs/bremen_one_to_many_benign_cancer_biopsy_dataframe.joblib
 ```
 
 Input H5 and output joblib paths are owned by each preprocessing YAML under `io.input_h5_path` and `io.output_joblib_path`.
@@ -250,14 +250,14 @@ config/aramis_preprocessing_v0_1_config.json
   contains purpose/provenance/selection_contract
   YAML filters.quality_exclusions drives H5-level filtering before GFRM loading
 
-config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
+config/preprocessing/bremen_one_to_one_preprocessing_v0_1.yaml
   commented one-to-one branch preprocessing config
   decision unit: patientId
 
-config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+config/preprocessing/bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml
   commented standard one-to-many BENIGN/CANCER branch preprocessing config
 
-config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+config/preprocessing/bremen_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
   commented biopsy-only one-to-many BENIGN/CANCER branch preprocessing config
   decision unit: specimenId
 ```
@@ -280,7 +280,7 @@ Run draft notebook:
 ```bash
 conda env update -f environment.yml
 conda activate eosproduct
-marimo run examples/aramis_mlflow_draft.py
+marimo run examples/bremen_mlflow_draft.py
 ```
 
 Local MLflow UI:

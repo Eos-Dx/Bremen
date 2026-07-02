@@ -29,7 +29,7 @@ def _():
     if src_path.exists() and str(src_path) not in sys.path:
         sys.path.insert(0, str(src_path))
 
-    from aramis import DEFAULT_EXPERIMENT_NAME, build_run_name, log_product_run
+    from bremen import DEFAULT_EXPERIMENT_NAME, build_run_name, log_product_run
 
     return (
         DEFAULT_EXPERIMENT_NAME,
@@ -59,7 +59,7 @@ def _(mo, repo_root):
     dry_run_input = mo.ui.checkbox(label="dry run", value=True)
     mo.vstack(
         [
-            mo.md("# Aramis MLflow draft"),
+            mo.md("# Bremen MLflow draft"),
             mo.md(
                 """
                 This draft logs the full product run shape:
@@ -174,7 +174,7 @@ def _(DEFAULT_EXPERIMENT_NAME, build_run_name, repo_root):
         ],
     }
     product_filter_rules = {
-        "product": "Aramis",
+        "product": "Bremen",
         "task": "benign_vs_cancer",
         "positive_labels": ["CANCER", "PRE_CANCEROUS", "ATYPICAL"],
         "negative_labels": ["BENIGN", "NORMAL"],
@@ -186,7 +186,7 @@ def _(DEFAULT_EXPERIMENT_NAME, build_run_name, repo_root):
         "snr_threshold_db": 20.0,
     }
     experiment_name = DEFAULT_EXPERIMENT_NAME
-    run_name = build_run_name("Aramis")
+    run_name = build_run_name("Bremen")
     artifacts_dir = repo_root / "analysis" / run_name
     return (
         artifacts_dir,
@@ -217,7 +217,7 @@ def _(
         tracking_uri=tracking_uri,
         experiment_name=experiment_name,
         run_name=run_name,
-        product_name="Aramis",
+        product_name="Bremen",
         preprocessing_config=preprocessing_config,
         product_filter_rules=product_filter_rules,
         dataset_df=dataset_df,

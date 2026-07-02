@@ -1,4 +1,4 @@
-"""Command-line entrypoint for Aramis product workflows."""
+"""Command-line entrypoint for Bremen product workflows."""
 
 from __future__ import annotations
 
@@ -9,18 +9,18 @@ from .pipelines import run_preprocessing_from_config
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="aramis")
+    parser = argparse.ArgumentParser(prog="bremen")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     preprocess = subparsers.add_parser(
         "preprocess",
-        help="Build an Aramis preprocessing DataFrame from a YAML config.",
+        help="Build a Bremen preprocessing DataFrame from a YAML config.",
     )
     preprocess.add_argument(
         "--config",
         required=True,
         type=Path,
-        help="Path to Aramis preprocessing YAML.",
+        help="Path to Bremen preprocessing YAML.",
     )
 
     args = parser.parse_args(argv)

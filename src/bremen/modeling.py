@@ -1,4 +1,4 @@
-"""Modeling helpers for Aramis research-draft classifiers."""
+"""Modeling helpers for Bremen research-draft classifiers."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ LABEL_MAP = {"BENIGN": 0, "CANCER": 1}
 
 @dataclass(frozen=True)
 class RepeatedLogisticResult:
-    """Repeated patient-safe split result for a binary Aramis model."""
+    """Repeated patient-safe split result for a binary Bremen model."""
 
     predictions: pd.DataFrame
     split_metrics: pd.DataFrame
@@ -64,7 +64,7 @@ class OneToManyProductComparisonResult:
 
 @dataclass(frozen=True)
 class FusionModelComparisonResult:
-    """Repeated patient-safe comparison of Aramis fusion feature sets."""
+    """Repeated patient-safe comparison of Bremen fusion feature sets."""
 
     one_to_many_result: OneToManyProductLogisticResult
     feature_table: pd.DataFrame
@@ -442,7 +442,7 @@ def summarize_one_to_many_product_results(
 
 
 def default_fusion_feature_sets() -> dict[str, list[str]]:
-    """Return the first Aramis fusion feature-set ladder."""
+    """Return the first Bremen fusion feature-set ladder."""
     return {
         "M0_one_to_many_only": ["logit_p_cancer_one_to_many"],
         "M1_one_to_many_plus_symmetry": [
@@ -533,7 +533,7 @@ def build_fusion_feature_table(
     profile_column: str = "radial_profile_data",
     label_column: str = "product_status_group",
 ) -> pd.DataFrame:
-    """Build specimen-level static features for Aramis fusion experiments."""
+    """Build specimen-level static features for Bremen fusion experiments."""
     _require_columns(
         one_to_many_df,
         ["patientId", "specimenId", label_column, profile_column],

@@ -1,23 +1,23 @@
-"""MLflow helpers for Aramis research-draft preprocessing and model runs."""
+"""MLflow helpers for Bremen research-draft preprocessing and model runs."""
 
 from __future__ import annotations
 
 import hashlib
 import json
 import os
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import joblib
 import pandas as pd
 
-DEFAULT_EXPERIMENT_NAME = "Aramis"
+DEFAULT_EXPERIMENT_NAME = "Bremen"
 
 
-def build_run_name(product_name: str = "Aramis") -> str:
+def build_run_name(product_name: str = "Bremen") -> str:
     """Return a stable human-readable MLflow run name."""
-    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     return f"{product_name.lower()}_draft_{stamp}"
 
 
@@ -126,6 +126,6 @@ def log_product_run(
             model_path,
         ]:
             mlflow.log_artifact(str(path))
-        if os.environ.get("ARAMIS_LOG_MLFLOW_MODEL", "0") == "1":
+        if os.environ.get("BREMEN_LOG_MLFLOW_MODEL", "0") == "1":
             mlflow.sklearn.log_model(model, artifact_path="sklearn_model")
         return {**common, "mlflow_run_id": run.info.run_id}
