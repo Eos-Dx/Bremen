@@ -5,25 +5,28 @@ BLOCKERS:
 - None.
 
 WARNINGS:
-- Working tree is dirty with the new PR 0012 planning directory uncommitted; no implementation or git-mutation commands were run.
-- `git diff --name-only` and `git diff --stat` were empty because the reviewed PLAN.md is untracked new content; `git status --short` is the primary dirty-tree evidence.
+- Working tree is dirty with the planned PR 0012 files uncommitted; no implementation or git-mutation commands were run.
+- `git diff --name-only` and `git diff --stat` show tracked edits to ROADMAP.md and docs/architecture.md plus an untracked ADR-0007 file; this is expected for a planning PR but means the tree is not yet ready to merge.
 
 VALIDATION:
 - command: git rev-parse --verify HEAD
   exit code: 0
-  output: e41733888fb9d06740e868559514e6a1135fabfc
+  output: d0e72899590a871a5dd0c1d154ba6aef10a03c8c
 - command: git branch --show-current
   exit code: 0
   output: 0012-model-artifact-lifecycle-gates
+- command: test -f docs/adr/0001-bremen-product-identity.md && test -f docs/adr/0002-twin-product-document-separation.md && test -f docs/adr/0003-bremen-microservice-api-architecture.md && test -f docs/adr/0004-bremen-configuration-management-strategy.md && test -f docs/adr/0005-container-dependency-stabilization.md && test -f docs/adr/0006-multi-target-deployment-and-iac.md && test -f ROADMAP.md && test -f docs/architecture.md && grep -n "Decision Gate Register" ROADMAP.md && grep -n "G-API-1" ROADMAP.md && grep -n "G-API-2" ROADMAP.md && grep -n "G-INFRA-1" ROADMAP.md && grep -n "G-CFG-1" ROADMAP.md && grep -n "G-DEP-1" ROADMAP.md
+  exit code: 0
+  output: "5:No Platform Readiness Track. No Decision Gate Register. No hard calendar dates — use sequence and dependencies.\n50:## Decision Gate Register\n18:- PR-0012 — Model artifact lifecycle ADR + runtime deployment gate closure. ADR-0007 formalizes offline training, controlled package, runtime loading, S3 storage, and security boundaries. G-API-1, G-API-2, G-INFRA-1 closed as DECIDED.\n43:| PR 0019 | **API contract + microservice skeleton** — Delegated from ADR-0003. Creates `docs/api_contract.md` + non-functional stub routes. | Gates G-API-1 and G-API-2 explicitly closed first |\n54:| G-API-1 | Sync vs. async request/response | Date-bound (before PR 0019) | Async submit-then-poll | DECIDED | async submit → `job_id` → poll |\n55:| G-API-2 | AWS compute target (ECS Fargate vs. Lambda-container vs. EKS) | Date-bound (before PR 0019, PR 0022) | ECS Fargate | DECIDED | ECS Fargate |\n56:| G-CFG-1 | Build in-house vs. adopt existing config-management product | Date-bound (before PR 0024) | Not decided | OPEN | — |\n57:| G-DEP-1 | Container repo merges feat/v0_3 to main | Event-bound (external event) | Re-pin within 5 business days; re-verify VERSION_REGISTRY | OPEN | — |\n58:| G-INFRA-1 | Terraform vs. AWS CDK vs. CloudFormation | Date-bound (before PR 0022) | Terraform | DECIDED | Terraform |"
 - command: git status --short
   exit code: 0
-  output: "?? .project-memory/pr/0012-model-artifact-lifecycle-gates/"
+  output: " M ROADMAP.md\n M docs/architecture.md\n?? docs/adr/0007-model-artifact-lifecycle.md"
 - command: git diff --name-only
   exit code: 0
-  output: ""
+  output: "ROADMAP.md\ndocs/architecture.md"
 - command: git diff --stat
   exit code: 0
-  output: ""
+  output: "ROADMAP.md           | 19 ++++++++++++++++---\n docs/architecture.md | 41 +++++++++++++++++++++++++++++++++++++++++\n 2 files changed, 57 insertions(+), 3 deletions(-)"
 - command: grep -q "Should patient continue to MRI?" README.md && grep -q "Bremen Machine Learning Concept" docs/machine_learning_concept.md
   exit code: 0
   output: ""
@@ -32,7 +35,33 @@ VALIDATION:
   output: ""
 - command: grep -n "APRANA\|G-API-1\|G-API-2\|G-CFG-1\|G-DEP-1\|G-INFRA-1\|Status: DECIDED\|Status: OPEN\|docs/api_contract.md\|src/bremen/config.py\|CI\|Docker\|Terraform\|CDK\|CloudFormation\|IaC\|README.md\|docs/roadmap.md\|docs/machine_learning_concept.md\|docs/repository_cleanup.md\|agents/" .project-memory/pr/0012-model-artifact-lifecycle-gates/PLAN.md
   exit code: 0
-  output: "11:This PR extends ROADMAP.md and docs/architecture.md — it appends new sections without removing or rewriting existing PR 0011A content. It does not write implementation code, CI YAML, Terraform/CDK, or docs/api_contract.md content — those are delegated to future numbered PRs.\n25:grep -q \"Should patient continue to MRI?\" README.md\n26:grep -q \"Bremen Machine Learning Concept\" docs/machine_learning_concept.md\n41:4. **Multiple registry targets required**: Bremen currently publishes only to GHCR (PR 0007). AWS ECR and a platform referred to as \"APRANA\" (name UNVERIFIED — treat as placeholder) are required additional targets.\n50:- **PR 0011B** — Identity documentation cascade (README.md, docs/roadmap.md, docs/machine_learning_concept.md, docs/repository_cleanup.md) — merged.\n69:- `docs/api_contract.md` (delegated to future PR — not created here)\n70:- `src/bremen/config.py`, `config/**`, `requirements.txt`, `.github/workflows/quality.yml`, `Dockerfile` (read as evidence only — fixes delegated to future PRs)\n71:- `README.md`, `docs/roadmap.md`, `docs/machine_learning_concept.md`, `docs/repository_cleanup.md`, `docs/product_development_rules.md`, `AGENTS.md`\n74:- `agents/**`\n76:- Terraform/CDK/CloudFormation/IaC files\n86:- `src/bremen/config.py` — current discovery contract from PR 0009\n90:- `Dockerfile` — current GHCR-only build\n92:- `agents/architect.yml` — confirms write permissions for `docs/adr/**`, `ROADMAP.md`, `docs/architecture.md`\n99:**Reason**: All six implementation files are architect-reserved paths per `agents/architect.yml`: `docs/adr/**` (four new ADRs), `ROADMAP.md` (append), and `docs/architecture.md` (append). The coder role lacks write permission for these paths.\n110:  - `POST /predictions` — Submit target/control H5 references. Returns `job_id` or full result depending on Gate G-API-1 resolution.\n117:- This ADR does NOT create `docs/api_contract.md` — that is delegated to PR 0019.\n121:- **G-API-1**: Sync request/response vs. async submit-then-poll. Recommended default: async, because latency is uncharacterized.\n122:- **G-API-2**: AWS compute target (ECS Fargate vs. Lambda-container vs. EKS). Recommended default: ECS Fargate, reuses existing Dockerfile.\n132:- Config discovery is implemented in `src/bremen/config.py` with deterministic order: explicit path → `BREMEN_CONFIG` env → `bremen.yml` → `bremen.yaml` → `bremen.toml` → `ConfigNotFoundError`.\n139:- **Config editing surface**: EXPLICITLY DEFERRED (not designed here). Non-negotiable guardrails for when it is built:\n147:- **G-CFG-1**: Build in-house vs. adopt an existing config-management/feature-flag product. Not decided here.\n157:- The current safety net is the `VERSION_REGISTRY \"0_3\"` assertion in the CI workflow (`from container.registry import VERSION_REGISTRY; assert \"0_3\" in VERSION_REGISTRY`).\n161:- The container repo merging `feat/v0_3` to `main` is an EXTERNAL EVENT, not a schedulable date. Registered as event-triggered Decision Gate **G-DEP-1** in ROADMAP.md, not a calendar date.\n174:- No target referred to as \"APRANA\" exists or is configured.\n178:- **AWS ECR**: Add as a second registry target, with the same non-negotiable CI safety rules as GHCR:\n182:- **APRANA**: EXPLICITLY UNVERIFIED. Before any implementation PR touches it, a human must confirm the exact platform name, EOL timeline, and access model. This ADR records intent only and does not invent technical specifics. APRANA is explicitly deprioritized relative to AWS/ECR.\n183:- **IaC**: Required for whichever AWS resources ADR-0003 and ADR-0006 imply. Not written here.\n187:- **G-INFRA-1**: Terraform vs. AWS CDK vs. CloudFormation. Recommended default: Terraform, marked revisable.\n197:| PR 0019 | **API contract + microservice skeleton** — Delegated from ADR-0003. Creates `docs/api_contract.md` + non-functional stub routes. | Gates G-API-1 and G-API-2 explicitly closed first |\n198:| PR 0020 | **Cloud-aware config sourcing** — Delegated from ADR-0004. Extends `src/bremen/config.py` without breaking PR 0009 tests. | PR 0019 |\n199:| PR 0021 | **Container dependency hygiene** — Delegated from ADR-0005. Fixes `requirements.txt` local-path defect immediately (no dependency). Re-pin itself is separately event-triggered via G-DEP-1. | None |\n200:| PR 0022 | **IaC skeleton + ECR publish job** — Delegated from ADR-0006. | G-INFRA-1 and G-API-2 closed |\n201:| PR 0023 | **APRANA CI/CD publish job** — Delegated from ADR-0006. BLOCKED until platform name/access confirmed. No date until unblocked. | Platform name/access confirmed |\n202:| PR 0024 | **Config editing surface** — Delegated from ADR-0004. BLOCKED on G-CFG-1. Not date-bound. Scheduled only after Product Track's core classifier work (operator-convenience, not product-critical path). | G-CFG-1, Product Track core classifier |\n208:| G-API-1 | Sync vs. async request/response | Date-bound (before PR 0019) | Async submit-then-poll | OPEN | — |\n209:| G-API-2 | AWS compute target (ECS Fargate vs. Lambda-container vs. EKS) | Date-bound (before PR 0019, PR 0022) | ECS Fargate | OPEN | — |\n210:| G-CFG-1 | Build in-house vs. adopt existing config-management product | Date-bound (before PR 0024) | Not decided | OPEN | — |\n211:| G-DEP-1 | Container repo merges feat/v0_3 to main | Event-bound (external event) | Re-pin within 5 business days; re-verify VERSION_REGISTRY | OPEN | — |\n212:| G-INFRA-1 | Terraform vs. AWS CDK vs. CloudFormation | Date-bound (before PR 0022) | Terraform | OPEN | — |\n216:> Calendar dates in the Product Track may drift and that's expected. What's required is that any slip is recorded with a reason, and no PR silently absorbs scope from an open Decision Gate without that gate first being marked DECIDED.\n226:- AWS ECR (planned, PR 0022) — second registry target, same CI safety rules.\n227:- APRANA (planned, name unverified) — interim/EOL fallback, deprioritized relative to ECR.\n232:Restate the ADR-0003 endpoint sketch, labeled draft pending `docs/api_contract.md` (PR 0019):\n240:- Current state: static local YAML discovery via `src/bremen/config.py`, relative local paths, `extends:` chaining.\n242:- Deferred state: config editing surface (PR 0024), gated on G-CFG-1.\n249:- Event-triggered response plan: G-DEP-1; re-pin to main within 5 business days; re-verify VERSION_REGISTRY assertion.\n254:- No code, no CI YAML, no Terraform/CDK/CloudFormation files.\n255:- No `docs/api_contract.md` content (delegated to PR 0019).\n256:- No `src/bremen/config.py` changes (delegated to PR 0020).\n258:- No guessing APRANA's real technical details beyond the name as given (explicitly labelled unverified).\n284:# 5) APRANA marked as unverified\n285:grep -q "UNVERIFIED\|unverified\|EXPLICITLY UNVERIFIED\|placeholder" docs/adr/0006-multi-target-deployment-and-iac.md || exit 1\n295:for g in G-API-1 G-API-2 G-CFG-1 G-DEP-1 G-INFRA-1; do\n303:git diff --name-only -- README.md docs/roadmap.md docs/machine_learning_concept.md docs/repository_cleanup.md docs/product_development_rules.md src tests config examples .github Dockerfile requirements.txt pyproject.toml environment.yml Makefile AGENTS.md agents/ docs/api_contract.md\n327:- **PR 0022** — IaC skeleton + ECR publish job (delegated from ADR-0006)\n328:- **PR 0023** — APRANA CI/CD publish job (delegated from ADR-0006; blocked)\n337:| **ADR-0003 drift** | AWS microservice, minimum endpoint skeleton, mandatory response fields, no runtime training, G-API-1/G-API-2 OPEN. No docs/api_contract.md created. |\n338:| **ADR-0004 drift** | Context cites actual evidence (extends chains, relative paths, PR 0009 contract). Config versioning. Environment-aware sourcing deferred. Config editing surface deferred with guardrails. G-CFG-1 OPEN. |\n339:| **ADR-0005 drift** | Context cites feat/v0_3 pin, VERSION_REGISTRY assertion, local-path defect. G-DEP-1 event-triggered. Re-pin window documented. |\n340:| **ADR-0006 drift** | Context: GHCR exists, ECR/APRANA/IaC don't. ECR with same safety rules as GHCR. APRANA explicitly unverified. G-INFRA-1 OPEN. |\n345:| **Delegation drift** | No implementation content written in this PR (no CI YAML, no IaC, no config.py changes, no api_contract.md). Everything delegated to numbered future PRs. |\n353:- APRANA is stated as a confirmed platform name/technical detail (must be marked unverified).\n355:- PLAN.md includes `docs/api_contract.md`, `src/bremen/config.py`, CI, IaC, or any other delegated-implementation content directly.\n371:- All ADR 0001-0002, docs/api_contract.md, src/**, tests/**, config/**, examples/**\n372:- All infrastructure files (Docker, CI, SonarCloud, pyproject, env, Makefile)\n373:- README.md, docs/roadmap.md, docs/machine_learning_concept.md, docs/repository_cleanup.md, docs/product_development_rules.md, AGENTS.md\n374:- agents/**\n375:- Terraform/CDK/CloudFormation/IaC files\n379:- Containerized AWS microservice with API endpoints. Minimum skeleton: POST /predictions, GET /predictions/{id}, GET /health, GET /model/version. Mandatory response fields from project_contract.yml. No runtime training. G-API-1 (sync vs async), G-API-2 (compute target) OPEN.\n382:- Static YAML with extends chains and relative local paths. Config versioning required. Environment-aware sourcing deferred (must not break PR 0009 discovery order). Config editing surface deferred with guardrails. G-CFG-1 (build vs adopt) OPEN.\n385:- container pinned to feat/v0_3 feature branch. VERSION_REGISTRY assertion as safety net. requirements.txt local-path defect. G-DEP-1 event-triggered. Re-pin within 5 business days of feat/v0_3 → main.\n388:- GHCR exists. Add ECR with same safety rules. APRANA unverified/deprioritized. IaC required. G-INFRA-1 (Terraform vs CDK vs CF) OPEN.\n392:- Decision Gate Register: 5 gates (G-API-1, G-API-2, G-CFG-1, G-DEP-1, G-INFRA-1), all OPEN.\n402:11 checks: git state, changed files, precondition, heading count, APRANA unverified marker, Platform Readiness Track presence/absence, Decision Gate Register, all 5 gate IDs, Project Contract Invariant Inventory preservation, forbidden file changes, .DS_Store.\n427:- `src/bremen/config.py`\n431:- `Dockerfile`\n433:- `agents/architect.yml`\n442:- All infrastructure files (Docker, CI, SonarCloud, pyproject, env)\n444:- README.md, docs/roadmap.md, docs/machine_learning_concept.md, docs/repository_cleanup.md, AGENTS.md\n445:- agents/**\n447:- Terraform/CDK/CloudFormation/IaC files\n453:- confirm: no docs/api_contract.md, config.py, CI, IaC content planned directly — all delegated: yes\n454:- confirm: APRANA marked unverified throughout: yes"
+  output: "11:This PR extends ROADMAP.md and docs/architecture.md — it appends new sections without removing or rewriting existing PR 0011A content. It does not write implementation code, CI YAML, Terraform/CDK, or docs/api_contract.md content — those are delegated to future numbered PRs.\n25:grep -q \"Should patient continue to MRI?\" README.md\n26:grep -q \"Bremen Machine Learning Concept\" docs/machine_learning_concept.md\n41:4. **Multiple registry targets required**: Bremen currently publishes only to GHCR (PR 0007). AWS ECR and a platform referred to as \"APRANA\" (name UNVERIFIED — treat as placeholder) are required additional targets.\n50:- **PR 0011B** — Identity documentation cascade (README.md, docs/roadmap.md, docs/machine_learning_concept.md, docs/repository_cleanup.md) — merged.\n69:- `docs/api_contract.md` (delegated to future PR — not created here)\n70:- `src/bremen/config.py`, `config/**`, `requirements.txt`, `.github/workflows/quality.yml`, `Dockerfile` (read as evidence only — fixes delegated to future PRs)\n71:- `README.md`, `docs/roadmap.md`, `docs/machine_learning_concept.md`, `docs/repository_cleanup.md`, `docs/product_development_rules.md`, `AGENTS.md`\n74:- `agents/**`\n76:- Terraform/CDK/CloudFormation/IaC files\n86:- `src/bremen/config.py` — current discovery contract from PR 0009\n90:- `Dockerfile` — current GHCR-only build\n92:- `agents/architect.yml` — confirms write permissions for `docs/adr/**`, `ROADMAP.md`, `docs/architecture.md`\n99:**Reason**: All three implementation files are architect-reserved paths per `agents/architect.yml`: `docs/adr/**` (ADR-0007), `ROADMAP.md` (edit), and `docs/architecture.md` (edit).\n110:  - `POST /predictions` — Submit target/control H5 references. Returns `job_id` or full result depending on Gate G-API-1 resolution.\n117:- This ADR does NOT create `docs/api_contract.md` — that is delegated to PR 0019.\n121:- **G-API-1**: Sync request/response vs. async submit-then-poll. Recommended default: async, because latency is uncharacterized.\n122:- **G-API-2**: AWS compute target (ECS Fargate vs. Lambda-container vs. EKS). Recommended default: ECS Fargate, reuses existing Dockerfile.\n132:- Config discovery is implemented in `src/bremen/config.py` with deterministic order: explicit path → `BREMEN_CONFIG` env → `bremen.yml` → `bremen.yaml` → `bremen.toml` → `ConfigNotFoundError`.\n139:- **Config editing surface**: EXPLICITLY DEFERRED (not designed here). Non-negotiable guardrails for when it is built:\n147:- **G-CFG-1**: Build in-house vs. adopt an existing config-management/feature-flag product. Not decided here.\n157:- The current safety net is the `VERSION_REGISTRY \"0_3\"` assertion in the CI workflow (`from container.registry import VERSION_REGISTRY; assert \"0_3\" in VERSION_REGISTRY`).\n161:- The container repo merging `feat/v0_3` to `main` is an EXTERNAL EVENT, not a schedulable date. Registered as event-triggered Decision Gate **G-DEP-1** in ROADMAP.md, not a calendar date.\n174:- No target referred to as \"APRANA\" exists or is configured.\n178:- **AWS ECR**: Add as a second registry target, with the same non-negotiable CI safety rules as GHCR:\n182:- **APRANA**: EXPLICITLY UNVERIFIED. Before any implementation PR touches it, a human must confirm the exact platform name, EOL timeline, and access model. This ADR records intent only and does not invent technical specifics. APRANA is explicitly deprioritized relative to AWS/ECR.\n183:- **IaC**: Required for whichever AWS resources ADR-0003 and ADR-0006 imply. Not written here.\n187:- **G-INFRA-1**: Terraform vs. AWS CDK vs. CloudFormation. Recommended default: Terraform, marked revisable.\n197:| PR 0019 | **API contract + microservice skeleton** — Delegated from ADR-0003. Creates `docs/api_contract.md` + non-functional stub routes. | Gates G-API-1 and G-API-2 explicitly closed first |\n198:| PR 0020 | **Cloud-aware config sourcing** — Delegated from ADR-0004. Extends `src/bremen/config.py` without breaking PR 0009 tests. | PR 0019 |\n199:| PR 0021 | **Container dependency hygiene** — Delegated from ADR-0005. Fixes `requirements.txt` local-path defect immediately (no dependency). Re-pin itself is separately event-triggered via G-DEP-1. | None |\n200:| PR 0022 | **IaC skeleton + ECR publish job** — Delegated from ADR-0006. | G-INFRA-1 and G-API-2 closed |\n201:| PR 0023 | **APRANA CI/CD publish job** — Delegated from ADR-0006. BLOCKED until platform name/access confirmed. No date until unblocked. | Platform name/access confirmed |\n202:| PR 0024 | **Config editing surface** — Delegated from ADR-0004. BLOCKED on G-CFG-1. Not date-bound. Scheduled only after Product Track's core classifier work (operator-convenience, not product-critical path). | G-CFG-1, Product Track core classifier |\n208:| G-API-1 | Sync vs. async request/response | Date-bound (before PR 0019) | Async submit-then-poll | DECIDED | async submit → `job_id` → poll |\n209:| G-API-2 | AWS compute target (ECS Fargate vs. Lambda-container vs. EKS) | Date-bound (before PR 0019, PR 0022) | ECS Fargate | DECIDED | ECS Fargate |\n210:| G-CFG-1 | Build in-house vs. adopt existing config-management product | Date-bound (before PR 0024) | Not decided | OPEN | — |\n211:| G-DEP-1 | Container repo merges feat/v0_3 to main | Event-bound (external event) | Re-pin within 5 business days; re-verify VERSION_REGISTRY | OPEN | — |\n212:| G-INFRA-1 | Terraform vs. AWS CDK vs. CloudFormation | Date-bound (before PR 0022) | Terraform | DECIDED | Terraform |\n216:> Calendar dates in the Product Track may drift and that's expected. What's required is that any slip is recorded with a reason, and no PR silently absorbs scope from an open Decision Gate without that gate first being marked DECIDED.\n226:- AWS ECR (planned, PR 0022) — second registry target, same CI safety rules.\n227:- APRANA (planned, name unverified) — interim/EOL fallback, deprioritized relative to ECR.\n232:Restate the ADR-0003 endpoint sketch, labeled draft pending `docs/api_contract.md` (PR 0019):\n240:- Current state: static local YAML discovery via `src/bremen/config.py`, relative local paths, `extends:` chaining.\n242:- Deferred state: config editing surface (PR 0024), gated on G-CFG-1.\n249:- Event-triggered response plan: G-DEP-1; re-pin to main within 5 business days; re-verify VERSION_REGISTRY assertion.\n254:- No code, no CI YAML, no Terraform/CDK/CloudFormation files.\n255:- No `docs/api_contract.md` content (delegated to PR 0019).\n256:- No `src/bremen/config.py` changes (delegated to PR 0020).\n258:- No guessing APRANA's real technical details beyond the name as given (explicitly labelled unverified).\n284:# 5) APRANA marked as unverified\n285:grep -q "UNVERIFIED\|unverified\|EXPLICITLY UNVERIFIED\|placeholder" docs/adr/0006-multi-target-deployment-and-iac.md || exit 1\n295:for g in G-API-1 G-API-2 G-CFG-1 G-DEP-1 G-INFRA-1; do\n303:git diff --name-only -- README.md docs/roadmap.md docs/machine_learning_concept.md docs/repository_cleanup.md docs/product_development_rules.md src tests config examples .github Dockerfile requirements.txt pyproject.toml environment.yml Makefile AGENTS.md agents/ docs/api_contract.md\n327:- **PR 0022** — IaC skeleton + ECR publish job (delegated from ADR-0006)\n328:- **PR 0023** — APRANA CI/CD publish job (delegated from ADR-0006; blocked)\n337:| **ADR-0003 drift** | AWS microservice, minimum endpoint skeleton, mandatory response fields, no runtime training, G-API-1/G-API-2 OPEN. No docs/api_contract.md created. |
+338:| **ADR-0004 drift** | Context cites actual evidence (extends chains, relative paths, PR 0009 contract). Config versioning. Environment-aware sourcing deferred. Config editing surface deferred with guardrails. G-CFG-1 OPEN. |
+339:| **ADR-0005 drift** | Context cites feat/v0_3 pin, VERSION_REGISTRY assertion, local-path defect. G-DEP-1 event-triggered. Re-pin window documented. |
+340:| **ADR-0006 drift** | Context: GHCR exists, ECR/APRANA/IaC don't. ECR with same safety rules as GHCR. APRANA explicitly unverified. G-INFRA-1 OPEN. |
+345:| **Delegation drift** | No implementation content written in this PR (no CI YAML, no IaC, no config.py changes, no api_contract.md). Everything delegated to numbered future PRs. |
+353:- APRANA is stated as a confirmed platform name/technical detail (must be marked unverified).
+355:- PLAN.md includes `docs/api_contract.md`, `src/bremen/config.py`, CI, IaC, or any other delegated-implementation content directly.
+371:- All ADR 0001-0002, docs/api_contract.md, src/**, tests/**, config/**, examples/**
+372:- All infrastructure files (Docker, CI, SonarCloud, pyproject, env, Makefile)
+373:- README.md, docs/roadmap.md, docs/machine_learning_concept.md, docs/repository_cleanup.md, docs/product_development_rules.md, AGENTS.md
+374:- agents/**
+375:- Terraform/CDK/CloudFormation/IaC files
+379:- Containerized AWS microservice with API endpoints. Minimum skeleton: POST /predictions, GET /predictions/{id}, GET /health, GET /model/version. Mandatory response fields from project_contract.yml. No runtime training. G-API-1 (sync vs async), G-API-2 (compute target) OPEN.
+382:- Static YAML with extends chains and relative local paths. Config versioning required. Environment-aware sourcing deferred (must not break PR 0009 discovery order). Config editing surface deferred with guardrails. G-CFG-1 (build vs adopt) OPEN.
+385:- container pinned to feat/v0_3 feature branch. VERSION_REGISTRY assertion as safety net. requirements.txt local-path defect. G-DEP-1 event-triggered. Re-pin within 5 business days of feat/v0_3 → main.
+388:- GHCR exists. Add ECR with same safety rules. APRANA unverified/deprioritized. IaC required. G-INFRA-1 (Terraform vs CDK vs CF) OPEN.
+392:- Decision Gate Register: 5 gates (G-API-1, G-API-2, G-CFG-1, G-DEP-1, G-INFRA-1), all OPEN.
+402:11 checks: git state, changed files, precondition, heading count, APRANA unverified marker, Platform Readiness Track presence/absence, Decision Gate Register, all 5 gate IDs, Project Contract Invariant Inventory preservation, forbidden file changes, .DS_Store.
+427:- `src/bremen/config.py`
+431:- `Dockerfile`
+433:- `agents/architect.yml`
+442:- All infrastructure files (Docker, CI, SonarCloud, pyproject, env)
+444:- README.md, docs/roadmap.md, docs/machine_learning_concept.md, docs/repository_cleanup.md, AGENTS.md
+445:- agents/**
+447:- Terraform/CDK/CloudFormation/IaC files
+453:- confirm: no docs/api_contract.md, config.py, CI, IaC content planned directly — all delegated: yes
+454:- confirm: APRANA marked unverified throughout: yes"
 - command: git diff --name-only -- src tests config examples .github Dockerfile .dockerignore requirements.txt pyproject.toml sonar-project.properties environment.yml Makefile docs/api_contract.md
   exit code: 0
   output: ""
@@ -45,12 +74,10 @@ VALIDATION:
 
 FILES READ:
 - .project-memory/pr/0012-model-artifact-lifecycle-gates/PLAN.md
+- docs/adr/0003-bremen-microservice-api-architecture.md
+- docs/adr/0006-multi-target-deployment-and-iac.md
 - ROADMAP.md
 - docs/architecture.md
-- docs/adr/0003-bremen-microservice-api-architecture.md
-- docs/adr/0004-bremen-configuration-management-strategy.md
-- docs/adr/0005-container-dependency-stabilization.md
-- docs/adr/0006-multi-target-deployment-and-iac.md
 - .project-memory/project_contract.yml
 - AGENTS.md
 
@@ -60,35 +87,51 @@ FILES WRITTEN:
 PLAN SCOPE CHECK:
 - pass: PLAN.md limits implementation to docs/adr/0007-model-artifact-lifecycle.md, ROADMAP.md, and docs/architecture.md.
 
-HUMAN DECISION CHECK:
-- pass: G-API-1 = DECIDED async submit → job_id → poll; G-API-2 = DECIDED ECS Fargate; G-INFRA-1 = DECIDED Terraform; model artifact strategy is a separate controlled checksum-verified package; joblib is offline-only; first model artifact store is S3 versioned bucket.
+PRECONDITION CHECK:
+- pass: all required ADR 0001-0006, ROADMAP.md, and docs/architecture.md files exist; ROADMAP.md contains the Decision Gate Register with G-API-1/G-API-2/G-INFRA-1/G-CFG-1/G-DEP-1 rows.
 
-ADR-0007 CHECK:
-- pass: PLAN.md requires offline training pipeline, runtime never trains, separate release cycles for app image and model package, controlled package contents, checksum-verified loading, feature-schema compatibility checks, fail-closed validation, and required prediction response fields.
+ADR-0007 CONTENT CHECK:
+- pass: ADR-0007 is planned as a controlled model artifact lifecycle doc with offline training, separate package storage, runtime loading, security boundaries, and prediction-response fields.
 
-JOBLIB SECURITY CHECK:
-- pass: PLAN.md includes the required `joblib.load()` pickle/arbitrary-code-execution warning, training-pipeline trust boundary, checksum-manifest access separation, and read/write separation.
+SECURITY NOTE CHECK:
+- pass: PLAN.md explicitly requires checksum at the training-pipeline trust boundary and separate checksum-manifest write access from model-artifact read access.
 
-GATE CLOSURE PATTERN CHECK:
-- pass: ROADMAP.md is required to set G-API-1/G-API-2/G-INFRA-1 to DECIDED, add Decided by/date, and keep G-CFG-1/G-DEP-1 OPEN.
+GATE CLOSURE FORMAT CHECK:
+- G-API-1: Status DECIDED; Decided value present (`async submit → job_id → poll`); Decided-by/date present in the closed-gate details table.
+- G-API-2: Status DECIDED; Decided value present (`ECS Fargate`); Decided-by/date present.
+- G-INFRA-1: Status DECIDED; Decided value present (`Terraform`); Decided-by/date present.
+- G-CFG-1: Status OPEN and untouched.
+- G-DEP-1: Status OPEN and untouched.
 
-ROADMAP NUMBERING CHECK:
-- pass: PLAN.md explicitly says Product Track sequence positions are ordering, not PR identifiers, and that PR 0019–0024 are not renumbered.
+NO-RENUMBER CHECK:
+- pass: PLAN.md preserves Product Track item numbering 1–12 and Platform Readiness Track PR 0019–0024; it adds only ordering/clarification text.
 
-ARCHITECTURE WORKFLOW CHECK:
-- pass: PLAN.md requires offline model artifact lifecycle, online prediction runtime workflow, AWS defaults (async submit→job_id→poll, ECS Fargate, Terraform, ECR, S3 versioned bucket), and the Matador→Bremen async workflow chain.
+ADDITIVE-ONLY CHECK:
+- pass: PLAN.md requires append-only/minimal edits and explicitly says existing PR 0011A content is not removed or rewritten.
 
-BOUNDARY CHECK:
-- pass: PLAN.md forbids source, tests, CI, Docker, Terraform/IaC, docs/api_contract.md, model artifacts, H5/HDF5, config/preprocessing, and runtime-training changes.
+DELEGATION CHECK:
+- pass: Terraform/CI/Docker/config/API-contract/model-publication implementation is delegated to future PRs; no direct implementation content is planned.
 
-VALIDATION CHECKLIST CHECK:
-- pass: PLAN.md includes the required git/branch/status/diff checks, file existence checks, forbidden-path diff check, joblib.load security text checks, gate closure checks, numbering checks, architecture checks, and H5/.DS_Store checks.
+IMPLEMENTATION AGENT CHECK:
+- pass: implementation phase is explicitly Agent: architect, Mode: WRITE.
 
-PROCESS RULES CHECK:
-- pass: first validation commands were git rev-parse --verify HEAD and git branch --show-current; branch matched 0012-model-artifact-lifecycle-gates.
+CONSISTENCY WITH PROJECT_CONTRACT.YML CHECK:
+- pass: planned model package fields match the existing invariant names 1:1 (`prediction_id`, `model_version`, `model_checksum`, `feature_schema_version`, threshold version/value, `qc_status`, `qc_flags`).
+
+CLINICAL CLAIMS CHECK:
+- pass: no new clinical validation or diagnostic-replacement claims are introduced in the plan.
+
+NO-IMPLEMENTATION CHECK:
+- pass: planning-only review; no implementation files modified.
+
+VALIDATION CHECK:
+- pass: required static/read-only checks were run; no tests, Docker, or git mutation commands were run.
+
+ROLLBACK CHECK:
+- pass: PLAN.md includes independent rollback steps for ADR-0007, ROADMAP.md, and docs/architecture.md.
 
 COMMIT READINESS:
-- ready to commit planning artifacts: yes
+- ready to commit: yes
 - required files to stage: .project-memory/pr/0012-model-artifact-lifecycle-gates/PLAN.md AND .project-memory/pr/0012-model-artifact-lifecycle-gates/reviews/plan-review.yml TOGETHER, in the same single commit
 - files to exclude: none from this pair
 
