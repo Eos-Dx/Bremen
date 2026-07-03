@@ -1,0 +1,185 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: warning
+
+BLOCKERS
+- None.
+
+WARNINGS
+- `terraform fmt -check -recursive infra/terraform/` passed, and `terraform init -backend=false` / `terraform validate` passed only in a temporary copy outside the repo. The temporary init created a lock file in the temp directory as expected; no repo state was modified.
+- `infra/terraform/README.md` correctly states that agents must not run `terraform apply` or `terraform destroy`, but the skeleton is intentionally not production-ready and has no load balancer yet.
+- The repository still contains an existing H5 fixture at `./tests/data/aramis_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR.
+
+VALIDATION
+- `git rev-parse --verify HEAD` ✅ `450f25ff753c3f32a5ab25c4cfd307ac7125e11a` on branch `0022a-terraform-skeleton`
+- `git branch --show-current` ✅ `0022a-terraform-skeleton`
+- `git status --short` ✅ untracked `.project-memory/pr/0022a-terraform-skeleton/` and `infra/`
+- `git diff --name-only` ✅ no tracked diff output
+- `git diff --stat` ✅ no tracked diff output
+- `test -f infra/terraform/main.tf` ✅
+- `test -f infra/terraform/variables.tf` ✅
+- `test -f infra/terraform/outputs.tf` ✅
+- `test -f infra/terraform/ecr.tf` ✅
+- `test -f infra/terraform/s3.tf` ✅
+- `test -f infra/terraform/ecs.tf` ✅
+- `test -f infra/terraform/iam.tf` ✅
+- `test -f infra/terraform/README.md` ✅
+- `terraform fmt -check -recursive infra/terraform/` ✅
+- `terraform -chdir="$tmpdir/terraform" init -backend=false` ✅ in temp copy
+- `terraform -chdir="$tmpdir/terraform" validate` ✅ in temp copy
+- `grep -R -I -n "ecr:GetAuthorizationToken" infra/terraform/iam.tf` ✅ present
+- `grep -R -I -n "AWS-required" infra/terraform/iam.tf` ✅ present
+- `grep -R -I -n "ecr:BatchGetImage" infra/terraform/iam.tf` ✅ present
+- `grep -R -I -n "ecr:GetDownloadUrlForLayer" infra/terraform/iam.tf` ✅ present
+- `grep -R -I -n "ecr:BatchCheckLayerAvailability" infra/terraform/iam.tf` ✅ present
+- `grep -R -I -n "s3:GetObject" infra/terraform/iam.tf` ✅ present
+- `grep -R -I -n "logs:CreateLogStream" infra/terraform/iam.tf` ✅ present
+- `grep -R -I -n "logs:PutLogEvents" infra/terraform/iam.tf` ✅ present
+- `grep -R -I -n "s3:PutObject\|s3:DeleteObject\|AdministratorAccess\|AmazonECSTaskExecutionRolePolicy" infra/terraform/iam.tf` ✅ no output
+- `grep -R -I -n "block_public_acls\|block_public_policy\|ignore_public_acls\|restrict_public_buckets" infra/terraform/s3.tf` ✅ present
+- `grep -R -I -n "versioning" infra/terraform/s3.tf` ✅ present
+- `grep -R -I -n "aws_ecr_repository" infra/terraform/ecr.tf` ✅ present
+- `grep -R -I -n "aws_ecs_cluster\|aws_ecs_service\|aws_ecs_task_definition" infra/terraform/ecs.tf` ✅ present
+- `grep -R -I -n "desired_count" infra/terraform/ecs.tf infra/terraform/variables.tf` ✅ present
+- `grep -R -I -n "default *= *0" infra/terraform/variables.tf` ✅ present
+- `grep -R -I -n "AKIA\|aws_access_key\|aws_secret_access_key\|BEGIN RSA\|private_key" infra/terraform/` ✅ no output
+- `grep -R -I -n "APRANA\|aprana" infra/terraform/` ✅ no output
+- `find infra/terraform -name "*.tfstate*" -o -name ".terraform" -type d` ✅ no committed state/backend artifacts
+- `git diff --name-only -- .github README.md docs docs/adr ROADMAP.md docs/architecture.md src tests config examples Dockerfile .dockerignore requirements.txt pyproject.toml environment.yml Makefile agents` ✅ no output
+- `find . -name ".DS_Store" -print` ✅ no output
+- `date -u +%Y-%m-%dT%H:%M:%SZ` ✅ `2026-07-03T18:06:25Z`
+
+FILES READ
+- .project-memory/pr/0022a-terraform-skeleton/PLAN.md
+- .project-memory/pr/0022a-terraform-skeleton/reviews/plan-review.yml
+- infra/terraform/main.tf
+- infra/terraform/variables.tf
+- infra/terraform/outputs.tf
+- infra/terraform/ecr.tf
+- infra/terraform/s3.tf
+- infra/terraform/ecs.tf
+- infra/terraform/iam.tf
+- infra/terraform/README.md
+- docs/adr/0006-multi-target-deployment-and-iac.md
+- docs/adr/0007-model-artifact-lifecycle.md
+- ROADMAP.md
+- docs/architecture.md
+- docs/api_contract.md
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN
+- .project-memory/pr/0022a-terraform-skeleton/reviews/precommit-review.yml
+
+SNAPSHOT DELTA
+- Added 8 Terraform skeleton files under `infra/terraform/`
+- Added this review artifact
+- No tracked repository files were modified during review
+
+SCOPE CHECK
+- pass: exactly the 8 allowed Terraform files are present as new files
+- pass: no .github/CI workflow, docs/source/tests, requirements/pyproject, Docker/config/examples/agents, or IaC state artifacts were changed
+
+TERRAFORM FILE CHECK
+- pass: all 8 required Terraform files exist
+- pass: `main.tf` has AWS provider and no backend block
+- pass: `variables.tf` includes required variables and `desired_count` default 0
+- pass: `outputs.tf` exposes the expected downstream outputs
+
+MAIN / PROVIDER CHECK
+- pass: AWS provider is configured from `var.aws_region`
+- pass: no backend block is present in `main.tf`
+- pass: no hardcoded credentials or account IDs observed
+
+VARIABLES CHECK
+- pass: required variables are present with descriptions
+- pass: `desired_count` default is 0
+- pass: no secret values or local machine paths observed
+
+ECR CHECK
+- pass: `aws_ecr_repository` exists
+- pass: image scanning on push is enabled
+- pass: tag mutability is MUTABLE as documented
+
+S3 SAFETY CHECK
+- pass: versioning enabled
+- pass: server-side encryption enabled
+- pass: public access block present with all four settings true
+- pass: no public bucket policy or write/delete permissions observed
+
+ECS / FARGATE CHECK
+- pass: ECS cluster, task definition, and service exist
+- pass: Fargate and awsvpc are configured
+- pass: awslogs logging is configured
+- pass: desired_count is variable-driven and defaults to 0
+- pass: model bucket/prefix/version env vars are present
+- warning: no load balancer is configured, which is acceptable for this skeleton
+
+IAM LEAST-PRIVILEGE CHECK
+- pass: execution role and task role exist
+- pass: `ecr:GetAuthorizationToken` wildcard Resource exception is documented and limited
+- pass: ECR pull actions are repo-scoped
+- pass: logs actions are log-group scoped
+- pass: S3 read is prefix-scoped
+- pass: no wildcard Action, no broad managed policy, no s3 write/delete
+
+HUMAN-ONLY CLOUD MUTATION CHECK
+- pass: README explicitly forbids agents from running `terraform apply` or `terraform destroy`
+- pass: README requires human review, credentials, backend, and cost review before apply
+- pass: PLAN.md forbids real-backend init and real AWS credentials for agents
+
+SECRET / STATE CHECK
+- pass: no hardcoded AWS credentials, account IDs, or private keys observed
+- pass: no `.terraform` or `tfstate` artifacts committed
+
+README CHECK
+- pass: README states the skeleton is not production-ready
+- pass: README states agents must not run apply/destroy
+- pass: README includes human-only steps before apply
+
+BOUNDARY CHECK
+- pass: no forbidden docs/source/tests/CI/Docker/requirements/config/examples/agents changes were observed
+- pass: no APRANA implementation was added
+
+PLAN DRIFT GATE
+- pass: implementation matches the approved PLAN.md scope
+- pass: no drift into CI workflow, source/runtime code, or cloud mutation was observed
+
+COMMIT READINESS
+- ready to commit: yes
+- required files to stage:
+  - infra/terraform/main.tf
+  - infra/terraform/variables.tf
+  - infra/terraform/outputs.tf
+  - infra/terraform/ecr.tf
+  - infra/terraform/s3.tf
+  - infra/terraform/ecs.tf
+  - infra/terraform/iam.tf
+  - infra/terraform/README.md
+  - .project-memory/pr/0022a-terraform-skeleton/reviews/precommit-review.yml
+- files to exclude:
+  - ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5 (existing fixture, not modified)
+
+BOUNDARY CONFIRMATIONS
+- no implementation files edited by reviewer
+- no PLAN.md modification
+- no plan-review.yml modification
+- exactly 8 infra/terraform files changed
+- no .github/CI workflow created
+- no docs/source/tests changes
+- no requirements/pyproject/Docker/config/examples/agents changes
+- no terraform apply/destroy run
+- no real-backend init run
+- no real AWS credentials used
+- no tfstate/.terraform committed
+- no hardcoded credentials/account IDs
+- IAM wildcard Resource exception limited to ecr:GetAuthorizationToken
+- no wildcard Action
+- no broad managed policy
+- no s3 write/delete
+- S3 versioning/public access block present
+- desired_count default 0
+- ECS is scaffolding, not production API claim
+- no APRANA implementation
+- no git mutation commands
+- no Docker commands
+- no dependency installation

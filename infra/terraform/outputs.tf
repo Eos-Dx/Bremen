@@ -1,0 +1,59 @@
+output "ecr_repository_url" {
+  description = "URL of the ECR repository."
+  value       = aws_ecr_repository.bremen.repository_url
+}
+
+output "ecr_repository_arn" {
+  description = "ARN of the ECR repository."
+  value       = aws_ecr_repository.bremen.arn
+}
+
+output "model_bucket_name" {
+  description = "Name of the model package S3 bucket."
+  value       = aws_s3_bucket.model_packages.bucket
+}
+
+output "model_bucket_arn" {
+  description = "ARN of the model package S3 bucket."
+  value       = aws_s3_bucket.model_packages.arn
+}
+
+output "model_package_prefix" {
+  description = "Prefix for model package objects."
+  value       = var.model_package_prefix
+}
+
+output "ecs_cluster_name" {
+  description = "Name of the ECS cluster."
+  value       = aws_ecs_cluster.bremen.name
+}
+
+output "ecs_service_name" {
+  description = "Name of the ECS service."
+  value       = aws_ecs_service.bremen.name
+}
+
+output "task_definition_arn" {
+  description = "ARN of the ECS task definition."
+  value       = aws_ecs_task_definition.bremen.arn
+}
+
+output "task_execution_role_arn" {
+  description = "ARN of the ECS task execution role."
+  value       = aws_iam_role.ecs_execution.arn
+}
+
+output "task_role_arn" {
+  description = "ARN of the ECS task role."
+  value       = aws_iam_role.ecs_task.arn
+}
+
+output "log_group_name" {
+  description = "Name of the CloudWatch log group."
+  value       = aws_cloudwatch_log_group.bremen.name
+}
+
+output "service_security_group_id" {
+  description = "ID of the ECS service security group."
+  value       = aws_security_group.bremen_service.id
+}
