@@ -1,0 +1,137 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: warning
+
+BLOCKERS
+- None.
+
+WARNINGS
+- `ROADMAP.md` still contains the pre-existing sentence “No Platform Readiness Track. No Decision Gate Register. No hard calendar dates — use sequence and dependencies.” above the new PR 0012 additions. The diff is additive and the new closed-gate content is present, but the transitional wording remains and should be read as historical context, not current policy.
+- `docs/architecture.md` now contains both the earlier PR 0011C deployment/config sections and the new PR 0012 model-artifact/runtime sections. This is expected, but readers should note that the file intentionally layers the new offline/online workflow on top of the prior deployment topology text.
+
+VALIDATION
+- `git rev-parse --verify HEAD` ✅ `d0e72899590a871a5dd0c1d154ba6aef10a03c8c` on branch `0012-model-artifact-lifecycle-gates`
+- `git branch --show-current` ✅ `0012-model-artifact-lifecycle-gates`
+- `git status --short` ✅ modified `ROADMAP.md`, `docs/architecture.md`, and `.project-memory/pr/0012-model-artifact-lifecycle-gates/reviews/plan-review.yml`; untracked `docs/adr/0007-model-artifact-lifecycle.md`
+- `git diff --name-only` ✅ `ROADMAP.md`, `docs/architecture.md`, `.project-memory/pr/0012-model-artifact-lifecycle-gates/reviews/plan-review.yml`
+- `git diff --stat` ✅ 3 tracked files changed, 130 insertions, 33 deletions
+- `test -f docs/adr/0007-model-artifact-lifecycle.md` ✅
+- `test -f ROADMAP.md` ✅
+- `test -f docs/architecture.md` ✅
+- `grep -n "joblib.load()" docs/adr/0007-model-artifact-lifecycle.md` ✅ security note present
+- `grep -n "checksum manifest write access" docs/adr/0007-model-artifact-lifecycle.md` ✅ present
+- `grep -n "training-pipeline trust boundary" docs/adr/0007-model-artifact-lifecycle.md` ✅ present
+- `grep -n "S3 versioned bucket" docs/adr/0007-model-artifact-lifecycle.md` ✅ present
+- `grep -n "not part of the normal application Docker image CI/CD pipeline" docs/adr/0007-model-artifact-lifecycle.md` ✅ present
+- `grep -n "G-API-1" ROADMAP.md` ✅ present and DECIDED
+- `grep -n "G-API-2" ROADMAP.md` ✅ present and DECIDED
+- `grep -n "G-INFRA-1" ROADMAP.md` ✅ present and DECIDED
+- `grep -n "G-CFG-1" ROADMAP.md` ✅ present and OPEN
+- `grep -n "G-DEP-1" ROADMAP.md` ✅ present and OPEN
+- `grep -n "DECIDED" ROADMAP.md` ✅ closed-gate rows and PR-0012 entry present
+- `grep -n "OPEN" ROADMAP.md` ✅ open gates remain for G-CFG-1 and G-DEP-1
+- `grep -n "async submit" ROADMAP.md` ✅ closed-gate value present
+- `grep -n "ECS Fargate" ROADMAP.md` ✅ closed-gate value present
+- `grep -n "Terraform" ROADMAP.md` ✅ closed-gate value present
+- `grep -n "Decided by" ROADMAP.md` ✅ closed-gate details table present
+- `grep -n "Decision date" ROADMAP.md` ✅ closed-gate details table present
+- `grep -n "Product Track sequence positions are ordering" ROADMAP.md` ✅ present
+- `grep -n "does not renumber PR 0019" ROADMAP.md` ✅ present
+- `grep -n "Offline model artifact lifecycle" docs/architecture.md` ✅ present
+- `grep -n "Online prediction runtime workflow" docs/architecture.md` ✅ present
+- `grep -n "checksum-verified model package" docs/architecture.md` ✅ present
+- `grep -n "ECS Fargate" docs/architecture.md` ✅ present
+- `grep -n "S3 versioned bucket" docs/architecture.md` ✅ present
+- `grep -n "Terraform" docs/architecture.md` ✅ present
+- `git diff --name-only -- src tests config examples .github Dockerfile .dockerignore requirements.txt pyproject.toml sonar-project.properties environment.yml Makefile docs/api_contract.md` ✅ no output
+- `find . -path "./.git" -prune -o -path "./venv" -prune -o -path "./.venv" -type f \( -name "*.h5" -o -name "*.hdf5" \) -print` ✅ no output
+- `find . -name ".DS_Store" -print` ✅ no output
+- `date -u +%Y-%m-%dT%H:%M:%SZ` ✅ `2026-07-03T13:19:04Z`
+
+FILES READ
+- .project-memory/pr/0012-model-artifact-lifecycle-gates/PLAN.md
+- .project-memory/pr/0012-model-artifact-lifecycle-gates/reviews/plan-review.yml
+- docs/adr/0007-model-artifact-lifecycle.md
+- ROADMAP.md
+- docs/architecture.md
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN
+- .project-memory/pr/0012-model-artifact-lifecycle-gates/reviews/precommit-review.yml
+
+SNAPSHOT DELTA
+- Added `docs/adr/0007-model-artifact-lifecycle.md`
+- Updated `ROADMAP.md` to close G-API-1, G-API-2, and G-INFRA-1 as DECIDED, add PR-0012, and add execution/numbering guidance
+- Updated `docs/architecture.md` with offline model artifact lifecycle, online prediction runtime workflow, AWS runtime/deployment defaults, and safety notes
+- Updated the plan-review artifact in-place as part of the PR 0012 review snapshot
+- No forbidden source/test/CI/Docker/config/H5/model/IaC files were modified
+
+PLAN COMPLIANCE
+- pass: implementation matches the approved PLAN.md scope
+- pass: only the three allowed implementation files changed
+- pass: no source code, tests, CI, Docker, requirements, config, H5, model artifact, or IaC files were changed
+- pass: no docs/api_contract.md was created
+
+ADR-0007 CHECK
+- pass: ADR-0007 exists and is focused on model artifact lifecycle
+- pass: it separates application image CI/CD from model package lifecycle
+- pass: it states joblib is offline-only and runtime never trains
+- pass: it includes required model package contents
+
+JOBLIB SECURITY CHECK
+- pass: `joblib.load()` security note is present
+- pass: checksum trust boundary is defined at the training-pipeline boundary
+- pass: checksum manifest access separation is explicitly stated
+
+GATE CLOSURE CHECK
+- pass: G-API-1, G-API-2, and G-INFRA-1 are DECIDED in ROADMAP.md
+- pass: G-CFG-1 remains OPEN
+- pass: G-DEP-1 remains OPEN
+- pass: Decided by/date details are present for the closed gates
+
+ROADMAP NUMBERING CHECK
+- pass: PR 0019–0024 are not renumbered
+- pass: Product Track sequence positions are explicitly described as ordering, not PR numbers
+- pass: the PR-0012 entry is additive and does not rewrite the existing sequence structure
+
+ARCHITECTURE WORKFLOW CHECK
+- pass: docs/architecture.md includes offline model artifact lifecycle
+- pass: docs/architecture.md includes online prediction runtime workflow
+- pass: docs/architecture.md includes checksum-verified model package loading
+- pass: docs/architecture.md includes ECS Fargate, S3 versioned bucket, and Terraform references
+
+BOUNDARY CHECK
+- pass: no forbidden file drift was observed
+- pass: no docs/api_contract.md, source, tests, CI, Docker, requirements, config, H5, model, or IaC implementation was introduced
+
+CLINICAL/ARAMIS CHECK
+- pass: no clinical validation claim added
+- pass: no diagnostic replacement claim added
+- pass: no Aramis active-architecture language introduced
+- pass: APRANA is not part of this PR and no APRANA technical details were invented
+
+PLAN DRIFT GATE
+- pass: the plan’s closed-gate decisions, offline-only model lifecycle, and append-only doc strategy are reflected in the implementation
+- pass: no stop condition was triggered
+
+COMMIT READINESS
+- ready to commit: yes
+- required files to stage: docs/adr/0007-model-artifact-lifecycle.md, ROADMAP.md, docs/architecture.md, .project-memory/pr/0012-model-artifact-lifecycle-gates/reviews/precommit-review.yml
+- files to exclude: none from this set
+
+BOUNDARY CONFIRMATIONS
+- no implementation files edited by reviewer
+- no PLAN.md modification
+- no plan-review.yml modification
+- no source code changes
+- no tests changes
+- no CI/Docker changes
+- no requirements changes
+- no config/preprocessing changes
+- no H5/HDF5 changes
+- no model artifact changes
+- no docs/api_contract.md creation
+- no IaC files created
+- no git mutation commands
+- no Docker commands
+- no dependency installation
