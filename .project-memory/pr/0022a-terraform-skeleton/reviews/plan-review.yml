@@ -1,0 +1,107 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: warning
+
+BLOCKERS:
+- None.
+
+WARNINGS:
+- Working tree is dirty with the new PR 0022A planning directory uncommitted; no implementation or git-mutation commands were run.
+- `git diff --name-only` and `git diff --stat` were empty because the reviewed PLAN.md is untracked new content; `git status --short` is the primary dirty-tree evidence.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: 450f25ff753c3f32a5ab25c4cfd307ac7125e11a
+- command: git branch --show-current
+  exit code: 0
+  output: 0022a-terraform-skeleton
+- command: git status --short
+  exit code: 0
+  output: "?? .project-memory/pr/0022a-terraform-skeleton/"
+- command: grep -n "G-INFRA-1\|G-API-2\|DECIDED" ROADMAP.md
+  exit code: 0
+  output: "18:- PR-0012 — Model artifact lifecycle ADR + runtime deployment gate closure. ADR-0007 formalizes offline training, controlled package, runtime loading, S3 storage, and security boundaries. G-API-1, G-API-2, G-INFRA-1 closed as DECIDED.\n43:| PR 0019 | **API contract + microservice skeleton** — Delegated from ADR-0003. Creates `docs/api_contract.md` + non-functional stub routes. | Gates G-API-1 and G-API-2 explicitly closed first |\n46:| PR 0022 | **IaC skeleton + ECR publish job** — Delegated from ADR-0006. | G-INFRA-1 and G-API-2 closed |\n54:| G-API-1 | Sync vs. async request/response | Date-bound (before PR 0019) | Async submit-then-poll | DECIDED | async submit → `job_id` → poll |\n55:| G-API-2 | AWS compute target (ECS Fargate vs. Lambda-container vs. EKS) | Date-bound (before PR 0019, PR 0022) | ECS Fargate | DECIDED | ECS Fargate |\n58:| G-INFRA-1 | Terraform vs. AWS CDK vs. CloudFormation | Date-bound (before PR 0022) | Terraform | DECIDED | Terraform |\n60:Calendar dates in the Product Track may drift and that's expected. What's required is that any slip is recorded with a reason, and no PR silently absorbs scope from an open Decision Gate without that gate first being marked DECIDED.\n67:| G-API-2 | ECS Fargate | Human product/engineering decision in PR 0012 planning | 2026-07-03 (UTC) |\n68:| G-INFRA-1 | Terraform | Human product/engineering decision in PR 0012 planning | 2026-07-03 (UTC) |"
+- command: test -f docs/adr/0006-multi-target-deployment-and-iac.md && test -f docs/adr/0007-model-artifact-lifecycle.md && test -f .project-memory/pr/0022a-terraform-skeleton/PLAN.md && grep -n "Agent: coder" .project-memory/pr/0022a-terraform-skeleton/PLAN.md && grep -n "Mode: implementation" .project-memory/pr/0022a-terraform-skeleton/PLAN.md && grep -n "0022B" .project-memory/pr/0022a-terraform-skeleton/PLAN.md && grep -n "terraform apply" .project-memory/pr/0022a-terraform-skeleton/PLAN.md && grep -n "ecr:GetAuthorizationToken" .project-memory/pr/0022a-terraform-skeleton/PLAN.md && grep -n "s3:GetObject" .project-memory/pr/0022a-terraform-skeleton/PLAN.md && grep -n "logs:CreateLogStream" .project-memory/pr/0022a-terraform-skeleton/PLAN.md && grep -n "logs:PutLogEvents" .project-memory/pr/0022a-terraform-skeleton/PLAN.md
+  exit code: 0
+  output: "100:- Agents must NOT run `terraform apply`.\n516:- Explicit statement: agents must not run `terraform apply`.\n642:- No `terraform apply` or `terraform destroy`.\n685:- Plan allows agent-run `terraform apply` or `terraform destroy`.\n699:- Implementation phase is not Agent: coder / Mode: implementation.\n781:- confirm: no terraform apply/destroy planned for agents: yes\n412:        Action = \"ecr:GetAuthorizationToken\"\n482:| `ecr:GetAuthorizationToken` | `*` | Wildcard exception required by AWS; ECR does not support repository-level scoping for this action. Commented with explanation. |\n490:| Wildcard `Resource` (except ecr:GetAuthorizationToken with comment) | — | NOT used |\n470:        Action = \"s3:GetObject\"\n485:| `s3:GetObject` | Bucket ARN with model package prefix | Read-only model artifact access |\n579:grep -n \"s3:GetObject\" infra/terraform/iam.tf\n432:          \"logs:CreateLogStream\",\n484:| `logs:CreateLogStream`, `logs:PutLogEvents` | Log group ARN plus `:*` suffix | Scoped to this project's log group |\n582:grep -n \"logs:CreateLogStream\" infra/terraform/iam.tf\n433:          \"logs:PutLogEvents\",\n484:| `logs:CreateLogStream`, `logs:PutLogEvents` | Log group ARN plus `:*` suffix | Scoped to this project's log group |\n583:grep -n \"logs:PutLogEvents\" infra/terraform/iam.tf"
+- command: date -u +%Y-%m-%dT%H:%M:%SZ
+  exit code: 0
+  output: "2026-07-03T17:59:45Z"
+
+FILES READ:
+- .project-memory/pr/0022a-terraform-skeleton/PLAN.md
+- docs/adr/0006-multi-target-deployment-and-iac.md
+- docs/adr/0007-model-artifact-lifecycle.md
+- ROADMAP.md
+- docs/architecture.md
+- docs/api_contract.md
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN:
+- .project-memory/pr/0022a-terraform-skeleton/reviews/plan-review.yml
+
+PLAN SCOPE CHECK:
+- pass: PLAN.md limits implementation to the 8 Terraform files under infra/terraform/ and forbids .github, docs, src, tests, config, examples, Docker, pyproject, agents, H5/model artifacts, and tfstate/.terraform.
+
+PRECONDITION CHECK:
+- pass: ADR-0006 and ADR-0007 exist; ROADMAP.md shows G-INFRA-1 and G-API-2 as DECIDED; PLAN.md requires precondition verification before implementation.
+
+HUMAN-ONLY CLOUD MUTATION CHECK:
+- pass: PLAN.md explicitly forbids terraform apply/destroy, real/remote backend init, real AWS credentials, and cloud resource mutation; it only allows fmt -check, backend=false init in a temp copy, and validate.
+
+IAM LEAST-PRIVILEGE CHECK:
+- pass: execution role has `ecr:GetAuthorizationToken` with `*` as the only wildcard Resource exception and an AWS-required comment; `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`, `ecr:BatchCheckLayerAvailability` are scoped to the ECR repo ARN; `logs:CreateLogStream` and `logs:PutLogEvents` are scoped to the log group ARN suffix; task role has `s3:GetObject` scoped to bucket ARN plus prefix; no wildcard Action, no broad managed policy, no s3 write/delete, no secrets permissions.
+
+NO-SECRET-VALUE CHECK:
+- pass: PLAN.md uses variables/placeholders and does not require literal AWS account IDs, access keys, secret keys, private keys, committed credentials, or hardcoded account-specific ARNs.
+
+SCOPE SEPARATION CHECK:
+- pass: PLAN.md keeps .github/OIDC/ECR publish workflow out of scope and delegates that to PR 0022B.
+
+S3 SAFETY CHECK:
+- pass: PLAN.md requires versioning enabled, AES256 server-side encryption, all four public access block settings true, variable bucket name, and no public bucket policy.
+
+ECS / FARGATE CHECK:
+- pass: PLAN.md requires ECS cluster, Fargate task definition, ECS service, awsvpc mode, desired_count default 0, private subnet IDs, security group variables, awslogs log driver, ECR image reference, and model bucket/prefix/version env vars.
+
+SCAFFOLDING HONESTY CHECK:
+- pass: PLAN.md states the ECS service/task definition is scaffolding, PR 0019 was framework-neutral API skeleton only, and future work must wire a real service runner before production deployment.
+
+IMPLEMENTATION AGENT CHECK:
+- pass: PLAN.md explicitly assigns implementation to Agent: coder / Mode: implementation.
+
+FORBIDDEN SCOPE CHECK:
+- pass: PLAN.md forbids docs/adr, ROADMAP, docs/architecture, docs/api_contract, src/bremen, tests, .github, requirements/pyproject/Docker/config/examples/agents, and H5/model artifacts.
+
+VALIDATION CHECK:
+- pass: PLAN.md includes file existence checks for all 8 Terraform files, terraform fmt -check, backend=false init in temp copy, terraform validate in temp copy, IAM content checks, S3 checks, ECR/ECS/log/IAM checks, no credentials, no APRANA, no tfstate/.terraform, forbidden path diff check, and .DS_Store check.
+
+ROLLBACK CHECK:
+- pass: PLAN.md includes rollback instructions to remove the 8 infra/terraform files, confirm no .terraform/tfstate/credentials committed, and notes no runtime/source rollback needed.
+
+PROCESS RULES CHECK:
+- pass: first validation commands were git rev-parse --verify HEAD and git branch --show-current; branch matched 0022a-terraform-skeleton.
+
+COMMIT READINESS:
+- ready to commit planning artifacts: yes
+- required files to stage: .project-memory/pr/0022a-terraform-skeleton/PLAN.md AND .project-memory/pr/0022a-terraform-skeleton/reviews/plan-review.yml
+- files to exclude: none from this pair
+
+BOUNDARY CONFIRMATIONS:
+- precondition gates verified on this HEAD
+- Terraform-only scope
+- exactly 8 infra/terraform files planned
+- no .github/CI workflow planned
+- no terraform apply/destroy planned for agents
+- no real-backend init planned for agents
+- no real AWS credentials planned
+- IAM has only the documented ecr:GetAuthorizationToken Resource wildcard exception
+- no wildcard Action planned
+- no broad managed policy planned
+- S3 versioning and public access block planned
+- desired_count default 0 planned
+- ECS is scaffolding, not production API claim
+- implementation assigned to coder
+- no implementation files modified
+- no git mutation commands
