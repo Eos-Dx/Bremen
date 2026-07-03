@@ -1,0 +1,45 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: warning
+
+BLOCKERS
+- None.
+
+WARNINGS
+- The plan is appropriately scoped, but it allows an optional `README.md` edit. That is acceptable only if kept minimal and tightly tied to the new help surface.
+- The plan notes that `preprocess` still depends on private packages at runtime; that is fine for this foundation PR, but the help/stub behavior must remain import-safe.
+
+FILES READ
+- AGENTS.md
+- .project-memory/project_contract.yml
+- .project-memory/memory_index.yml
+- .project-memory/pr/0008-unified-bremen-entrypoint/PLAN.md
+
+FILES WRITTEN
+- .project-memory/pr/0008-unified-bremen-entrypoint/reviews/plan-review.yml
+
+PLAN SCOPE CHECK
+- pass
+
+ENTRYPOINT DESIGN CHECK
+- pass
+
+COMMAND SURFACE CHECK
+- pass
+
+TESTING CHECK
+- pass
+
+RUNTIME/ML/H5 SAFETY CHECK
+- pass
+
+CONFIG/MATADOR DEFERRAL CHECK
+- pass
+
+CLINICAL CLAIMS CHECK
+- pass
+
+VALIDATION CHECK
+- pass
+
+ROLLBACK CHECK
+- pass
