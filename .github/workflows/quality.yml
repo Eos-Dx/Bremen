@@ -20,6 +20,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            .github/workflows/quality.yml
 
       - name: Configure GitHub token for private dependencies
         run: |
@@ -74,7 +78,7 @@ jobs:
       - name: Run tests with coverage
         run: |
           python -m pytest \
-            --cov=src/bremen \
+            --cov=bremen \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
             --cov-fail-under=80 \
@@ -93,7 +97,7 @@ jobs:
         run: |
           git config --global --unset-all url."https://x-access-token:${{ secrets.BREMEN_CI_GITHUB_TOKEN }}@github.com/".insteadOf || true
 
-  # TODO(PR-0006): enable Docker smoke after Docker dependency handling is hardened.
+  # TODO(PR-0007): enable Docker smoke after Docker dependency handling is hardened.
   #
   # build:
   #   needs: test
