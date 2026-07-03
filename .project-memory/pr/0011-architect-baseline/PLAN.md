@@ -205,8 +205,9 @@ Must contain:
 Stated exactly:
 > Matador → Bremen API → H5 inspect gate → preprocessing/feature extraction → joblib inference → QC → prediction JSON → Matador storage/report layer
 
-### Safety boundaries
-Must restate ALL 11 safety invariants from `.project-memory/project_contract.yml` verbatim, 1:1, no paraphrase, no subset:
+### Project Contract Invariant Inventory
+
+Must contain a section titled exactly `## Project Contract Invariant Inventory` that restates ALL 11 safety invariants from `.project-memory/project_contract.yml` verbatim, 1:1, no paraphrase, no subset:
 
 1. "Bremen is a controlled ML decision-support product, not just a joblib file."
 2. "Bremen must never be described or marketed as a standalone diagnostic system."
@@ -364,24 +365,27 @@ grep -q "required H5 metadata is present and validated" docs/architecture.md || 
 # 43) Supplementary-decision-support-language framing (invariant 11)
 grep -q "supplementary decision-support language" docs/architecture.md || exit 1
 
-# 44) Runtime training prohibition
+# 44) Project Contract Invariant Inventory section title present
+grep -q "Project Contract Invariant Inventory" docs/architecture.md || exit 1
+
+# 45) Runtime training prohibition
 grep -q "must not train\|no runtime training\|not train" docs/architecture.md || exit 1
 
-# 45) Diagnostic replacement prohibition
+# 46) Diagnostic replacement prohibition
 grep -q "not.*diagnostic.*replace\|not a diagnostic\|no diagnostic claim" docs/architecture.md || exit 1
 
-# 46) No local machine path dependency
+# 47) No local machine path dependency
 grep -q "local machine path\|local path\|machine path\|platform.*path" docs/architecture.md || exit 1
 ```
 
 ### Prohibited content checks
 ```bash
-# 47) No prohibited clinical/diagnostic claims in any new file
+# 48) No prohibited clinical/diagnostic claims in any new file
 for f in docs/adr/0001-bremen-product-identity.md docs/adr/0002-twin-product-document-separation.md ROADMAP.md docs/architecture.md; do
   grep -i -n -E "FDA.?cleared|FDA.?approved|clinically.?validated|replacement.?for.?MRI|autonomous.?diagnos|replace.?radiologist|replace.?clinician|replace.?biopsy" "$f" && exit 1 || true
 done
 
-# 48) No runtime training endpoint language
+# 49) No runtime training endpoint language
 for f in docs/adr/0001-bremen-product-identity.md docs/adr/0002-twin-product-document-separation.md ROADMAP.md docs/architecture.md; do
   grep -i -n -E "train.?endpoint|train.?model.*runtime|runtime.*train|online.?learning" "$f" && exit 1 || true
 done
@@ -389,10 +393,10 @@ done
 
 ### Additional safety checks
 ```bash
-# 49) No H5/model artifacts staged
+# 50) No H5/model artifacts staged
 find . -type f \( -name "*.h5" -o -name "*.hdf5" -o -name "*.joblib" -o -name "*.pkl" -o -name "*.npy" -o -name "*.npz" \) | grep -v "\.git/\|venv/\|\.venv/" && exit 1 || echo "OK"
 
-# 50) .DS_Store not present
+# 51) .DS_Store not present
 find . -name ".DS_Store" -print
 ```
 
@@ -428,7 +432,7 @@ After PR 0011A merges:
 | **PR 0011C drift** | 0011C is not implemented. ADR-C work not started. Platform Readiness Track not introduced. |
 | **Safety drift** | No clinical claims, no FDA language, no autonomous diagnosis claims, no runtime training claims. |
 | **Infrastructure drift** | No CI/Docker/GHCR/SonarCloud changes. No pyproject.toml/environment/Makefile changes. |
-| **Validation drift** | All 50 validation checks pass. |
+| **Validation drift** | All 51 validation checks pass. |
 | **Blockers** | Any blocking condition found during drift gate evaluation prevents merge. |
 
 ## Stop conditions
@@ -494,7 +498,7 @@ All 11 safety invariants from project_contract.yml restated verbatim, 1:1, no su
 - After cascade: normal numbering resumes (PR 0012 onward)
 
 ### Validation checklist
-50 checks: file existence (7), scope boundaries (3), ADR-0001 content (11), ADR-0002 content (1), ROADMAP.md content (7), architecture.md content (17), prohibited content (4), safety checks (2).
+51 checks: file existence (7), scope boundaries (3), ADR-0001 content (11), ADR-0002 content (1), ROADMAP.md content (7), architecture.md content (18), prohibited content (4), safety checks (2).
 
 ### Stop conditions
 11 block conditions.
