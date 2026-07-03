@@ -1,0 +1,119 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: warning
+
+BLOCKERS
+- None.
+
+WARNINGS
+- The new config module and tests are present and focused, but the module docstring includes the phrase "Not a diagnostic replacement," which is acceptable only as a safety disclaimer; no broader clinical claims were observed.
+- `tests/test_bremen_config_loading.py` contains assertions that reference the docstring text and safety boundaries; this is acceptable, but the test file also includes checks for H5/model/Matador references by scanning source text rather than exercising runtime behavior.
+- `find` surfaced an existing H5 fixture under `tests/data/aramis_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR, but it is present in the repo snapshot.
+
+VALIDATION
+- `git rev-parse --verify HEAD` ✅ `36c21c7652aea409817830843b552cb3a88bf7cc`
+- `git status --short` ✅ showed only untracked `src/bremen/config.py`, `tests/test_bremen_config_loading.py`, and the review artifact path before writing
+- `git diff --name-only` ✅ no tracked diff output
+- `git diff --stat` ✅ no tracked diff output
+- `test -f src/bremen/config.py` ✅
+- `test -f tests/test_bremen_config_loading.py` ✅
+- `python -m compileall src tests` ✅
+- `python -m pytest -q tests/test_bremen_import_identity.py` ✅ 10 passed
+- `python -m pytest -q tests/test_bremen_config_loading.py` ✅ 31 passed
+- `python -m pytest -q` ✅ 92 passed
+- `python -m bremen --help` ✅ help output shown; no config CLI surface added
+- `grep -R -I -n "BREMED_CONFIG" ...` ✅ no matches
+- `grep -R -I -n -E "Aramis|aramis" src/bremen/config.py tests/test_bremen_config_loading.py` ✅ only test assertions/comments referencing the forbidden term in negative checks
+- `grep -R -I -n -E "diagnos|diagnostic|clinically validated|replace MRI|replace biopsy|replace radiologist|replace clinician|autonomous clinical" ...` ✅ only the intended safety disclaimer / negative checks
+- `grep -R -I -n -E "h5py|\.h5|\.hdf5|joblib|pickle|Matador|matador|predict|fit\(|train|load_model" ...` ✅ only negative checks / safety docstrings
+- `git diff --name-only -- README.md src/bremen/**main**.py src/bremen/cli.py tests/test_bremen_cli_entrypoint.py pyproject.toml .github Dockerfile .dockerignore sonar-project.properties AGENTS.md docs config examples environment.yml Makefile tests/data` ✅ no output
+- `find ... -name "*.h5" -o -name "*.hdf5"` ✅ existing fixture found under `tests/data/`
+- `find . -name ".DS_Store" -print` ✅ no output
+- `date -u +%Y-%m-%dT%H:%M:%SZ` ✅ `2026-07-03T08:37:05Z`
+
+FILES READ
+- .project-memory/pr/0009-config-discovery-loading/PLAN.md
+- .project-memory/pr/0009-config-discovery-loading/reviews/plan-review.yml
+- src/bremen/config.py
+- tests/test_bremen_config_loading.py
+- AGENTS.md
+
+FILES WRITTEN
+- .project-memory/pr/0009-config-discovery-loading/reviews/precommit-review.yml
+
+SNAPSHOT DELTA
+- Added new implementation file `src/bremen/config.py`
+- Added new test file `tests/test_bremen_config_loading.py`
+- Added this review artifact
+- No tracked repository files were modified during review
+
+SCOPE CHECK
+- pass: only the allowed implementation files are present as new files
+- pass: no README, CLI, CI, Docker, docs, config, examples, or model/runtime files were changed
+
+CONFIG API CHECK
+- pass: `discover_config()` and `load_config()` exist
+- pass: `ConfigLoadResult`, `ConfigNotFoundError`, and `ConfigSyntaxError` exist
+- pass: explicit path, env var, and default discovery are implemented
+
+DISCOVERY ORDER CHECK
+- pass: explicit path -> `BREMEN_CONFIG` -> `bremen.yml` -> `bremen.yaml` -> `bremen.toml` -> not found
+- pass: first-match-wins behavior is implemented
+
+ERROR BEHAVIOR CHECK
+- pass: missing file raises `ConfigNotFoundError`
+- pass: invalid YAML/TOML raises `ConfigSyntaxError`
+- pass: empty config returns empty data with warning
+- pass: directory path is rejected as syntax error
+
+IMPORT SAFETY CHECK
+- pass: `src/bremen/config.py` has no top-level heavy imports
+- pass: import of `bremen.config` succeeds
+- pass: no H5/model/Matador runtime loading observed
+
+TESTING CHECK
+- pass: focused config tests passed
+- pass: identity test passed
+- pass: full pytest passed
+
+RUNTIME/ML/H5 SAFETY CHECK
+- pass: no H5/HDF5 reads added in the new module
+- pass: no model/joblib loading added in the new module
+- pass: no inference/training added
+- pass: no Matador integration added
+
+CLI/README DRIFT CHECK
+- pass: no CLI files changed
+- pass: no README changes
+- pass: `python -m bremen --help` still shows existing CLI surface only
+
+CONFIG VALIDATION DEFERRAL CHECK
+- warning: broader schema validation is still deferred, which matches the plan
+
+MATADOR DEFERRAL CHECK
+- pass: no Matador integration added
+
+PLAN DRIFT GATE
+- pass: implementation matches the approved plan scope and deferrals
+
+COMMIT READINESS
+- ready to commit: yes
+- required files to stage:
+  - src/bremen/config.py
+  - tests/test_bremen_config_loading.py
+  - .project-memory/pr/0009-config-discovery-loading/reviews/precommit-review.yml
+- files to exclude:
+  - tests/data/aramis_real_h5_subset_20260128_5_patients.h5 (existing fixture, not modified)
+
+BOUNDARY CONFIRMATIONS
+- no implementation files edited by reviewer
+- no PLAN.md modification
+- no plan-review.yml modification
+- no README modification
+- no CLI modification
+- no CI/Docker/GHCR modification
+- no H5/HDF5 modification
+- no tests/data modification
+- no model artifact modification
+- no git mutation commands
+- no Docker commands
+- no dependency installation
