@@ -1,0 +1,78 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: warning
+
+BLOCKERS:
+- None.
+
+WARNINGS:
+- Working tree is dirty with the new PR 0021 planning directory uncommitted; no implementation or git-mutation commands were run.
+- `git diff --name-only` and `git diff --stat` were empty because the reviewed PLAN.md is untracked new content; `git status --short` is the primary dirty-tree evidence.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: 63e7776f6fa4a6b3f182b0b551b701ad271c0411
+- command: git branch --show-current
+  exit code: 0
+  output: 0021-container-dependency-hygiene
+- command: git status --short
+  exit code: 0
+  output: "?? .project-memory/pr/0021-container-dependency-hygiene/"
+- command: git diff --name-only
+  exit code: 0
+  output: ""
+- command: git diff --stat
+  exit code: 0
+  output: ""
+
+FILES READ:
+- .project-memory/pr/0021-container-dependency-hygiene/PLAN.md
+- requirements.txt
+- .github/workflows/quality.yml
+- docs/adr/0005-container-dependency-stabilization.md
+- ROADMAP.md
+- .project-memory/project_contract.yml
+- pyproject.toml
+- AGENTS.md
+
+FILES WRITTEN:
+- .project-memory/pr/0021-container-dependency-hygiene/reviews/plan-review.yml
+
+PLAN SCOPE CHECK:
+- pass: PLAN.md limits implementation to requirements.txt and tests/test_bremen_dependency_hygiene.py, with ADR-0005/ROADMAP.md only optional if factually inconsistent.
+
+DEPENDENCY HYGIENE CHECK:
+- pass: PLAN.md requires inspection of requirements.txt and .github/workflows/quality.yml, removal of /Users local paths, prevention of absolute editable paths, and no dependency installation.
+
+G-DEP-1 CHECK:
+- pass: PLAN.md keeps G-DEP-1 OPEN, does not mark it DECIDED, and defers any container main re-pin to the external event.
+
+BOUNDARY CHECK:
+- pass: PLAN.md forbids source/API/model changes, pyproject changes, docs/api/architecture changes, CI/Docker/IaC changes by default, H5/HDF5 reads, AWS/ECR/ECS/S3 work, APRANA claims, and clinical claims.
+
+TESTING CHECK:
+- pass: PLAN.md requires tests for /Users, /home, editable paths, local container path, git-hosted container URL, and G-DEP-1 OPEN.
+
+VALIDATION CHECKLIST CHECK:
+- pass: PLAN.md includes git state checks, grep for local paths and container.git, G-DEP-1 OPEN checks, compileall, focused dependency hygiene tests, existing API/model/config/identity/full pytest, CLI help, forbidden path diff check, artifact find check, and .DS_Store check.
+
+PROCESS RULES CHECK:
+- pass: first validation commands were git rev-parse --verify HEAD and git branch --show-current; branch matched 0021-container-dependency-hygiene.
+
+COMMIT READINESS:
+- ready to commit planning artifacts: yes
+- required files to stage: .project-memory/pr/0021-container-dependency-hygiene/PLAN.md AND .project-memory/pr/0021-container-dependency-hygiene/reviews/plan-review.yml TOGETHER, in the same single commit
+- files to exclude: none from this pair
+
+BOUNDARY CONFIRMATIONS:
+- no implementation files modified
+- local path cleanup planned
+- G-DEP-1 remains OPEN
+- no container main re-pin planned without external event evidence
+- no source/API/model changes planned
+- no CI/Docker/IaC changes planned by default
+- no pyproject change planned
+- no dependency installation planned
+- no H5/HDF5 changes planned
+- no model artifacts planned
+- no git mutation commands

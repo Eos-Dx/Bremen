@@ -22,6 +22,14 @@ fastjsonschema
 jsonschema
 tqdm
 
--e /Users/sad/dev/container
--e /Users/sad/dev/XRD-preprocessing[dev]
--e /Users/sad/dev/Aramis[dev]
+# Private / platform dependencies
+# container is pinned to feat/v0_3 (same URL that CI uses).
+# G-DEP-1 remains OPEN — re-pin to main is deferred until the
+# container repo merges feat/v0_3 to main.
+container @ git+https://github.com/Eos-Dx/container.git@feat/v0_3-eoscan-session-container
+
+# xrd-preprocessing is declared in pyproject.toml as a git+
+# dependency — no local-path replacement needed here.
+#
+# Aramis is not an active Bremen dependency (ADR-0002) — the
+# stale local-path editable line has been removed.
