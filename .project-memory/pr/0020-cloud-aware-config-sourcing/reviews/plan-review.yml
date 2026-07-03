@@ -1,0 +1,88 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: warning
+
+BLOCKERS:
+- None.
+
+WARNINGS:
+- Working tree is dirty with the new PR 0020 planning directory uncommitted; no implementation or git-mutation commands were run.
+- `git diff --name-only` and `git diff --stat` were not requested here; `git status --short` is the primary dirty-tree evidence.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: adc8ab6b17810957b8705e57d6aaa150b9508a9d
+- command: git branch --show-current
+  exit code: 0
+  output: 0020-cloud-aware-config-sourcing
+- command: git status --short
+  exit code: 0
+  output: "?? .project-memory/pr/0020-cloud-aware-config-sourcing/"
+- command: test -f .project-memory/pr/0020-cloud-aware-config-sourcing/PLAN.md && grep -n "BREMEN_MODEL_BUCKET" .project-memory/pr/0020-cloud-aware-config-sourcing/PLAN.md && grep -n "BREMEN_MODEL_PREFIX" .project-memory/pr/0020-cloud-aware-config-sourcing/PLAN.md && grep -n "BREMEN_MODEL_VERSION" .project-memory/pr/0020-cloud-aware-config-sourcing/PLAN.md && grep -n "Agent: coder" .project-memory/pr/0020-cloud-aware-config-sourcing/PLAN.md && grep -n "Mode: implementation" .project-memory/pr/0020-cloud-aware-config-sourcing/PLAN.md
+  exit code: 0
+  output: "13:PR 0019 added the API skeleton. PR 0022A added Terraform outputs and ECS task definition environment variables (`BREMEN_MODEL_BUCKET`, `BREMEN_MODEL_PREFIX`, `BREMEN_MODEL_VERSION`). PR 0022B added the ECR publish workflow.\n69:| `BREMEN_MODEL_BUCKET` | Yes (for cloud config) | None | S3 bucket name for model packages. Bucket name only — reject `s3://` prefix and local paths. |\n98:    model_bucket: str | None               # BREMEN_MODEL_BUCKET\n109:    Returns a CloudConfig dataclass. If BREMEN_MODEL_BUCKET is not set\n122:| Bucket absent → not configured | If `BREMEN_MODEL_BUCKET` is unset/empty/whitespace → `configured=False`, model fields `None` |\n123:| Bucket present → configured | If `BREMEN_MODEL_BUCKET` is set → `configured=True` |\n182:2. **Bucket + prefix → configured** — Set `BREMEN_MODEL_BUCKET` and `BREMEN_MODEL_PREFIX`. Verify configured=True, model_bucket, model_prefix.\n183:3. **Bucket only → configured with default prefix** — Set only `BREMEN_MODEL_BUCKET`. Verify prefix defaults to `\"model-packages/\"`.\n186:6. **Bucket rejects `s3://`** — Set `BREMEN_MODEL_BUCKET` to `s3://my-bucket`. Verify `ConfigSyntaxError`.\n187:7. **Bucket rejects local absolute path** — Set `BREMEN_MODEL_BUCKET` to `/Users/foo/model`. Verify `ConfigSyntaxError`.\n299:- Implementation phase is not Agent: coder / Mode: implementation.\n372:- confirm: implementation assigned to Agent: coder / Mode: implementation: yes\n13:PR 0019 added the API skeleton. PR 0022A added Terraform outputs and ECS task definition environment variables (`BREMEN_MODEL_BUCKET`, `BREMEN_MODEL_PREFIX`, `BREMEN_MODEL_VERSION`). PR 0022B added the ECR publish workflow.\n70:| `BREMEN_MODEL_PREFIX` | Yes (if bucket set) | `\"model-packages/\"` | Object key prefix within the bucket. Normalized to safe prefix style. |\n99:    model_prefix: str                      # BREMEN_MODEL_PREFIX (default \"model-packages/\")\n124:| Prefix default | If `BREMEN_MODEL_PREFIX` is unset → default `\"model-packages/\"` |\n182:2. **Bucket + prefix → configured** — Set `BREMEN_MODEL_BUCKET` and `BREMEN_MODEL_PREFIX`. Verify configured=True, model_bucket, model_prefix.\n188:8. **Prefix rejects absolute path** — Set `BREMEN_MODEL_PREFIX` to `/absolute/path/`. Verify `ConfigSyntaxError`.\n299:- Implementation phase is not Agent: coder / Mode: implementation.\n372:- confirm: implementation assigned to Agent: coder / Mode: implementation: yes\n13:PR 0019 added the API skeleton. PR 0022A added Terraform outputs and ECS task definition environment variables (`BREMEN_MODEL_BUCKET`, `BREMEN_MODEL_PREFIX`, `BREMEN_MODEL_VERSION`). PR 0022B added the ECR publish workflow.\n71:| `BREMEN_MODEL_VERSION` | No | `\"\"` (empty) | Optional model version string. |\n100:    model_version: str | None              # BREMEN_MODEL_VERSION\n125:| Version optional | `BREMEN_MODEL_VERSION` may be empty string |\n184:4. **Optional model version preserved** — Set `BREMEN_MODEL_VERSION`. Verify cloud_config.model_version matches.\n299:- Implementation phase is not Agent: coder / Mode: implementation.\n372:- confirm: implementation assigned to Agent: coder / Mode: implementation: yes"
+- command: date -u +%Y-%m-%dT%H:%M:%SZ
+  exit code: 0
+  output: "2026-07-03T20:07:15Z"
+
+FILES READ:
+- .project-memory/pr/0020-cloud-aware-config-sourcing/PLAN.md
+- src/bremen/config.py
+- tests/test_bremen_config_loading.py
+- src/bremen/api/app.py
+- tests/test_bremen_api_skeleton.py
+- infra/terraform/outputs.tf
+- infra/terraform/ecs.tf
+- infra/terraform/README.md
+- docs/adr/0004-bremen-configuration-management-strategy.md
+- docs/adr/0007-model-artifact-lifecycle.md
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN:
+- .project-memory/pr/0020-cloud-aware-config-sourcing/reviews/plan-review.yml
+
+SCOPE CHECK:
+- pass: PLAN.md limits implementation to `src/bremen/config.py` and `tests/test_bremen_cloud_config.py`, with optional API integration only if strongly justified.
+
+CONFIG BEHAVIOR CHECK:
+- pass: PLAN.md preserves explicit path loading, BREMEN_CONFIG loading, cwd discovery, and existing config tests.
+
+ENV CONTRACT CHECK:
+- pass: PLAN.md adds BREMEN_MODEL_BUCKET, BREMEN_MODEL_PREFIX, BREMEN_MODEL_VERSION, plus optional manifest/service/region variables, with configured vs not_configured behavior and prefix normalization.
+
+BOUNDARY CHECK:
+- pass: PLAN.md forbids infra, .github, docs/ADR/ROADMAP, Docker, requirements/pyproject, config/examples/tests-data/agents, H5/model artifacts, and tfstate/.terraform; it also forbids AWS/network/model-loading/inference/H5/Matador/clinical claims.
+
+TESTING CHECK:
+- pass: PLAN.md requires focused tests for not_configured/configured, optional version, prefix normalization, s3:// rejection, absolute path rejection, import safety, and existing config tests.
+
+VALIDATION CHECK:
+- pass: PLAN.md includes git state, file existence, compileall, cloud config tests, existing config tests, API skeleton tests, model package tests, dependency hygiene tests, full pytest, CLI help, greps for AWS SDK/network/joblib/H5, forbidden path diff check, artifact scan, and .DS_Store check.
+
+IMPLEMENTATION AGENT CHECK:
+- pass: PLAN.md explicitly assigns implementation to Agent: coder / Mode: implementation.
+
+PROCESS RULES CHECK:
+- pass: first validation commands were git rev-parse --verify HEAD and git branch --show-current; branch matched 0020-cloud-aware-config-sourcing.
+
+COMMIT READINESS:
+- ready to commit planning artifacts: yes
+- required files to stage: .project-memory/pr/0020-cloud-aware-config-sourcing/PLAN.md AND .project-memory/pr/0020-cloud-aware-config-sourcing/reviews/plan-review.yml
+- files to exclude: none from this pair
+
+BOUNDARY CONFIRMATIONS:
+- real runtime config feature planned
+- existing config loading preserved
+- BREMEN_MODEL_BUCKET planned
+- BREMEN_MODEL_PREFIX planned
+- BREMEN_MODEL_VERSION planned
+- no AWS/S3/network calls planned
+- no model loading/inference planned
+- no H5/HDF5 reads planned
+- no Terraform/GitHub Actions changes planned
+- no Docker/dependency changes planned
+- no docs/ADR/ROADMAP changes planned
+- implementation assigned to coder
+- no implementation files modified
+- no git mutation commands
