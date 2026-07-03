@@ -1,0 +1,117 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: warning
+
+BLOCKERS
+- None.
+
+WARNINGS
+- `docs/repository_cleanup.md` still contains a `## Future PR Sequencing` section, but it now points to `ROADMAP.md` rather than restating the stale table. The task allowed either absence or a clear pointer, so this is acceptable but worth noting.
+- `README.md` still contains historical Aramis provenance and shared-surface references. They are framed historically and as provenance, which is acceptable, but the file also retains a few legacy mentions outside the identity-critical sections.
+
+VALIDATION
+- `git rev-parse --verify HEAD` ✅ `ab7c8ebd3ad3d0bfb56da8283f707225b6eaf3fe` on branch `0011b-bremen-identity-doc-cascade`
+- `git branch --show-current` ✅ `0011b-bremen-identity-doc-cascade`
+- `git status --short` ✅ modified files: `README.md`, `docs/machine_learning_concept.md`, `docs/repository_cleanup.md`, `docs/roadmap.md`
+- `git diff --name-only` ✅ same four modified files
+- `git diff --stat` ✅ 4 files changed, 168 insertions, 229 deletions
+- `grep -q "Should patient continue to MRI?" README.md docs/machine_learning_concept.md` ✅
+- `grep -q "NORMAL" README.md docs/machine_learning_concept.md` ✅
+- `grep -q "BENIGN+CANCER" README.md docs/machine_learning_concept.md` ✅
+- `for f in sigma_l1 sigma_l2 Mahalanobis1 Mahalanobis2 wasserstein_distance_full_q2 meanrms2 weightedrms1; do grep -n "$f" README.md docs/machine_learning_concept.md; done` ✅ all 7 feature-family names present in both docs
+- `grep -i -n -E "referred to biopsy|malignant vs\.? benign" README.md docs/machine_learning_concept.md` ✅ no matches
+- `grep -i -n -E "azimuthal integration.*components|cosine asymmetry" README.md docs/machine_learning_concept.md` ✅ no matches
+- `grep -n "derived from Aramis\|Aramis" README.md` ✅ historical/provenance and shared-surface mentions present; see quoted lines in FILES READ
+- `grep -q "Bremen Machine Learning Concept" docs/machine_learning_concept.md` ✅
+- `grep -q "ROADMAP.md" README.md docs/roadmap.md docs/repository_cleanup.md` ✅
+- `wc -l docs/roadmap.md` ✅ `3 docs/roadmap.md`
+- `grep -n "Future PR Sequencing" docs/repository_cleanup.md` ✅ section present with ROADMAP pointer
+- `grep -i -n -E "FDA.?cleared|FDA.?approved|clinically.?validated|replacement.?for.?MRI|autonomous.?diagnos|replace.?radiologist|replace.?clinician|replace.?biopsy" README.md docs/roadmap.md docs/machine_learning_concept.md docs/repository_cleanup.md` ✅ only `autonomous diagnosis` / `not autonomous diagnosis` safety language in `docs/machine_learning_concept.md`; no overclaim language found
+- `git diff --name-only -- docs/adr src tests config examples .github Dockerfile .dockerignore requirements.txt pyproject.toml sonar-project.properties environment.yml Makefile AGENTS.md agents/ docs/architecture.md ROADMAP.md docs/product_development_rules.md` ✅ no output
+- `find . -name ".DS_Store" -print` ✅ no output
+- `date -u +%Y-%m-%dT%H:%M:%SZ` ✅ `2026-07-03T11:29:20Z`
+
+FILES READ
+- .project-memory/pr/0011b-bremen-identity-doc-cascade/PLAN.md
+- .project-memory/pr/0011b-bremen-identity-doc-cascade/reviews/plan-review.yml
+- README.md
+- docs/roadmap.md
+- docs/machine_learning_concept.md
+- docs/repository_cleanup.md
+- docs/adr/0001-bremen-product-identity.md
+- docs/adr/0002-twin-product-document-separation.md
+- docs/product_development_rules.md
+- AGENTS.md
+
+FILES WRITTEN
+- .project-memory/pr/0011b-bremen-identity-doc-cascade/reviews/precommit-review.yml
+
+SNAPSHOT DELTA
+- README.md rewritten for Bremen identity and roadmap pointer
+- docs/roadmap.md replaced with a short supersession stub
+- docs/machine_learning_concept.md rewritten for Bremen MRI-continuation framing
+- docs/repository_cleanup.md updated with PR 0011A/0011B completion rows and ROADMAP pointer
+- No forbidden files were modified
+
+PLAN COMPLIANCE
+- pass: only the four allowed documentation files were modified
+- pass: changes align with PLAN.md identity-cascade scope
+- pass: no source, CI, Docker, requirements, config, tests, or ADR files were changed
+
+IDENTITY FIDELITY CHECK
+- pass: README.md and docs/machine_learning_concept.md contain the exact clinical question, NORMAL vs BENIGN+CANCER, and all seven Bremen feature-family names
+- pass: the feature-family names are present in both files
+- pass: the docs no longer frame Bremen as a biopsy / malignant-vs-benign product
+
+ARAMIS PROVENANCE CHECK
+- pass: Aramis is retained as historical provenance only
+- pass: README.md line 5 explicitly frames Aramis as the inherited source code / pipeline architecture, not active identity
+- pass: no Aramis-as-Bremen identity language was observed in the reviewed content
+
+ROADMAP STUB CHECK
+- pass: docs/roadmap.md is a 3-line stub redirecting to root ROADMAP.md
+- pass: no roadmap content is restated there
+
+REPOSITORY CLEANUP CHECK
+- pass: stale sequencing table was replaced with a ROADMAP pointer
+- pass: PR 0011A/0011B completion rows were added
+- warning: the `Future PR Sequencing` heading remains, but its content is now a pointer rather than stale table content
+
+CLINICAL CLAIMS CHECK
+- pass: no prohibited clinical/diagnostic overclaim language found in the four files
+- pass: `docs/machine_learning_concept.md` uses safety language such as “not autonomous diagnosis” rather than overclaiming
+
+FORBIDDEN FILE CHECK
+- pass: no forbidden file modifications were observed
+- pass: `git diff --name-only -- docs/adr src tests config examples .github Dockerfile .dockerignore requirements.txt pyproject.toml sonar-project.properties environment.yml Makefile AGENTS.md agents/ docs/architecture.md ROADMAP.md docs/product_development_rules.md` returned nothing
+
+VALIDATION COMPLETENESS CHECK
+- pass: required git state checks were run
+- pass: required grep checks were run
+- pass: required file-length and .DS_Store checks were run
+- pass: validation began with `git rev-parse --verify HEAD` as required
+
+EVIDENCE COMPLETENESS CHECK
+- pass: all required files were read
+- pass: direct file content was inspected for identity and provenance checks
+- pass: blocker conditions were not asserted without reading the actual file content
+
+DIFF COMPLETENESS CHECK
+- pass: changed files were fully identified
+- pass: only the four expected files changed
+- pass: no hidden implementation drift was observed
+
+BOUNDARY CONFIRMATIONS
+- no implementation files edited by reviewer
+- no PLAN.md modification
+- no plan-review.yml modification
+- no docs/adr/**, ROADMAP.md, docs/architecture.md, agents/** modification
+- no CI/Docker/GHCR modification
+- no H5/HDF5/model artifact modification
+- no git mutation commands
+- no Docker commands
+- no dependency installation
+
+COMMIT READINESS
+- ready to commit: yes
+- required files to stage: README.md, docs/roadmap.md, docs/machine_learning_concept.md, docs/repository_cleanup.md, .project-memory/pr/0011b-bremen-identity-doc-cascade/reviews/precommit-review.yml
+- files to exclude: none from this set

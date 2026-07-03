@@ -1,9 +1,9 @@
-# Aramis Machine Learning Concept
+# Bremen Machine Learning Concept
 
 Status: research draft.
 
-This document records the current Aramis modeling concept. It is not a
-validated clinical model specification. Aramis remains decision support and
+This document records the current Bremen modeling concept. It is not a
+validated clinical model specification. Bremen remains decision support and
 requires radiologist / qualified clinician review.
 
 ## Patient Measurement Unit
@@ -20,7 +20,7 @@ The model must preserve this structure. Measurements from the same patient,
 breast side, and specimen must not be treated as independent patients.
 
 Labels are clinically available at patient level, but the affected breast side
-is known. Therefore the practical label unit for Aramis modeling is the
+is known. Therefore the practical label unit for Bremen modeling is the
 specimen / breast side. All valid measurements from the same breast side inherit
 the same label.
 
@@ -36,24 +36,26 @@ measurementId
 
 ## Clinical Workflow Concept
 
-Aramis is intended for a patient who has already had breast imaging, for
-example mammography, with a suspicious finding that may lead to biopsy. The
-clinical question is not autonomous diagnosis. The decision-support question is:
+Bremen is intended for a patient who has had mammography with suspicious
+findings that may lead to an MRI referral. The clinical question is not
+autonomous diagnosis. The decision-support question is:
 
 ```text
-Does the suspicious breast side likely need biopsy / further clinical action?
+Should patient continue to MRI?
 ```
 
 Current working scenario:
 
 ```text
-1. Mammography or other breast-imaging review identifies a suspicious side.
-2. The suspicious side becomes the target side.
-3. XRD measures three nearby positions around the suspicious region, ideally
-   through or close to the suspicious tissue.
-4. The contralateral breast is measured in three distributed positions across
+1. Mammography or other breast-imaging review identifies a suspicious finding.
+2. The patient is referred for XRD measurement of both breasts.
+3. XRD measures three nearby positions around the suspicious region on each
+   breast side.
+4. One breast side may have the more suspicious finding and is treated as the
+   target side for comparison.
+5. The contralateral breast is measured in three distributed positions across
    the breast and acts as patient-internal comparison context.
-5. Aramis combines population evidence and within-patient symmetry evidence.
+6. Bremen combines population evidence and within-patient symmetry evidence.
 ```
 
 The product concept therefore has two complementary comparisons:
@@ -62,7 +64,7 @@ The product concept therefore has two complementary comparisons:
 one-to-many:
   target/suspicious breast side
   compared against breast sides from other patients
-  learns whether this breast side looks more BENIGN-like or CANCER-like
+  learns whether this breast side looks more NORMAL-like or DISEASE-like
 
 one-to-one:
   target/suspicious breast side compared with the contralateral breast
@@ -88,54 +90,55 @@ patient label + known affected side
 Draft output:
 
 ```text
-p_cancer
-suggested class: BENIGN or CANCER
+p_disease
+suggested class: NORMAL or DISEASE
 ```
 
 The output is a decision-support risk score/class, not autonomous diagnosis.
 
-The central modeling goal is to separate benign from malignant breast findings.
-Aramis therefore prepares two complementary dataset views that support two
-model families and then refine the final prediction together. The one-to-many
-model learns BENIGN vs CANCER at the specimen / breast-side level by comparing a
-single suspicious breast side against a population reference. The one-to-one
-model learns from the patient-level bilateral context by comparing the
-suspicious breast side with the contralateral breast from the same patient,
-where the contralateral breast provides internal control context for asymmetry.
+The central modeling goal is to separate healthy (NORMAL) from disease
+(BENIGN+CANCER). Bremen therefore prepares two complementary dataset views
+that support two model families and then refine the final prediction together.
+The one-to-many model learns NORMAL vs DISEASE at the specimen / breast-side
+level by comparing a single suspicious breast side against a population
+reference. The one-to-one model learns from the patient-level bilateral context
+by comparing the suspicious breast side with the contralateral breast from the
+same patient, where the contralateral breast provides internal control context
+for asymmetry.
 
 This requires a two-stage filtering strategy. First, filtering is broad at the
 H5 container level: keep patients for whom at least one breast / specimen is
-BENIGN or CANCER, but preserve all available breast-side context for those
-patients. After `h5_to_df`, split the DataFrame into two datasets. The
-one-to-many branch applies a narrow specimen-level filter and keeps only
-BENIGN/CANCER breast rows. The one-to-one branch keeps the broader patient
-context and then requires paired breast availability; NORMAL contralateral
-rows may remain because they can be needed for within-patient comparison. NA
-rows are non-informative and should be excluded before model dataset
-construction.
+NORMAL or labeled disease (BENIGN, CANCER, ATYPICAL, PRE_CANCEROUS), but
+preserve all available breast-side context for those patients. After `h5_to_df`,
+split the DataFrame into two datasets. The one-to-many branch applies a narrow
+specimen-level filter and keeps only NORMAL/DISEASE breast rows. The one-to-one
+branch keeps the broader patient context and then requires paired breast
+availability; NORMAL contralateral rows may remain because they can be needed
+for within-patient comparison. NA rows are non-informative and should be
+excluded before model dataset construction.
 
 Current label-mapping discussion:
 
 ```text
-specimenId level: BENIGN -> BENIGN group
-specimenId level: CANCER -> CANCER group
-specimenId level: ATYPICAL -> CANCER group
-specimenId level: PRE_CANCEROUS -> CANCER group
-specimenId level: NORMAL -> separate NORMAL / control-context group
+specimenId level: BENIGN -> DISEASE group
+specimenId level: CANCER -> DISEASE group
+specimenId level: ATYPICAL -> DISEASE group
+specimenId level: PRE_CANCEROUS -> DISEASE group
+specimenId level: NORMAL -> separate NORMAL / healthy group
 specimenId level: NA -> non-informative; exclude before model dataset construction
 ```
 
-The broad CANCER group is intentional. For current Aramis model development,
+The broad DISEASE group is intentional. For current Bremen model development,
 malignant and suspicious pre-malignant categories are treated as one risk
 group:
 
 ```text
-CANCER + ATYPICAL + PRE_CANCEROUS -> CANCER group
+CANCER + ATYPICAL + PRE_CANCEROUS + BENIGN -> DISEASE group
 ```
 
 If historical notes use wording such as "hyper-cancerous", it should be mapped
 only after confirming the source field. The intended broad class is still the
-CANCER-risk group, not BENIGN or NORMAL.
+DISEASE-risk group, not NORMAL.
 
 The original `specimen_status` must be preserved. Any product label used for
 modeling should be written to a separate DataFrame column so that audit and
@@ -167,7 +170,7 @@ Purpose:
 
 ```text
 compare the suspicious breast side against measurements from other patients
-detect whether the breast looks closer to malignant or benign population patterns
+detect whether the breast looks closer to NORMAL or DISEASE population patterns
 ```
 
 Input candidates:
@@ -178,22 +181,23 @@ population reference measurements from other patients
 distance / similarity features against external population
 ```
 
-Possible feature families:
+Possible feature families (Bremen's own, not inherited from Aramis):
 
 ```text
-cosine distance between normalized profiles
-profile-distance statistics
-distance to benign population
-distance to cancer population
-nearest-neighbor style summaries
-component / complete azimuthal integration features
+sigma_l1
+sigma_l2
+Mahalanobis1
+Mahalanobis2
+wasserstein_distance_full_q2
+meanrms2
+weightedrms1
 ```
 
 The one-to-many reference set is binary:
 
 ```text
-benign reference population
-cancer reference population
+NORMAL reference population
+DISEASE reference population
 ```
 
 The first implementation should not introduce extra reference classes.
@@ -213,7 +217,7 @@ Aggregation is not fixed yet. Candidate aggregation levels:
 ```text
 measurement-level distances -> breast-level feature summary
 three breast measurements -> one breast score
-patient-side score -> p_cancer_side
+patient-side score -> p_disease_side
 ```
 
 Most likely first aggregation:
@@ -244,22 +248,22 @@ within-side replicate consistency
 between-side asymmetry statistics
 ```
 
-Possible feature families:
+Possible feature families (Bremen's own):
 
 ```text
-cosine distance
-profile distance
-pairwise distance matrix: left P1/P2/P3 vs right P1/P2/P3
-summary statistics: min, median, max, mean, variance
-within-left distance summary
-within-right distance summary
-between-target-contralateral distance summary
+sigma_l1
+sigma_l2
+Mahalanobis1
+Mahalanobis2
+wasserstein_distance_full_q2
+meanrms2
+weightedrms1
 ```
 
 Core idea:
 
 ```text
-if one breast is healthy and the other is malignant or suspicious,
+if one breast is healthy and the other is suspicious,
 target-vs-contralateral distance may become abnormally large
 ```
 
@@ -269,30 +273,27 @@ defined at patient level after specimen-side labels are grouped. Current ML
 training pair types after excluding NA can include unordered pairs:
 
 ```text
-BENIGN vs CANCER
-BENIGN vs NORMAL
-CANCER vs NORMAL
+NORMAL vs DISEASE
 ```
 
-`BENIGN vs CANCER` includes both target-BENIGN/contralateral-CANCER and
-target-CANCER/contralateral-BENIGN orientation. The first symmetry dataset
+`NORMAL vs DISEASE` includes both target-NORMAL/contralateral-DISEASE and
+target-DISEASE/contralateral-NORMAL orientation. The first symmetry dataset
 stores the pair type as an unordered grouped label. Target/contralateral
 orientation should still be preserved as metadata for audit and reporting, but
 the first symmetry model should use symmetric distance features rather than an
 orientation-dependent feature.
 
-The distances between BENIGN-NORMAL, BENIGN-CANCER, and CANCER-NORMAL pairs are
-expected to be nonzero. The model is not assuming that any valid pair has zero
-distance. It learns whether the magnitude and pattern of target-vs-contralateral
-distances increase suspicion.
+The distances between NORMAL-DISEASE pairs are expected to be nonzero. The
+model is not assuming that any valid pair has zero distance. It learns whether
+the magnitude and pattern of target-vs-contralateral distances increase
+suspicion.
 
 `NORMAL` is the current healthy/control-context group (`H`). Same-label pairs
 are excluded from the first one-to-one ML DataFrame:
 
 ```text
-BENIGN vs BENIGN
 NORMAL vs NORMAL
-CANCER vs CANCER
+DISEASE vs DISEASE
 ```
 
 Reason: the one-to-one symmetry feature generator learns from paired-breast
@@ -303,14 +304,14 @@ Current discussion rule:
 
 ```text
 use biopsy-only patients for the first one-to-one product build
-target side after biopsy is BENIGN or CANCER
-contralateral side may be NORMAL, BENIGN, CANCER, ATYPICAL, or PRE_CANCEROUS
+target side after biopsy is DISEASE (BENIGN, CANCER, ATYPICAL, PRE_CANCEROUS)
+contralateral side may be NORMAL or DISEASE
 exclude NA specimen rows before paired-patient dataset construction
-map ATYPICAL/PRE_CANCEROUS into the broad CANCER-side group at specimenId level
+map ATYPICAL/PRE_CANCEROUS into the broad DISEASE group at specimenId level
 preserve NORMAL as a separate specimenId-level status group until training policy is fixed
-do not silently treat NORMAL as BENIGN
-train one-to-one first on BENIGN-CANCER, BENIGN-NORMAL, CANCER-NORMAL patientId-level pairs
-exclude BENIGN-BENIGN, NORMAL-NORMAL, CANCER-CANCER patientId-level pairs from the first ML dataset
+do not silently treat NORMAL as DISEASE
+train one-to-one first on NORMAL-DISEASE patientId-level pairs
+exclude NORMAL-NORMAL, DISEASE-DISEASE patientId-level pairs from the first ML dataset
 preserve target/contralateral orientation as metadata, not as a first-model feature
 ```
 
@@ -335,9 +336,10 @@ asymmetry_score:
   between_mean - within_mean
 ```
 
-The same structure can be computed with cosine distance, Wasserstein distance,
-or other profile distances. Higher positive values mean between-side distance
-is larger than within-side replicate variation.
+The same structure can be computed with Bremen's distance features: `sigma_l1`,
+`sigma_l2`, `Mahalanobis1`, `Mahalanobis2`, `wasserstein_distance_full_q2`,
+`meanrms2`, `weightedrms1`, or other profile distances. Higher positive values
+mean between-side distance is larger than within-side replicate variation.
 
 This feature generator is also sensitive to measurement quality, but less
 dependent on a large external population than the one-to-many classifier.
@@ -371,7 +373,7 @@ Purpose:
 
 ```text
 combine the one-to-many probability and one-to-one symmetry feature
-produce final p_cancer / BENIGN-CANCER suggested class
+produce final p_disease / NORMAL-DISEASE suggested class
 ```
 
 Input candidates:
@@ -383,7 +385,7 @@ symmetry availability flag
 data-quality flags
 replicate consistency metrics
 batch / calibration validity flags
-age / BMI candidate covariates when available before biopsy decision
+age / BMI candidate covariates when available before MRI decision
 ```
 
 The first fusion concept is a two-signal model:
@@ -391,25 +393,25 @@ The first fusion concept is a two-signal model:
 ```text
 target breast one-to-many score
 patient target-vs-contralateral symmetry coefficient
--> final patient-level p_cancer
+-> final patient-level p_disease
 ```
 
 The one-to-many classifier gives target-side evidence: the suspicious breast
-side can look more CANCER-like or more BENIGN-like against the population. The
+side can look more DISEASE-like or more NORMAL-like against the population. The
 one-to-one feature adds whether the target and contralateral profiles are
 unexpectedly asymmetric. When target-side suspicion and strong asymmetry point
 in the same direction, the final patient-level risk should increase.
 
 The first product version does not solve the bilateral-suspicious case as one
-coupled decision. If both breast sides are clinically suspicious, Aramis should
+coupled decision. If both breast sides are clinically suspicious, Bremen should
 create side-specific decision-support reports for each breast. The clinical
-question remains which side needs biopsy or further work-up: left, right, or
-both, with radiologist / qualified clinician review.
+question remains which side needs further work-up: left, right, or both, with
+radiologist / qualified clinician review.
 
 Output:
 
 ```text
-final p_cancer
+final p_disease
 final suggested class
 model confidence / conservative referral reason when needed
 ```
@@ -423,11 +425,11 @@ First fusion-model comparison plan:
 ```text
 M0:
   one-to-many only
-  features: logit_p_cancer_one_to_many
+  features: logit_p_disease_one_to_many
 
 M1:
   one-to-many + symmetry
-  features: logit_p_cancer_one_to_many, symmetry_available,
+  features: logit_p_disease_one_to_many, symmetry_available,
             symmetry_distance_x_available
 
 M2:
@@ -438,7 +440,7 @@ M2:
 
 M3:
   one-to-many + symmetry + quality + age/BMI
-  features: M2 + age, bmi, age_available, bmi_available
+  features: M1 + age, bmi, age_available, bmi_available
 ```
 
 Missing clinical or symmetry values must use explicit availability flags.
@@ -472,11 +474,11 @@ flowchart TD
     G --> H["Patient structure: target + contralateral measurements"]
     H --> I["One-to-many population LogisticRegression"]
     H --> J["One-to-one symmetry feature generator"]
-    I --> I1["Target breast p_cancer/logit"]
+    I --> I1["Target breast p_disease/logit"]
     J --> J1["Patient symmetry coefficient"]
     I1 --> K["Fusion LogisticRegression"]
     J1 --> K
-    K --> L["p_cancer + BENIGN/CANCER decision-support class"]
+    K --> L["p_disease + NORMAL/DISEASE decision-support class"]
 ```
 
 ## Training And Validation Rules
@@ -518,19 +520,20 @@ confusion matrix
 threshold
 ```
 
-For Aramis, false negatives are safety-critical.
+For Bremen, false-negative and false-positive workflow burden must both be
+tracked.
 
 Threshold selection should prioritize sensitivity first. Specificity remains a
 secondary objective, but it must not be optimized by accepting unsafe false
 negative behavior.
 
 If model evidence is uncertain or data quality is not sufficient for a confident
-BENIGN decision, the conservative output should be CANCER / requires further
-clinical examination rather than an unsafe benign call.
+NORMAL decision, the conservative output should be DISEASE / requires further
+clinical examination rather than an unsafe healthy call.
 
 ## Data Quality And Monochromaticity
 
-The first Aramis model is constrained by current XRD data quality. A key
+The first Bremen model is constrained by current XRD data quality. A key
 limitation is source monochromaticity / K-beta contamination.
 
 Monochromaticity will be controlled from calibration scans. The current approach
@@ -578,15 +581,15 @@ Reason:
 
 ```text
 patient labels are available
-affected breast side is known
+suspicious breast side is known
 all measurements from one breast side share the same label
 ```
 
 One-to-many reference populations:
 
 ```text
-benign only
-cancer only
+NORMAL only
+DISEASE only
 ```
 
 Fusion coefficients:
@@ -601,7 +604,7 @@ Threshold policy:
 ```text
 optimize sensitivity first
 avoid false negatives
-uncertain cases should be routed toward CANCER / further examination
+uncertain cases should be routed toward DISEASE / further examination
 ```
 
 ## Open Questions
@@ -626,7 +629,7 @@ learned aggregation
 ```text
 full normalized q curve
 restricted q windows
-component coefficients
+Bremen feature families (sigma_l1, sigma_l2, Mahalanobis1, Mahalanobis2, ...)
 smoothed profile
 SNR-filtered profile
 ```
@@ -634,10 +637,14 @@ SNR-filtered profile
 5. Which distance metrics are allowed first?
 
 ```text
-cosine distance
-Euclidean distance
-correlation distance
-profile residual distance
+Bremen's own feature families:
+  sigma_l1
+  sigma_l2
+  Mahalanobis1
+  Mahalanobis2
+  wasserstein_distance_full_q2
+  meanrms2
+  weightedrms1
 ```
 
 6. What is the rule when a patient has fewer than three valid measurements on a
@@ -651,8 +658,8 @@ quality covariate
 conservative referral reason
 ```
 
-8. What should trigger conservative CANCER / further-examination routing instead
-of BENIGN?
+8. What should trigger conservative DISEASE / further-examination routing instead
+of NORMAL?
 
 ```text
 missing thickness
@@ -670,7 +677,6 @@ for sensitivity-first threshold selection?
 controls or quality-control examples?
 
 ```text
-CANCER vs CANCER
 NORMAL vs NORMAL
-BENIGN vs BENIGN
+DISEASE vs DISEASE
 ```
