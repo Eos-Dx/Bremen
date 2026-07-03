@@ -34,3 +34,26 @@ Product core before infrastructure wrappers.
 12. **Release readiness / operator notes** — Final preparation.
 
 Items 8–12 must not be silently dropped, but must appear after items 1–7 because there is no model, API surface, or workflow yet for them to gate.
+
+## Platform Readiness Track (parallel to Product Track)
+
+| PR | Description | Depends on |
+|----|-------------|------------|
+| PR 0019 | **API contract + microservice skeleton** — Delegated from ADR-0003. Creates `docs/api_contract.md` + non-functional stub routes. | Gates G-API-1 and G-API-2 explicitly closed first |
+| PR 0020 | **Cloud-aware config sourcing** — Delegated from ADR-0004. Extends `src/bremen/config.py` without breaking PR 0009 tests. | PR 0019 |
+| PR 0021 | **Container dependency hygiene** — Delegated from ADR-0005. Fixes `requirements.txt` local-path defect immediately (no dependency). Re-pin itself is separately event-triggered via G-DEP-1. | None |
+| PR 0022 | **IaC skeleton + ECR publish job** — Delegated from ADR-0006. | G-INFRA-1 and G-API-2 closed |
+| PR 0023 | **APRANA CI/CD publish job** — Delegated from ADR-0006. BLOCKED until platform name/access confirmed. No date until unblocked. | Platform name/access confirmed |
+| PR 0024 | **Config editing surface** — Delegated from ADR-0004. BLOCKED on G-CFG-1. Not date-bound. Scheduled only after Product Track's core classifier work (operator-convenience, not product-critical path). | G-CFG-1, Product Track core classifier |
+
+## Decision Gate Register
+
+| Gate ID | Question | Trigger type | Recommended default | Status | Decided value |
+|---------|----------|-------------|-------------------|--------|---------------|
+| G-API-1 | Sync vs. async request/response | Date-bound (before PR 0019) | Async submit-then-poll | OPEN | — |
+| G-API-2 | AWS compute target (ECS Fargate vs. Lambda-container vs. EKS) | Date-bound (before PR 0019, PR 0022) | ECS Fargate | OPEN | — |
+| G-CFG-1 | Build in-house vs. adopt existing config-management product | Date-bound (before PR 0024) | Not decided | OPEN | — |
+| G-DEP-1 | Container repo merges feat/v0_3 to main | Event-bound (external event) | Re-pin within 5 business days; re-verify VERSION_REGISTRY | OPEN | — |
+| G-INFRA-1 | Terraform vs. AWS CDK vs. CloudFormation | Date-bound (before PR 0022) | Terraform | OPEN | — |
+
+Calendar dates in the Product Track may drift and that's expected. What's required is that any slip is recorded with a reason, and no PR silently absorbs scope from an open Decision Gate without that gate first being marked DECIDED.

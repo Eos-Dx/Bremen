@@ -6,34 +6,39 @@ This repository was derived from the Aramis project. Aramis was the EOS research
 
 ## Product Description
 
-Bremen is planned as an ML classifier deployed on the EOS platform and connected to client-facing software. For XRD scans from patients referred to biopsy, it provides a breast-level malignancy risk output for decision support.
+Bremen is planned as an ML classifier deployed on the EOS platform and connected to client-facing software.
 
-Clinical problem:
-
-```text
-reduce unnecessary biopsies for patients with suspicious tumors after mammography
-support tumor malignancy risk assessment
-provide supplementary decision support
-require qualified clinician / radiologist review
-```
-
-Draft target population:
+**Clinical question** (verbatim):
 
 ```text
-patients with suspicious breast findings after mammography analysis
-patients referred to biopsy
-Nova-study Human-1 patients 101-438 for model-development data
+Should patient continue to MRI?
 ```
 
-Draft classification task:
+**Classification task**: healthy vs. disease (NORMAL vs. BENIGN+CANCER), explicitly distinct from a malignant-vs-benign task.
 
-```text
-malignant vs benign
-low/high p_cancer class
-breast/sample-level output for suspicious side
-```
+**Target population**: patients referred to MRI after suspicious mammography findings (dense breast / low-efficacy mammography).
 
-This repository must not present Bremen as autonomous diagnosis, biopsy replacement, radiologist replacement, FDA-cleared, or clinically validated unless separate validation and regulatory evidence is added.
+Bremen is an XRD-based ML decision-support workflow for patients referred to MRI after suspicious mammography findings. It is not a diagnostic replacement. Bremen must not claim clinical validation. Bremen must not replace MRI, biopsy, radiologists, clinicians, or clinical judgment.
+
+### Bremen feature families
+
+Bremen's own healthy-vs-disease symmetry/distance approach uses the following seven feature families:
+
+- `sigma_l1`
+- `sigma_l2`
+- `Mahalanobis1`
+- `Mahalanobis2`
+- `wasserstein_distance_full_q2`
+- `meanrms2`
+- `weightedrms1`
+
+These implement Bremen's healthy-vs-disease classification task and are not interchangeable with Aramis's azimuthal-integration/cosine-asymmetry approach.
+
+### Architecture constraints
+
+- Runtime Bremen service must not train models.
+- Matador is the system of record for measurements and prediction results.
+- Platform APIs must not depend on local machine paths.
 
 ## Planned Product Deliverables
 
@@ -59,8 +64,8 @@ input:
   model-training config file
 
 output:
-  p_cancer / low-high malignancy-risk class
-  YAML with information for public/internal reports
+  prediction with healthy/disease risk assessment
+  decision-support report YAML
   classifier training QC criteria
 ```
 
@@ -88,24 +93,6 @@ azimuthally integrated curves
 -> Bremen features
 -> ML classifier training
 -> report/QC artifacts
-```
-
-Planned Bremen feature families from the assembly plan:
-
-```text
-complete azimuthal integration, components approach
-cosine asymmetry distance, symmetry approach
-```
-
-Current draft focus:
-
-```text
-H5 container
--> product split/filter
--> XRD preprocessing
--> model-ready dataset
--> classifier
--> MLflow lineage
 ```
 
 ## CLI Usage
@@ -148,7 +135,7 @@ Prediction input contract for the first draft:
 one H5 container
 one patient
 two breast-side specimen groups when available
-output: p_cancer / suggested class for decision support
+output: healthy/disease risk assessment for decision support
 requires radiologist review
 ```
 
@@ -317,15 +304,9 @@ http://127.0.0.1:5000
 
 ## Development Roadmap
 
-See [docs/roadmap.md](docs/roadmap.md) for the authoritative Bremen development roadmap.
+See [ROADMAP.md](ROADMAP.md) (repository root) for the authoritative Bremen development roadmap. This file replaces the prior `docs/roadmap.md` as the single source of truth for planned PR sequencing.
 
-Planned upcoming PRs:
-
-- **PR 0005** will add Docker packaging, GitHub Actions workflow, and SonarCloud quality visibility.
-- **PR 0006** will converge Bremen to a unified entrypoint with config discovery and loading.
-- **PR 0007** will introduce config validation with a schema contract and strict error reporting.
-
-No implementation work for these features has been performed in PR 0004.
+The roadmap is maintained as root-level `ROADMAP.md` only. The file `docs/roadmap.md` is retained as a redirect stub.
 
 ## Repository Cleanup Status
 
