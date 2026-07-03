@@ -31,9 +31,15 @@ __pycache__
 *.h5
 *.hdf5
 
+# Local coverage artifacts
+.coverage
+coverage.xml
+
 # Model / joblib artifacts
 *.joblib
 *.pkl
+*.npy
+*.npz
 
 # Local environment files and secrets
 .env
