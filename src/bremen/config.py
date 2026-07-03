@@ -74,8 +74,32 @@ class ConfigSyntaxError(ConfigError):
         super().__init__(f"Cannot parse {path}: {detail}")
 
 
+class CloudConfigError(ConfigError):
+    """Cloud/runtime environment configuration is invalid."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(f"Cloud config error: {message}")
+
+
+@dataclass(frozen=True)
+class CloudConfig:
+    """Runtime/cloud environment configuration.
+
+    All fields are read from environment variables.  No network calls,
+    no AWS SDK, no model loading.
+    """
+
+    configured: bool
+    model_bucket: str | None
+    model_prefix: str
+    model_version: str | None
+    model_manifest_key: str
+    service_env: str | None
+    aws_region: str | None
+
+
 # ---------------------------------------------------------------------------
-# Public functions
+# Public functions (local config)
 # ---------------------------------------------------------------------------
 
 
@@ -160,7 +184,174 @@ def load_config(path: str | Path) -> ConfigLoadResult:
 
 
 # ---------------------------------------------------------------------------
-# Internal helpers
+# Cloud / runtime config
+# ---------------------------------------------------------------------------
+
+
+_DEFAULT_PREFIX = "model-packages/"
+_DEFAULT_MANIFEST_KEY = "manifest.json"
+
+
+_ABSOLUTE_PATH_SENTINELS = frozenset({
+    "/Users/",
+    "/home/",
+    "file://",
+})
+
+
+_ENV_BUCKET = "BREMEN_MODEL_BUCKET"
+_ENV_PREFIX = "BREMEN_MODEL_PREFIX"
+_ENV_VERSION = "BREMEN_MODEL_VERSION"
+_ENV_MANIFEST_KEY = "BREMEN_MODEL_MANIFEST_KEY"
+_ENV_SERVICE_ENV = "BREMEN_SERVICE_ENV"
+_ENV_AWS_REGION = "BREMEN_AWS_REGION"
+
+
+def read_cloud_config(env: dict[str, str] | None = None) -> CloudConfig:
+    """Read runtime/cloud configuration from environment variables.
+
+    Parameters
+    ----------
+    env : Optional explicit mapping of environment variables.  If
+        ``None`` (default), reads from ``os.environ``.  This allows
+        testing without mutating the real environment.
+
+    Returns
+    -------
+    A ``CloudConfig`` dataclass.
+
+    Raises
+    ------
+    CloudConfigError
+        If a required environment variable has an invalid value.
+
+    No network calls.  No AWS SDK.  No model loading.  No H5/HDF5
+    reads.
+    """
+    if env is None:
+        env = os.environ  # type: ignore[assignment]
+
+    # --- Bucket (required for being configured) ---
+    bucket_raw = env.get(_ENV_BUCKET, "").strip()
+
+    if not bucket_raw:
+        return _not_configured()
+
+    _validate_bucket(bucket_raw)
+
+    # --- Prefix ---
+    prefix_raw = env.get(_ENV_PREFIX, "").strip()
+    if not prefix_raw:
+        prefix = _DEFAULT_PREFIX
+    else:
+        _validate_prefix(prefix_raw)
+        prefix = _normalize_prefix(prefix_raw)
+
+    # --- Optional fields ---
+    model_version = _non_empty_or_none(env.get(_ENV_VERSION, ""))
+
+    manifest_key_raw = env.get(_ENV_MANIFEST_KEY, "").strip()
+    manifest_key = manifest_key_raw if manifest_key_raw else _DEFAULT_MANIFEST_KEY
+
+    service_env = _non_empty_or_none(env.get(_ENV_SERVICE_ENV, ""))
+    aws_region = _non_empty_or_none(env.get(_ENV_AWS_REGION, ""))
+
+    return CloudConfig(
+        configured=True,
+        model_bucket=bucket_raw,
+        model_prefix=prefix,
+        model_version=model_version,
+        model_manifest_key=manifest_key,
+        service_env=service_env,
+        aws_region=aws_region,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Cloud config internal helpers
+# ---------------------------------------------------------------------------
+
+
+def _not_configured() -> CloudConfig:
+    """Return a configuration with ``configured=False``."""
+    return CloudConfig(
+        configured=False,
+        model_bucket=None,
+        model_prefix=_DEFAULT_PREFIX,
+        model_version=None,
+        model_manifest_key=_DEFAULT_MANIFEST_KEY,
+        service_env=None,
+        aws_region=None,
+    )
+
+
+def _validate_bucket(value: str) -> None:
+    """Validate that *value* is a valid bucket name (not a URI or path).
+
+    Raises
+    ------
+    CloudConfigError
+        If the value contains ``s3://``, starts with ``/``, or contains
+        a local machine path sentinel.
+    """
+    if value.startswith("s3://"):
+        raise CloudConfigError(
+            f"BREMEN_MODEL_BUCKET must not be an s3:// URI; "
+            f"use bucket name only. Got: {value!r}"
+        )
+
+    if value.startswith("/"):
+        raise CloudConfigError(
+            f"BREMEN_MODEL_BUCKET must not be an absolute path; "
+            f"use bucket name only. Got: {value!r}"
+        )
+
+    for sentinel in _ABSOLUTE_PATH_SENTINELS:
+        if sentinel in value:
+            raise CloudConfigError(
+                f"BREMEN_MODEL_BUCKET must not contain a local path "
+                f"({sentinel}): {value!r}"
+            )
+
+
+def _validate_prefix(value: str) -> None:
+    """Validate that *value* is a safe object prefix (not a local path).
+
+    Raises
+    ------
+    CloudConfigError
+        If the value contains a local machine path sentinel (e.g.
+        ``/Users/``, ``/home/``, ``file://``).
+        Leading slashes are allowed and will be normalised later.
+    """
+    for sentinel in _ABSOLUTE_PATH_SENTINELS:
+        if sentinel in value:
+            raise CloudConfigError(
+                f"BREMEN_MODEL_PREFIX must not contain a local path "
+                f"({sentinel}): {value!r}"
+            )
+
+
+def _normalize_prefix(value: str) -> str:
+    """Normalise a prefix into object-prefix style.
+
+    - Removes leading slash.
+    - Ensures trailing slash for non-empty values.
+    """
+    result = value.lstrip("/")
+    if result and not result.endswith("/"):
+        result += "/"
+    return result
+
+
+def _non_empty_or_none(value: str) -> str | None:
+    """Return ``None`` for empty/whitespace strings, else the trimmed value."""
+    stripped = value.strip()
+    return stripped if stripped else None
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers (local config)
 # ---------------------------------------------------------------------------
 
 

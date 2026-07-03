@@ -1,0 +1,140 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: warning
+
+BLOCKERS
+- None.
+
+WARNINGS
+- `tests/test_bremen_cloud_config.py` includes negative safety assertions that mention `/Users`, `/home`, `file://`, and `s3://`; these are acceptable because they are explicit rejection cases, not supported runtime paths.
+- `src/bremen/config.py` now exposes cloud-aware metadata only; it does not read S3 or load models, which is correct for this PR but means API integration remains deferred.
+- The repository still contains an existing H5 fixture at `./tests/data/aramis_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR.
+
+VALIDATION
+- `git rev-parse --verify HEAD` ✅ `fcfd0114d462c9aa23c081258b471846f93972c3` on branch `0020-cloud-aware-config-sourcing`
+- `git branch --show-current` ✅ `0020-cloud-aware-config-sourcing`
+- `git status --short` ✅ modified `src/bremen/config.py`; untracked `tests/test_bremen_cloud_config.py`
+- `git diff --name-only` ✅ `src/bremen/config.py`
+- `git diff --stat` ✅ `src/bremen/config.py | 195 ++++++++++++++++++++++++++++++++++++++++++++++++++-`
+- `test -f src/bremen/config.py` ✅
+- `test -f tests/test_bremen_cloud_config.py` ✅
+- `python -m compileall src tests` ✅
+- `python -m pytest -q tests/test_bremen_cloud_config.py` ✅ 27 passed
+- `python -m pytest -q tests/test_bremen_config_loading.py` ✅ 31 passed
+- `python -m pytest -q tests/test_bremen_api_skeleton.py` ✅ 34 passed
+- `python -m pytest -q tests/test_bremen_model_package.py` ✅ 31 passed
+- `python -m pytest -q tests/test_bremen_dependency_hygiene.py` ✅ 10 passed
+- `python -m pytest -q` ✅ 243 passed
+- `python -m bremen --help` ✅ help output shown
+- `grep -R -I -n "boto3\|botocore\|requests\|httpx\|urllib" src/bremen/config.py tests/test_bremen_cloud_config.py || true` ✅ only negative-test references in the test file
+- `grep -R -I -n "joblib\.load\|pickle\.load\|import joblib\|import pickle" src/bremen/config.py tests/test_bremen_cloud_config.py || true` ✅ only negative-test references in the test file
+- `grep -R -I -n "\.h5\|\.hdf5\|h5py" src/bremen/config.py tests/test_bremen_cloud_config.py || true` ✅ only negative-test references in the test file
+- `git diff --name-only -- .github infra/terraform docs ROADMAP.md Dockerfile requirements.txt pyproject.toml config examples tests/data agents` ✅ no output
+- `git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|npy|npz|tfstate|tfstate\.backup)$" || true` ✅ no output
+- `find . -name ".DS_Store" -print` ✅ no output
+- `date -u +%Y-%m-%dT%H:%M:%SZ` ✅ `2026-07-03T20:28:40Z`
+
+FILES READ
+- .project-memory/pr/0020-cloud-aware-config-sourcing/PLAN.md
+- .project-memory/pr/0020-cloud-aware-config-sourcing/reviews/plan-review.yml
+- src/bremen/config.py
+- tests/test_bremen_cloud_config.py
+- tests/test_bremen_config_loading.py
+- src/bremen/api/app.py
+- tests/test_bremen_api_skeleton.py
+- infra/terraform/outputs.tf
+- infra/terraform/ecs.tf
+- infra/terraform/README.md
+- docs/adr/0004-bremen-configuration-management-strategy.md
+- docs/adr/0007-model-artifact-lifecycle.md
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN
+- .project-memory/pr/0020-cloud-aware-config-sourcing/reviews/precommit-review.yml
+
+SNAPSHOT DELTA
+- Updated `src/bremen/config.py` with cloud-aware runtime config sourcing
+- Added `tests/test_bremen_cloud_config.py`
+- Added this review artifact
+- No tracked repository files outside `src/bremen/config.py` were modified during review
+
+SCOPE CHECK
+- pass: only the allowed implementation files are present as changed files
+- pass: no Terraform, GitHub Actions, docs, ROADMAP, architecture, Dockerfile, requirements, pyproject, config examples, tests/data, agents, H5/model artifacts, or Terraform state were changed
+
+CONFIG BEHAVIOR CHECK
+- pass: existing config loading behavior is preserved
+- pass: `discover_config()` and `load_config()` remain intact
+- pass: cloud config is additive and metadata-only
+
+ENV CONTRACT CHECK
+- pass: `BREMEN_MODEL_BUCKET` is supported
+- pass: `BREMEN_MODEL_PREFIX` is supported
+- pass: `BREMEN_MODEL_VERSION` is supported
+- pass: optional `BREMEN_MODEL_MANIFEST_KEY`, `BREMEN_SERVICE_ENV`, and `BREMEN_AWS_REGION` are supported
+- pass: configured vs not_configured behavior is implemented
+
+VALIDATION / NORMALIZATION CHECK
+- pass: prefix normalization exists
+- pass: bucket rejects `s3://`
+- pass: bucket rejects local absolute paths
+- pass: prefix rejects local absolute paths / local-path sentinels
+- pass: explicit env mapping can be used without mutating `os.environ`
+
+BOUNDARY CHECK
+- pass: no boto3/botocore dependency added
+- pass: no requests/httpx/urllib dependency added
+- pass: no S3 read/download added
+- pass: no model loading/deserialization added
+- pass: no joblib/pickle import/load added
+- pass: no H5/HDF5 read added
+- pass: no inference/training/preprocessing added
+- pass: no Terraform/GitHub Actions changes
+- pass: no Dockerfile/dependency/docs/ADR/ROADMAP changes
+
+TESTING CHECK
+- pass: focused cloud config tests passed
+- pass: existing config loading tests passed
+- pass: API skeleton tests passed
+- pass: model package tests passed
+- pass: dependency hygiene tests passed
+- pass: full pytest passed
+- pass: CLI help works
+
+PLAN DRIFT GATE
+- pass: implementation matches the approved PLAN.md scope
+- pass: no drift into network/model-loading/infrastructure work was observed
+
+COMMIT READINESS
+- ready to commit: yes
+- required files to stage:
+  - src/bremen/config.py
+  - tests/test_bremen_cloud_config.py
+  - .project-memory/pr/0020-cloud-aware-config-sourcing/reviews/precommit-review.yml
+- files to exclude:
+  - ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5 (existing fixture, not modified)
+
+BOUNDARY CONFIRMATIONS
+- no implementation files edited by reviewer
+- no PLAN.md modification
+- no plan-review.yml modification
+- only allowed implementation files changed
+- existing config loading preserved
+- BREMEN_MODEL_BUCKET supported
+- BREMEN_MODEL_PREFIX supported
+- BREMEN_MODEL_VERSION supported
+- optional manifest/service/region supported
+- configured vs not_configured implemented
+- local machine paths rejected
+- s3 URI bucket value rejected
+- no AWS/S3/network calls
+- no boto3/botocore dependency
+- no model loading/inference
+- no H5/HDF5 reads
+- no Terraform/GitHub Actions changes
+- no Docker/dependency changes
+- no docs/ADR/ROADMAP changes
+- no H5/model/tfstate artifacts
+- no git mutation commands
+- no Docker commands
+- no dependency installation
