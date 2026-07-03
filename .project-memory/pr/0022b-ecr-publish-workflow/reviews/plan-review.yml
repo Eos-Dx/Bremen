@@ -1,0 +1,96 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: warning
+
+BLOCKERS:
+- None.
+
+WARNINGS:
+- Working tree is dirty with the new PR 0022B planning directory uncommitted; no implementation or git-mutation commands were run.
+- `git diff --name-only` and `git diff --stat` were empty because the reviewed PLAN.md is untracked new content; `git status --short` is the primary dirty-tree evidence.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: 7a47455196db9a9aaa9773c2932a37bad4df3591
+- command: git branch --show-current
+  exit code: 0
+  output: 0022b-ecr-publish-workflow
+- command: git status --short
+  exit code: 0
+  output: "?? .project-memory/pr/0022b-ecr-publish-workflow/"
+- command: test -f infra/terraform/ecr.tf && test -f infra/terraform/outputs.tf && test -f Dockerfile && test -f .github/workflows/quality.yml && test -f .project-memory/pr/0022b-ecr-publish-workflow/PLAN.md && grep -R -I -n "aws_ecr_repository" infra/terraform/ecr.tf && grep -R -I -n "ecr_repository_url" infra/terraform/outputs.tf && grep -n "Agent: coder" .project-memory/pr/0022b-ecr-publish-workflow/PLAN.md && grep -n "Mode: implementation" .project-memory/pr/0022b-ecr-publish-workflow/PLAN.md && grep -n "workflow_dispatch" .project-memory/pr/0022b-ecr-publish-workflow/PLAN.md && grep -n "pull_request" .project-memory/pr/0022b-ecr-publish-workflow/PLAN.md && grep -n "id-token: write" .project-memory/pr/0022b-ecr-publish-workflow/PLAN.md && grep -n "configure-aws-credentials" .project-memory/pr/0022b-ecr-publish-workflow/PLAN.md && grep -n "amazon-ecr-login" .project-memory/pr/0022b-ecr-publish-workflow/PLAN.md && grep -n "terraform apply" .project-memory/pr/0022b-ecr-publish-workflow/PLAN.md && grep -n "aws ecs update-service" .project-memory/pr/0022b-ecr-publish-workflow/PLAN.md
+  exit code: 0
+  output: "infra/terraform/ecr.tf:1:resource \"aws_ecr_repository\" \"bremen\" {\ninfra/terraform/outputs.tf:1:output \"ecr_repository_url\" {\n367:- Implementation phase is not Agent: coder / Mode: implementation.\n463:- confirm: implementation assigned to Agent: coder / Mode: implementation: yes\n85:  workflow_dispatch:\n91:- `workflow_dispatch` — allows manual trigger.\n175:  workflow_dispatch:\n229:2. Trigger includes `workflow_dispatch`.\n346:| **Workflow drift** | Triggered by workflow_dispatch and push to main. No pull_request. Permissions: contents:read + id-token:write. Uses OIDC. No static AWS keys. No Terraform commands. No ECS deploy. |\n387:- Trigger: `workflow_dispatch` + `push` to `main`.\n93:- No `pull_request` trigger — no ECR push from PR branches. PR builds are covered by `quality.yml` (compile, test, GHCR smoke).\n231:4. Trigger does NOT include `pull_request`.\n248:21. Workflow does NOT publish on `pull_request`.\n297:# 13) No pull_request trigger — ECR not published from PRs\n298:grep -R -I -n \"pull_request\" .github/workflows/ecr-publish.yml || true\n346:| **Workflow drift** | Triggered by workflow_dispatch and push to main. No pull_request. Permissions: contents:read + id-token:write. Uses OIDC. No static AWS keys. No Terraform commands. No ECS deploy. |\n364:- PLAN allows ECR push on `pull_request`.\n388:- No `pull_request` trigger.\n407:22 checks: git state, file existence, compileall, workflow tests, existing tests (dependency hygiene, API skeleton, full suite), CLI help, workflow content checks (pull_request, OIDC actions, Terraform, K8s, static credentials), forbidden path check, artifact scan, .DS_Store.\n460:- confirm: no ECR push on pull_request planned: yes\n101:  id-token: write\n106:- `id-token: write` — required for GitHub OIDC to obtain an AWS credential.\n181:  id-token: write\n232:5. Permissions include `id-token: write`.\n305:grep -n \"id-token: write\" .github/workflows/ecr-publish.yml\n389:- Permissions: `contents: read`, `id-token: write`.\n113:  uses: aws-actions/configure-aws-credentials@v4\n120:- Uses `aws-actions/configure-aws-credentials@v4` with OIDC.\n196:        uses: aws-actions/configure-aws-credentials@v4\n234:7. Workflow uses `aws-actions/configure-aws-credentials`.\n301:grep -n \"aws-actions/configure-aws-credentials\" .github/workflows/ecr-publish.yml\n390:- AWS auth: OIDC via `aws-actions/configure-aws-credentials@v4` (role-to-assume from vars).\n132:  uses: aws-actions/amazon-ecr-login@v2\n152:- Uses `aws-actions/amazon-ecr-login@v2` for ECR authentication.\n203:        uses: aws-actions/amazon-ecr-login@v2\n235:8. Workflow uses `aws-actions/amazon-ecr-login`.\n302:grep -n \"aws-actions/amazon-ecr-login\" .github/workflows/ecr-publish.yml\n391:- ECR login: `aws-actions/amazon-ecr-login@v2`.\n161:- No `terraform apply`, `terraform destroy`, or `terraform init`.\n239:12. Workflow does NOT run `terraform apply`.\n257:- No `terraform apply`/`destroy`/`init`.\n308:grep -R -I -n \"terraform apply\\|terraform destroy\\|terraform init\" .github/workflows/ecr-publish.yml || true\n361:- PLAN includes `terraform apply`/`destroy`/`init` commands.\n458:- confirm: no terraform apply/destroy/init planned: yes\n162:- No `aws ecs update-service`.\n242:15. Workflow does NOT run `aws ecs update-service`.\n311:grep -R -I -n \"aws ecs update-service\\|kubectl\\|helm\" .github/workflows/ecr-publish.yml || true\n362:- PLAN deploys ECS (`aws ecs update-service`)."
+- command: date -u +%Y-%m-%dT%H:%M:%SZ
+  exit code: 0
+  output: "2026-07-03T19:43:34Z"
+
+FILES READ:
+- .project-memory/pr/0022b-ecr-publish-workflow/PLAN.md
+- .project-memory/project_contract.yml
+- AGENTS.md
+- Dockerfile
+- .github/workflows/quality.yml
+- infra/terraform/ecr.tf
+- infra/terraform/outputs.tf
+- infra/terraform/README.md
+- docs/adr/0006-multi-target-deployment-and-iac.md
+- ROADMAP.md
+
+FILES WRITTEN:
+- .project-memory/pr/0022b-ecr-publish-workflow/reviews/plan-review.yml
+
+PRECONDITION CHECK:
+- pass: PR 0022A Terraform skeleton files exist on HEAD; PLAN.md explicitly records the precondition verification.
+
+SCOPE CHECK:
+- pass: PLAN.md limits implementation to `.github/workflows/ecr-publish.yml` and `tests/test_bremen_ecr_publish_workflow.py`, with Terraform/source/docs/Docker/dependency changes forbidden.
+
+WORKFLOW TRIGGER CHECK:
+- pass: PLAN.md requires `workflow_dispatch` and `push` to `main`, and explicitly forbids `pull_request` publishing to ECR.
+
+OIDC / CREDENTIAL CHECK:
+- pass: PLAN.md requires `permissions: contents: read` and `id-token: write`, `aws-actions/configure-aws-credentials`, `aws-actions/amazon-ecr-login`, AWS role/region from vars, and forbids static AWS keys / hardcoded credentials.
+
+BUILD / PUSH CHECK:
+- pass: PLAN.md requires checkout, Docker build using existing Dockerfile/build context, ECR push, `github.sha` tagging, and `latest` only on main push; no GHCR publishing in this workflow.
+
+NO DEPLOY / NO TERRAFORM CHECK:
+- pass: PLAN.md forbids terraform apply/destroy/init, ECS deploy/update-service, kubectl, helm, and any cloud mutation beyond ECR image push.
+
+TESTING CHECK:
+- pass: PLAN.md requires static workflow tests for workflow existence, triggers, permissions, OIDC actions, Docker build/push, github.sha tag, and negative checks for Terraform/ECS/static keys/local paths/Terraform files.
+
+VALIDATION CHECK:
+- pass: PLAN.md includes git/branch/status/diff, workflow existence, compileall, focused workflow tests, full pytest, CLI help, grep checks for pull_request/OIDC/Terraform/ECS/static keys, forbidden path diff check, artifact/state check, and .DS_Store check.
+
+ROLLBACK CHECK:
+- pass: PLAN.md includes rollback instructions to remove the workflow and test file, with no Terraform/runtime/cloud rollback needed.
+
+IMPLEMENTATION AGENT CHECK:
+- pass: PLAN.md explicitly assigns implementation to Agent: coder / Mode: implementation.
+
+PROCESS RULES CHECK:
+- pass: first validation commands were git rev-parse --verify HEAD and git branch --show-current; branch matched 0022b-ecr-publish-workflow.
+
+COMMIT READINESS:
+- ready to commit planning artifacts: yes
+- required files to stage: .project-memory/pr/0022b-ecr-publish-workflow/PLAN.md AND .project-memory/pr/0022b-ecr-publish-workflow/reviews/plan-review.yml
+- files to exclude: none from this pair
+
+BOUNDARY CONFIRMATIONS:
+- PR 0022A Terraform skeleton present on HEAD
+- workflow + static test scope only
+- no Terraform changes planned
+- no runtime/source changes planned
+- no Dockerfile/dependency changes planned
+- workflow_dispatch planned
+- push main planned
+- no ECR publish on pull_request planned
+- OIDC planned
+- static AWS keys forbidden
+- no Terraform apply/destroy/init planned
+- no ECS deploy/update-service planned
+- implementation assigned to coder
+- no implementation files modified
+- no git mutation commands
