@@ -48,6 +48,24 @@ This document tracks the progress of migrating the repository identity from Aram
 | AGENTS.md code references | ✅ Done | `src/aramis` → `src/bremen`; historical context updated |
 | README.md test/config references | ✅ Done | Updated to `bremen_*` filenames and `Bremen*` class names |
 
+## Completed (PR 0011A — Identity Architecture Baseline)
+
+| Item | Status | Details |
+|------|--------|---------|
+| ADR-0001 (Bremen product identity) | ✅ Done | PR 0011A. Product identity ADR with clinical question, classification task, 7 feature families, Aramis contrast. |
+| ADR-0002 (Twin product separation) | ✅ Done | PR 0011A. Permanent separation from Aramis; XRD-preprocessing as only shared surface. |
+| ROADMAP.md (root-level) | ✅ Done | PR 0011A. Product Track roadmap with 12 sequenced items. |
+| docs/architecture.md | ✅ Done | PR 0011A. Architecture baseline with core chain and 11 safety invariants. |
+
+## Completed (PR 0011B — Identity Documentation Cascade)
+
+| Item | Status | Details |
+|------|--------|---------|
+| README.md identity rewrite | ✅ Done | PR 0011B. Product description aligned to ADR-0001: MRI-continuation clinical question, NORMAL vs BENIGN+CANCER, 7 Bremen feature families. |
+| docs/roadmap.md stub | ✅ Done | PR 0011B. Replaced with redirect stub pointing to root ROADMAP.md. |
+| docs/machine_learning_concept.md rewrite | ✅ Done | PR 0011B. Title, clinical workflow, modeling goal, and feature families aligned to ADR-0001. |
+| docs/repository_cleanup.md update | ✅ Done | PR 0011B. ADR-0011A/B rows added; stale Future PR Sequencing table replaced. |
+
 ## Historical / Source-Material References (May Remain)
 
 These files document the original Aramis dataset and product metadata. They are valid as source-material documentation and may remain with current content:
@@ -60,7 +78,7 @@ These files document the original Aramis dataset and product metadata. They are 
 - `config/README.md` — config documentation (references Aramis)
 - `docs/product_development_rules.md` — shared development rules
 - `docs/data_preprocessing.md` — preprocessing documentation
-- `docs/machine_learning_concept.md` — ML concept doc
+- `docs/machine_learning_concept.md` — ML concept doc (now identity-aligned)
 - `docs/mlflow.md` — MLflow tracking doc
 - `docs/agbh_quality_exclusions.md` — quality exclusion doc
 - `docs/eosproduct_environment.md` — environment doc
@@ -83,7 +101,7 @@ These files document the original Aramis dataset and product metadata. They are 
 - **AGENTS.md**: Historical context updated; code references updated
 - **docs/repository_cleanup.md**: Updated to reflect completion
 
-## What This PR Does Not Change
+## What PR 0003 Does Not Change
 
 - No ML logic changes
 - No preprocessing semantic changes
@@ -97,12 +115,4 @@ These files document the original Aramis dataset and product metadata. They are 
 
 ## Future PR Sequencing
 
-After the identity migration completed in PR 0003, the following follow-up PRs are planned. See [docs/roadmap.md](roadmap.md) for the authoritative roadmap.
-
-| PR | Description |
-|----|-------------|
-| PR 0005 | Add Docker packaging, GitHub Actions workflow, and SonarCloud configuration for quality visibility |
-| PR 0006 | Converge to a unified Bremen entrypoint with config selection by name, path, or default discovery |
-| PR 0007 | Introduce config validation with a schema contract, strict error reporting, and integration with the unified entrypoint |
-
-These PRs are planned in sequence. No implementation work for these features has been performed in PR 0004.
+The authoritative Bremen development roadmap is now maintained in [ROADMAP.md](../ROADMAP.md) (repository root). This file retains only the completed cleanup items above.
