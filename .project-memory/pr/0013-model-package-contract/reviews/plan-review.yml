@@ -1,0 +1,75 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: warning
+
+BLOCKERS:
+- None.
+
+WARNINGS:
+- Working tree is dirty with the new PR 0013 planning directory uncommitted; no implementation or git-mutation commands were run.
+- `git diff --name-only` and `git diff --stat` were empty because the reviewed PLAN.md is untracked new content; `git status --short` is the primary dirty-tree evidence.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: 06751d96945b54fa076276305c822c26aeb30bad
+- command: git branch --show-current
+  exit code: 0
+  output: 0013-model-package-contract
+- command: git status --short
+  exit code: 0
+  output: "?? .project-memory/pr/0013-model-package-contract/"
+- command: git diff --name-only
+  exit code: 0
+  output: ""
+- command: git diff --stat
+  exit code: 0
+  output: ""
+
+FILES READ:
+- .project-memory/pr/0013-model-package-contract/PLAN.md
+- docs/adr/0007-model-artifact-lifecycle.md
+- .project-memory/project_contract.yml
+- src/bremen/config.py
+- tests/test_bremen_config_loading.py
+- AGENTS.md
+
+FILES WRITTEN:
+- .project-memory/pr/0013-model-package-contract/reviews/plan-review.yml
+
+PLAN SCOPE CHECK:
+- pass: PLAN.md limits implementation to src/bremen/model_package.py and tests/test_bremen_model_package.py, with optional src/bremen/__init__.py only if justified.
+
+MODEL PACKAGE CONTRACT CHECK:
+- pass: PLAN.md requires manifest.json plus model_version, model_checksum, model_filename, feature_schema_version, threshold_version, threshold_value, qc_criteria_version, training_config_ref, created_at, checksum verification, controlled errors, path traversal prevention, and fail-closed validation.
+
+SECURITY CHECK:
+- pass: PLAN.md forbids joblib.load(), joblib/pickle imports, model deserialization, inference, training, S3/AWS calls, secrets, and network calls.
+
+TESTING CHECK:
+- pass: PLAN.md requires tests for valid package, missing manifest, invalid JSON, missing required field, missing model artifact, checksum mismatch, path traversal, summary fields, no joblib/pickle import, no joblib.load, no H5/HDF5 reading, no committed model artifacts, and import safety.
+
+BOUNDARY CHECK:
+- pass: PLAN.md forbids ROADMAP/docs/API/docs/CI/Docker/IaC/config/examples/tests-data/H5/model-artifact changes and runtime inference.
+
+VALIDATION CHECKLIST CHECK:
+- pass: PLAN.md includes git state checks, compileall, focused model package tests, existing config tests, identity tests, full pytest, CLI help, grep checks, forbidden path diff check, artifact find check, and .DS_Store check.
+
+PROCESS RULES CHECK:
+- pass: first validation commands were git rev-parse --verify HEAD and git branch --show-current; branch matched 0013-model-package-contract.
+
+COMMIT READINESS:
+- ready to commit planning artifacts: yes
+- required files to stage: .project-memory/pr/0013-model-package-contract/PLAN.md AND .project-memory/pr/0013-model-package-contract/reviews/plan-review.yml TOGETHER, in the same single commit
+- files to exclude: none from this pair
+
+BOUNDARY CONFIRMATIONS:
+- no implementation files modified
+- no docs/ROADMAP planned
+- no CI/Docker planned
+- no Terraform/IaC planned
+- no docs/api_contract.md planned
+- no model artifact planned
+- no joblib.load planned
+- no training/inference planned
+- no H5/HDF5 changes planned
+- no git mutation commands
