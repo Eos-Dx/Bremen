@@ -39,3 +39,46 @@ PR 0008 and PR 0009 delivered the current CLI and config foundation:
 ## Closing note
 
 PR 0011C / ADR-C is the next architecture bundle, to be planned only after this baseline is merged.
+
+## Deployment Topology
+
+- **GHCR (existing)** — `ghcr.io/eos-dx/bremen`, `latest` and `sha` tags on push to main (PR 0007).
+- **AWS ECR (planned, PR 0022)** — Second registry target, same CI safety rules as GHCR: human-provided secrets only, no destructive changes without review, publish gated to merge-to-main/release tag.
+- **APRANA (planned, name UNVERIFIED)** — Interim/EOL fallback, deprioritized relative to ECR. The platform name, EOL timeline, and access model must be confirmed before any implementation PR touches APRANA.
+- **AWS** is the primary long-term compute target.
+
+## API Surface (Draft)
+
+DRAFT — not a binding contract until PR 0019 is merged.
+
+Minimum endpoint skeleton (from ADR-0003):
+
+- `POST /predictions` — Submit target/control H5 references.
+- `GET /predictions/{id}` — Retrieve prediction result by ID.
+- `GET /health` — Health check endpoint.
+- `GET /model/version` — Current model version metadata.
+
+Every prediction response must carry these fields (from the Project Contract Invariant Inventory):
+
+- `prediction_id`
+- `model_version`
+- `model_checksum`
+- `feature_schema_version`
+- threshold version/value
+- `qc_status`
+- `qc_flags`
+
+The full API contract is delegated to PR 0019.
+
+## Configuration Management
+
+- **Current state**: Static local YAML discovery via `src/bremen/config.py` (PR 0009), relative local paths (`io.output_joblib_path: ../../examples/outputs/...`), `extends:` chaining.
+- **Target state**: Cloud-aware sourcing (PR 0020), environment-aware config without breaking the PR 0009 discovery order (explicit path → `BREMEN_CONFIG` env → `bremen.yml` → `bremen.yaml` → `bremen.toml`).
+- **Deferred state**: Config editing surface (PR 0024), gated on G-CFG-1.
+
+## External Dependency Risk
+
+- The `container` dependency is pinned to `feat/v0_3-eoscan-session-container` (a feature branch, not main).
+- **Why it exists**: `VERSION_REGISTRY "0_3"` support is not yet on `main`.
+- **Event-triggered response plan** (G-DEP-1): Re-pin to `main` within 5 business days of `feat/v0_3` → `main` merge; re-verify the `VERSION_REGISTRY` assertion.
+- The `requirements.txt` local-path defect (`-e /Users/sad/dev/container`) is part of the same hygiene work (PR 0021).

@@ -1,0 +1,137 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: warning
+
+BLOCKERS
+- None.
+
+WARNINGS
+- `ROADMAP.md` and `docs/architecture.md` are append-only as planned, but the roadmap still contains the existing Product Track wording that says “No Platform Readiness Track. No Decision Gate Register.” above the new appended sections. This is pre-existing content and not a blocker because the diff is additive, but it is worth noting for readers.
+- `docs/adr/0006-multi-target-deployment-and-iac.md` uses APRANA as an explicitly unverified placeholder, which is correct; however, the file repeats the qualifier multiple times, so downstream docs should preserve that exact wording to avoid accidental normalization.
+
+VALIDATION
+- `git rev-parse --verify HEAD` ✅ `b114722e4bee10395c1a653c9130e2b1edbc1845` on branch `0011-adr-platform-readiness`; this is the current branch HEAD and is the reviewed tree.
+- `git branch --show-current` ✅ `0011-adr-platform-readiness`
+- `git status --short` ✅ modified `ROADMAP.md`, `docs/architecture.md`; untracked new ADRs `docs/adr/0003-0006`
+- `git diff --name-only` ✅ `ROADMAP.md`, `docs/architecture.md`
+- `git diff --stat` ✅ 2 files changed, 66 insertions
+- `grep -n "APRANA" docs/adr/0006-multi-target-deployment-and-iac.md` ✅ matches at lines 10, 22, 24, 30; each occurrence includes an unverified qualifier or placeholder language
+- `grep -n "Status: OPEN\|Status: DECIDED" ROADMAP.md` ✅ no matches because the register uses a table with `OPEN` values; no `DECIDED` entries were found
+- `for g in G-API-1 G-API-2 G-CFG-1 G-DEP-1 G-INFRA-1; do grep -n "$g" ROADMAP.md; done` ✅ all five gates present
+- `grep -c "Platform Readiness Track" ROADMAP.md docs/architecture.md` ✅ `ROADMAP.md: 2`, `docs/architecture.md: 0`
+- `grep -q "Project Contract Invariant Inventory" docs/architecture.md` ✅ present
+- `grep -n "Matador -> Bremen API\|Matador → Bremen API" docs/architecture.md` ✅ line 16 contains the exact chain sentence
+- `git diff -- ROADMAP.md | head -100` ✅ diff is purely additive; no removed lines from pre-existing content
+- `git diff -- docs/architecture.md | head -100` ✅ diff is purely additive; no removed lines from pre-existing content
+- `grep -q "prediction_id" docs/adr/0003-bremen-microservice-api-architecture.md` ✅
+- `grep -n "async\|sync" docs/adr/0003-bremen-microservice-api-architecture.md` ✅ G-API-1 is explicitly OPEN and revisable
+- `grep -n "ECS Fargate\|Lambda\|EKS" docs/adr/0003-bremen-microservice-api-architecture.md` ✅ G-API-2 is explicitly OPEN and revisable
+- `grep -n "Terraform\|CDK\|CloudFormation" docs/adr/0006-multi-target-deployment-and-iac.md` ✅ G-INFRA-1 is explicitly OPEN and revisable
+- `git diff --name-only -- README.md docs/roadmap.md docs/machine_learning_concept.md docs/repository_cleanup.md docs/product_development_rules.md src tests config examples .github Dockerfile requirements.txt pyproject.toml environment.yml Makefile AGENTS.md agents/ docs/api_contract.md docs/adr/0001-bremen-product-identity.md docs/adr/0002-twin-product-document-separation.md` ✅ no output
+- `find . -name ".DS_Store" -print` ✅ no output
+- `date -u +%Y-%m-%dT%H:%M:%SZ` ✅ `2026-07-03T11:48:45Z`
+
+FILES READ
+- .project-memory/pr/0011-adr-platform-readiness/PLAN.md
+- .project-memory/pr/0011-adr-platform-readiness/reviews/plan-review.yml
+- docs/adr/0003-bremen-microservice-api-architecture.md
+- docs/adr/0004-bremen-configuration-management-strategy.md
+- docs/adr/0005-container-dependency-stabilization.md
+- docs/adr/0006-multi-target-deployment-and-iac.md
+- ROADMAP.md
+- docs/architecture.md
+- docs/adr/0001-bremen-product-identity.md
+- docs/adr/0002-twin-product-document-separation.md
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN
+- .project-memory/pr/0011-adr-platform-readiness/reviews/precommit-review.yml
+
+SNAPSHOT DELTA
+- Added four new ADR files: `docs/adr/0003-bremen-microservice-api-architecture.md`, `docs/adr/0004-bremen-configuration-management-strategy.md`, `docs/adr/0005-container-dependency-stabilization.md`, `docs/adr/0006-multi-target-deployment-and-iac.md`
+- Appended Platform Readiness Track and Decision Gate Register to `ROADMAP.md`
+- Appended Deployment Topology, API Surface (Draft), Configuration Management, and External Dependency Risk sections to `docs/architecture.md`
+- No forbidden files were modified
+
+PLAN COMPLIANCE
+- pass: implementation matches the approved PLAN.md scope
+- pass: only the six allowed implementation files changed
+- pass: no source code, tests, config, CI, Docker, requirements, or identity docs were modified
+- pass: no docs/api_contract.md, src/bremen/config.py, or IaC files were created
+
+ADR-0003 CHECK
+- pass: contains the API endpoint sketch and mandatory response fields
+- pass: G-API-1 and G-API-2 are OPEN, not decided
+- pass: no runtime training endpoint is introduced
+
+ADR-0004 CHECK
+- pass: preserves PR 0009 discovery semantics and references `BREMEN_CONFIG`
+- pass: config editing surface is deferred with guardrails
+- pass: G-CFG-1 is OPEN
+
+ADR-0005 CHECK
+- pass: documents feature-branch pin and local-path defect
+- pass: G-DEP-1 is event-triggered and OPEN
+
+ADR-0006 CHECK
+- pass: GHCR current state, AWS ECR target, APRANA unverified placeholder, and IaC requirement are all present
+- pass: G-INFRA-1 is OPEN
+- pass: APRANA is always qualified as unverified / placeholder
+
+APRANA VERIFICATION CHECK
+- pass: every APRANA mention is accompanied by unverified / placeholder language
+- pass: no APRANA technical specifics are asserted as verified
+
+ADDITIVE-ONLY CHECK
+- pass: diff read directly; no removed pre-existing content found in `ROADMAP.md` or `docs/architecture.md`
+- pass: the new sections are appended after existing content
+
+DECISION GATE REGISTER CHECK
+- pass: exactly 5 gates found in `ROADMAP.md`
+- pass: all 5 are OPEN
+- pass: no DECIDED or closed gate entries were found
+
+DELEGATION CHECK
+- pass: `docs/api_contract.md`, `src/bremen/config.py`, CI, and IaC are referenced only as future delegated work
+- pass: no delegated implementation content was actually created
+
+SAFETY INVARIANT CHECK
+- pass: no content contradicts or weakens `project_contract.yml`
+- pass: the new docs preserve decision-support framing and local-path abstraction requirements
+
+FORBIDDEN FILE CHECK
+- pass: no forbidden file modifications were observed
+- pass: `git diff --name-only -- README.md docs/roadmap.md docs/machine_learning_concept.md docs/repository_cleanup.md docs/product_development_rules.md src tests config examples .github Dockerfile requirements.txt pyproject.toml environment.yml Makefile AGENTS.md agents/ docs/api_contract.md docs/adr/0001-bremen-product-identity.md docs/adr/0002-twin-product-document-separation.md` returned nothing
+
+VALIDATION COMPLETENESS CHECK
+- pass: required git state checks were run
+- pass: required grep checks were run
+- pass: required diff-read checks were run
+- pass: required .DS_Store and timestamp checks were run
+- pass: validation began with `git rev-parse --verify HEAD`
+
+EVIDENCE COMPLETENESS CHECK
+- pass: all required files were read
+- pass: blocker conditions were supported by direct file content quotes or explicit grep output
+- pass: no claim relies solely on agent narrative
+
+DIFF COMPLETENESS CHECK
+- pass: changed files were fully identified
+- pass: only the six expected files changed
+- pass: no hidden implementation drift was observed
+
+BOUNDARY CONFIRMATIONS
+- no implementation files edited by reviewer
+- no PLAN.md modification
+- no plan-review.yml modification
+- no docs/adr/0001-*.md, docs/adr/0002-*.md, README.md, docs/roadmap.md, docs/machine_learning_concept.md, docs/repository_cleanup.md, agents/** modification
+- no CI/Docker/GHCR modification
+- no H5/HDF5/model artifact modification
+- no git mutation commands
+- no Docker commands
+- no dependency installation
+
+COMMIT READINESS
+- ready to commit: yes
+- required files to stage: docs/adr/0003-bremen-microservice-api-architecture.md, docs/adr/0004-bremen-configuration-management-strategy.md, docs/adr/0005-container-dependency-stabilization.md, docs/adr/0006-multi-target-deployment-and-iac.md, ROADMAP.md, docs/architecture.md, .project-memory/pr/0011-adr-platform-readiness/reviews/precommit-review.yml
+- files to exclude: none from this set
