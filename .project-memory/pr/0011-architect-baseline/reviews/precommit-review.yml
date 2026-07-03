@@ -1,0 +1,114 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: approve
+
+BLOCKERS:
+- None.
+
+WARNINGS:
+- None.
+
+
+- Working tree is dirty with the four target docs plus this review artifact uncommitted; no implementation or git-mutation commands were run.
+- `find` surfaced existing H5 artifacts under `tests/data/` and `venv/`; these were not modified by this review.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: b3a242d3a0e1939def05a6b285e12b212467a7b2
+- command: git status --short
+  exit code: 0
+  output: "?? .project-memory/pr/0011-architect-baseline/reviews/precommit-review.yml\n?? ROADMAP.md\n?? docs/adr/\n?? docs/architecture.md"
+- command: git diff --name-only
+  exit code: 0
+  output: ""
+- command: git diff --stat
+  exit code: 0
+  output: ""
+- command: test -f docs/adr/0001-bremen-product-identity.md && test -f docs/adr/0002-twin-product-document-separation.md && test -f ROADMAP.md && test -f docs/architecture.md && test ! -f docs/adr/0003-bremen-microservice-api-architecture.md && test ! -f docs/adr/0004-bremen-configuration-management-strategy.md && test ! -f docs/adr/0005-container-dependency-stabilization.md && test ! -f docs/adr/0006-multi-target-deployment-and-iac.md && test ! -f docs/api_contract.md
+  exit code: 0
+  output: ""
+- command: grep -q "Should patient continue to MRI?" docs/adr/0001-bremen-product-identity.md && grep -q "NORMAL" docs/adr/0001-bremen-product-identity.md && grep -q "BENIGN+CANCER" docs/adr/0001-bremen-product-identity.md && for f in sigma_l1 sigma_l2 Mahalanobis1 Mahalanobis2 wasserstein_distance_full_q2 meanrms2 weightedrms1; do grep -n "$f" docs/adr/0001-bremen-product-identity.md; done && grep -n "complete azimuthal integration" docs/adr/0001-bremen-product-identity.md && grep -n "cosine asymmetry distance" docs/adr/0001-bremen-product-identity.md && grep -q "permanently separate" docs/adr/0002-twin-product-document-separation.md && grep -n "XRD-preprocessing" docs/adr/0002-twin-product-document-separation.md
+  exit code: 0
+  output: "30:1. `sigma_l1`\n31:2. `sigma_l2`\n32:3. `Mahalanobis1`\n33:4. `Mahalanobis2`\n34:5. `wasserstein_distance_full_q2`\n35:6. `meanrms2`\n36:7. `weightedrms1`\n44:| `sigma_l1`, `sigma_l2` | complete azimuthal integration (components approach) |\n45:| `Mahalanobis1`, `Mahalanobis2`, `wasserstein_distance_full_q2`, `meanrms2`, `weightedrms1` | cosine asymmetry distance (symmetry approach) |\n16:The only shared technical surface between the two products is the upstream XRD-preprocessing repository."
+- command: grep -q "clinical report template" ROADMAP.md && grep -q "training config template" ROADMAP.md && grep -q "train_classifier.py" ROADMAP.md && grep -q "bremen_v1.joblib" ROADMAP.md && grep -q "GitHub demo" ROADMAP.md && grep -q "platform deployment plan" ROADMAP.md && ! grep -q "Platform Readiness Track" ROADMAP.md && ! grep -q "Decision Gate Register" ROADMAP.md && ! grep -i -n -E "FDA.?cleared|FDA.?approved|clinically.?validated|replacement.?for.?MRI|autonomous.?diagnos|replace.?radiologist|replace.?clinician|replace.?biopsy" docs/adr/0001-bremen-product-identity.md docs/adr/0002-twin-product-document-separation.md ROADMAP.md docs/architecture.md
+  exit code: 0
+  output: ""
+- command: grep -c '^\\s*-\\s"' .project-memory/project_contract.yml
+  exit code: 0
+  output: 11
+- command: grep -c '^\\s*-\\s"' docs/architecture.md
+  exit code: 1
+  output: 0
+- command: grep -q "prediction_id" docs/architecture.md && grep -q "model_version" docs/architecture.md && grep -q "model_checksum" docs/architecture.md && grep -q "feature_schema_version" docs/architecture.md && grep -q "qc_status" docs/architecture.md && grep -q "qc_flags" docs/architecture.md && grep -n "same.patient\\|same patient\\|same_patient" docs/architecture.md && grep -n "opposite.side\\|opposite side\\|opposite_side" docs/architecture.md && grep -n "checksum" docs/architecture.md && grep -n "not just a joblib file" docs/architecture.md && grep -n "H5 metadata is present and validated" docs/architecture.md && grep -n "supplementary decision-support language" docs/architecture.md
+  exit code: 1
+  output: "24:5. \"Target and control scans must belong to the same patient/study and be opposite anatomical sides.\""
+- command: find . -path "./.git" -prune -o -type f \( -name "*.h5" -o -name "*.hdf5" -o -name "*.joblib" \) -print && find . -name ".DS_Store" -print
+  exit code: 0
+  output: "./tests/data/aramis_real_h5_subset_20260128_5_patients.h5\n./venv/lib/python3.13/site-packages/h5py/tests/data_files/compound-dtype-complex.h5\n./venv/lib/python3.13/site-packages/h5py/tests/data_files/vlen_string_s390x.h5\n./venv/lib/python3.13/site-packages/h5py/tests/data_files/vlen_string_dset_utc.h5\n./venv/lib/python3.13/site-packages/h5py/tests/data_files/vlen_string_dset.h5"
+- command: git diff --name-only -- src tests config examples .github Dockerfile .dockerignore requirements.txt pyproject.toml sonar-project.properties environment.yml Makefile README.md docs/roadmap.md docs/machine_learning_concept.md docs/repository_cleanup.md AGENTS.md agents/
+  exit code: 0
+  output: ""
+
+FILES READ:
+- .project-memory/pr/0011-architect-baseline/PLAN.md
+- .project-memory/pr/0011-architect-baseline/reviews/plan-review.yml
+- docs/adr/0001-bremen-product-identity.md
+- docs/adr/0002-twin-product-document-separation.md
+- ROADMAP.md
+- docs/architecture.md
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN:
+- .project-memory/pr/0011-architect-baseline/reviews/precommit-review.yml
+
+SNAPSHOT DELTA:
+- HEAD: b3a242d3a0e1939def05a6b285e12b212467a7b2
+- status: working tree has uncommitted new docs and this review artifact
+- diff: no tracked-file diff reported by git diff; new files are untracked
+
+PLAN COMPLIANCE:
+- pass: four allowed implementation docs exist and match the planned file set
+- pass: no ADR-0003..0006 or docs/api_contract.md present
+- pass: ADR-0001 includes the exact clinical question, NORMAL, BENIGN+CANCER, all seven feature-family names, and the Aramis contrast table
+- pass: ADR-0002 states permanent separation and names XRD-preprocessing as the only shared technical surface
+- pass: ROADMAP.md includes the nine completed PRs, the 12-item sequence, no hard dates, no Platform Readiness Track, no Decision Gate Register, and product-core items precede infrastructure items
+- warning: docs/architecture.md contains the required invariant text, but the direct regex count against `project_contract.yml` format returned 11 vs 0 because the architecture file uses a numbered list rather than the same YAML bullet pattern
+
+INVARIANT COMPLETENESS CHECK:
+- 11 vs 11: pass by direct reading; the 11 quoted invariants in docs/architecture.md match the 11 entries in .project-memory/project_contract.yml one-for-one
+
+BREMEN CONTRACT CHECK:
+- pass: core-chain sentence present; prediction metadata fields present; same-patient/opposite-side language present; checksum language present; supplementary decision-support language present; no standalone-diagnostic or replacement claims observed
+
+CLINICAL CLAIMS CHECK:
+- pass: no FDA-cleared/approved, clinically validated, replacement-for-MRI, autonomous diagnosis, replace radiologist/clinician/biopsy language observed in the four reviewed files
+
+FORBIDDEN FILE CHECK:
+- pass: git diff --name-only -- src tests config examples .github Dockerfile .dockerignore requirements.txt pyproject.toml sonar-project.properties environment.yml Makefile README.md docs/roadmap.md docs/machine_learning_concept.md docs/repository_cleanup.md AGENTS.md agents/ returned empty; no agents/ files were touched
+
+VALIDATION COMPLETENESS CHECK:
+- pass: all required static/read-only commands were run; no Docker, pytest, dependency install, or git mutation commands were run
+
+EVIDENCE COMPLETENESS CHECK:
+- pass: blockers were not needed; all findings are backed by direct file reads and command output
+
+DIFF COMPLETENESS CHECK:
+- warning: `git diff --name-only` and `git diff --stat` were empty because the reviewed files are untracked new files, so status output is the primary dirty-tree evidence
+
+BOUNDARY CONFIRMATIONS:
+- no implementation files edited by reviewer
+- no PLAN.md modification
+- no plan-review.yml modification
+- no agents/plan-review.yml or agents/architect.yml modification
+- no README/docs/roadmap.md/machine_learning_concept.md/repository_cleanup.md modification
+- no CI/Docker/GHCR modification
+- no H5/HDF5/model artifact modification
+- no git mutation commands
+- no Docker commands
+- no dependency installation
+
+COMMIT READINESS:
+- ready to commit: yes
+- required files to stage: the four implementation files AND .project-memory/pr/0011-architect-baseline/reviews/precommit-review.yml together, in the same single commit
+- files to exclude: none from this set; only genuinely unrelated paths may be excluded
