@@ -1,0 +1,140 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: warning
+
+BLOCKERS
+- None.
+
+WARNINGS
+- The workflow intentionally omits `pull_request`, `terraform`, ECS deploy, and GHCR publishing; this matches the plan and is acceptable, but it means the workflow is publish-only and not a deployment pipeline.
+- The static workflow test uses a subprocess-based git diff assertion for Terraform immutability; that is acceptable here because it is a negative boundary check, but it is not a substitute for code review of the workflow itself.
+- The repository still contains an existing H5 fixture at `./tests/data/aramis_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR.
+
+VALIDATION
+- `git rev-parse --verify HEAD` ✅ `e3b4426ed994e2198bf43ab2bc2a3ad856905f9b` on branch `0022b-ecr-publish-workflow`
+- `git branch --show-current` ✅ `0022b-ecr-publish-workflow`
+- `git status --short` ✅ untracked `.github/workflows/ecr-publish.yml` and `tests/test_bremen_ecr_publish_workflow.py`
+- `git diff --name-only` ✅ no tracked diff output
+- `git diff --stat` ✅ no tracked diff output
+- `test -f .github/workflows/ecr-publish.yml` ✅
+- `test -f tests/test_bremen_ecr_publish_workflow.py` ✅
+- `python -m compileall src tests` ✅
+- `python -m pytest -q tests/test_bremen_ecr_publish_workflow.py` ✅ 23 passed
+- `python -m pytest -q tests/test_bremen_dependency_hygiene.py` ✅ 10 passed
+- `python -m pytest -q tests/test_bremen_api_skeleton.py` ✅ 34 passed
+- `python -m pytest -q` ✅ 188 passed
+- `python -m bremen --help` ✅ help output shown
+- `grep -R -I -n "pull_request" .github/workflows/ecr-publish.yml || true` ✅ no output
+- `grep -R -I -n "aws-actions/configure-aws-credentials" .github/workflows/ecr-publish.yml` ✅ present
+- `grep -R -I -n "aws-actions/amazon-ecr-login" .github/workflows/ecr-publish.yml` ✅ present
+- `grep -R -I -n "id-token: write" .github/workflows/ecr-publish.yml` ✅ present
+- `grep -R -I -n "terraform apply\|terraform destroy\|terraform init" .github/workflows/ecr-publish.yml || true` ✅ no output
+- `grep -R -I -n "aws ecs update-service\|kubectl\|helm" .github/workflows/ecr-publish.yml || true` ✅ no output
+- `grep -R -I -n "AWS_ACCESS_KEY_ID\|AWS_SECRET_ACCESS_KEY\|aws_access_key_id\|aws_secret_access_key\|AKIA" .github/workflows/ecr-publish.yml || true` ✅ no output
+- `grep -R -I -n "ghcr.io\|packages: write" .github/workflows/ecr-publish.yml || true` ✅ no output
+- `grep -R -I -n "/Users/\|/home/" .github/workflows/ecr-publish.yml tests/test_bremen_ecr_publish_workflow.py || true` ✅ only negative-test assertions in the test file
+- `git diff --name-only -- infra/terraform src docs ROADMAP.md docs/architecture.md docs/api_contract.md requirements.txt pyproject.toml Dockerfile .dockerignore config examples tests/data agents` ✅ no output
+- `git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|npy|npz|tfstate|tfstate\.backup)$" || true` ✅ no output
+- `find . -name ".DS_Store" -print` ✅ no output
+- `date -u +%Y-%m-%dT%H:%M:%SZ` ✅ `2026-07-03T19:50:38Z`
+
+FILES READ
+- .project-memory/pr/0022b-ecr-publish-workflow/PLAN.md
+- .project-memory/pr/0022b-ecr-publish-workflow/reviews/plan-review.yml
+- .github/workflows/ecr-publish.yml
+- tests/test_bremen_ecr_publish_workflow.py
+- .project-memory/project_contract.yml
+- AGENTS.md
+- Dockerfile
+- .github/workflows/quality.yml
+- infra/terraform/ecr.tf
+- infra/terraform/outputs.tf
+- infra/terraform/README.md
+- docs/adr/0006-multi-target-deployment-and-iac.md
+- ROADMAP.md
+
+FILES WRITTEN
+- .project-memory/pr/0022b-ecr-publish-workflow/reviews/precommit-review.yml
+
+SNAPSHOT DELTA
+- Added `.github/workflows/ecr-publish.yml`
+- Added `tests/test_bremen_ecr_publish_workflow.py`
+- Added this review artifact
+- No tracked repository files were modified during review
+
+SCOPE CHECK
+- pass: only the allowed workflow file and static workflow test are present as new files
+- pass: no Terraform, source, docs, Dockerfile, dependency, config, examples, agents, or artifact files were changed
+
+WORKFLOW TRIGGER CHECK
+- pass: `workflow_dispatch` present
+- pass: `push` to `main` present
+- pass: `pull_request` absent
+- pass: no ECR publish on PR branches
+
+OIDC / CREDENTIAL CHECK
+- pass: `contents: read` present
+- pass: `id-token: write` present
+- pass: `aws-actions/configure-aws-credentials` present
+- pass: no static AWS keys or hardcoded credentials observed
+
+BUILD / PUSH CHECK
+- pass: `aws-actions/amazon-ecr-login` present
+- pass: Docker build and push commands present
+- pass: image tagged with `github.sha`
+- pass: `latest` tag is included for main push
+- pass: workflow does not publish to GHCR and does not request `packages: write`
+
+NO DEPLOY / NO TERRAFORM CHECK
+- pass: no Terraform commands in the workflow
+- pass: no ECS deploy/update-service in the workflow
+- pass: no kubectl or helm in the workflow
+
+TESTING CHECK
+- pass: focused workflow tests passed
+- pass: dependency hygiene tests passed
+- pass: API skeleton tests passed
+- pass: full pytest passed
+- pass: CLI help still works
+
+BOUNDARY CHECK
+- pass: no forbidden file drift was observed
+- pass: no H5/model/tfstate artifacts were added
+- pass: no APRANA implementation was added
+
+PLAN DRIFT GATE
+- pass: implementation matches the approved PLAN.md scope
+- pass: no drift into Terraform, runtime source, docs, or deployment automation was observed
+
+COMMIT READINESS
+- ready to commit: yes
+- required files to stage:
+  - .github/workflows/ecr-publish.yml
+  - tests/test_bremen_ecr_publish_workflow.py
+  - .project-memory/pr/0022b-ecr-publish-workflow/reviews/precommit-review.yml
+- files to exclude:
+  - ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5 (existing fixture, not modified)
+
+BOUNDARY CONFIRMATIONS
+- no implementation files edited by reviewer
+- no PLAN.md modification
+- no plan-review.yml modification
+- only workflow + static workflow test changed
+- no Terraform changes
+- no source/runtime/docs changes
+- no Dockerfile/dependency changes
+- workflow_dispatch present
+- push main present
+- pull_request absent
+- no ECR publish on PR branches
+- OIDC used
+- id-token write present
+- static AWS keys absent
+- Docker build/push present
+- github.sha tag present
+- no terraform commands
+- no ECS deploy/update-service
+- no GHCR publishing
+- no H5/model/tfstate artifacts
+- no git mutation commands
+- no Docker commands
+- no dependency installation
