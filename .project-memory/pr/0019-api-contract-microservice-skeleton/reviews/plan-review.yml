@@ -1,0 +1,89 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: warning
+
+BLOCKERS:
+- None.
+
+WARNINGS:
+- Working tree is dirty with the new PR 0019 planning directory uncommitted; no implementation or git-mutation commands were run.
+- `git diff --name-only` and `git diff --stat` were empty because the reviewed PLAN.md is untracked new content; `git status --short` is the primary dirty-tree evidence.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: a73479c21c01d1f499341e1c73430bfc5ecc6bc6
+- command: git branch --show-current
+  exit code: 0
+  output: 0019-api-contract-microservice-skeleton
+- command: git status --short
+  exit code: 0
+  output: "?? .project-memory/pr/0019-api-contract-microservice-skeleton/"
+- command: git diff --name-only
+  exit code: 0
+  output: ""
+- command: git diff --stat
+  exit code: 0
+  output: ""
+
+FILES READ:
+- .project-memory/pr/0019-api-contract-microservice-skeleton/PLAN.md
+- ROADMAP.md
+- docs/architecture.md
+- docs/adr/0003-bremen-microservice-api-architecture.md
+- docs/adr/0007-model-artifact-lifecycle.md
+- .project-memory/project_contract.yml
+- src/bremen/model_package.py
+- tests/test_bremen_model_package.py
+- pyproject.toml
+- AGENTS.md
+
+FILES WRITTEN:
+- .project-memory/pr/0019-api-contract-microservice-skeleton/reviews/plan-review.yml
+
+PLAN SCOPE CHECK:
+- pass: PLAN.md limits implementation to docs/api_contract.md, src/bremen/api/**, and tests/test_bremen_api_contract.py / tests/test_bremen_api_skeleton.py, with only optional __main__.py / CLI test changes if strongly justified.
+
+GATE / NUMBERING CHECK:
+- pass: PLAN.md recognizes PR 0019 as the reserved Platform Readiness Track API contract + microservice skeleton item; G-API-1 and G-API-2 are treated as DECIDED; PR 0019–0024 are not renumbered; Product Track sequence positions are ordering, not PR identifiers.
+
+API CONTRACT CHECK:
+- pass: PLAN.md requires docs/api_contract.md to define GET /health, GET /model/version, POST /predictions, GET /predictions/{job_id}, async submit → job_id → poll, explicit target/control refs, no local machine path dependency, and the completed-result fields from project_contract.yml.
+
+SKELETON CHECK:
+- pass: PLAN.md requires standard-library-only implementation, no new dependencies, no pyproject/requirements changes, route-shaped handlers, in-memory job store, accepted/queued job flow, health-only response, and safe model/version metadata without model loading.
+
+SECURITY / BOUNDARY CHECK:
+- pass: PLAN.md forbids joblib/pickle imports and loads, model deserialization, training/inference, H5/HDF5 reading, preprocessing/feature extraction, AWS/S3/network calls, Matador calls, secrets, model artifact creation, and clinical report/patient-facing output.
+
+CLINICAL / IDENTITY CHECK:
+- pass: PLAN.md forbids clinical validation claims, diagnostic replacement wording, diagnostic language, and Aramis as an active dependency/runtime/API target/architecture component.
+
+TESTING CHECK:
+- pass: PLAN.md requires tests for contract existence, endpoint names, async flow, completed-result fields, health/model-version skeletons, accepted/queued job creation, unknown-job controlled error, explicit target/control refs, no local path requirement, no H5/HDF5, no joblib/pickle, no AWS/S3/network, no training/inference, no clinical wording, and no Aramis active architecture.
+
+VALIDATION CHECKLIST CHECK:
+- pass: PLAN.md includes git state checks, file existence checks, compileall, focused API tests, model package/config/identity/full pytest, CLI help, grep checks for joblib/pickle/H5/AWS/clinical/Aramis, forbidden path diff check, artifact find check, and .DS_Store check.
+
+PROCESS RULES CHECK:
+- pass: first validation commands were git rev-parse --verify HEAD and git branch --show-current; branch matched 0019-api-contract-microservice-skeleton.
+
+COMMIT READINESS:
+- ready to commit planning artifacts: yes
+- required files to stage: .project-memory/pr/0019-api-contract-microservice-skeleton/PLAN.md AND .project-memory/pr/0019-api-contract-microservice-skeleton/reviews/plan-review.yml TOGETHER, in the same single commit
+- files to exclude: none from this pair
+
+BOUNDARY CONFIRMATIONS:
+- no implementation files modified
+- PR 0019 number preserved
+- no PR 0019–0024 renumbering planned
+- G-API-1/G-API-2 treated as DECIDED
+- no dependencies planned
+- no CI/Docker planned
+- no Terraform/IaC planned
+- no H5/HDF5 reads planned
+- no joblib.load planned
+- no training/inference planned
+- no AWS/S3/network calls planned
+- no model artifacts planned
+- no clinical report planned
+- no git mutation commands
