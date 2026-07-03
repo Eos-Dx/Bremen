@@ -108,6 +108,26 @@ H5 container
 -> MLflow lineage
 ```
 
+## CLI Usage
+
+Show available commands (safe, no heavy imports):
+
+```bash
+python -m bremen --help
+
+# Available commands:
+#   preprocess   Build a Bremen preprocessing DataFrame from a YAML config.
+#   preflight    Run safety preflight checks (not yet implemented).
+#   run          Run Bremen analysis workflow (not yet implemented).
+#   report       Generate decision-support report (not yet implemented).
+```
+
+Run preprocessing:
+
+```bash
+python -m bremen preprocess --config /path/to/preprocess.yaml
+```
+
 Planned command-level product interface:
 
 ```text

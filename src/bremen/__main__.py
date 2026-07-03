@@ -1,16 +1,60 @@
-"""Command-line entrypoint for Bremen product workflows."""
+"""Unified command-line entrypoint for Bremen product workflows.
+
+Bremen — XRD-based ML decision-support workflow foundation.
+Not a diagnostic replacement.
+"""
 
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
-
-from .pipelines import run_preprocessing_from_config
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="bremen")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+BUILTIN_COMMANDS = ("preprocess",)
+STUB_COMMANDS = ("preflight", "run", "report")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser with all subcommands (no heavy imports)."""
+    parser = argparse.ArgumentParser(
+        prog="bremen",
+        description=(
+            "XRD-based ML decision-support workflow foundation. "
+            "Not a diagnostic replacement."
+        ),
+    )
+    subparsers = parser.add_subparsers(dest="command")
+
+    # --- Real command: preprocess ---
+    _add_preprocess_subcommand(subparsers)
+
+    # --- Stub commands for future workflow stages ---
+    _add_stub_command(
+        subparsers,
+        "preflight",
+        "Run safety preflight checks (not yet implemented).",
+        "Planned for a future PR.",
+    )
+    _add_stub_command(
+        subparsers,
+        "run",
+        "Run Bremen analysis workflow (not yet implemented).",
+        "Planned for a future PR.",
+    )
+    _add_stub_command(
+        subparsers,
+        "report",
+        "Generate decision-support report (not yet implemented).",
+        "Planned for a future PR.",
+    )
+
+    return parser
+
+
+def _add_preprocess_subcommand(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Add the 'preprocess' subcommand (imports heavy dependencies lazily)."""
+    from pathlib import Path
 
     preprocess = subparsers.add_parser(
         "preprocess",
@@ -22,15 +66,56 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Path to Bremen preprocessing YAML.",
     )
+    preprocess.set_defaults(_cmd_handler="preprocess")
 
+
+def _add_stub_command(
+    subparsers: argparse._SubParsersAction,
+    name: str,
+    help_text: str,
+    deferral_note: str,
+) -> None:
+    """Add a stub subcommand that prints a deferral message."""
+    cmd = subparsers.add_parser(name, help=help_text)
+    cmd.set_defaults(
+        _cmd_handler="stub", _stub_name=name, _stub_note=deferral_note
+    )
+
+
+def _handle_preprocess(args: argparse.Namespace) -> int:
+    """Execute the preprocess command (lazy import)."""
+    from .pipelines import run_preprocessing_from_config  # noqa: PLC0415
+
+    df = run_preprocessing_from_config(args.config)
+    print(f"rows={len(df)}")
+    print(f"columns={len(df.columns)}")
+    print(f"config={args.config}")
+    return 0
+
+
+def _handle_stub(args: argparse.Namespace) -> int:
+    """Print a deferral message for stub commands."""
+    print(f"'{args._stub_name}' is not yet implemented.")
+    print(args._stub_note)
+    return 1
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
     args = parser.parse_args(argv)
-    if args.command == "preprocess":
-        df = run_preprocessing_from_config(args.config)
-        print(f"rows={len(df)}")
-        print(f"columns={len(df.columns)}")
-        print(f"config={args.config}")
+
+    if args.command is None:
+        parser.print_help()
         return 0
-    raise ValueError(f"Unknown command: {args.command}")
+
+    handler = getattr(args, "_cmd_handler", None)
+    if handler == "preprocess":
+        return _handle_preprocess(args)
+    if handler == "stub":
+        return _handle_stub(args)
+
+    parser.print_help()
+    return 0
 
 
 if __name__ == "__main__":

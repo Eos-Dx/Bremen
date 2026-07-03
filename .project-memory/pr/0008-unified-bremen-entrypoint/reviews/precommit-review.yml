@@ -1,0 +1,151 @@
+review:
+  artifact_written: yes
+  verdict: warning
+  blockers: []
+  warnings:
+    - "README.md was updated with CLI usage text, which is within the allowed scope but broadens the user-facing surface beyond the minimal help example."
+    - "The new CLI test file is present but was not yet executed separately in the captured validation commands; the full pytest run did include it via collection, but the artifact should keep that distinction clear."
+  validation:
+    - command: "git rev-parse --verify HEAD"
+      exit_code: 0
+      output: |
+        7c7bfa8e4dcbdda1ecc26ba046c313b98153b72c
+    - command: "git status --short"
+      exit_code: 0
+      output: |
+        M README.md
+         M src/bremen/__main__.py
+        ?? tests/test_bremen_cli_entrypoint.py
+    - command: "git diff --name-only"
+      exit_code: 0
+      output: |
+        README.md
+        src/bremen/__main__.py
+    - command: "git diff --stat"
+      exit_code: 0
+      output: |
+        README.md              |  20 +++++++++
+        src/bremen/__main__.py | 109 +++++++++++++++++++++++++++++++++++++++++++------
+        2 files changed, 117 insertions(+), 12 deletions(-)
+    - command: "test -f src/bremen/**main**.py"
+      exit_code: 0
+      output: |
+        <no output>
+    - command: "python -m compileall src tests"
+      exit_code: 0
+      output: |
+        Listing 'src'...
+        Listing 'src/bremen'...
+        Listing 'tests'...
+        Listing 'tests/data'...
+        Compiling 'tests/test_bremen_cli_entrypoint.py'...
+    - command: "python -m bremen --help"
+      exit_code: 0
+      output: |
+        usage: bremen [-h] {preprocess,preflight,run,report} ...
+
+        XRD-based ML decision-support workflow foundation. Not a diagnostic
+        replacement.
+    - command: "python -m pytest -q tests/test_bremen_import_identity.py"
+      exit_code: 0
+      output: |
+        10 passed in 0.01s
+    - command: "python -m pytest -q"
+      exit_code: 0
+      output: |
+        61 passed, 28 warnings in 17.97s
+    - command: "grep -R -I -n -E \"Aramis|aramis\" src/bremen tests README.md pyproject.toml 2>/dev/null || true"
+      exit_code: 0
+      output: |
+        tests/test_bremen_cli_entrypoint.py:8:- No active Aramis identity in help output
+        tests/test_bremen_cli_entrypoint.py:145:# No Aramis identity in help output
+        tests/test_bremen_cli_entrypoint.py:149:def test_help_no_aramis():
+        tests/test_bremen_cli_entrypoint.py:150:    \"\"\"python -m bremen --help output does not contain 'aramis' or 'Aramis'.\"\"\"
+        tests/test_bremen_cli_entrypoint.py:156:    assert \"aramis\" not in result.stdout.lower(), (
+        tests/test_bremen_cli_entrypoint.py:157:        \"Help output must not contain 'aramis' (case-insensitive)\"
+        README.md:5:This repository was derived from the Aramis project. Aramis was the EOS research draft product for breast XRD decision support. Bremen carries forward the inherited source code and pipeline architecture while establishing an independent product identity.
+        README.md:76:`XRD-preprocessing` is the common preprocessing core for Bremen and Aramis:
+        README.md:139:> **Note:** CLI entrypoints now use the `bremen` package name. The inherited `aramis` entrypoint is preserved as a backward-compatibility alias.
+        README.md:187:> **Note:** Classes were renamed from `Aramis*` to `Bremen*` as part of the full alignment.
+        README.md:215:> **Note:** The examples above reference the Bremen project path. The original Aramis workspace path was `cd /Users/sad/dev/Aramis` with old `aramis_*` config filenames.
+        README.md:231:> **Note:** Example notebooks and helper filenames have been renamed from `aramis_*` to `bremen_*` as part of the full package alignment.
+        README.md:265:config/aramis_product_versioning.json
+        README.md:268:config/aramis_preprocessing_v0_1_config.json
+        README.md:332:See [docs/repository_cleanup.md](docs/repository_cleanup.md) for the current status of repository identity cleanup, Aramis legacy classification, and deferred items.
+        pyproject.toml:8:description = \"Bremen — XRD-based ML decision-support product candidate. Derived from the Aramis project (cancer-classification product draft).\"
+    - command: "grep -R -I -n -E \"diagnos|diagnostic|clinically validated|validated clinically|replace MRI|replace biopsy|replace radiologist|replace clinician|autonomous clinical\" src/bremen tests README.md 2>/dev/null || true"
+      exit_code: 0
+      output: |
+        src/bremen/__main__.py:4:Not a diagnostic replacement.
+        src/bremen/__main__.py:22:            "Not a diagnostic replacement."
+        tests/test_bremen_cli_entrypoint.py:54:    \"\"\"python -m bremen --help output contains the 'Not a diagnostic replacement' disclaimer.\"\"\"
+        tests/test_bremen_cli_entrypoint.py:62:    assert \"Not a diagnostic\" in result.stdout, (
+        tests/test_bremen_cli_entrypoint.py:63:        \"Help output must contain 'Not a diagnostic replacement' disclaimer\"
+        tests/test_bremen_cli_entrypoint.py:66:        \"Help output must contain 'Not a diagnostic replacement' disclaimer\"
+        README.md:36:This repository must not present Bremen as autonomous diagnosis, biopsy replacement, radiologist replacement, FDA-cleared, or clinically validated unless separate validation and regulatory evidence is added.
+    - command: "grep -R -I -n -E \"h5py|\\.h5|\\.hdf5|joblib|pickle|Matador|matador|train|fit\\(|predict\\(|load_model|model artifact\" src/bremen/**main**.py src/bremen/cli.py tests/test_bremen_cli_entrypoint.py 2>/dev/null || true"
+      exit_code: 0
+      output: |
+        tests/test_bremen_cli_entrypoint.py:9:- CLI import is safe (no H5 read, no model load, no Matador access)
+        tests/test_bremen_cli_entrypoint.py:162:# Import safety (no H5 read, no model load, no Matador)
+    - command: "git diff --name-only -- .github Dockerfile .dockerignore sonar-project.properties AGENTS.md docs config examples environment.yml Makefile tests/data"
+      exit_code: 0
+      output: |
+        <no output>
+    - command: "find . -path \"./.git\" -prune -o -path \"./venv\" -prune -o -path \"./.venv\" -prune -o -type f \( -name \"*.h5\" -o -name \"*.hdf5\" \) -print"
+      exit_code: 0
+      output: |
+        ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5
+    - command: "find . -name \".DS_Store\" -print"
+      exit_code: 0
+      output: |
+        <no output>
+    - command: "date -u +%Y-%m-%dT%H:%M:%SZ"
+      exit_code: 0
+      output: |
+        2026-07-03T06:49:34Z
+  files_read:
+    - .project-memory/pr/0008-unified-bremen-entrypoint/PLAN.md
+    - .project-memory/pr/0008-unified-bremen-entrypoint/reviews/plan-review.yml
+    - src/bremen/__main__.py
+    - README.md
+    - tests/test_bremen_cli_entrypoint.py
+    - AGENTS.md
+  files_written:
+    - .project-memory/pr/0008-unified-bremen-entrypoint/reviews/precommit-review.yml
+  snapshot_delta:
+    - "HEAD captured"
+    - "src/bremen/__main__.py updated for lazy CLI entrypoint"
+    - "README.md updated with CLI usage"
+    - "new CLI test file added"
+    - "python -m bremen --help passed"
+    - "full pytest passed"
+  scope_check: pass
+  entrypoint_check: pass
+  command_surface_check: pass
+  import_safety_check: pass
+  safety_wording_check: pass
+  testing_check: pass
+  runtime_ml_h5_safety_check: pass
+  config_matador_deferral_check: pass
+  ci_docker_ghcr_drift_check: pass
+  plan_drift_gate: warning
+  commit_readiness:
+    ready_to_commit: yes
+    required_files_to_stage:
+      - src/bremen/__main__.py
+      - README.md
+      - tests/test_bremen_cli_entrypoint.py
+    files_to_exclude:
+      - .project-memory/pr/0008-unified-bremen-entrypoint/
+  boundary_confirmations:
+    - "no implementation files edited by reviewer"
+    - "no PLAN.md modification"
+    - "no plan-review.yml modification"
+    - "no CI/Docker/GHCR modification unless allowed and justified"
+    - "no H5/HDF5 modification"
+    - "no tests/data modification"
+    - "no model artifact modification"
+    - "no git mutation commands"
+    - "no Docker commands"
+    - "no dependency installation"
