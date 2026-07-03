@@ -15,6 +15,7 @@ No Platform Readiness Track. No Decision Gate Register. No hard calendar dates �
 - PR-0007 — GHCR Docker smoke publish
 - PR-0008 — Unified Bremen entrypoint
 - PR-0009 — Config discovery/loading
+- PR-0012 — Model artifact lifecycle ADR + runtime deployment gate closure. ADR-0007 formalizes offline training, controlled package, runtime loading, S3 storage, and security boundaries. G-API-1, G-API-2, G-INFRA-1 closed as DECIDED.
 
 ## Product Track sequence
 
@@ -50,10 +51,22 @@ Items 8–12 must not be silently dropped, but must appear after items 1–7 bec
 
 | Gate ID | Question | Trigger type | Recommended default | Status | Decided value |
 |---------|----------|-------------|-------------------|--------|---------------|
-| G-API-1 | Sync vs. async request/response | Date-bound (before PR 0019) | Async submit-then-poll | OPEN | — |
-| G-API-2 | AWS compute target (ECS Fargate vs. Lambda-container vs. EKS) | Date-bound (before PR 0019, PR 0022) | ECS Fargate | OPEN | — |
+| G-API-1 | Sync vs. async request/response | Date-bound (before PR 0019) | Async submit-then-poll | DECIDED | async submit → `job_id` → poll |
+| G-API-2 | AWS compute target (ECS Fargate vs. Lambda-container vs. EKS) | Date-bound (before PR 0019, PR 0022) | ECS Fargate | DECIDED | ECS Fargate |
 | G-CFG-1 | Build in-house vs. adopt existing config-management product | Date-bound (before PR 0024) | Not decided | OPEN | — |
 | G-DEP-1 | Container repo merges feat/v0_3 to main | Event-bound (external event) | Re-pin within 5 business days; re-verify VERSION_REGISTRY | OPEN | — |
-| G-INFRA-1 | Terraform vs. AWS CDK vs. CloudFormation | Date-bound (before PR 0022) | Terraform | OPEN | — |
+| G-INFRA-1 | Terraform vs. AWS CDK vs. CloudFormation | Date-bound (before PR 0022) | Terraform | DECIDED | Terraform |
 
 Calendar dates in the Product Track may drift and that's expected. What's required is that any slip is recorded with a reason, and no PR silently absorbs scope from an open Decision Gate without that gate first being marked DECIDED.
+
+### Closed gate details
+
+| Gate ID | Decided value | Decided by | Decision date |
+|---------|---------------|------------|---------------|
+| G-API-1 | async submit → `job_id` → poll | Human product/engineering decision in PR 0012 planning | 2026-07-03 (UTC) |
+| G-API-2 | ECS Fargate | Human product/engineering decision in PR 0012 planning | 2026-07-03 (UTC) |
+| G-INFRA-1 | Terraform | Human product/engineering decision in PR 0012 planning | 2026-07-03 (UTC) |
+
+**Execution order note**: Runtime/API/IaC/model-artifact foundation is now priority before the patient-facing report template (Product Track item 2). This is execution-order guidance, not a renumbering of existing roadmap items. PRs from the Platform Readiness Track (PR 0019–0024) and the Product Track (items 2–12) may be interleaved based on readiness, with the understanding that the API/microservice/IaC/model-artifact foundation precedes downstream work that depends on it.
+
+**Numbering clarification**: Product Track sequence positions (items 1–12) are ordering, not PR-00XX identifiers. The next literal PR number after 0012 will be assigned when the next scheduled sequence item is actually planned. PR 0019–0024 Platform Readiness Track numbers remain unchanged and are not renumbered by this or any subsequent PR. Reprioritization changes execution order only, not existing PR labels.

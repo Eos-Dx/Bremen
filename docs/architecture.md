@@ -82,3 +82,44 @@ The full API contract is delegated to PR 0019.
 - **Why it exists**: `VERSION_REGISTRY "0_3"` support is not yet on `main`.
 - **Event-triggered response plan** (G-DEP-1): Re-pin to `main` within 5 business days of `feat/v0_3` → `main` merge; re-verify the `VERSION_REGISTRY` assertion.
 - The `requirements.txt` local-path defect (`-e /Users/sad/dev/container`) is part of the same hygiene work (PR 0021).
+
+## Offline Model Artifact Lifecycle
+
+- Training pipeline creates controlled model package.
+- Model package stored separately from app image.
+- S3 versioned bucket as first implementation target.
+- Checksum computed at training-pipeline trust boundary; not derived post-hoc by runtime.
+- Checksum manifest write access restricted separately from model artifact read access.
+
+## Online Prediction Runtime Workflow
+
+> Matador/platform submits target/control H5 references
+> → Bremen async job is created
+> → H5 inspect gate
+> → target/control metadata validation
+> → preprocessing/feature extraction
+> → feature schema validation
+> → checksum-verified model package loading
+> → joblib inference
+> → QC gates
+> → prediction JSON
+> → Matador storage/report layer
+
+The async job creation is a consequence of the closed G-API-1 decision (async submit → `job_id` → poll, DECIDED in PR 0012).
+
+## AWS Runtime/Deployment Default Decisions
+
+- **Async API**: submit → `job_id` → poll (G-API-1, DECIDED).
+- **Compute**: ECS Fargate (G-API-2, DECIDED).
+- **IaC tool**: Terraform (G-INFRA-1, DECIDED).
+- **Service image path**: ECR (planned, PR 0022).
+- **Model package path**: S3 versioned bucket (planned, PR 0013+).
+- No automatic deploy or destructive infra mutation in this PR.
+
+## Safety
+
+- Runtime service does not train models.
+- Model package load must be checksum-verified.
+- Feature schema must match model expectations.
+- Prediction result must include required model/version/checksum/QC fields.
+- Platform API must not depend on local machine paths.
