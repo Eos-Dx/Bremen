@@ -1,0 +1,56 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: warning
+
+BLOCKERS:
+- None.
+
+WARNINGS:
+- PLAN.md is modified in the working tree, but the review is based on static evidence only; no runtime validation was run, per plan-review boundary.
+
+VALIDATION:
+- command: git status --short
+  exit code: 0
+  output: "M agents/plan-review.yml"
+- command: git diff --stat -- .project-memory/pr/0011-architect-baseline/PLAN.md
+  exit code: 0
+  output: "<no output>"
+- command: grep -c '^\\s*-\\s"' .project-memory/project_contract.yml
+  exit code: 0
+  output: "11"
+- command: grep -c '^\\s*- "' .project-memory/pr/0011-architect-baseline/PLAN.md
+  exit code: 0
+  output: "1"
+- command: grep -n "Project Contract Invariant Inventory" .project-memory/pr/0011-architect-baseline/PLAN.md
+  exit code: 0
+  output: "208:### Project Contract Invariant Inventory\n210:Must contain a section titled exactly `## Project Contract Invariant Inventory` that restates ALL 11 safety invariants from `.project-memory/project_contract.yml` verbatim, 1:1, no paraphrase, no subset:\n368:# 44) Project Contract Invariant Inventory section title present\n369:grep -q \"Project Contract Invariant Inventory\" docs/architecture.md || exit 1"
+
+FILES READ:
+- .project-memory/pr/0011-architect-baseline/PLAN.md
+- .project-memory/project_contract.yml
+- .project-memory/memory_index.yml
+- docs/product_development_rules.md
+- AGENTS.md
+
+FILES WRITTEN:
+- .project-memory/pr/0011-architect-baseline/reviews/plan-review.yml
+
+SNAPSHOT DELTA:
+- HEAD: unknown
+- status: working tree has unrelated modification in agents/plan-review.yml
+- diff: PLAN.md diff-stat empty; grep confirms invariant inventory section present
+
+CHECKS:
+- scope: pass
+- plan-review boundary: pass
+- validation strategy: pass
+- safety boundaries: pass
+- drift gate: pass
+- evidence completeness: pass
+- dirty tree: warning
+
+BOUNDARY CONFIRMATIONS:
+- no Docker run
+- no pytest run
+- no dependency install
+- no implementation files edited
+- no git mutation commands
