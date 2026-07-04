@@ -1,0 +1,100 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: warning
+
+BLOCKERS:
+- None.
+
+WARNINGS:
+- Working tree is dirty with the new PR 0025 planning directory uncommitted; no implementation or git-mutation commands were run.
+- `git diff --name-only` and `git diff --stat` were not requested here; `git status --short` is the primary dirty-tree evidence.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: d4555ae266cf51f8322e168f60a04f8707919195
+- command: git branch --show-current
+  exit code: 0
+  output: 0025-roadmap-platform-rebaseline
+- command: git status --short
+  exit code: 0
+  output: "?? .project-memory/pr/0025-roadmap-platform-rebaseline/"
+- command: test -f .project-memory/pr/0025-roadmap-platform-rebaseline/PLAN.md && grep -n "ROADMAP.md" .project-memory/pr/0025-roadmap-platform-rebaseline/PLAN.md && grep -n "PR 0019" .project-memory/pr/0025-roadmap-platform-rebaseline/PLAN.md && grep -n "PR 0020" .project-memory/pr/0025-roadmap-platform-rebaseline/PLAN.md && grep -n "PR 0021" .project-memory/pr/0025-roadmap-platform-rebaseline/PLAN.md && grep -n "0022A\|0022B\|0022C" .project-memory/pr/0025-roadmap-platform-rebaseline/PLAN.md && grep -n "G-CFG-1" .project-memory/pr/0025-roadmap-platform-rebaseline/PLAN.md && grep -n "G-DEP-1" .project-memory/pr/0025-roadmap-platform-rebaseline/PLAN.md && grep -n "App Runner\|APRANA\|ECS Fargate" .project-memory/pr/0025-roadmap-platform-rebaseline/PLAN.md && grep -n "Agent: architect" .project-memory/pr/0025-roadmap-platform-rebaseline/PLAN.md && grep -n "Mode: roadmap update" .project-memory/pr/0025-roadmap-platform-rebaseline/PLAN.md
+  exit code: 0
+  output: "9:Rebaseline ROADMAP.md to reflect the completed and merged platform foundation work (PR 0019–0022C), preserve open gates, document the operational debt item (interim IAM credentials for ECR), clarify APRANA/App Runner status, and define the next execution sequence for the product/runtime track (PR 0026 onward).\n30:1. **`ROADMAP.md`** — MODIFY. Rebaseline to reflect completed platform work, update gate/debt register, add APRANA/App Runner clarification, define next execution sequence.\n34:2. **`docs/architecture.md`** — MODIFY only if ROADMAP.md cannot be made internally consistent without it. Default: do not modify.\n36:This PLAN.md recommends modifying only ROADMAP.md. docs/architecture.md already has a correct \"API Surface (Draft)\" section that mentions PR 0019; updating it is not strictly necessary for roadmap consistency.\n49:- `ROADMAP.md` — current state\n69:**Reason**: ROADMAP.md is an architect-reserved path per `agents/architect.yml`.\n71:## ROADMAP.md update requirements\n142:Ensure ROADMAP.md preserves Bremen identity language throughout:\n167:test -f ROADMAP.md || exit 1\n170:grep -n \"PR 0019\" ROADMAP.md || exit 1\n171:grep -n \"PR 0020\" ROADMAP.md || exit 1\n172:grep -n \"PR 0021\" ROADMAP.md || exit 1\n173:grep -n \"0022A\\|0022B\\|0022C\" ROADMAP.md || exit 1\n176:grep -n \"G-CFG-1\" ROADMAP.md || exit 1\n177:grep -n \"G-DEP-1\" ROADMAP.md || exit 1\n178:grep -n \"OPEN\" ROADMAP.md || exit 1\n181:grep -n \"App Runner\\|APRANA\\|ECS Fargate\" ROADMAP.md || exit 1\n184:grep -n \"runtime HTTP service runner\\|model package source integration\\|H5/preflight\" ROADMAP.md || exit 1\n187:grep -R -I -n \"AWS_ACCESS_KEY_ID\\|AWS_SECRET_ACCESS_KEY\\|AKIA\\|SecretAccessKey\\|851725451903\\|dkr.ecr\" ROADMAP.md || true\n190:grep -R -I -n \"production-ready\\|deployed production API\\|diagnos\\|cancer detected\" ROADMAP.md || true\n224:1. **Revert ROADMAP.md** — restore the pre-PR-0025 version. All roadmap information is text — no runtime effects.\n242:| **File drift** | Only ROADMAP.md changed (optionally docs/architecture.md with justification). |\n248:| **Secrets drift** | No AWS keys, account IDs, or registry URLs in ROADMAP.md. |\n269:1. `ROADMAP.md` — MODIFY (rebaseline)\n321:5. After plan-review approves, the architect implements ROADMAP.md.\n325:- `ROADMAP.md`\n352:- confirm: ROADMAP.md update planned: yes\n353:- confirm: default scope is ROADMAP.md only: yes\n9:Rebaseline ROADMAP.md to reflect the completed and merged platform foundation work (PR 0019–0022C), preserve open gates, document the operational debt item (interim IAM credentials for ECR), clarify APRANA/App Runner status, and define the next execution sequence for the product/runtime track (PR 0026 onward).\n17:- **PR 0019** — API contract + async microservice skeleton (`docs/api_contract.md`, `src/bremen/api/`, route-shaped handlers, in-memory job store)\n36:This PLAN.md recommends modifying only ROADMAP.md. docs/architecture.md already has a correct "API Surface (Draft)" section that mentions PR 0019; updating it is not strictly necessary for roadmap consistency.\n56:- `docs/api_contract.md` — PR 0019 output\n86:Update `## Platform Readiness Track (parallel to Product Track)` to reflect completion for PR 0019, PR 0020, PR 0021, and PR 0022A/0022B/0022C. The PR 0022 entry should be clarified as:\n170:grep -n "PR 0019" ROADMAP.md || exit 1\n243:| **Platform PR status drift** | PR 0019–0022C marked as completed with accurate descriptions. |\n278:| PR 0019 | ✅ Completed | API contract + async microservice skeleton |\n18:- **PR 0020** — Cloud-aware config sourcing (`read_cloud_config()` in `src/bremen/config.py`, `CloudConfig` dataclass, environment variable contract matching Terraform/ECS)\n60:- `src/bremen/config.py` — PR 0020 output (cloud config function exists)\n86:Update `## Platform Readiness Track (parallel to Product Track)` to reflect completion for PR 0019, PR 0020, PR 0021, and PR 0022A/0022B/0022C. The PR 0022 entry should be clarified as:\n171:grep -n "PR 0020" ROADMAP.md || exit 1\n279:| PR 0020 | ✅ Completed | Cloud-aware config sourcing |\n19:- **PR 0021** — Container dependency hygiene (`requirements.txt` local-path defect fixed, reproducible git URL pin for `container` at `feat/v0_3`)\n86:Update `## Platform Readiness Track (parallel to Product Track)` to reflect completion for PR 0019, PR 0020, PR 0021, and PR 0022A/0022B/0022C. The PR 0022 entry should be clarified as:\n172:grep -n "PR 0021" ROADMAP.md || exit 1\n280:| PR 0021 | ✅ Completed | Container dependency hygiene |\n9:Rebaseline ROADMAP.md to reflect the completed and merged platform foundation work (PR 0019–0022C), preserve open gates, document the operational debt item (interim IAM credentials for ECR), clarify APRANA/App Runner status, and define the next execution sequence for the product/runtime track (PR 0026 onward).\n20:- **PR 0022A** — Terraform AWS runtime skeleton (`infra/terraform/`: main.tf, variables.tf, outputs.tf, ecr.tf, s3.tf, ecs.tf, iam.tf, README.md)\n21:- **PR 0022B** — ECR publish workflow (`.github/workflows/ecr-publish.yml`, initial version)\n22:- **PR 0022C** — ECR workflow credentials hotfix / scoped publisher credentials (workflow updated to use scoped IAM user credentials via secrets as an interim path)\n81:- PR-0022A — Terraform AWS runtime skeleton. infra/terraform/ with ECR, S3 versioned bucket, ECS Fargate cluster/service/task definition, CloudWatch, scoped IAM roles. Not yet applied.\n82:- PR-0022B — ECR publish workflow. .github/workflows/ecr-publish.yml building and pushing Docker image to ECR on push to main.\n83:- PR-0022C — ECR workflow credentials hotfix / scoped publisher credentials. Uses scoped IAM user credentials via secrets for ECR authentication (interim operational path; OIDC is the planned long-term approach.)\n86:Update `## Platform Readiness Track (parallel to Product Track)` to reflect completion for PR 0019, PR 0020, PR 0021, and PR 0022A/0022B/0022C. The PR 0022 entry should be clarified as:\n90:| PR 0022A | **Terraform AWS runtime skeleton** — Delegated from ADR-0006. ECR, S3 versioned bucket, ECS Fargate, CloudWatch, scoped IAM. Not yet applied. | G-INFRA-1 and G-API-2 closed |\n91:| PR 0022B | **ECR publish workflow** — Docker image build/push to ECR on main push. | Terraform skeleton exists |\n92:| PR 0022C | **ECR workflow credentials** — Scoped IAM user credentials as interim auth path. | PR 0022B |\n173:grep -n "0022A\|0022B\|0022C" ROADMAP.md || exit 1\n243:| **Platform PR status drift** | PR 0019–0022C marked as completed with accurate descriptions. |\n281:| PR 0022A | ✅ Completed | Terraform AWS runtime skeleton (not yet applied) |\n282:| PR 0022B | ✅ Completed | ECR publish workflow |\n283:| PR 0022C | ✅ Completed | ECR workflow credentials hotfix / scoped publisher credentials |\n24:G-CFG-1 and G-DEP-1 remain OPEN (no new evidence to close them).\n52:- `docs/adr/0004-bremen-configuration-management-strategy.md` — config management (G-CFG-1)\n94:| PR 0024 | **Config editing surface** — BLOCKED on G-CFG-1. Not date-bound. Scheduled only after Product Track's core classifier work (operator-convenience, not product-critical path). | G-CFG-1, Product Track core classifier |\n99:- **G-CFG-1** — Config management tool choice not yet decided. Maintain OPEN status.\n176:grep -n "G-CFG-1" ROADMAP.md || exit 1\n219:- No closing of G-CFG-1 or G-DEP-1 without evidence.\n244:| **Gate drift** | G-CFG-1 and G-DEP-1 remain OPEN. Operational hardening item documented. |\n259:- Plan closes G-CFG-1 or G-DEP-1 without evidence.\n288:| G-CFG-1 | OPEN | Config management tool choice not decided |\n357:- confirm: G-CFG-1 and G-DEP-1 remain OPEN unless evidence proves otherwise: yes\n24:G-CFG-1 and G-DEP-1 remain OPEN (no new evidence to close them).\n53:- `docs/adr/0005-container-dependency-stabilization.md` — container dependency (G-DEP-1)\n80:- PR-0021 — Container dependency hygiene. Removes editable local-path dependencies from requirements.txt. Replaces with reproducible git URL pin at feat/v0_3. G-DEP-1 remains OPEN.\n100:- **G-DEP-1** — External container repo `feat/v0_3` → `main` merge not yet confirmed. Maintain OPEN status.\n177:grep -n "G-DEP-1" ROADMAP.md || exit 1\n219:- No closing of G-CFG-1 or G-DEP-1 without evidence.\n244:| **Gate drift** | G-CFG-1 and G-DEP-1 remain OPEN. Operational hardening item documented. |\n259:- Plan closes G-CFG-1 or G-DEP-1 without evidence.\n289:| G-DEP-1 | OPEN | Container feat/v0_3 → main merge not confirmed |\n357:- confirm: G-CFG-1 and G-DEP-1 remain OPEN unless evidence proves otherwise: yes\n9:Rebaseline ROADMAP.md to reflect the completed and merged platform foundation work (PR 0019–0022C), preserve open gates, document the operational debt item (interim IAM credentials for ECR), clarify APRANA/App Runner status, and define the next execution sequence for the product/runtime track (PR 0026 onward).\n30:1. **`ROADMAP.md`** — MODIFY. Rebaseline to reflect completed platform work, update gate/debt register, add APRANA/App Runner clarification, define next execution sequence.\n81:- PR-0022A — Terraform AWS runtime skeleton. infra/terraform/ with ECR, S3 versioned bucket, ECS Fargate cluster/service/task definition, CloudWatch, scoped IAM roles. Not yet applied.\n90:| PR 0022A | **Terraform AWS runtime skeleton** — Delegated from ADR-0006. ECR, S3 versioned bucket, ECS Fargate, CloudWatch, scoped IAM. Not yet applied. | G-INFRA-1 and G-API-2 closed |\n93:| PR 0023 | **APRANA / App Runner evaluation** — Deferred candidate track. See note below. | Platform name/access confirmed |\n123:### 4. App Runner / APRANA clarification\n125:Add a subsection explaining APRANA:\n128:### App Runner / APRANA clarification\n130:- "APRANA" in earlier ADRs and roadmap entries was a planning shorthand for **AWS App Runner**.\n131:- **ECS Fargate** remains the decided primary AWS runtime target (G-API-2, DECIDED in PR 0012).\n132:- **App Runner** is a deferred candidate track, not current implementation scope. PR 0023 is reserved for future App Runner evaluation or CI/CD planning.\n133:- Before any App Runner work starts, an explicit decision is required on whether App Runner is:\n134:  1. an alternative to ECS Fargate (replacing the current primary target),\n137:- No App Runner resources, Terraform, GitHub Actions, deployment steps, or runtime changes are introduced by this roadmap rebaseline.\n180:# 14) APRANA/App Runner clarification present\n181:grep -n "App Runner\|APRANA\|ECS Fargate" ROADMAP.md || exit 1\n218:- No App Runner implementation.\n236:PR 0023 remains reserved for App Runner evaluation. PR 0024 remains reserved for config editing surface.\n245:| **APRANA drift** | Clarified as App Runner shorthand. Deferred. Not implemented. ECS Fargate remains primary. |\n261:- Plan treats APRANA as unknown (must clarify as App Runner shorthand per the task).\n262:- Plan selects or implements App Runner in PR 0025.\n292:### App Runner / APRANA summary\n293:- APRANA = App Runner planning shorthand.\n294:- ECS Fargate remains decided primary runtime target.\n295:- App Runner is deferred candidate track, not current scope.\n296:- PR 0023 reserved for future App Runner evaluation.\n297:- Explicit decision required before any App Runner work.\n308:20 checks: git state, completed PR references, OPEN gates, APRANA clarification, next sequence, secrets absence, safety claims, forbidden files, artifact scan, .DS_Store.\n358:- confirm: APRANA clarified as App Runner shorthand: yes\n359:- confirm: App Runner remains deferred candidate, not current implementation scope: yes\n360:- confirm: ECS Fargate remains current decided primary runtime target: yes\n361:- confirm: PR 0023 reserved/deferred for App Runner / APRANA evaluation or CI/CD planning: yes\n264:- Implementation phase is not Agent: architect / Mode: roadmap update.\n365:- confirm: implementation assigned to Agent: architect / Mode: roadmap update: yes\n264:- Implementation phase is not Agent: architect / Mode: roadmap update.\n365:- confirm: implementation assigned to Agent: architect / Mode: roadmap update: yes"
+- command: date -u +%Y-%m-%dT%H:%M:%SZ
+  exit code: 0
+  output: "2026-07-04T10:32:06Z"
+
+FILES READ:
+- .project-memory/pr/0025-roadmap-platform-rebaseline/PLAN.md
+- ROADMAP.md
+- docs/architecture.md
+- docs/adr/0003-bremen-microservice-api-architecture.md
+- docs/adr/0004-bremen-configuration-management-strategy.md
+- docs/adr/0005-container-dependency-stabilization.md
+- docs/adr/0006-multi-target-deployment-and-iac.md
+- docs/adr/0007-model-artifact-lifecycle.md
+- docs/api_contract.md
+- infra/terraform/README.md
+- infra/terraform/outputs.tf
+- .github/workflows/ecr-publish.yml
+- src/bremen/config.py
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN:
+- .project-memory/pr/0025-roadmap-platform-rebaseline/reviews/plan-review.yml
+
+SCOPE CHECK:
+- pass: PLAN.md is focused on ROADMAP.md, with docs/architecture.md only optional and not required by default.
+
+COMPLETED WORK CHECK:
+- pass: PLAN.md requires ROADMAP.md to reflect PR 0019, PR 0020, PR 0021, PR 0022A, PR 0022B, and PR 0022C as completed.
+
+OVERCLAIM CHECK:
+- pass: PLAN.md explicitly forbids production/deployed/clinical overclaims and requires no Terraform/apply/runtime claims without evidence.
+
+GATE / DEBT CHECK:
+- pass: PLAN.md keeps G-CFG-1 and G-DEP-1 OPEN and adds an operational hardening item for interim scoped IAM user credentials plus future OIDC evaluation.
+
+NUMBERING / APRANA CHECK:
+- pass: PLAN.md clarifies APRANA as App Runner shorthand, keeps PR 0023 reserved/deferred, keeps PR 0024 reserved/deferred, preserves ECS Fargate as the primary target, and forbids App Runner implementation in PR 0025.
+
+NEXT SEQUENCE CHECK:
+- pass: PLAN.md defines a concrete next sequence (PR 0026–0031) covering runtime HTTP service runner, model package source integration, controlled model loading boundary, H5/preflight metadata gate, preprocessing bridge, and inference integration.
+
+SAFETY / IDENTITY CHECK:
+- pass: PLAN.md preserves Bremen safety language: no diagnosis claim, no replacement wording, no runtime training, H5 metadata and target/control consistency remain gates, Matador remains system of record, and APIs must not depend on local paths.
+
+VALIDATION CHECK:
+- pass: PLAN.md includes git/branch/status/diff, ROADMAP existence, completed PR greps, 0022A/B/C greps, G-CFG-1/G-DEP-1 OPEN greps, App Runner/APRANA/ECS Fargate greps, next-sequence greps, secret/account/registry grep, unsafe-claim grep, forbidden path diff check, artifact scan, and .DS_Store check.
+
+IMPLEMENTATION AGENT CHECK:
+- pass: PLAN.md explicitly assigns implementation to Agent: architect / Mode: roadmap update.
+
+PROCESS RULES CHECK:
+- pass: first validation commands were git rev-parse --verify HEAD and git branch --show-current; branch matched 0025-roadmap-platform-rebaseline.
+
+COMMIT READINESS:
+- ready to commit planning artifacts: yes
+- required files to stage: .project-memory/pr/0025-roadmap-platform-rebaseline/PLAN.md AND .project-memory/pr/0025-roadmap-platform-rebaseline/reviews/plan-review.yml
+- files to exclude: none from this pair
+
+BOUNDARY CONFIRMATIONS:
+- ROADMAP.md focused update planned
+- default scope ROADMAP.md only
+- completed platform work reflected
+- no Terraform apply/deployment overclaim planned
+- no secrets/account IDs/registry URLs planned
+- G-CFG-1 and G-DEP-1 remain OPEN unless evidence proves otherwise
+- APRANA clarified as App Runner shorthand
+- App Runner remains deferred candidate, not current implementation scope
+- ECS Fargate remains current decided primary runtime target
+- PR 0023 reserved/deferred for App Runner / APRANA evaluation or CI/CD planning
+- PR 0024 reserved/deferred for config editing surface
+- next product/runtime sequence planned
+- Bremen safety identity preserved
+- no source/test/GitHub Actions/Terraform changes planned
+- implementation assigned to architect
+- no implementation files modified
+- no git mutation commands

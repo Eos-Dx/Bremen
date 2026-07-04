@@ -1,8 +1,8 @@
 # Bremen Roadmap
 
-**Track**: Product Track only.
+**Track**: Product Track + Platform Readiness Track (parallel).
 
-No Platform Readiness Track. No Decision Gate Register. No hard calendar dates — use sequence and dependencies.
+No hard calendar dates — use sequence and dependencies.
 
 ## Completed foundation PRs
 
@@ -16,6 +16,12 @@ No Platform Readiness Track. No Decision Gate Register. No hard calendar dates �
 - PR-0008 — Unified Bremen entrypoint
 - PR-0009 — Config discovery/loading
 - PR-0012 — Model artifact lifecycle ADR + runtime deployment gate closure. ADR-0007 formalizes offline training, controlled package, runtime loading, S3 storage, and security boundaries. G-API-1, G-API-2, G-INFRA-1 closed as DECIDED.
+- PR-0019 — API contract + async microservice skeleton. Creates `docs/api_contract.md`, `src/bremen/api/` with route-shaped handlers and in-memory job store.
+- PR-0020 — Cloud-aware config sourcing. Extends `src/bremen/config.py` with `read_cloud_config()` and `CloudConfig` dataclass reading `BREMEN_MODEL_BUCKET`, `BREMEN_MODEL_PREFIX`, `BREMEN_MODEL_VERSION` from environment.
+- PR-0021 — Container dependency hygiene. Removes editable local-path dependencies from `requirements.txt`. Replaces with reproducible git URL pin at `feat/v0_3`. G-DEP-1 remains OPEN.
+- PR-0022A — Terraform AWS runtime skeleton. `infra/terraform/` with ECR, S3 versioned bucket, ECS Fargate cluster/service/task definition, CloudWatch, scoped IAM roles. Not yet applied.
+- PR-0022B — ECR publish workflow. `.github/workflows/ecr-publish.yml` building and pushing Docker image to ECR on push to main.
+- PR-0022C — ECR workflow credentials hotfix / scoped publisher credentials. Uses scoped IAM user credentials via secrets for ECR authentication (interim operational path; OIDC is the planned long-term approach).
 
 ## Product Track sequence
 
@@ -43,9 +49,11 @@ Items 8–12 must not be silently dropped, but must appear after items 1–7 bec
 | PR 0019 | **API contract + microservice skeleton** — Delegated from ADR-0003. Creates `docs/api_contract.md` + non-functional stub routes. | Gates G-API-1 and G-API-2 explicitly closed first |
 | PR 0020 | **Cloud-aware config sourcing** — Delegated from ADR-0004. Extends `src/bremen/config.py` without breaking PR 0009 tests. | PR 0019 |
 | PR 0021 | **Container dependency hygiene** — Delegated from ADR-0005. Fixes `requirements.txt` local-path defect immediately (no dependency). Re-pin itself is separately event-triggered via G-DEP-1. | None |
-| PR 0022 | **IaC skeleton + ECR publish job** — Delegated from ADR-0006. | G-INFRA-1 and G-API-2 closed |
-| PR 0023 | **APRANA CI/CD publish job** — Delegated from ADR-0006. BLOCKED until platform name/access confirmed. No date until unblocked. | Platform name/access confirmed |
-| PR 0024 | **Config editing surface** — Delegated from ADR-0004. BLOCKED on G-CFG-1. Not date-bound. Scheduled only after Product Track's core classifier work (operator-convenience, not product-critical path). | G-CFG-1, Product Track core classifier |
+| PR 0022A | **Terraform AWS runtime skeleton** — Delegated from ADR-0006. ECR, S3 versioned bucket, ECS Fargate, CloudWatch, scoped IAM. Not yet applied. | G-INFRA-1 and G-API-2 closed |
+| PR 0022B | **ECR publish workflow** — Docker image build/push to ECR on main push. | Terraform skeleton exists |
+| PR 0022C | **ECR workflow credentials** — Scoped IAM user credentials as interim auth path. | PR 0022B |
+| PR 0023 | **APRANA / App Runner evaluation** — Deferred candidate track. See App Runner/APRANA clarification below. | Platform name/access confirmed |
+| PR 0024 | **Config editing surface** — BLOCKED on G-CFG-1. Not date-bound. Scheduled only after Product Track's core classifier work (operator-convenience, not product-critical path). | G-CFG-1, Product Track core classifier |
 
 ## Decision Gate Register
 
@@ -59,6 +67,23 @@ Items 8–12 must not be silently dropped, but must appear after items 1–7 bec
 
 Calendar dates in the Product Track may drift and that's expected. What's required is that any slip is recorded with a reason, and no PR silently absorbs scope from an open Decision Gate without that gate first being marked DECIDED.
 
+### Operational hardening
+
+- ECR publish currently uses scoped IAM user credentials via GitHub Secrets (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) as an interim operational path.
+- Future hardening should evaluate returning to the planned GitHub OIDC role assumption approach when AWS IAM trust is ready.
+- No secrets, account IDs, or registry URLs are recorded in this roadmap.
+
+### App Runner / APRANA clarification
+
+- "APRANA" in earlier ADRs and roadmap entries was a planning shorthand for **AWS App Runner**.
+- **ECS Fargate** remains the decided primary AWS runtime target (G-API-2, DECIDED in PR 0012).
+- **App Runner** is a deferred candidate track, not current implementation scope. PR 0023 is reserved for future App Runner evaluation or CI/CD planning.
+- Before any App Runner work starts, an explicit decision is required on whether App Runner is:
+  1. an alternative to ECS Fargate (replacing the current primary target),
+  2. a secondary/parallel deployment target, or
+  3. abandoned in favor of Fargate alone.
+- No App Runner resources, Terraform, GitHub Actions, deployment steps, or runtime changes are introduced by this roadmap rebaseline.
+
 ### Closed gate details
 
 | Gate ID | Decided value | Decided by | Decision date |
@@ -67,6 +92,15 @@ Calendar dates in the Product Track may drift and that's expected. What's requir
 | G-API-2 | ECS Fargate | Human product/engineering decision in PR 0012 planning | 2026-07-03 (UTC) |
 | G-INFRA-1 | Terraform | Human product/engineering decision in PR 0012 planning | 2026-07-03 (UTC) |
 
-**Execution order note**: Runtime/API/IaC/model-artifact foundation is now priority before the patient-facing report template (Product Track item 2). This is execution-order guidance, not a renumbering of existing roadmap items. PRs from the Platform Readiness Track (PR 0019–0024) and the Product Track (items 2–12) may be interleaved based on readiness, with the understanding that the API/microservice/IaC/model-artifact foundation precedes downstream work that depends on it.
+**Execution order note**: Runtime/API/IaC/model-artifact foundation is now priority before the patient-facing report template (Product Track item 2). This is execution-order guidance, not a renumbering of existing roadmap items. PRs from the Platform Readiness Track and the Product Track (items 2–12) may be interleaved based on readiness, with the understanding that the API/microservice/IaC/model-artifact foundation precedes downstream work that depends on it.
 
-**Numbering clarification**: Product Track sequence positions (items 1–12) are ordering, not PR-00XX identifiers. The next literal PR number after 0012 will be assigned when the next scheduled sequence item is actually planned. PR 0019–0024 Platform Readiness Track numbers remain unchanged and are not renumbered by this or any subsequent PR. Reprioritization changes execution order only, not existing PR labels.
+**Numbering clarification**: Product Track sequence positions (items 1–12) are ordering, not PR-00XX identifiers. The next literal PR number after 0025 will be assigned when the next scheduled sequence item is actually planned. PR 0019–0024 Platform Readiness Track numbers remain unchanged and are not renumbered by this or any subsequent PR. Reprioritization changes execution order only, not existing PR labels.
+
+## Next Execution Sequence (post-platform-foundation)
+
+- **PR 0026** — Runtime HTTP service runner. Expose existing API skeleton (`src/bremen/api/`) as an actual service process suitable for container/ECS smoke testing. No inference, no H5 read, no model loading.
+- **PR 0027** — Model package source integration. Resolve local/cloud model package references and validate manifests/checksums without `joblib.load()`. Uses `read_cloud_config()` and `model_package.validate_model_package()`.
+- **PR 0028** — Runtime model loading boundary. Controlled `joblib.load()` deserialization boundary, only after checksum/trust rules are in place. Must not load untrusted artifacts.
+- **PR 0029** — H5/preflight metadata gate. Target/control consistency and H5 metadata validation without full inference.
+- **PR 0030** — Preprocessing bridge. Connect approved preprocessing path without training or clinical claims.
+- **PR 0031** — Inference pipeline integration. First end-to-end inference, only after model package, H5 gate, and preprocessing boundaries are in place.
