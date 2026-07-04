@@ -1,0 +1,154 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: warning
+
+BLOCKERS
+- None.
+
+WARNINGS
+- `ROADMAP.md` still contains the interim operational hardening note that ECR publish currently uses scoped IAM user credentials via GitHub Secrets (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`). This is acceptable because the roadmap explicitly frames it as interim debt and keeps G-DEP-1 OPEN.
+- `ROADMAP.md` preserves APRANA as App Runner shorthand and keeps App Runner deferred, which is correct for this rebaseline; however, the file still contains the earlier PR 0022/PR 0012 historical wording, so readers should treat the roadmap as a layered history rather than a single linear plan.
+- The repository still contains an existing H5 fixture at `./tests/data/aramis_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR.
+
+VALIDATION
+- `git rev-parse --verify HEAD` ✅ `e830b450824d3b153cca857a442eeb91dcb885a1` on branch `0025-roadmap-platform-rebaseline`
+- `git branch --show-current` ✅ `0025-roadmap-platform-rebaseline`
+- `git status --short` ✅ modified `ROADMAP.md`
+- `git diff --name-only` ✅ `ROADMAP.md`
+- `git diff --stat` ✅ `ROADMAP.md | 48 +++++++++++++++++++++++++++++++++++++++++-------`
+- `git diff -- ROADMAP.md` ✅ reviewed directly; additions update completed PRs, gate/debt register, APRANA/App Runner clarification, and next sequence
+- `test -f ROADMAP.md` ✅
+- `grep -n "PR 0019" ROADMAP.md` ✅ present
+- `grep -n "PR 0020" ROADMAP.md` ✅ present
+- `grep -n "PR 0021" ROADMAP.md` ✅ present
+- `grep -n "0022A\|0022B\|0022C" ROADMAP.md` ✅ present
+- `grep -n "G-CFG-1" ROADMAP.md` ✅ present and OPEN
+- `grep -n "G-DEP-1" ROADMAP.md` ✅ present and OPEN
+- `grep -n "OPEN" ROADMAP.md` ✅ open gates remain
+- `grep -n "App Runner\|APRANA\|ECS Fargate" ROADMAP.md` ✅ clarification present; ECS Fargate remains primary and App Runner deferred
+- `grep -n "runtime HTTP service runner\|model package source integration\|H5/preflight" ROADMAP.md` ✅ next sequence present
+- `grep -R -I -n "AWS_ACCESS_KEY_ID\|AWS_SECRET_ACCESS_KEY\|AKIA\|SecretAccessKey\|851725451903\|dkr.ecr" ROADMAP.md || true` ✅ only the interim credential note; no secrets/account IDs/registry URLs
+- `grep -R -I -n "production-ready\|deployed production API\|cancer detected" ROADMAP.md || true` ✅ no unsafe claim
+- `grep -R -I -n "diagnos" ROADMAP.md || true` ✅ no diagnosis claim; no matches
+- `git diff --name-only -- src tests .github infra/terraform docs/architecture.md docs/adr docs/api_contract.md README.md Dockerfile requirements.txt pyproject.toml config examples tests/data agents` ✅ no output
+- `git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|npy|npz|tfstate|tfstate\.backup)$" || true` ✅ no output
+- `find . -name ".DS_Store" -print` ✅ no output
+- `date -u +%Y-%m-%dT%H:%M:%SZ` ✅ `2026-07-04T10:42:59Z`
+
+FILES READ
+- .project-memory/pr/0025-roadmap-platform-rebaseline/PLAN.md
+- .project-memory/pr/0025-roadmap-platform-rebaseline/reviews/plan-review.yml
+- ROADMAP.md
+- docs/architecture.md
+- docs/adr/0003-bremen-microservice-api-architecture.md
+- docs/adr/0004-bremen-configuration-management-strategy.md
+- docs/adr/0005-container-dependency-stabilization.md
+- docs/adr/0006-multi-target-deployment-and-iac.md
+- docs/adr/0007-model-artifact-lifecycle.md
+- docs/api_contract.md
+- infra/terraform/README.md
+- infra/terraform/outputs.tf
+- .github/workflows/ecr-publish.yml
+- src/bremen/config.py
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN
+- .project-memory/pr/0025-roadmap-platform-rebaseline/reviews/precommit-review.yml
+
+SNAPSHOT DELTA
+- Updated `ROADMAP.md` to reflect completed PR 0019–0022C, preserve open gates, document interim ECR credential debt, clarify APRANA/App Runner status, and define the next execution sequence
+- Added this review artifact
+- No other tracked repository files were modified during review
+
+SCOPE CHECK
+- pass: ROADMAP.md is the only implementation file changed
+- pass: no source/tests/GitHub Actions/Terraform/docs/architecture/docs/ADR/API contract/dependency files changed
+
+COMPLETED WORK CHECK
+- pass: PR 0019 completed API contract + async microservice skeleton is reflected
+- pass: PR 0020 completed cloud-aware config sourcing is reflected
+- pass: PR 0021 completed dependency hygiene is reflected
+- pass: PR 0022A completed Terraform AWS runtime skeleton is reflected
+- pass: PR 0022B completed ECR publish workflow is reflected
+- pass: PR 0022C completed ECR workflow credentials hotfix / scoped publisher credentials is reflected
+
+OVERCLAIM CHECK
+- pass: no production deployment claim added
+- pass: no ECS service serving traffic claim added
+- pass: no Terraform applied claim added
+- pass: no model packages exist in S3 claim added
+- pass: no real inference running claim added
+- pass: no clinical validation claim added
+- pass: no secrets, access keys, AWS account IDs, or literal ECR URLs added
+
+GATE / DEBT CHECK
+- pass: G-CFG-1 remains OPEN
+- pass: G-DEP-1 remains OPEN
+- pass: operational hardening/debt mentions interim scoped IAM user credentials and future OIDC evaluation
+
+NUMBERING / APRANA CHECK
+- pass: APRANA is clarified as App Runner planning shorthand
+- pass: ECS Fargate remains the decided primary AWS runtime target
+- pass: App Runner / APRANA remains deferred and not current implementation scope
+- pass: PR 0023 remains reserved/deferred for App Runner / APRANA evaluation or CI/CD planning
+- pass: PR 0024 remains reserved/deferred for config editing surface
+- pass: PR 0025 did not implement App Runner resources, GitHub Actions, Terraform, deployment steps, or runtime changes
+
+NEXT SEQUENCE CHECK
+- pass: ROADMAP.md defines PR 0026–0031 in order
+- pass: runtime HTTP service runner, model package source integration, controlled model loading boundary, H5/preflight metadata gate, preprocessing bridge, and inference integration are present
+
+SAFETY / IDENTITY CHECK
+- pass: Bremen safety language preserved
+- pass: no diagnosis claim
+- pass: no replacement for MRI/biopsy/radiologist/clinician
+- pass: no runtime training
+- pass: H5 metadata and target/control consistency remain safety gates
+- pass: Matador remains system of record
+- pass: APIs must not depend on local paths
+
+VALIDATION CHECK
+- pass: required validation commands were run
+- pass: failures were not present or were classified as safe/expected
+- pass: direct diff read was performed
+
+PROCESS RULES CHECK
+- pass: no implementation files were modified by reviewer
+- pass: no git mutation commands were run
+- pass: no Docker commands were run
+- pass: no Terraform commands were run
+- pass: no dependency installation occurred
+- pass: no AWS credentials were used
+
+COMMIT READINESS
+- ready to commit implementation artifacts: yes
+- required files to stage:
+  - ROADMAP.md
+  - .project-memory/pr/0025-roadmap-platform-rebaseline/reviews/precommit-review.yml
+- files to exclude:
+  - any file outside ROADMAP.md and the precommit-review artifact
+
+BOUNDARY CONFIRMATIONS
+- only ROADMAP.md changed as implementation
+- completed PR 0019 reflected
+- completed PR 0020 reflected
+- completed PR 0021 reflected
+- completed PR 0022A reflected
+- completed PR 0022B reflected
+- completed PR 0022C reflected
+- no Terraform apply/deployment overclaim
+- no production/runtime-serving claim
+- no secrets/account IDs/registry URLs
+- G-CFG-1 remains OPEN unless evidence proves otherwise
+- G-DEP-1 remains OPEN unless evidence proves otherwise
+- APRANA clarified as App Runner shorthand
+- App Runner remains deferred candidate, not current implementation scope
+- ECS Fargate remains current decided primary runtime target
+- PR 0023 reserved/deferred for App Runner / APRANA evaluation or CI/CD planning
+- PR 0024 reserved/deferred for config editing surface
+- next product/runtime sequence present
+- Bremen safety identity preserved
+- no source/test/GitHub Actions/Terraform changes
+- no H5/model/tfstate artifacts
+- no implementation files modified by reviewer
+- no git mutation commands
