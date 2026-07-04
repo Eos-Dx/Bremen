@@ -1,0 +1,39 @@
+review_type: plan-review
+branch: 0026-runtime-http-service-runner
+verdict: warning
+head: "8d12352e61652a19ddf0598eff2efb6209077103"
+status: "untracked: .project-memory/pr/0026-runtime-http-service-runner/ (PLAN.md present, no review file yet); no tracked modifications"
+plan_path: ".project-memory/pr/0026-runtime-http-service-runner/PLAN.md"
+blockers: []
+warnings:
+  - "Test scenarios enumerate POST /predictions with missing target_scan_ref and missing control_scan_ref (each returns 400) but do NOT explicitly require a test for malformed/non-JSON request body (e.g. invalid JSON parse) returning 400. The plan's 'Behavior' section mentions 'JSON request body parsing for POST requests' but does not state the malformed-JSON -> 400 contract. Recommend adding one extra scenario: 'POST /predictions with a malformed-JSON body returns 400' to make the safe status/error contract explicit and testable."
+  - "PLAN.md describes Option A 'http.server' as a recommendation but presents Option B 'WSGI entry point' as an alternative. Option B is correctly ruled out (requires WSGI server dependency). Plan should tighten the language so the chosen approach is non-ambiguous; recommended wording: 'Implementation must use http.server (Option A). WSGI is rejected.' Not blocking; only a clarity concern."
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  source_files_not_modified_by_planner: true
+  scope_pr0026_only: true
+  allowed_files_clear: true
+  forbidden_files_clear: true
+  standard_library_http_only: true
+  api_routes_preserved: true
+  safety_boundaries_explicit: true
+  validation_commands_present: true
+  block_conditions_present: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0026-runtime-http-service-runner/PLAN.md"
+    - ".project-memory/pr/0026-runtime-http-service-runner/reviews/plan-review.yml"
+notes:
+  - "Branch verified as 0026-runtime-http-service-runner (matches hard requirement)."
+  - "PLAN.md 'Required reads — observed facts' sections align with what is actually present in app.py, jobs.py, schemas.py, __main__.py, contract tests, and CLI tests — no fabricated claims about source state."
+  - "PLAN.md 'Allowed implementation files' lists exactly the four required paths: src/bremen/api/server.py (NEW), tests/test_bremen_api_server.py (NEW), src/bremen/__main__.py (MODIFY for serve CLI), tests/test_bremen_cli_entrypoint.py (MODIFY for serve tests). Matches task prompt exactly."
+  - "PLAN.md preserves all four contract routes (GET /health, GET /model/version, POST /predictions, GET /predictions/{job_id}) with correct status codes (200/200/202/200, plus 400/404/404/405 for error cases). Matches docs/api_contract.md."
+  - "PLAN.md explicitly forbids: inference, training, model loading, joblib.load, pickle deserialization, S3/AWS, H5/HDF5 reads, Matador, clinical report generation, clinical validation/diagnostic claims. No dependency edits, no Docker/Terraform/CI/GitHub Actions/infra edits."
+  - "PLAN.md forbids drift into PR 0027 (model package source integration), PR 0028 (runtime model loading), PR 0029 (H5/preflight), PR 0030 (preprocessing bridge), PR 0031 (inference pipeline), PR 0023 (App Runner/APRANA), and PR 0024 (config editing). Future PRs are referenced only as scope boundaries, never as implementation work."
+  - "PLAN.md preserves in-memory dev/test job store only: 'Runtime uses a single InMemoryJobStore instance.' No persistence, no background worker."
+  - "Drift gate, stop conditions, validation commands (compileall, pytest scenarios, forbidden-pattern greps) are all present and are static/read-only. No Docker, no installs, no deployment commands in the plan."
+  - "Working tree is dirty only by the planning artifact directory itself (untracked). No source files modified by planner."
+  - "ROADMAP.md line 101 confirms PR 0026 scope: 'Runtime HTTP service runner. Expose existing API skeleton (src/bremen/api/) as an actual service process suitable for container/ECS smoke testing. No inference, no H5 read, no model loading.' Lines 102-106 confirm PR 0027-0031 are separate, sequentially later work."
+  - "project_contract.yml agent_workflow section confirms plan-review writes only to .project-memory/pr/<pr-id>/reviews/plan-review.yml; this artifact is being written to the correct path."
