@@ -97,18 +97,41 @@ class TestHealth:
 
 class TestModelVersion:
     def test_model_version_returns_safe_not_configured(self):
-        """handle_model_version returns not_configured by default."""
-        response = handle_model_version()
+        """handle_model_version returns not_configured by default with no env."""
+        from bremen.config import read_cloud_config
+
+        cloud = read_cloud_config(env={})
+        response = handle_model_version(cloud=cloud)
         assert isinstance(response, ModelVersionResponse)
         assert response.model_configured is False
         assert response.model_status == "not_configured"
         assert response.model_version is None
 
+    def test_model_version_configured_with_cloud_env(self):
+        """handle_model_version with configured cloud returns configured."""
+        from bremen.config import read_cloud_config
+
+        cloud = read_cloud_config(
+            env={"BREMEN_MODEL_BUCKET": "my-bucket"}
+        )
+        response = handle_model_version(cloud=cloud)
+        assert response.model_configured is True
+        assert response.model_status == "configured"
+        assert response.model_version is None
+
     def test_model_version_does_not_load_model(self):
         """handle_model_version does not call model_package validation."""
-        # This is a stub — no model loading happens.
-        response = handle_model_version()
-        assert response.model_status == "not_configured"
+        from bremen.config import read_cloud_config
+
+        # Even when configured, no model loading happens
+        cloud = read_cloud_config(
+            env={"BREMEN_MODEL_BUCKET": "my-bucket"}
+        )
+        response = handle_model_version(cloud=cloud)
+        assert response.model_status == "configured"
+        # All content fields are None (no model fetched)
+        assert response.model_checksum is None
+        assert response.feature_schema_version is None
 
 
 # ---------------------------------------------------------------------------

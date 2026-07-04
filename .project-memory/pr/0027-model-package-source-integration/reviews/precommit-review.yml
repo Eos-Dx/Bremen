@@ -1,0 +1,76 @@
+review_type: precommit-review
+branch: 0027-model-package-source-integration
+verdict: pass
+head: "3a4e42554675d22c9603a6a05850f3563610146d"
+status: "M src/bremen/api/app.py; M tests/test_bremen_api_server.py; M tests/test_bremen_api_skeleton.py; ?? src/bremen/api/model_source.py; ?? tests/test_bremen_api_model_source.py"
+changed_files:
+  - "src/bremen/api/app.py"
+  - "src/bremen/api/model_source.py"
+  - "tests/test_bremen_api_server.py"
+  - "tests/test_bremen_api_skeleton.py"
+  - "tests/test_bremen_api_model_source.py"
+blockers: []
+warnings: []
+validation:
+  compileall: pass
+  api_model_source_tests: pass
+  api_skeleton_tests: pass
+  api_server_tests: pass
+  cli_entrypoint_tests: pass
+  cloud_config_tests: pass
+  model_package_tests: pass
+  bremen_help: pass
+  bremen_serve_help: pass
+  full_pytest: pass
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  forbidden_files_unchanged: true
+  project_memory_used_as_primary_context: true
+  read_cloud_config_reused: true
+  metadata_only_source_descriptor: true
+  unconfigured_state_safe: true
+  configured_state_safe: true
+  model_version_endpoint_safe: true
+  no_secret_or_account_exposure: true
+  no_aws_s3_network_calls: true
+  no_local_model_file_reads: true
+  no_runtime_model_package_validation: true
+  no_model_loading_or_deserialization: true
+  no_joblib_pickle_h5: true
+  no_inference_or_training: true
+  prediction_behavior_preserved: true
+  serve_cli_help_safe: true
+  no_dependency_docker_terraform_ci_drift: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "src/bremen/api/app.py"
+    - "src/bremen/api/model_source.py"
+    - "tests/test_bremen_api_server.py"
+    - "tests/test_bremen_api_skeleton.py"
+    - "tests/test_bremen_api_model_source.py"
+    - ".project-memory/pr/0027-model-package-source-integration/reviews/precommit-review.yml"
+notes:
+  - "Branch verified: 'git branch --show-current' returned exactly '0027-model-package-source-integration' (hard requirement satisfied)."
+  - "HEAD captured: 3a4e42554675d22c9603a6a05850f3563610146d via 'git rev-parse --verify HEAD'."
+  - "Project memory used as primary context: read .project-memory/pr/0027-model-package-source-integration/PLAN.md, plan-review.yml, .project-memory/project_contract.yml, and .project-memory/pr/0026-runtime-http-service-runner/reviews/precommit-review.yml before touching source files."
+  - "Changed files = 5 = 3 modified (app.py, test_bremen_api_server.py, test_bremen_api_skeleton.py) + 2 new (model_source.py, test_bremen_api_model_source.py). All within PLAN.md's allowed list. server.py, __main__.py, schemas.py, and test_bremen_cli_entrypoint.py are NOT in this diff (default approach — wiring is internal to app.py and model_source.py per PLAN §'Default approach')."
+  - "Forbidden files unchanged: ROADMAP.md/README.md/docs/**/.github/**/infra/**/Dockerfile/.dockerignore/requirements.txt/pyproject.toml/config/**/examples/**/agents/**/model_package.py/modeling.py/pipelines.py/config.py all unmodified. No .h5/.hdf5/.joblib/.pkl/.npy/.npz/.DS_Store added."
+  - "read_cloud_config() reuse confirmed: src/bremen/api/model_source.py imports `from ..config import CloudConfig, read_cloud_config` (line 11) and calls `read_cloud_config()` at line 28 when cloud is None. No new config loader introduced. No network calls."
+  - "Unconfigured state safe: derive_model_source() with empty env returns `model_configured=False, model_status='not_configured'`, all content fields None. Verified by TestDeriveModelSource.test_no_env_returns_not_configured and TestHandleModelVersion.test_no_env_returns_not_configured — both pass."
+  - "Configured state safe: derive_model_source() with BREMEN_MODEL_BUCKET set returns `model_configured=True, model_status='configured'`, model_version from env (or None), and ALL content fields (model_checksum, feature_schema_version, threshold_version, threshold_value, qc_criteria_version) hardcoded to None (commented 'unknown until package is fetched'). Verified by TestDeriveModelSource.test_bucket_set_returns_configured, .test_content_fields_are_none_when_configured, .test_model_version_from_env — all pass."
+  - "/model/version endpoint safe: app.py handle_model_version now takes optional `cloud: CloudConfig | None = None` parameter; default None reads env. Returns ModelVersionResponse with same dataclass shape. Public output is restricted to model_configured, model_version (from env or None), and model_status. NO bucket/prefix/manifest_key/region/service_env exposure — verified by direct read of derive_model_source() return dict which contains none of those keys."
+  - "No secret or account exposure: grep 'AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|SECRET_ACCESS_KEY|aws_secret_access_key' over src/bremen/api + tests/test_bremen_api_model_source.py + tests/test_bremen_api_server.py returned NONE. model_source.py only reads BREMEN_MODEL_BUCKET/PREFIX/VERSION env vars via read_cloud_config() and exposes only model_version (which is a public package version string). No account IDs, no credentials."
+  - "No AWS/S3/network calls: grep 'boto3|botocore|h5py|.h5|.hdf5' over src/bremen/api + tests/test_bremen_api_model_source.py + tests/test_bremen_api_server.py returned only AST-based test docstrings/assertions that VERIFY absence (e.g., 'if \"joblib.load(\" in content: pytest.fail(...)') — no actual usage. urllib/http.server are stdlib stdlib usage in server.py (PR 0026, unchanged)."
+  - "No local model file reads: model_source.py contains no file open/read calls; all output derived from CloudConfig dataclass (memory only)."
+  - "No runtime model_package.validate_model_package() call: model_source.py does NOT import model_package. app.py does NOT import model_package. derive_model_source() returns dict immediately without invoking any validation. Verified by direct read of all 3 changed src files — no `import model_package`, no `validate_model_package` token."
+  - "No model loading or deserialization: grep 'joblib.load|pickle.load|import pickle|import joblib' over src/bremen showed hits in src/bremen/modeling.py and src/bremen/mlflow_tracking.py (PRE-EXISTING in those files, NOT in PR 0027 diff), src/bremen/config.py only has a comment '- No model/joblib loads' in its module docstring. None in src/bremen/api/. No new deserialization introduced."
+  - "No inference or training: handle_submit_prediction and handle_get_prediction in app.py are unchanged from PR 0026 (still create an accepted job record and return 202/200, no inference). Verified by direct read of app.py — handle_submit_prediction unchanged, handle_get_prediction unchanged. handle_health unchanged."
+  - "Prediction behavior preserved: tests/test_bremen_api_server.py: 20/20 pass including all 4 valid_submit_returns_202, submit_has_poll_link, submit_missing_target_returns_400, submit_missing_control_returns_400, submit_malformed_json_returns_400, submit_empty_body_returns_400, known_job_returns_200, unknown_job_returns_404, unknown_route_returns_404, put_on_health_returns_405, health_returns_200, health_content_type. The new test test_model_version_configured was ADDED; all existing prediction/poll tests are unchanged and pass."
+  - "serve CLI help safe: 'python -m bremen serve --help' exits 0, prints options with --host default 127.0.0.1 and --port default 8000, does not start the server. __main__.py unchanged (not in diff). Verified."
+  - "No dependency drift: pyproject.toml/requirements.txt unchanged (not in diff). No new third-party imports in any changed file: model_source.py imports only `from ..config import CloudConfig, read_cloud_config`; app.py adds only lazy imports of `from .model_source import derive_model_source` and `from ..config import CloudConfig as _CloudConfig`. No boto3/botocore/h5py/joblib/pickle/Flask/FastAPI/requests/httpx."
+  - "No Docker/Terraform/CI drift: Dockerfile, .dockerignore, .github/, infra/ — all not in diff (unmodified)."
+  - "Validation results: compileall silent (success). test_bremen_api_model_source.py: 18 passed. test_bremen_api_skeleton.py: 35 passed (was 34 in PR 0026 — one new test_model_version_configured_with_cloud_env added). test_bremen_api_server.py: 20 passed (was 19 — one new test_model_version_configured added). test_bremen_cli_entrypoint.py: 19 passed (unchanged). test_bremen_cloud_config.py: 27 passed (regression). test_bremen_model_package.py: 31 passed (regression). Full pytest: 270 passed in 31.26s (no environment limitations). bremen --help: exits 0. bremen serve --help: exits 0."
+  - "All required reads completed before review: PLAN.md, plan-review.yml, project_contract.yml, src/bremen/config.py, src/bremen/api/model_source.py, src/bremen/api/app.py, tests/test_bremen_api_model_source.py, tests/test_bremen_api_skeleton.py, tests/test_bremen_api_server.py, and the cross-reference precommit-review.yml from PR 0026."
+  - "No git mutation commands were run (no add, commit, push, gh pr create, Docker, Terraform, AWS, dependency install, or deployment). No files outside the review artifact were modified."
