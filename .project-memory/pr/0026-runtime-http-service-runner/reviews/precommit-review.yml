@@ -1,0 +1,57 @@
+review_type: precommit-review
+branch: 0026-runtime-http-service-runner
+verdict: pass
+head: "4c9bd1bc16f22fd4a4c2e3b263e3aee5ad4428fd"
+status: "M src/bremen/__main__.py; M tests/test_bremen_cli_entrypoint.py; ?? src/bremen/api/server.py; ?? tests/test_bremen_api_server.py"
+blockers: []
+warnings: []
+validation:
+  compileall: pass
+  api_server_tests: pass
+  api_skeleton_tests: pass
+  api_contract_tests: pass
+  cli_entrypoint_tests: pass
+  bremen_help: pass
+  bremen_serve_help: pass
+  full_pytest: pass
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  forbidden_files_unchanged: true
+  standard_library_http_server: true
+  no_wsgi_or_dependency_drift: true
+  required_routes_present: true
+  json_success_and_error_behavior: true
+  malformed_json_returns_400: true
+  unknown_job_returns_404: true
+  unknown_route_returns_404: true
+  unsupported_methods_handled: true
+  in_memory_store_only: true
+  safe_model_metadata_only: true
+  serve_cli_help_safe: true
+  no_inference_training_or_model_loading: true
+  no_joblib_pickle_h5_aws: true
+  no_clinical_claims: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "src/bremen/api/server.py"
+    - "tests/test_bremen_api_server.py"
+    - "src/bremen/__main__.py"
+    - "tests/test_bremen_cli_entrypoint.py"
+    - ".project-memory/pr/0026-runtime-http-service-runner/reviews/precommit-review.yml"
+notes:
+  - "Branch verified: 'git branch --show-current' returned exactly '0026-runtime-http-service-runner' (hard requirement satisfied)."
+  - "HEAD captured via 'git rev-parse --verify HEAD': 4c9bd1bc16f22fd4a4c2e3b263e3aee5ad4428fd."
+  - "Changed scope matches PLAN.md exactly: 4 files = 2 new (src/bremen/api/server.py, tests/test_bremen_api_server.py) + 2 modified (src/bremen/__main__.py, tests/test_bremen_cli_entrypoint.py). No forbidden files touched (ROADMAP/README/docs/.github/infra/Dockerfile/requirements/pyproject/config/examples/agents/model_package.py/modeling.py/pipelines.py/config.py — all unchanged; no .h5/.hdf5/.joblib/.pkl/.npy/.npz/.DS_Store present)."
+  - "server.py uses stdlib http.server.HTTPServer + BaseHTTPRequestHandler only (verified imports: 'from http.server import HTTPServer, BaseHTTPRequestHandler'). No WSGI, no Flask/FastAPI/Starlette/Uvicorn/Gunicorn/WSGIRef/requests/httpx/boto3/botocore/h5py/joblib/pickle."
+  - "All 4 required routes present and behavior-verified by tests/test_bremen_api_server.py (19 tests, all pass): GET /health (200 JSON), GET /model/version (200 JSON, model_configured=false, model_status=not_configured), POST /predictions (202 with job_id for valid body, 400 missing target_scan_ref, 400 missing control_scan_ref, 400 for malformed-JSON body, 400 for empty body), GET /predictions/{job_id} (200 known, 404 unknown). Unknown route returns 404 JSON. PUT/DELETE/PATCH return 405 JSON (verified by test_put_on_health_returns_405)."
+  - "In-memory store only: server.py instantiates InMemoryJobStore() inside run_server (src/bremen/api/server.py: 'job_store = InMemoryJobStore()'). No persistence, no background worker, no S3/AWS, no Matador."
+  - "Safe model metadata: handle_model_version returns build_not_configured_model_response() (schemas.py: model_configured=False, model_status='not_configured'). No joblib.load, no pickle deserialization, no model artifact load."
+  - "serve CLI: 'python -m bremen serve --help' exits 0, prints help, does not start server. Defaults host=127.0.0.1, port=8000 (verified in __main__.py _add_serve_subcommand)."
+  - "Forbidden-pattern grep checks (src/bremen/api + tests/test_bremen_api_server.py): grep 'joblib.load|pickle.load|import pickle|import joblib' returned only AST-based test docstrings/assertions that VERIFY absence (e.g., 'if \"joblib.load(\" in content: pytest.fail(...)') — no actual usage. grep 'boto3|botocore|h5py|.h5|.hdf5' returned only AST-based test docstrings that VERIFY absence. grep 'diagnos|clinical validation|replace MRI|replace biopsy' returned NONE."
+  - "Validation: compileall silent (success). test_bremen_api_server.py: 19 passed in 8.63s. test_bremen_api_skeleton.py: 34 passed in 1.12s. test_bremen_api_contract.py: 21 passed in 0.01s. test_bremen_cli_entrypoint.py: 19 passed in 20.54s. Full pytest: 250 passed in 28.48s (no environment limitations — all tests passed). bremen --help: exits 0, lists {preprocess,preflight,run,report,serve}. bremen serve --help: exits 0, shows --host/--port with defaults 127.0.0.1/8000."
+  - "Plan-review warnings addressed by implementation: malformed-JSON → 400 test is present (TestSubmitPrediction.test_submit_malformed_json_returns_400) — exceeds plan. Plan Option A (http.server) is the implemented approach."
+  - "Safety: zero changes to Docker, Terraform, GitHub Actions, requirements.txt, pyproject.toml, config/, examples/, agents/, modeling/model_package/pipelines/config source. No clinical/diagnostic claims, no 'replace MRI/biopsy' wording. No inference, no training, no model loading."
+  - "No git mutation commands were run (no add, commit, push, gh pr create, Docker, Terraform, AWS, dependency install, or deployment)."
+  - "All required reads completed before review: PLAN.md, plan-review.yml, docs/api_contract.md, src/bremen/api/{app,jobs,schemas,server}.py, src/bremen/__main__.py, tests/test_bremen_api_{server,skeleton,contract}.py, tests/test_bremen_cli_entrypoint.py."

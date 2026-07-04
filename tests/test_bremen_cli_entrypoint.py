@@ -159,6 +159,62 @@ def test_help_no_aramis():
 
 
 # ---------------------------------------------------------------------------
+# Serve CLI subcommand tests
+# ---------------------------------------------------------------------------
+
+
+def test_serve_help_exits_0():
+    """python -m bremen serve --help exits 0."""
+    result = subprocess.run(
+        [sys.executable, "-m", "bremen", "serve", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        f"Exit code {result.returncode}: {result.stderr}"
+    )
+
+
+def test_serve_help_contains_host_and_port():
+    """python -m bremen serve --help shows --host and --port options."""
+    result = subprocess.run(
+        [sys.executable, "-m", "bremen", "serve", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert "--host" in result.stdout, (
+        "serve --help must show --host option"
+    )
+    assert "--port" in result.stdout, (
+        "serve --help must show --port option"
+    )
+
+
+def test_serve_in_main_help():
+    """python -m bremen --help lists 'serve' as a command."""
+    result = subprocess.run(
+        [sys.executable, "-m", "bremen", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert "serve" in result.stdout, (
+        "Main help output must list 'serve' command"
+    )
+
+
+def test_main_help_shows_serve():
+    """python -m bremen (no args) shows serve in help output."""
+    result = subprocess.run(
+        [sys.executable, "-m", "bremen"],
+        capture_output=True,
+        text=True,
+    )
+    assert "serve" in result.stdout, (
+        "No-arg help output must show 'serve' command"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Import safety (no H5 read, no model load, no Matador)
 # ---------------------------------------------------------------------------
 
