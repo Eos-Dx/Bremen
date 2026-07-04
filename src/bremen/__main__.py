@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 
 
-BUILTIN_COMMANDS = ("preprocess",)
+BUILTIN_COMMANDS = ("preprocess", "serve")
 STUB_COMMANDS = ("preflight", "run", "report")
 
 
@@ -46,6 +46,9 @@ def build_parser() -> argparse.ArgumentParser:
         "Generate decision-support report (not yet implemented).",
         "Planned for a future PR.",
     )
+
+    # --- Serve command: HTTP server ---
+    _add_serve_subcommand(subparsers)
 
     return parser
 
@@ -115,6 +118,39 @@ def main(argv: list[str] | None = None) -> int:
         return _handle_stub(args)
 
     parser.print_help()
+    return 0
+
+
+def _add_serve_subcommand(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Add the 'serve' subcommand (lazy import of http.server)."""
+    serve = subparsers.add_parser(
+        "serve",
+        help="Start the Bremen HTTP API server (dev/smoke mode).",
+    )
+    serve.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="Host address to bind to (default: 127.0.0.1).",
+    )
+    serve.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port number to listen on (default: 8000).",
+    )
+    serve.set_defaults(_cmd_handler="serve")
+
+
+def _handle_serve(args: argparse.Namespace) -> int:
+    """Start the Bremen HTTP API server (blocking, dev/smoke mode)."""
+    from .api.server import run_server  # noqa: PLC0415
+
+    print(f"Starting Bremen API server at http://{args.host}:{args.port}")
+    print("Dev/smoke mode only. Not for production use.")
+    run_server(host=args.host, port=args.port)
     return 0
 
 
