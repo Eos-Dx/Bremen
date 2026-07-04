@@ -22,7 +22,6 @@ from .schemas import (
     STATUS_NOT_FOUND,
     build_accepted_response,
     build_health_response,
-    build_not_configured_model_response,
     build_not_found_response,
     validate_prediction_request,
 )
@@ -42,13 +41,31 @@ def handle_health(version: str | None = None) -> HealthResponse:
     return build_health_response(version=version)
 
 
-def handle_model_version() -> ModelVersionResponse:
-    """Return configured model package metadata (stub).
+def handle_model_version(
+    cloud: CloudConfig | None = None,
+) -> ModelVersionResponse:
+    """Return configured model package metadata.
 
-    Returns a safe ``not_configured`` response by default.
-    Must not import ``joblib`` / ``pickle`` or deserialize model artifacts.
+    When environment variables (``BREMEN_MODEL_BUCKET`` etc.) are set,
+    reports ``configured`` status.  All content fields remain ``None``
+    until a model package is actually fetched and validated.
+
+    Parameters
+    ----------
+    cloud : Optional ``CloudConfig``.  If ``None``, reads from
+        environment variables via ``read_cloud_config()``.
+
+    Returns
+    -------
+    A ``ModelVersionResponse``.
+
+    Must not import ``joblib`` / ``pickle`` or deserialize artifacts.
     """
-    return build_not_configured_model_response()
+    from .model_source import derive_model_source  # noqa: PLC0415
+    from ..config import CloudConfig as _CloudConfig  # noqa: PLC0415
+
+    src = derive_model_source(cloud=cloud)
+    return ModelVersionResponse(**src)
 
 
 def handle_submit_prediction(

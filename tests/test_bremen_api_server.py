@@ -126,6 +126,21 @@ class TestModelVersion:
         _, _, headers = _get(host, port, "/model/version")
         assert "application/json" in headers.get("Content-Type", "")
 
+    def test_model_version_configured(self, server_info):
+        """Test GET /model/version with env set to configured state."""
+        from bremen.config import read_cloud_config
+
+        # Use explicit cloud config to test configured state
+        cloud = read_cloud_config(
+            env={"BREMEN_MODEL_BUCKET": "my-bucket"}
+        )
+        from bremen.api.app import handle_model_version
+
+        resp = handle_model_version(cloud=cloud)
+        assert resp.model_configured is True
+        assert resp.model_status == "configured"
+        assert resp.model_version is None
+
 
 # ---------------------------------------------------------------------------
 # POST /predictions
