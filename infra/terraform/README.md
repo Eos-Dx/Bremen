@@ -15,6 +15,7 @@ without human review and configuration.
 | **ECS service** | Fargate service placed in private subnets. |
 | **CloudWatch log group** | Application log delivery. |
 | **IAM roles** (execution + task) | Least-privilege: ECR pull, CloudWatch logs, S3 model read. |
+| **App Runner service** | Smoke/proving target. Uses ECR image tagged ``app-runner``. Health check via ``/health``. Not production-ready. |
 
 ## Agent Invariant
 
@@ -40,6 +41,12 @@ Agents may run:
    refer to an existing VPC.
 7. **Decide `desired_count > 0` intentionally** — the default is 0 (no active
    tasks). A human must explicitly raise this for deployment.
+8. **Before applying App Runner resources, verify:**
+   - The ``app-runner`` image tag exists in ECR (pushed by the CI/CD pipeline).
+   - The ``/health`` endpoint is serving from the runtime container.
+   - Auto-deploy is intentional — App Runner will redeploy on every
+     ``app-runner`` tag push.
+   - Review estimated App Runner cost (per-hour and per-vCPU pricing).
 
 ## Validation Commands
 

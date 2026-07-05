@@ -92,3 +92,19 @@ variable "log_retention_days" {
   type        = number
   default     = 14
 }
+
+# ---------------------------------------------------------------------------
+# App Runner variables
+# ---------------------------------------------------------------------------
+
+variable "app_runner_image_tag" {
+  description = "Image tag used by App Runner auto-deploy. Default 'app-runner'."
+  type        = string
+  default     = "app-runner"
+}
+
+variable "app_runner_instance_role_arn" {
+  description = "ARN of an IAM role to associate with the App Runner service for instance-level permissions. Set to null to skip instance role."
+  type        = string
+  default     = null
+}
