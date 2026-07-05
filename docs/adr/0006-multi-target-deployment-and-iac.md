@@ -1,13 +1,13 @@
 # ADR-0006: Multi-Target Deployment and Infrastructure-as-Code
 
-**Status**: Accepted
+**Status**: Accepted (partially superseded by ADR-0008 for runtime target)
 
 ## Context (cited from evidence)
 
 - GHCR publish exists and works (PR 0007): `ghcr.io/eos-dx/bremen` with `latest` and `sha` tags on push to main.
-- No AWS ECR target exists.
-- No Infrastructure-as-Code exists.
-- No target referred to as "APRANA" exists or is configured. **IMPORTANT: APRANA IS UNVERIFIED** — confirm exact platform name, EOL timeline, and access model before any implementation PR touches it.
+- AWS ECR publish exists and works (PR 0022B/0022C).
+- Infrastructure-as-Code skeleton exists but has not been applied (`infra/terraform/`).
+- **APRANA is retired.** The unverified placeholder name from earlier ADR drafts must not be used as a target, alias, shorthand, PR, gate, or option. See ADR-0008 for the App Runner proving target decision.
 
 ## Decisions
 
@@ -19,22 +19,16 @@ Add as a second registry target, with the same non-negotiable CI safety rules as
 - No destructive infra changes without human review.
 - Publish gated to merge-to-main/release tag.
 
-### APRANA (UNVERIFIED)
+### AWS App Runner (near-term proving target)
 
-**EXPLICITLY UNVERIFIED** — Before any implementation PR touches APRANA, a human must confirm:
-
-- The exact platform name.
-- Its EOL and migration timeline.
-- The access / authentication model.
-
-This ADR records intent only and does not invent technical specifics. APRANA is explicitly deprioritized relative to AWS/ECR. **(IMPORTANT: APRANA IS UNVERIFIED — the name/URL/access model used here is a placeholder. Do not implement against it without human confirmation.)**
+See ADR-0008 for the full decision. App Runner is the near-term proving/testing target. ECS Fargate remains the long-term primary production target.
 
 ### Infrastructure-as-Code
 
-Required for whichever AWS resources ADR-0003 and ADR-0006 imply. Not written here.
+Required for whichever AWS resources ADR-0003, ADR-0006, and ADR-0008 imply. Not written here.
 
 ## OPEN Decision Gate
 
 | Gate ID | Question | Trigger type | Recommended default | Status |
 |---------|----------|-------------|-------------------|--------|
-| G-INFRA-1 | Terraform vs. AWS CDK vs. CloudFormation | Date-bound (before PR 0022) | Terraform (revisable) | OPEN |
+| G-INFRA-1 | Terraform vs. AWS CDK vs. CloudFormation | Date-bound (before PR 0022) | Terraform (revisable) | DECIDED (Terraform) |

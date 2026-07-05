@@ -52,7 +52,7 @@ Items 8–12 must not be silently dropped, but must appear after items 1–7 bec
 | PR 0022A | **Terraform AWS runtime skeleton** — Delegated from ADR-0006. ECR, S3 versioned bucket, ECS Fargate, CloudWatch, scoped IAM. Not yet applied. | G-INFRA-1 and G-API-2 closed |
 | PR 0022B | **ECR publish workflow** — Docker image build/push to ECR on main push. | Terraform skeleton exists |
 | PR 0022C | **ECR workflow credentials** — Scoped IAM user credentials as interim auth path. | PR 0022B |
-| PR 0023 | **APRANA / App Runner evaluation** — Deferred candidate track. See App Runner/APRANA clarification below. | Platform name/access confirmed |
+| PR 0023 | **App Runner proving target** — Near-term CI/CD and deploy path for App Runner proving target. See ADR-0008 for full decision. | Platform access confirmed |
 | PR 0024 | **Config editing surface** — BLOCKED on G-CFG-1. Not date-bound. Scheduled only after Product Track's core classifier work (operator-convenience, not product-critical path). | G-CFG-1, Product Track core classifier |
 
 ## Decision Gate Register
@@ -60,8 +60,10 @@ Items 8–12 must not be silently dropped, but must appear after items 1–7 bec
 | Gate ID | Question | Trigger type | Recommended default | Status | Decided value |
 |---------|----------|-------------|-------------------|--------|---------------|
 | G-API-1 | Sync vs. async request/response | Date-bound (before PR 0019) | Async submit-then-poll | DECIDED | async submit → `job_id` → poll |
-| G-API-2 | AWS compute target (ECS Fargate vs. Lambda-container vs. EKS) | Date-bound (before PR 0019, PR 0022) | ECS Fargate | DECIDED | ECS Fargate |
+| G-API-2 | AWS compute target (ECS Fargate vs. Lambda-container vs. EKS) | Date-bound (before PR 0019, PR 0022) | ECS Fargate | DECIDED | ECS Fargate (primary/long-term), App Runner (near-term proving) |
 | G-CFG-1 | Build in-house vs. adopt existing config-management product | Date-bound (before PR 0024) | Not decided | OPEN | — |
+| G-CFG-2 | Config state history store: DynamoDB vs. other | Date-bound (before config governance PR) | DynamoDB | OPEN | — |
+| G-CFG-3 | Config validation schema: JSON Schema vs. Pydantic vs. custom | Date-bound (before config governance PR) | Not decided | OPEN | — |
 | G-DEP-1 | Container repo merges feat/v0_3 to main | Event-bound (external event) | Re-pin within 5 business days; re-verify VERSION_REGISTRY | OPEN | — |
 | G-INFRA-1 | Terraform vs. AWS CDK vs. CloudFormation | Date-bound (before PR 0022) | Terraform | DECIDED | Terraform |
 
@@ -73,16 +75,48 @@ Calendar dates in the Product Track may drift and that's expected. What's requir
 - Future hardening should evaluate returning to the planned GitHub OIDC role assumption approach when AWS IAM trust is ready.
 - No secrets, account IDs, or registry URLs are recorded in this roadmap.
 
-### App Runner / APRANA clarification
+### Runtime target decision
 
-- "APRANA" in earlier ADRs and roadmap entries was a planning shorthand for **AWS App Runner**.
-- **ECS Fargate** remains the decided primary AWS runtime target (G-API-2, DECIDED in PR 0012).
-- **App Runner** is a deferred candidate track, not current implementation scope. PR 0023 is reserved for future App Runner evaluation or CI/CD planning.
-- Before any App Runner work starts, an explicit decision is required on whether App Runner is:
-  1. an alternative to ECS Fargate (replacing the current primary target),
-  2. a secondary/parallel deployment target, or
-  3. abandoned in favor of Fargate alone.
-- No App Runner resources, Terraform, GitHub Actions, deployment steps, or runtime changes are introduced by this roadmap rebaseline.
+- **AWS App Runner is the near-term proving/testing target.** App Runner provides faster operational launch for smoke testing, integration validation, and proving the runtime model binding lifecycle end-to-end.
+- **ECS Fargate remains the long-term primary production target.** The existing Terraform skeleton (`infra/terraform/ecs.tf`) is retained but not currently prioritized. ECS work moves later in the roadmap sequence.
+- This is an operational pivot, not an abandonment of ECS. ADR-0008 records the full rationale.
+- **APRANA is retired.** The term "APRANA" was an unverified placeholder from earlier ADR drafts. It is not a synonym for App Runner. It must not be carried forward as a target, alias, shorthand, PR, gate, or option in any future work.
+
+### Model binding lifecycle
+
+The runtime model binding lifecycle is architecturally confirmed:
+
+1. CI/CD builds runtime image — **no model artifacts inside image**.
+2. Deployment selects model identity via `BREMEN_MODEL_VERSION` (env var).
+3. Container starts → reads cloud config → fetches/stages model package from S3 → validates manifest + checksum → crosses `joblib.load()` boundary exactly once at startup.
+4. In-memory model serves all subsequent requests.
+5. **No hot-swap. No per-request model loading.**
+6. New model version → new deployment → restart/rolling replacement.
+
+### CI/CD image tag policy
+
+- The ECR workflow should keep immutable SHA tags for audit.
+- A stable mutable tag named `app-runner` should be added for App Runner auto-deploy (planned PR 0031).
+- The `latest` tag may remain as human convenience but should NOT be the App Runner deploy trigger.
+
+### Config governance
+
+- Config is separate from model. Config has its own lifecycle.
+- Config states must be versioned, timestamped, auditable, and reproducible.
+- Config change classes: runtime-safe operational (class A), decision-adjacent with validation/audit (class B), model-binding requiring redeploy (class C), structural forbidden in runtime UI (class D).
+- A config state history store (likely DynamoDB or equivalent) is a future requirement.
+- Gates G-CFG-2 and G-CFG-3 are added to the Decision Gate Register (both OPEN).
+- G-CFG-1 (build vs. adopt) remains OPEN. See ADR-0009 for details.
+- No config UI/API/database implementation in PR 0030.
+
+### Model package composition / DS inventory
+
+The current manifest contract supports a single artifact (`model_filename`). The model loader (`model_loader.py`) is object-level composite-compatible (`model: Any`).
+
+An open question exists: do Mahalanobis and Wasserstein-style features require fitted reference statistics (covariance matrices, reference distributions) as part of the model package?
+
+- If yes, the model package must become composite and atomic (multiple artifacts under one `model_version` / `feature_schema_version`).
+- This question must be resolved by a DS/inventory PR (planned PR 0035) before preprocessing/inference PRs.
 
 ### Closed gate details
 
@@ -101,6 +135,13 @@ Calendar dates in the Product Track may drift and that's expected. What's requir
 - **PR 0026** — Runtime HTTP service runner. Expose existing API skeleton (`src/bremen/api/`) as an actual service process suitable for container/ECS smoke testing. No inference, no H5 read, no model loading.
 - **PR 0027** — Model package source integration. Resolve local/cloud model package references and validate manifests/checksums without `joblib.load()`. Uses `read_cloud_config()` and `model_package.validate_model_package()`.
 - **PR 0028** — Runtime model loading boundary. Controlled `joblib.load()` deserialization boundary, only after checksum/trust rules are in place. Must not load untrusted artifacts.
-- **PR 0029** — H5/preflight metadata gate. Target/control consistency and H5 metadata validation without full inference.
-- **PR 0030** — Preprocessing bridge. Connect approved preprocessing path without training or clinical claims.
-- **PR 0031** — Inference pipeline integration. First end-to-end inference, only after model package, H5 gate, and preprocessing boundaries are in place.
+- **PR 0030** — Roadmap/ADR amendment (this PR). App Runner pivot, APRANA retirement, model lifecycle, config governance, DS inventory note.
+- **PR 0031** — ECR workflow: add stable App Runner image tag (`app-runner` tag alongside existing SHA + latest).
+- **PR 0032** — Model package fetch/staging from S3. Download model package to local staging directory using `read_cloud_config()`. No joblib.
+- **PR 0033** — Startup model loading and readiness probe. Wire fetch + validate + load into server startup. Readiness endpoint returns 503 until model is loaded.
+- **PR 0034** — App Runner Terraform skeleton. Add App Runner service Terraform alongside existing ECS skeleton.
+- **PR 0035** — DS feature inventory and model package composition decision. Confirm whether Mahalanobis/Wasserstein features require fitted reference statistics. Decide classifier-only vs. composite package.
+- **PR 0036** — H5/preflight metadata gate. Target/control consistency and H5 metadata validation.
+- **PR 0037** — Preprocessing bridge. Connect approved preprocessing path without training or clinical claims.
+- **PR 0038** — Inference pipeline integration. First end-to-end inference.
+- **PR 0039** — Config governance ADR and gate decisions. Close G-CFG-1, G-CFG-2, G-CFG-3. Define config validation, history store, and audit architecture.
