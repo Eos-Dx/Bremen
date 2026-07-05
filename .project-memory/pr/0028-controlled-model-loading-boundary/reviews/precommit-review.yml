@@ -1,0 +1,74 @@
+review_type: precommit-review
+branch: 0028-controlled-model-loading-boundary
+verdict: pass
+head: "db10ce574509cd0758de6ba7093ba540b8efeaf5"
+status: "?? src/bremen/model_loader.py; ?? tests/test_bremen_model_loader.py"
+changed_files:
+  - "src/bremen/model_loader.py"
+  - "tests/test_bremen_model_loader.py"
+blockers: []
+warnings: []
+validation:
+  compileall: pass
+  model_loader_tests: pass
+  model_package_tests: pass
+  api_model_source_tests: pass
+  api_skeleton_tests: pass
+  api_server_tests: pass
+  bremen_help: pass
+  bremen_serve_help: pass
+  full_pytest: pass
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  forbidden_files_unchanged: true
+  project_memory_used_as_primary_context: true
+  model_package_validation_reused: true
+  no_duplicate_validation_logic: true
+  validation_before_deserialization: true
+  validation_failure_blocks_deserializer: true
+  joblib_boundary_isolated: true
+  no_pickle_usage: true
+  no_prediction_behavior_change: true
+  no_request_time_loading: true
+  no_inference_or_training: true
+  no_h5_reads: true
+  no_aws_s3_network_calls: true
+  no_dependency_docker_terraform_ci_drift: true
+  safe_metadata_only: true
+  composite_package_compatibility_preserved: true
+  no_clinical_claims: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "src/bremen/model_loader.py"
+    - "tests/test_bremen_model_loader.py"
+    - ".project-memory/pr/0028-controlled-model-loading-boundary/reviews/precommit-review.yml"
+notes:
+  - "Branch verified: 'git branch --show-current' returned exactly '0028-controlled-model-loading-boundary' (hard requirement satisfied)."
+  - "HEAD captured: db10ce574509cd0758de6ba7093ba540b8efeaf5 via 'git rev-parse --verify HEAD'."
+  - "Project memory used as primary context: read .project-memory/pr/0028-controlled-model-loading-boundary/PLAN.md, plan-review.yml, .project-memory/project_contract.yml, .project-memory/pr/0013-model-package-contract/reviews/precommit-review.yml, and .project-memory/pr/0027-model-package-source-integration/reviews/precommit-review.yml before reviewing source."
+  - "Changed files = 2 untracked new (src/bremen/model_loader.py, tests/test_bremen_model_loader.py). No tracked diff (git diff --name-only empty). All API files unchanged: src/bremen/api/{app.py,server.py,schemas.py}, src/bremen/__main__.py, tests/test_bremen_api_{skeleton,server,cli_entrypoint}.py, and src/bremen/model_package.py all verified UNCHANGED via git diff HEAD -- and git status check."
+  - "Forbidden files untouched: ROADMAP.md, README.md, docs/**, .github/**, infra/**, Dockerfile, .dockerignore, requirements.txt, pyproject.toml, config/**, examples/**, agents/**, modeling.py, pipelines.py, model_package.py, api/server.py, api/schemas.py, api/app.py all unmodified. No .h5/.hdf5/.joblib/.pkl/.npy/.npz/.DS_Store added."
+  - "validate_model_package() reuse confirmed: src/bremen/model_loader.py imports 'from .model_package import ModelPackageError, ModelPackageSummary, summarize_model_package, validate_model_package' (line 20-23). load_model_package() calls validate_model_package(package_dir) at line 95 BEFORE the deserializer at line 99. summarize_model_package(package_dir) at line 96 also internally re-validates."
+  - "No duplicate validation/load/checksum logic: model_loader.py only composes the existing validate_model_package() + summarize_model_package() primitives from model_package.py. No reimplementation of SHA-256, path traversal, manifest field validation. No duplicate 'load_' function — model_loader.py IS the new controlled boundary."
+  - "Validation-before-deserialization enforced structurally: load_model_package() body sequence is (1) maybe-set default deserializer to joblib.load, (2) call validate_model_package(package_dir) — raises on any failure, (3) call summarize_model_package(package_dir), (4) invoke deserializer(str(summary.model_path)). Steps 4 unreachable if step 2 raises."
+  - "Validation-failure-blocks-deserializer proven by tests: TestValidationFailure contains test_checksum_mismatch_blocks_deserialization (corrupts artifact to force ModelPackageChecksumError), test_missing_manifest_blocks_deserialization (raises ModelPackageNotFoundError), test_path_traversal_blocks_deserialization (raises ModelPackageSecurityError). Each test uses a call_counter dict with a sentinel deserializer that would set called=True; each test asserts not call_counter['called']. All 3 tests pass — deserializer is provably never invoked on any validation failure."
+  - "joblib boundary isolated: 'from joblib import load as _joblib_load' is at line 88 of model_loader.py INSIDE the 'if deserializer is None' branch of load_model_package() — lazy import inside function body, NOT at module top level. Verified by direct read of model_loader.py (only top-level imports are 'from dataclasses import dataclass, field', 'from pathlib import Path', 'from typing import Any, Callable', 'from .model_package import ...'). AST test test_ast_no_top_level_joblib_import passes (scans only tree.body for module-level imports)."
+  - "joblib import test: test_import_does_not_load_joblib deletes both 'bremen.model_loader' and 'joblib' from sys.modules, imports bremen.model_loader, asserts 'joblib' not in sys.modules — confirms top-level import does not trigger joblib. Passes."
+  - "No pickle: grep 'joblib.load|import joblib|pickle.load|import pickle' over model_loader.py + test_bremen_model_loader.py returned only docstring/test-reference mentions of 'joblib' plus the controlled lazy 'from joblib import load' in the default deserializer fallback. NO 'pickle' or 'import pickle' anywhere. test_no_pickle_import AST check passes."
+  - "No prediction/inference/training: grep 'def predict|.predict(' over model_loader.py + tests returned only test_negative-assertion test docstrings ('prohibited = [\"def predict\", \".predict(\", ...]'). NO actual prediction code. test_no_inference_or_prediction passes."
+  - "No H5/HDF5 reads: grep 'boto3|botocore|h5py|.h5|.hdf5' returned only test_negative-assertion docstrings/strings (test_no_h5_references). NO actual H5 references. test_no_h5_references passes."
+  - "No AWS/S3/network: grep 'requests|httpx|urllib.request' returned only the test_negative-assertion list 'prohibited = {\"boto3\", \"botocore\", \"requests\", \"httpx\", \"urllib\"}'. NO actual usage. model_loader.py imports only stdlib + local model_package. test_no_boto3_network passes."
+  - "No clinical claims: grep 'diagnos|clinical validation|replace MRI|replace biopsy' returned only test docstring 'prohibited = [\"diagnosis\", \"clinical validation\", \"replace MRI\", \"replace biopsy\"]'. NO actual claims. test_no_clinical_claims passes."
+  - "No dependency drift: requirements.txt and pyproject.toml NOT in diff. model_loader.py adds no new third-party imports (only stdlib + existing model_package). joblib is already in requirements.txt:6 and pyproject.toml:16 — no new dependency."
+  - "No Docker/Terraform/GitHub Actions drift: Dockerfile, .dockerignore, .github/, infra/ all NOT in diff."
+  - "Safe metadata only: LoadedModelPackage dataclass exposes (1) summary: ModelPackageSummary (safe manifest-derived metadata — model_version, model_checksum, feature_schema_version, threshold_version/value, qc_criteria_version, training_config_ref, created_at, artifact_type, package_dir, manifest_path, model_path), (2) model: Any (deserialized artifact — caller decides use), (3) warnings: tuple. No bucket name, prefix, manifest source path, AWS account ID, access key, secret, or registry URL is ever returned by this module. LoadedModelPackage does not expose any field that would carry credentials."
+  - "Composite package compatibility preserved: LoadedModelPackage.model: Any (not classifier, not Pipeline, not sklearn type). Tests TestCompositePackaging verify that list, None, and dict all pass through unchanged. model_filename single-artifact limitation lives in model_package.py's manifest schema — model_loader.py imposes no additional constraint on the deserialized object's type, leaving composite future extensions open."
+  - "API surface unchanged: app.py/server.py/schemas.py/__main__.py not modified. handle_submit_prediction, handle_get_prediction, handle_health, handle_model_version unchanged. /predictions, /health, /model/version, /predictions/{job_id} endpoints unchanged. No request-time model loading — model_loader.py is not imported by app.py/server.py/__main__.py. Verified via grep: 'model_loader' string does not appear in src/bremen/api/app.py, src/bremen/api/server.py, src/bremen/__main__.py."
+  - "serve CLI help safe: 'python -m bremen serve --help' exits 0, prints --host (default 127.0.0.1) and --port (default 8000), does not start server. __main__.py unchanged (not in diff). Verified."
+  - "Validation results: compileall silent (success). test_bremen_model_loader.py: 18 passed. test_bremen_model_package.py: 31 passed (regression — model_package.py not modified). test_bremen_api_model_source.py: 18 passed (regression — PR 0027 source intact). test_bremen_api_skeleton.py: 35 passed (regression). test_bremen_api_server.py: 20 passed (regression — server unchanged, /model/version still returns not_configured when env empty). bremen --help: exits 0. bremen serve --help: exits 0. Full pytest: 288 passed in 30.11s (no environment limitations)."
+  - "model_package.py unmodified: test_model_package_not_modified runs 'git diff --name-only -- src/bremen/model_package.py' inside the test and asserts empty output. Passes."
+  - "joblib import position audit: model_loader.py AST (full file) — top-level imports (tree.body) include only dataclass/field, Path, Any, Callable, and from .model_package. The ONLY joblib reference in the AST is the 'from joblib import load as _joblib_load' node nested inside load_model_package() function body (line 88). Confirmed by direct file read and test_ast_no_top_level_joblib_import passing."
+  - "All required reads completed before review: PLAN.md, plan-review.yml, project_contract.yml, 0013 precommit-review.yml, 0027 precommit-review.yml, model_package.py, test_bremen_model_package.py, model_loader.py, test_bremen_model_loader.py."
+  - "No git mutation commands were run (no add, commit, push, gh pr create, Docker, Terraform, AWS, dependency install, or deployment). No files outside the review artifact were modified."
