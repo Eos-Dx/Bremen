@@ -1,0 +1,28 @@
+# Bremen Training Image — offline ML model training only.
+# NOT part of the runtime inference service.
+# See ADR-0008 for the two-image build strategy.
+
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install system dependencies required by scipy/numpy/scikit-learn
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy dependency files
+COPY pyproject.toml requirements.txt ./
+
+# Install all dependencies (runtime + training)
+RUN pip install --no-cache-dir -e ".[dev]" && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy training package and supporting modules
+COPY src/bremen/ src/bremen/
+
+# Copy training config
+COPY config/training/ config/training/
+
+# Entrypoint: python -m bremen.training.train_classifier
+ENTRYPOINT ["python", "-m", "bremen.training.train_classifier"]

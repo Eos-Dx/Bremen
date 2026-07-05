@@ -11,3 +11,16 @@ resource "aws_ecr_repository" "bremen" {
   # Current default: no automatic deletion. A lifecycle policy should be
   # added before production use to manage untagged and old images.
 }
+
+# ---------------------------------------------------------------------------
+# Training ECR repository
+# ---------------------------------------------------------------------------
+
+resource "aws_ecr_repository" "bremen_training" {
+  name                 = var.training_ecr_repository_name
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}

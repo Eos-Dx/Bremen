@@ -81,3 +81,17 @@ output "app_runner_image_tag" {
   description = "Image tag used by App Runner auto-deploy."
   value       = var.app_runner_image_tag
 }
+
+# ---------------------------------------------------------------------------
+# Training ECR outputs
+# ---------------------------------------------------------------------------
+
+output "training_ecr_repository_url" {
+  description = "URL of the training ECR repository."
+  value       = aws_ecr_repository.bremen_training.repository_url
+}
+
+output "training_ecr_repository_arn" {
+  description = "ARN of the training ECR repository."
+  value       = aws_ecr_repository.bremen_training.arn
+}

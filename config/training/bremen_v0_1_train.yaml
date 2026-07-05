@@ -1,0 +1,40 @@
+# Bremen training config — Healthy vs disease classification (NORMAL vs BENIGN+CANCER)
+# Cohort: MRI-referred population
+# See ADR-0008 for full config specification
+#
+# This is an example config for offline training. Do not use for clinical
+# decision-making. No clinical validation claims.
+
+training:
+  name: "bremen_v0_1"
+  version: "0.1.0"
+  branch: "main"
+  clinical_stage: "development"
+  intended_use: "Bremen healthy vs disease classification (NORMAL vs BENIGN+CANCER)"
+  role: "training"
+
+io:
+  input_dataframe_joblib_path: "data/bremen_training_data.joblib"
+  output_model_joblib_path: "models/bremen_v0_1.joblib"
+  output_json_path: "models/bremen_v0_1_metrics.json"
+  output_yaml_path: "models/bremen_v0_1_qc.yaml"
+
+model:
+  type: "patient_m0_m1_m2_logistic_set"
+  profile_column: "profile"
+  label_column: "label"
+  group_column: "patient_id"
+  specimen_column: "specimen_id"
+  side_column: "breast_side"
+  q_column: "measurement_q"
+  age_column: "age"
+  lr1_row_policy: "mri_referred_only"
+  selected_models: ["M0", "M1", "M2"]
+  logreg_c: 0.1
+
+evaluation:
+  mode: "cross_validation"
+  n_splits: 5
+  test_size: 0.2
+  random_state: 42
+  target_sensitivity: 0.85
