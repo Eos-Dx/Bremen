@@ -1,0 +1,76 @@
+review_type: plan-review
+branch: 0028-controlled-model-loading-boundary
+verdict: approve
+head: "fea9804aaf88fd0699ebf12325cbffe4f8cf04cc"
+status: "untracked: .project-memory/pr/0028-controlled-model-loading-boundary/ (PLAN.md present, no review file yet); no tracked modifications"
+plan_path: ".project-memory/pr/0028-controlled-model-loading-boundary/PLAN.md"
+blockers: []
+warnings: []
+facts:
+  joblib_dependency_observed: true
+  joblib_load_observed_in_model_package: false
+  existing_load_boundary_observed: false
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  source_files_not_modified_by_planner: true
+  project_memory_used_as_primary_context: true
+  pr0027_presence_confirmed: true
+  scope_pr0028_only: true
+  joblib_facts_recorded: true
+  concrete_deserialization_decision: true
+  model_package_relationship_defined: true
+  no_duplicate_validation_or_load_logic: true
+  composite_package_compatibility_preserved: true
+  no_adr_or_format_expansion_drift: true
+  no_pr0029_h5_drift: true
+  no_pr0030_preprocessing_drift: true
+  no_pr0031_inference_drift: true
+  validation_before_deserialization_required: true
+  validation_failure_blocks_deserializer: true
+  joblib_boundary_handled_safely: true
+  app_py_rule_safe: true
+  no_dependency_drift: true
+  no_aws_s3_network_calls: true
+  no_h5_reads: true
+  no_prediction_behavior_change: true
+  no_inference_or_training: true
+  no_clinical_claims: true
+  allowed_files_clear: true
+  forbidden_files_clear: true
+  validation_commands_present: true
+  forbidden_pattern_checks_present: true
+  block_conditions_present: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0028-controlled-model-loading-boundary/PLAN.md"
+    - ".project-memory/pr/0028-controlled-model-loading-boundary/reviews/plan-review.yml"
+notes:
+  - "Branch verified as 0028-controlled-model-loading-boundary (matches hard requirement)."
+  - "Project memory used as primary context: PLAN.md, project_contract.yml, and the two precommit-review.yml artifacts from PR 0013 and PR 0027 were the primary references; only src/bremen/model_package.py, src/bremen/api/model_source.py, and tests/test_bremen_model_package.py were direct-read from source. No unrelated repository history was rediscovered."
+  - "Fact: joblib is already an approved dependency (requirements.txt:6 'joblib>=1.4', pyproject.toml:16 '\"joblib>=1.4\",'). Confirmed by direct read of both files."
+  - "Fact: src/bremen/model_package.py contains NO joblib.load, NO import joblib, NO pickle.load, NO import pickle (grep returned empty). The module is validation-only."
+  - "Fact: src/bremen/model_package.py contains NO load_ function (grep 'load_' returned empty). No existing load boundary to extend."
+  - "Fact: validate_model_package is defined at src/bremen/model_package.py:243 and called internally at line 330 from summarize_model_package. tests/test_bremen_model_package.py imports it (line 45) and uses it across 15+ test scenarios. This is the existing validation primitive that the new loader must compose with."
+  - "PLAN.md 'Dependency/deserialization facts (from grep commands)' section records the exact grep outputs and the concrete key conclusion: 'joblib IS already approved (in both dependency files). model_package.py has validation only... There is no load_ function in the module. A new model_loader.py is needed for the controlled load boundary.' This is a concrete decision, not an unresolved 'if joblib exists' conditional."
+  - "Relationship between model_package.py and the new model_loader.py is explicitly defined in two places: (1) Decisions summary table — 'model_loader.py imports and calls validate_model_package() and summarize_model_package(). Does NOT reimplement validation.' (2) load_model_package pseudocode in §1 — Step 1 calls validate_model_package, then summarize_model_package, then Step 2 invokes the deserializer. Validation-before-deserialization is structurally enforced."
+  - "No duplicate validation/load/checksum logic: model_loader.py imports validate_model_package and summarize_model_package from model_package.py. PLAN.md Forbidden files explicitly include 'src/bremen/model_package.py (reused, not modified)' and rollback plan states 'No other files affected. The model_package.py module is untouched.'"
+  - "Composite package compatibility preserved: LoadedModelPackage declares 'model: Any' (any deserialized type accepted). PLAN.md §'Composite package compatibility' explicitly states the loader 'Deserialize[s] whatever artifact model_filename points to — no assumption about whether it's a classifier, a feature-extractor reference object, or a composite.' The current manifest schema limitation (single model_filename) is documented as a current limitation but is NOT silently fixed by this PR."
+  - "ADR / package format drift avoided: PLAN.md does not propose any ADR amendment, manifest schema change, or format expansion. Non-goals explicitly exclude any of these. The loader is manifest-schema-neutral."
+  - "No PR 0029 H5/preflight drift: H5 reads forbidden; no preprocessing flag added; manifest fields are read locally only."
+  - "No PR 0030 preprocessing drift: 'No preprocessing bridge' is in Non-goals and Safety boundaries. The loader returns the deserialized object and stops — no preprocessing invocation."
+  - "No PR 0031 inference drift: 'No inference or prediction routing' in Non-goals. loader does NOT call .predict(), .transform(), or any other method on the deserialized object. Forbidden-pattern grep checks for 'def predict|\\.predict(' present."
+  - "/predictions behavior unchanged: PLAN.md explicitly says 'Default: do NOT modify src/bremen/api/app.py.' handle_submit_prediction and handle_get_prediction in app.py are untouched. No request-time loading — the loader is local-only and not invoked from any HTTP path."
+  - "Strict app.py rule satisfied: PLAN.md puts src/bremen/api/app.py in Forbidden files ('discouraged; only allowed with strict additive metadata-only justification') and then restricts any conditional use to: 'additive metadata-only', 'No route behavior change', 'No model loading during request handling', 'No /predictions behavior change'. PLAN.md does not allow app.py changes by default; future implementation must not modify app.py unless it satisfies all four constraints. Quoted PLAN.md justification: 'If app.py is strictly needed for an additive metadata-only hook (e.g., to surface model_loaded=False in the /model/version response to distinguish \"env configured but no package loaded\" from \"package loaded and ready\"), the coder must: Disclose the exact reason in precommit-review. The change must be additive metadata-only. No route behavior change. No model loading during request handling. No /predictions behavior change.' This satisfies the strict app.py rule."
+  - "No dependency drift: requirements.txt and pyproject.toml are in Forbidden files. No new third-party imports are introduced in model_loader.py beyond joblib (already declared) and standard library + existing model_package module. No additions to pyproject.toml/requirements.txt."
+  - "No AWS/S3/network calls: forbidden-pattern grep checks include 'boto3|botocore|requests|httpx|urllib.request'. Loader is local-filesystem only — deserializer receives a str|Path and returns Any."
+  - "No H5 reads: forbidden-pattern grep checks include 'h5py|.h5|.hdf5'. Loader does not touch H5/HDF5 paths."
+  - "No clinical claims: forbidden-pattern grep checks include 'diagnos|clinical validation|replace MRI|replace biopsy'. Non-goals explicitly state 'No clinical claims'."
+  - "joblib.load handled as a high-risk boundary: (a) joblib import is lazy — inside the 'if deserializer is None' branch only via 'from joblib import load as _joblib_load'. Top-level 'import joblib' is forbidden by Stop conditions: 'model_loader.py imports joblib at the top level (outside the default-argument fallback)'. (b) deserializer is injectable — load_model_package(..., deserializer=None) defaults to joblib.load but tests MUST override with a safe lambda. (c) Test scenario 7 explicitly AST-checks that model_loader.py does not import joblib at module top level. (d) Critical validation step requires direct-read review of every 'joblib.load|import joblib|pickle.load|import pickle' hit before merge."
+  - "Pickle usage forbidden outside approved joblib boundary: forbidden-pattern grep checks include 'pickle.load|import pickle'. LoadedModelPackage does not wrap or expose a pickle API. The only deserialization surface is the injected deserializer, defaulting to joblib.load."
+  - "Allowed and forbidden files are clearly enumerated. Allowed list matches the prompt's expected list: src/bremen/model_loader.py (NEW), tests/test_bremen_model_loader.py (NEW), and conditional/optional entries for app.py, model_package.py, etc. Forbidden list covers ROADMAP.md, README.md, docs/**, .github/**, infra/**, Dockerfile, .dockerignore, requirements.txt, pyproject.toml, config/**, examples/**, agents/**, src/bremen/modeling.py, src/bremen/pipelines.py, src/bremen/api/server.py, src/bremen/api/schemas.py, src/bremen/api/app.py (discouraged by default), src/bremen/model_package.py (reused, not modified), and any .h5/.hdf5/.joblib/.pkl/.npy/.npz artifacts."
+  - "Validation commands and forbidden-pattern checks present: compileall, pytest scenarios (loader, model_package, api_model_source, api_skeleton, api_server), full pytest, bremen --help, bremen serve --help, plus four required grep blocks (AWS/H5/AI/network, HTTP libraries, clinical claims, predict/infer/train) and the critical joblib/pickle hit review step."
+  - "Block conditions present: 9 explicit stop conditions including PR 0027 source metadata presence, no dependency changes, no Docker/Terraform/AWS/GitHub Actions/deployment changes, no S3/H5/preprocessing/inference, validation-before-deserialization proof, no duplicate load/checksum logic, no classifier-only hardcoding, no top-level joblib import in model_loader.py."
+  - "PR 0013 precommit-review.yml confirms the existing model_package.py baseline is validation-only, standard-library, with no joblib/pickle/H5 imports. PR 0027 precommit-review.yml confirms PR 0027 source metadata is in place (model_source.py on disk, /model/version wired, no model loading). Both prior precommit reviews align with this PR 0028 plan's premise."
+  - "project_contract.yml invariant ('Joblib model packages are controlled artifacts; joblib must be loaded only from checksum-verified model packages.') is the canonical basis for this PR; PLAN.md explicitly cites and implements it."
