@@ -57,3 +57,27 @@ output "service_security_group_id" {
   description = "ID of the ECS service security group."
   value       = aws_security_group.bremen_service.id
 }
+
+# ---------------------------------------------------------------------------
+# App Runner outputs (smoke / proving target)
+# ---------------------------------------------------------------------------
+
+output "app_runner_service_name" {
+  description = "Name of the App Runner smoke/proving service."
+  value       = aws_apprunner_service.bremen_smoke.service_name
+}
+
+output "app_runner_service_url" {
+  description = "URL of the App Runner smoke/proving service."
+  value       = aws_apprunner_service.bremen_smoke.service_url
+}
+
+output "app_runner_service_arn" {
+  description = "ARN of the App Runner smoke/proving service."
+  value       = aws_apprunner_service.bremen_smoke.arn
+}
+
+output "app_runner_image_tag" {
+  description = "Image tag used by App Runner auto-deploy."
+  value       = var.app_runner_image_tag
+}
