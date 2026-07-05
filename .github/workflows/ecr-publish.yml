@@ -41,8 +41,10 @@ jobs:
           docker build \
             --build-arg BREMEN_CI_GITHUB_TOKEN="${BREMEN_CI_GITHUB_TOKEN}" \
             -t "${IMAGE_URI}:${IMAGE_TAG}" \
+            -t "${IMAGE_URI}:app-runner" \
             -t "${IMAGE_URI}:latest" \
             .
 
           docker push "${IMAGE_URI}:${IMAGE_TAG}"
+          docker push "${IMAGE_URI}:app-runner"
           docker push "${IMAGE_URI}:latest"
