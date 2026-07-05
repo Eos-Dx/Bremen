@@ -1,0 +1,51 @@
+review_type: plan-review
+branch: 0030-roadmap-adr-apprunner-pivot
+verdict: approve
+head: "29aa25ad23f6c2f2182ea5b25fe80a4ed71b35cf"
+status: "untracked: .project-memory/pr/0030-roadmap-adr-apprunner-pivot/ (PLAN.md present, no review file yet); no tracked modifications"
+plan_path: ".project-memory/pr/0030-roadmap-adr-apprunner-pivot/PLAN.md"
+blockers: []
+warnings: []
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  source_files_not_modified_by_planner: true
+  project_memory_used_as_primary_context: true
+  rebaseline_artifact_used: true
+  docs_adr_roadmap_only: true
+  app_runner_proving_target_recorded: true
+  ecs_primary_later_preserved: true
+  aprana_retirement_required: true
+  model_binding_lifecycle_recorded: true
+  no_model_hot_swap_or_request_load: true
+  cicd_tag_followup_recorded: true
+  config_governance_scoped: true
+  config_runtime_vs_restart_classes_required: true
+  ds_composite_package_question_recorded: true
+  no_model_package_format_expansion: true
+  project_contract_scope_decided: true
+  allowed_files_clear: true
+  forbidden_files_clear: true
+  validation_commands_present: true
+  block_conditions_present: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0030-roadmap-adr-apprunner-pivot/PLAN.md"
+    - ".project-memory/pr/0030-roadmap-adr-apprunner-pivot/reviews/plan-review.yml"
+notes:
+  - "Branch verified as 0030-roadmap-adr-apprunner-pivot (matches hard requirement)."
+  - "PLAN.md is docs/ADR/roadmap-only. Allowed files: ROADMAP.md, ADR-0006 (amend), ADR-0008 (new), ADR-0009 (new), ADR index (only if exists — none does), .project-memory/project_contract.yml (narrowly justified), and the precommit-review artifact. No source/tests/CI/Docker/Terraform/infra/dependencies/config/examples/H5/data."
+  - "Rebaseline artifact (.project-memory/architecture/runtime-model-config-roadmap-rebaseline.md) is used as primary evidence throughout PLAN.md — direct-read confirmed it exists on disk with the architectural decisions cited verbatim."
+  - "App Runner recorded as near-term proving/testing target in §'Runtime Target Decision'. ECS Fargate kept as long-term primary production target in §'ECS Fargate remains later/primary'. PLAN.md explicitly states App Runner does not replace ECS Fargate."
+  - "APRANA retirement recorded in §'APRANA retirement': 'APRANA is retired entirely. APRANA is not App Runner.' PLAN.md prohibits carrying APRANA forward in any form (service/alias/target/PR/future option)."
+  - "Model binding lifecycle recorded in §'Model Binding Decision' with all 8 properties: image does not contain model; deployment selects model identity (BREMEN_MODEL_VERSION); startup/readiness fetch/stage/validate/load; controlled post-validation joblib.load via model_loader.load_model_package; in-memory model serves requests; model updates require redeploy/restart/rolling replacement; no hot-swap; no per-request load."
+  - "CI/CD image tag follow-up recorded in §'CI/CD Image Tag Decision': immutable github.sha for audit; stable mutable 'app-runner' tag for App Runner auto-deploy; 'latest' preserved for human convenience but NOT the App Runner deploy trigger. This is correctly scoped as a follow-up PR, not PR 0030."
+  - "Config governance scoped separately from model in §'Config Governance Decision': validated config changes; versioned/audited state history; Class A/B/C/D runtime-vs-restart classification (Class C model-binding must require restart); DynamoDB-or-equivalent store as future DB question; no config UI/API/database implementation in PR 0030."
+  - "DS/model package composition recorded as open question in §'Model Package Composition / Training Inventory': 'Cannot determine from repo evidence. This is an open DS/inventory question.' Documented as required follow-up before preprocessing/inference PRs. PLAN.md does NOT expand model_package.py format; src/bremen/model_package.py is in the forbidden implementation files list."
+  - "project_contract.yml scope decided IN with narrow justification in §'5. Amend .project-memory/project_contract.yml': adds config_version and config_hash to prediction output invariant + new safety invariant for Class C config. Justification is narrow (two specific field additions tied to audit gap), source-of-truth safe (it updates the canonical invariant to match new audit requirements), and is bounded by the canonical source-of-truth order."
+  - "Allowed files match the prompt's expected list. Forbidden files cover src/**, tests/**, .github/**, infra/**, Dockerfile, .dockerignore, requirements.txt, pyproject.toml, config/**, examples/**, agents/**, and any .h5/.hdf5/.joblib/.pkl/.npy/.npz artifacts."
+  - "Validation checklist (§8) includes compileall, grep forbidden patterns, bremen --help, bremen serve --help, and markdown link check. All static/read-only. No Docker/Terraform/AWS/install commands."
+  - "Block-yourself conditions present (§'Stop conditions'): 9 explicit blockers including any source code change, any ADR edit beyond allowed files, any infrastructure/IaC file modification, expanding model package format, replacing ECS Fargate, reintroducing APRANA, adding CI/CD image tag changes (deferred to PR 0031), and modifying forbidden files."
+  - "Working tree is dirty only by the planning artifact directory itself (PLAN.md untracked). No ROADMAP.md, docs, services, agents, schemas, or unrelated files modified. Project memory used as primary context."
+  - "No AWS account IDs, registry URLs, access keys, or secrets are recorded anywhere in PLAN.md. No clinical claims. No inference implementation. No DS/training facts were guessed — open questions are explicitly marked as such."
