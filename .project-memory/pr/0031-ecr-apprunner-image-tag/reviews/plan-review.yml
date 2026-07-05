@@ -1,0 +1,54 @@
+review_type: plan-review
+branch: 0031-ecr-apprunner-image-tag
+verdict: approve
+head: "d215ded4a90c2dad7afae853d1ffbc71318f7d68"
+status: "untracked: .project-memory/pr/0031-ecr-apprunner-image-tag/ (PLAN.md present, no review file yet); no tracked modifications"
+plan_path: ".project-memory/pr/0031-ecr-apprunner-image-tag/PLAN.md"
+blockers: []
+warnings: []
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  source_files_not_modified_by_planner: true
+  project_memory_used_as_primary_context: true
+  rebaseline_followed: true
+  ecr_workflow_targeted: true
+  sha_tag_preserved: true
+  app_runner_tag_required: true
+  latest_convenience_only: true
+  no_apprunner_service_deploy: true
+  no_terraform_docker_source_dependency_drift: true
+  no_ghcr_quality_workflow_drift: true
+  no_secrets_or_account_identifiers: true
+  workflow_test_decision_present: true
+  allowed_files_clear: true
+  forbidden_files_clear: true
+  validation_commands_present: true
+  block_conditions_present: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0031-ecr-apprunner-image-tag/PLAN.md"
+    - ".project-memory/pr/0031-ecr-apprunner-image-tag/reviews/plan-review.yml"
+notes:
+  - "Branch verified as 0031-ecr-apprunner-image-tag (matches hard requirement)."
+  - "PLAN.md is narrow CI/CD workflow PR only. Objective: update ecr-publish.yml to push three tags (github.sha immutable, app-runner mutable, latest convenience). No runtime, infra, docs, source, or dependency changes."
+  - "PR 0030 rebaseline confirmed as source of truth. .project-memory/pr/0030-roadmap-adr-apprunner-pivot/reviews/precommit-review.yml direct-read: verdict pass, changed files = ROADMAP.md + ADR-0006/0008/0009 only. ROADMAP.md post-PR-0030 explicitly lists PR 0031 in Next Execution Sequence: 'ECR workflow: add stable App Runner image tag'."
+  - "ADR-0008 direct-read confirms PR 0031 as a documented consequence: 'A CI/CD PR is required to add the `app-runner` stable mutable tag to the ECR publish workflow (PR 0031).'"
+  - "Rebaseline artifact (.project-memory/architecture/runtime-model-config-roadmap-rebaseline.md) direct-read: §'CI/CD Image Tag Decision' prescribes exactly the policy this PR implements — immutable SHA for audit, stable mutable 'app-runner' for App Runner auto-deploy, 'latest' for human convenience but NOT App Runner deploy trigger."
+  - "Immutable github.sha tag preserved. Implementation scope §1 keeps the original `-t \"${IMAGE_URI}:${IMAGE_TAG}\"` line and pushes it as before. Tag policy table: '${{ github.sha }} Immutable Audit, rollback, traceability'."
+  - "Stable mutable app-runner tag added. Implementation scope §1 adds `-t \"${IMAGE_URI}:app-runner\"` and corresponding `docker push`. Tag policy table marks it as the App Runner deploy trigger."
+  - "latest preserved as convenience only, not App Runner deploy trigger. Tag policy table: 'latest Mutable Human convenience, local dev No — NOT the App Runner deploy trigger'."
+  - "Workflow trigger behavior preserved. workflow_dispatch + push to main retained; no pull_request added. Only the docker build and docker push commands are modified."
+  - "No App Runner service deployment, Terraform, Dockerfile, source, or dependency changes. Forbidden files include infra/**, Dockerfile, requirements.txt, pyproject.toml, src/**. Allowed files include only ecr-publish.yml and the existing workflow test file."
+  - "No GHCR/quality workflow drift. .github/workflows/quality.yml is in the forbidden files list. No other .github/workflows/** files may be modified."
+  - "No secrets or account identifiers exposed. Validation grep explicitly checks for AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/aws_secret_access_key/account ID/registry URL. Workflow uses env var names (AWS_REGION, ECR_REPOSITORY) sourced from vars and secrets — no literal values recorded."
+  - "Existing workflow test decision present. §'Existing workflow test decision': 'The existing tests/test_bremen_ecr_publish_workflow.py file exists and covers workflow shape assertions. It must be updated to include app-runner in the tag assertions. No new test file is needed.' Direct-read of the test file confirms test_workflow_builds_and_pushes_docker_image_to_ecr currently asserts `':latest' in text` — implementation will add `':app-runner' in text`."
+  - "No broad new tests created. Decisions summary: 'New test file NOT created — existing test updated'. Forbidden files list excludes broad tests/**."
+  - "Allowed files match prompt's expected list: .github/workflows/ecr-publish.yml, tests/test_bremen_ecr_publish_workflow.py (existing, justified), and the precommit-review artifact."
+  - "Forbidden files cover ROADMAP.md, docs/**, .project-memory/project_contract.yml, src/**, broad tests/**, .github/workflows/quality.yml, other .github/workflows/**, infra/**, Dockerfile, .dockerignore, requirements.txt, pyproject.toml, config/**, examples/**, agents/**, and any .h5/.hdf5/.joblib/.pkl/.npy/.npz artifacts."
+  - "Validation checklist present (§'Validation checklist') with 9 commands including git rev-parse, git status, git diff (changed files + forbidden paths), compileall, pytest on the workflow test, tag verification grep, secret/account grep. All static/read-only."
+  - "Block-yourself conditions present (§'Stop conditions'): 7 explicit blockers including missing PR 0030 rebaseline, missing ecr-publish.yml, App Runner service creation, Terraform changes, Dockerfile edits, source/runtime changes, dependency edits, secret/URL exposure, and wrong branch."
+  - "PLAN.md includes a 'Branch note' explaining the implementation phase must run on branch 0031-ecr-apprunner-image-tag. Current branch is verified as exactly that. No drift."
+  - "Discovery (commands recorded): tests/test_bremen_ecr_publish_workflow.py exists; .github/workflows/ecr-publish.yml (1264 bytes) and quality.yml (4052 bytes) exist on disk. No other workflow test files discovered."
+  - "Working tree is dirty only by the planning artifact directory itself (PLAN.md untracked). No ROADMAP.md, docs, services, agents, schemas, or unrelated files modified. Project memory used as primary context."

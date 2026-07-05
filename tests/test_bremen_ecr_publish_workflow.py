@@ -52,6 +52,7 @@ def test_workflow_builds_and_pushes_docker_image_to_ecr() -> None:
     assert "docker build" in text
     assert "docker push" in text
     assert "${{ github.sha }}" in text
+    assert ":app-runner" in text
     assert ":latest" in text
     assert "steps.login-ecr.outputs.registry" in text
 
