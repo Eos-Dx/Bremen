@@ -1,0 +1,72 @@
+review_type: precommit-review
+branch: 0033-adr-training-pipeline-separation
+verdict: pass
+head: "00a2ccc88fb1b119c79b237137567700ca4e6c0e"
+status: "?1 ROADMAP.md; ?1 docs/architecture.md; ?? docs/adr/0008-two-image-build-training-pipeline-separation.md (untracked new)"
+changed_files:
+  - "docs/adr/0008-two-image-build-training-pipeline-separation.md"
+  - "ROADMAP.md"
+  - "docs/architecture.md"
+blockers: []
+warnings: []
+validation:
+  adr_file_exists: pass
+  bremen_training_artifact_grep: pass
+  dockerfile_training_grep: pass
+  training_impl_notes_grep: pass
+  per_patient_symmetry_grep: pass
+  training_pipeline_track_grep: pass
+  project_contract_invariant_grep: pass
+  forbidden_diff_check: pass
+  ds_store_check: pass
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  architect_only_docs_scope: true
+  adr0008_created: true
+  adr0008_status_accepted: true
+  six_decisions_present: true
+  runtime_training_separation_recorded: true
+  two_image_strategy_recorded: true
+  adr0007_manifest_consistency: true
+  artifact_dict_complete: true
+  training_config_structure_complete: true
+  bremen_training_implementation_notes_complete: true
+  seven_feature_families_present: true
+  feature_computation_confirmation_recorded: true
+  training_trigger_recorded: true
+  roadmap_training_track_recorded: true
+  architecture_sections_recorded: true
+  additive_only_changes: true
+  no_clinical_or_inference_claims: true
+  no_source_docker_ci_terraform_config_dependency_artifact_changes: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "docs/adr/0008-two-image-build-training-pipeline-separation.md"
+    - "ROADMAP.md"
+    - "docs/architecture.md"
+    - ".project-memory/pr/0033-adr-training-pipeline-separation/reviews/precommit-review.yml"
+notes:
+  - "Branch confirmed as 0033-adr-training-pipeline-separation. HEAD 00a2ccc88fb1b119c79b237137567700ca4e6c0e."
+  - "ADR-0008 exists (new untracked file, ~246 lines). Status: Accepted. Title: Two-Image Build Strategy and Bremen Training Pipeline Separation."
+  - "Six numbered binding decisions confirmed at lines 12, 23, 49, 96, 142, 152 of ADR-0008: (1) training/runtime separation, (2) two Docker images/ECR repos, (3) training artifact dict structure, (4) training config YAML structure, (5) Kubernetes Job training trigger, (6) PR 0034 implementation scope."
+  - "Decision 1: Training in src/bremen/training/, Runtime in src/bremen/api/. Runtime NEVER imports from src/bremen/training/. Runtime never trains, retrains, mutates, or overwrites model artifacts. Enforces ADR-0007."
+  - "Decision 2: Runtime image lightweight inference-only, does NOT contain training entrypoints or training-only deps. Training image separate/training-only. Separate ECR repos: bremen-runtime, bremen-training. Immutable github.sha tag. Dockerfile.training in PR 0034, not PR 0033."
+  - "Decision 3: Training artifact dict with 21 fields (kind, version, created_at, model_type, models, thresholds, model_descriptions, feature_schema, warnings, training_config, training_config_yaml, training_config_text, training_config_sha256, input_dataframe_joblib_sha256, dataset_summary, feature_table, metric_summary, split_metrics, split_predictions, preprocessing_lineage, metadata). Separate from ADR-0007 manifest. artifact_type remains 'bremen.joblib.model_package'."
+  - "ADR-0007 manifest field names preserved: artifact_type, model_version, model_checksum, model_filename, feature_schema_version, threshold_version, threshold_value, qc_criteria_version."
+  - "Decision 4: Training config YAML with 4 sections (training, io, model, evaluation) and 26 required fields (training.name/version/branch/clinical_stage/intended_use/role, io.input_dataframe_joblib_path/output_model_joblib_path/output_json_path/output_yaml_path, model.type/profile_column/label_column/group_column/specimen_column/side_column/q_column/age_column/lr1_row_policy/selected_models/logreg_c, evaluation.mode/n_splits/test_size/random_state/target_sensitivity)."
+  - "Decision 5: Training as offline batch job. Kubernetes Job primary trigger. Lambda may be later. ECS/App Runner are runtime targets only. No training run in PR 0033."
+  - "Decision 6: PR 0034 must implement 19 targets: PatientModelInputBuilder, BremenPatientTrainingPipeline, PatientModelSetTrainer, PatientModelSetEvaluator, build_patient_training_pipeline, run_training_from_config, train_patient_m0_m1_m2_model_artifact, _patient_training_artifact, _sk_target_contralateral_symmetry_features, _sk_side_mean_metrics, _mahalanobis_difference, _profile_wasserstein, _rms_difference, _weighted_rms_difference, _sigma_rms, _file_sha256, _config_path, _optional_config_path, training config YAML. CLI: python -m bremen.training.train_classifier --config <training.yaml>."
+  - "## Bremen Training Implementation Notes section exists at line 213, cross-referencing Decision 6 for the full implementation table."
+  - "All 7 feature families present: sigma_l1, sigma_l2, Mahalanobis1, Mahalanobis2, wasserstein_distance_full_q2, meanrms2, weightedrms1. Function-level mapping confirmed in Decision 6 table."
+  - "Feature computation confirmation: Mahalanobis/Wasserstein are per-patient symmetry measures (target vs contralateral of same patient), NOT population-fitted reference statistics, no separate fitted feature-extractor artifact needed, single joblib sufficient, ADR-0007 manifest remains checksum/trust boundary, composite artifact only if future fitted reference statistics added."
+  - "ROADMAP.md: additive note appended to Product Track item 4. New ## Training Pipeline Track section appended after Next Execution Sequence (lines 147-168). PR 0033, PR 0034, PR 0035 (tentative) entries confirmed. Platform Readiness Track preserved. No existing content removed or rewritten."
+  - "docs/architecture.md: new ## Training Pipeline Architecture section appended after ## Safety (lines 126-135). New ## Bremen Feature Computation Confirmation section appended (lines 137-146). Project Contract Invariant Inventory preserved. No existing content removed or rewritten."
+  - "No clinical validation claims, no achieved performance metric claims, no inference implemented claims, no training-has-run claims, no Bremen-diagnoses-disease claims, no replacement claims. ADR-0008 Non-goals section (lines 240-246) explicitly enumerates all prohibited claims."
+  - "No forbidden file changes: git diff --name-only for src/, tests/, config/, .github/, Dockerfile*, infra/, requirements.txt, pyproject.toml, environment.yml, Makefile, agents/, README.md, docs/adr/0001-*.md, docs/adr/0007-*.md returned empty. No .DS_Store files found."
+  - "Scope is architect-only docs: ADR-0008 (new), ROADMAP.md (append), docs/architecture.md (append). No source code, no Dockerfile, no CI workflow, no Terraform, no config, no dependency changes, no model artifacts, no training run."
+  - "git diff ROADMAP.md: +21 lines (additive). git diff docs/architecture.md: +21 lines (additive). git diff --stat: 2 modified + 1 untracked = 3 files total."
+  - "All validation grep commands pass: bremen_training_artifact, Dockerfile.training, Bremen Training Implementation Notes, per-patient symmetry, Training Pipeline Track, Project Contract Invariant Inventory."
+  - "EXPECTED_ARTIFACT_TYPE in model_package.py confirmed as 'bremen.joblib.model_package' (line 34). All manifest fields present. ADR-0008 preserves this constant name."
+  - "Additive-only changes confirmed: no existing ROADMAP.md sections removed, no existing docs/architecture.md sections removed, Platform Readiness Track intact, Project Contract Invariant Inventory intact."

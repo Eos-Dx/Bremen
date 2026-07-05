@@ -40,6 +40,8 @@ Product core before infrastructure wrappers.
 11. **Model artifact/version reporting** — Artifact management.
 12. **Release readiness / operator notes** — Final preparation.
 
+> **Note**: Feature family implementation (`sigma_l1`, `sigma_l2`, `Mahalanobis1`, `Mahalanobis2`, `wasserstein_distance_full_q2`, `meanrms2`, `weightedrms1`) is covered by PR 0034's Bremen training pipeline, not by a separate unscoped PR.
+
 Items 8–12 must not be silently dropped, but must appear after items 1–7 because there is no model, API surface, or workflow yet for them to gate.
 
 ## Platform Readiness Track (parallel to Product Track)
@@ -145,3 +147,22 @@ An open question exists: do Mahalanobis and Wasserstein-style features require f
 - **PR 0037** — Preprocessing bridge. Connect approved preprocessing path without training or clinical claims.
 - **PR 0038** — Inference pipeline integration. First end-to-end inference.
 - **PR 0039** — Config governance ADR and gate decisions. Close G-CFG-1, G-CFG-2, G-CFG-3. Define config validation, history store, and audit architecture.
+
+## Training Pipeline Track
+
+- **PR 0033** — ADR-0008: two-image build strategy and training/runtime separation (this PR).
+- **PR 0034** — Bremen training pipeline implementation:
+  - `Dockerfile.training`
+  - `src/bremen/training/`
+  - CI extension for runtime and training images
+  - Second ECR repository for training image
+  - `config/training/*.yaml`
+  - Bremen training joblib artifact assembly
+  - Feature computation for 7 Bremen feature families (sigma_l1, sigma_l2, Mahalanobis1, Mahalanobis2, wasserstein_distance_full_q2, meanrms2, weightedrms1)
+  - Tests for training artifact shape and patient-safe splits
+- **PR 0035 (tentative)** — First controlled training run and model package publication:
+  - Run training on approved Bremen/Nova study data
+  - Publish `bremen_v0_1.joblib` to S3 model store
+  - Create/verify manifest with `model_checksum` and `feature_schema_version`
+  - Verify `model_package.py` can validate package
+  - Update configured `BREMEN_MODEL_VERSION` through approved model release process
