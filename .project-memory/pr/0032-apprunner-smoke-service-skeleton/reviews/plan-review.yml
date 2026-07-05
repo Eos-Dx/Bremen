@@ -1,0 +1,61 @@
+review_type: plan-review
+branch: 0032-apprunner-smoke-service-skeleton
+verdict: approve
+head: "313ced86dc56042da4c72b46a0263c738162eee8"
+status: "untracked: .project-memory/pr/0032-apprunner-smoke-service-skeleton/ (PLAN.md present, no review file yet); no tracked modifications"
+plan_path: ".project-memory/pr/0032-apprunner-smoke-service-skeleton/PLAN.md"
+blockers: []
+warnings: []
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  source_files_not_modified_by_planner: true
+  project_memory_used_as_primary_context: true
+  pr0030_rebaseline_present: true
+  pr0031_app_runner_tag_present: true
+  app_runner_smoke_only: true
+  ecs_primary_preserved: true
+  no_ecs_terraform_removal: true
+  app_runner_tag_used: true
+  health_check_path_required: true
+  no_model_fetch_stage_load: true
+  no_inference: true
+  no_source_docker_workflow_dependency_drift: true
+  no_terraform_apply_or_aws_commands: true
+  no_secrets_or_account_identifiers: true
+  no_production_ready_claim: true
+  test_file_decision_present: true
+  allowed_files_clear: true
+  forbidden_files_clear: true
+  validation_commands_present: true
+  block_conditions_present: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0032-apprunner-smoke-service-skeleton/PLAN.md"
+    - ".project-memory/pr/0032-apprunner-smoke-service-skeleton/reviews/plan-review.yml"
+notes:
+  - "Branch verified as 0032-apprunner-smoke-service-skeleton (matches hard requirement)."
+  - "PLAN.md is infra-only: new infra/terraform/apprunner.tf, plus adds to variables.tf, outputs.tf, README.md. No source, runtime, workflow, Dockerfile, or dependency changes."
+  - "PR 0030 rebaseline confirmed present. ADR-0008 (docs/adr/0008-runtime-target-apprunner-proving.md) exists on disk (2115 bytes, direct-read). ROADMAP.md post-PR-0030 records App Runner as near-term proving/testing target, ECS Fargate as long-term primary, G-API-2 amended to 'ECS Fargate (primary/long-term), App Runner (near-term proving)'."
+  - "PR 0031 app-runner ECR image tag confirmed present. Direct grep over .github/workflows/ecr-publish.yml shows: line 44 '-t \"${IMAGE_URI}:app-runner\" \\', line 49 'docker push \"${IMAGE_URI}:app-runner\"'. PR 0031 precommit-review.yml verdict: pass."
+  - "App Runner recorded as smoke/proving target only. Non-goals explicitly state 'No replacement of ECS Fargate — App Runner is smoke/proving target only.' Tag Subtarget='smoke-proving' is included on the App Runner resource. README text says 'Smoke/proving target. Uses ECR image tagged app-runner. Health check via /health. Not production-ready.'"
+  - "ECS Fargate preserved as long-term primary target. Forbidden files list: infra/terraform/main.tf, infra/terraform/ecr.tf, infra/terraform/ecs.tf, infra/terraform/iam.tf, infra/terraform/s3.tf. ecs.tf desired_count default 0 unchanged. No ECS resources removed or modified."
+  - "ECR image tag app-runner used. apprunner.tf code: 'image_identifier = \"${aws_ecr_repository.bremen.repository_url}:${var.app_runner_image_tag}\"' where var.app_runner_image_tag defaults to 'app-runner'. Variable explicitly added in variables.tf."
+  - "Health check path /health used. apprunner.tf code: 'health_check_configuration { path = \"/health\" }'."
+  - "No model package fetch/staging added. Non-goals: 'No model package fetch/staging.' Stop conditions: 'Implementation requires S3 reads, H5 reads, preprocessing, prediction integration, or inference' → block."
+  - "No startup model loading/readiness added. Non-goals: 'No startup model loading or readiness probe.' README notes: 'A future startup-readiness PR will add a readiness endpoint.'"
+  - "No inference added. Non-goals: 'No inference.'"
+  - "No runtime source code, Dockerfile, workflow, or dependency changes. Forbidden files cover src/**, Dockerfile, .dockerignore, .github/**, requirements.txt, pyproject.toml. Allowed files are infra/terraform/ only."
+  - "No Terraform apply or AWS commands by agents. README.md 'Agent Invariant: Agents must not run terraform apply or terraform destroy.' Validation checklist #6 uses terraform fmt -check, terraform init -backend=false, terraform validate against a temporary copy only. No apply, no destroy, no AWS CLI."
+  - "No literal AWS account IDs, registry URLs, access keys, secret keys, or secret values. apprunner.tf uses aws_ecr_repository.bremen.repository_url (no hardcoded URL). Validation grep #11 explicitly checks for AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|aws_secret_access_key|account ID|registry URL|[0-9]{12}.dkr.ecr patterns. Stop conditions: 'App Runner skeleton requires real AWS account IDs, literal registry URLs, or secrets' → block."
+  - "No production-ready claim. README update text: 'Smoke/proving target. Uses ECR image tagged app-runner. Health check via /health. Not production-ready.' Tag Subtarget='smoke-proving'. Non-goals: 'No production-ready claim.'"
+  - "Test file decision present and justified. §'Targeted discovery results': 'No existing tests/test_bremen_terraform_skeleton.py or similar file. Only workflow/infra test is tests/test_bremen_ecr_publish_workflow.py (for ECR workflow, not Terraform). No existing repository pattern of Terraform text tests exists.' Allowed implementation files explicitly states: 'No test file is created — the repository has no existing Terraform text test pattern.' Decision is well-reasoned and bounded."
+  - "Allowed files match the prompt's expected list: infra/terraform/apprunner.tf (NEW), infra/terraform/variables.tf (MODIFY), infra/terraform/outputs.tf (MODIFY), infra/terraform/README.md (MODIFY), and the precommit-review artifact. Test file decision documented (none created)."
+  - "Forbidden files cover ROADMAP.md, docs/**, .project-memory/project_contract.yml, src/**, broad tests/**, .github/**, Dockerfile, .dockerignore, requirements.txt, pyproject.toml, config/**, examples/**, agents/**, infra/terraform/main.tf, infra/terraform/ecr.tf, infra/terraform/ecs.tf, infra/terraform/iam.tf, infra/terraform/s3.tf, and any .h5/.hdf5/.joblib/.pkl/.npy/.npz artifacts."
+  - "Validation checklist present (§'Validation checklist') with 13 commands including git rev-parse, git status, file existence check, terraform fmt -check + init -backend=false + validate against temp copy, content grep checks (ECR repo reference, app_runner_image_tag variable, /health path, auto_deployments_enabled), secret/URL grep, ECS diff, forbidden file diff. All static/read-only."
+  - "Block-yourself conditions present (§'Stop conditions'): 7 explicit blockers including missing PR 0030 rebaseline, missing PR 0031 app-runner tag, App Runner skeleton requiring real AWS account IDs/registry URLs/secrets, source/runtime/Docker/workflow changes, Terraform apply/AWS commands, ECS Terraform removal/modification, and implementation outside allowed files."
+  - "PLAN.md acknowledges the PR sequence reprioritization in a 'Note on PR numbering': ROADMAP.md sequences PR 0032 as model package fetch/staging and PR 0034 as App Runner Terraform; this task reprioritizes App Runner Terraform to PR 0032 with a future roadmap amendment to follow. This is acceptable because the renumbering is acknowledged and ROADMAP.md is in the forbidden files list for PR 0032, so it cannot be modified by this PR."
+  - "Existing infra/terraform/ contents verified: ecr.tf (aws_ecr_repository.bremen), ecs.tf (ECS Fargate skeleton with desired_count=0), iam.tf (execution + task roles), main.tf (provider only, no backend), outputs.tf (ECR + ECS outputs), README.md (skeleton docs with agent invariant), s3.tf (model bucket), variables.tf (existing variables). No existing apprunner.tf or App Runner resource."
+  - "PR 0030 precommit-review verdict pass; PR 0031 precommit-review verdict pass. Both prior precommit reviews align with PR 0032's premise: App Runner is a smoke/proving target, ECS is preserved, app-runner ECR tag is present."
+  - "Working tree is dirty only by the planning artifact directory itself (PLAN.md untracked). No ROADMAP.md, docs, services, agents, schemas, or unrelated files modified. Project memory used as primary context."
