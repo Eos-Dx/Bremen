@@ -1,0 +1,185 @@
+"""Startup model loading and state management.
+
+Reads ``BREMEN_MODEL_URI``, ``BREMEN_MODEL_VERSION``, ``BREMEN_MODEL_CHECKSUM``
+from environment variables.  Loads the model package exactly once at startup
+(not per request).
+
+For local/testing: supports ``file://`` URIs and plain filesystem paths.
+For S3: detects ``s3://`` — download is NOT implemented in this PR
+(PR 0039); the service logs a clear message and marks model not ready.
+
+Checksum verification happens before ``joblib.load()``.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import os
+import logging
+from pathlib import Path
+from typing import Any
+
+_logger = logging.getLogger(__name__)
+
+_ENV_URI = "BREMEN_MODEL_URI"
+_ENV_VERSION = "BREMEN_MODEL_VERSION"
+_ENV_CHECKSUM = "BREMEN_MODEL_CHECKSUM"
+
+
+class ModelState:
+    """Startup model loading and state management.
+
+    Singleton — model is loaded exactly once at startup.
+    """
+
+    _instance: ModelState | None = None
+
+    def __init__(self) -> None:
+        self._model_package: dict[str, Any] | None = None
+        self._model_version: str | None = None
+        self._model_checksum: str | None = None
+        self._loaded: bool = False
+
+    @classmethod
+    def get_instance(cls) -> ModelState:
+        """Get or create the singleton instance."""
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def load_at_startup(
+        cls,
+        model_uri: str | None = None,
+        model_version: str | None = None,
+        model_checksum: str | None = None,
+    ) -> bool:
+        """Load model package at startup.
+
+        Reads from env vars if not explicitly provided.
+        Verifies SHA-256 checksum before ``joblib.load()``.
+
+        Parameters
+        ----------
+        model_uri : Path or URI to the model joblib file.  Supports
+            ``file://`` and plain filesystem paths.
+        model_version : Model version string.
+        model_checksum : SHA-256 hex digest (with or without ``sha256:`` prefix).
+
+        Returns
+        -------
+        ``True`` if model loaded successfully.
+        """
+        state = cls.get_instance()
+
+        # Read from env if not provided
+        if model_uri is None:
+            model_uri = os.environ.get(_ENV_URI, "")
+        if model_version is None:
+            model_version = os.environ.get(_ENV_VERSION, "")
+        if model_checksum is None:
+            model_checksum = os.environ.get(_ENV_CHECKSUM, "")
+
+        if not model_uri:
+            _logger.warning(
+                "Model URI not set (env %s). Model not ready.", _ENV_URI
+            )
+            return False
+
+        # Handle S3 URIs
+        if str(model_uri).startswith("s3://"):
+            _logger.warning(
+                "S3 model URI detected (%s). S3 download is not implemented "
+                "in this version. Download the model file manually and "
+                "re-point %s to a local path.", model_uri, _ENV_URI
+            )
+            return False
+
+        # Resolve filesystem path (support file:// prefix)
+        model_path = str(model_uri)
+        if model_path.startswith("file://"):
+            model_path = model_path[len("file://"):]
+
+        model_file = Path(model_path)
+        if not model_file.exists():
+            _logger.error("Model file not found: %s", model_file)
+            return False
+
+        # Verify checksum (strip "sha256:" prefix if present)
+        expected_hash = model_checksum
+        if expected_hash.startswith("sha256:"):
+            expected_hash = expected_hash[len("sha256:"):]
+
+        if expected_hash:
+            computed = _compute_file_sha256(model_file)
+            if computed != expected_hash:
+                _logger.error(
+                    "SHA-256 mismatch for %s: computed=%s, expected=%s",
+                    model_file, computed, expected_hash,
+                )
+                return False
+        else:
+            _logger.warning(
+                "No model checksum configured (env %s). Skipping verification.",
+                _ENV_CHECKSUM,
+            )
+
+        # Load model using joblib (controlled load boundary)
+        from joblib import load as _joblib_load  # noqa: PLC0415
+
+        try:
+            package = _joblib_load(model_file)
+        except Exception as exc:
+            _logger.error("Failed to load model package: %s", exc)
+            return False
+
+        if not isinstance(package, dict):
+            _logger.error(
+                "Model package must be a dict, got %s", type(package).__name__
+            )
+            return False
+
+        state._model_package = package
+        state._model_version = model_version or ""
+        state._model_checksum = model_checksum or ""
+        state._loaded = True
+
+        _logger.info(
+            "Model loaded: version=%s, path=%s, size=%d bytes",
+            state._model_version, model_file, model_file.stat().st_size,
+        )
+        return True
+
+    @classmethod
+    def get_model(cls) -> dict[str, Any] | None:
+        """Get the loaded model package.
+
+        Returns ``None`` if model is not loaded or not ready.
+        """
+        state = cls.get_instance()
+        if not state._loaded:
+            return None
+        return state._model_package
+
+    @classmethod
+    def is_ready(cls) -> bool:
+        """Returns ``True`` if model is loaded and ready for inference."""
+        state = cls.get_instance()
+        return state._loaded
+
+    @classmethod
+    def reset_for_tests(cls) -> None:
+        """Reset singleton for isolated test execution."""
+        cls._instance = None
+
+
+def _compute_file_sha256(path: Path) -> str:
+    """Compute SHA-256 hex digest of a file."""
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        while True:
+            chunk = f.read(65536)
+            if not chunk:
+                break
+            h.update(chunk)
+    return h.hexdigest()

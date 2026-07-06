@@ -26,6 +26,38 @@ import re
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Any
 
+def _load_synthetic_model() -> None:
+    """Load a minimal synthetic model for dev/smoke testing."""
+    import tempfile
+    from pathlib import Path
+    from joblib import dump
+    from .model_state import ModelState
+    from .preprocessing_bridge import BREMEN_V01_FEATURE_COLUMNS
+
+    tmp_path = Path(tempfile.mkdtemp())
+    n_features = 15
+    package = {
+        "portable_logreg": {
+            "feature_columns": list(BREMEN_V01_FEATURE_COLUMNS),
+            "imputer_statistics": [0.0] * n_features,
+            "scaler_mean": [0.0] * n_features,
+            "scaler_scale": [1.0] * n_features,
+            "coef": [0.1] * n_features,
+            "intercept": 0.0,
+            "threshold": 0.5,
+        }
+    }
+    model_path = tmp_path / "synth_model.joblib"
+    dump(package, model_path)
+    import hashlib
+    checksum = hashlib.sha256(model_path.read_bytes()).hexdigest()
+    ModelState.load_at_startup(
+        model_uri=str(model_path),
+        model_version="smoke-v0.1",
+        model_checksum=checksum,
+    )
+
+
 from .app import (
     handle_health,
     handle_model_version,
@@ -53,6 +85,8 @@ _STATUS_CODES = {
 def _make_handler(
     job_store: InMemoryJobStore,
     version: str | None = None,
+    *,
+    load_model: bool = False,
 ) -> type[BaseHTTPRequestHandler]:
     """Return a ``BaseHTTPRequestHandler`` subclass bound to *job_store*.
 
@@ -60,11 +94,14 @@ def _make_handler(
     ----------
     job_store : An ``InMemoryJobStore`` instance shared across requests.
     version : Optional version string for health response.
+    load_model : If ``True``, load a synthetic model for inference testing.
 
     Returns
     -------
     A handler class suitable for ``HTTPServer``.
     """
+    if load_model:
+        _load_synthetic_model()
 
     class _BremenHandler(BaseHTTPRequestHandler):
         """Single-request HTTP handler.  Shared *job_store* from closure."""
@@ -110,6 +147,7 @@ def _make_handler(
                     "service": resp.service,
                     "version": resp.version,
                     "timestamp": resp.timestamp,
+                    "model_ready": resp.model_ready,
                 })
             elif self.path == "/model/version":
                 resp = handle_model_version()
@@ -165,6 +203,19 @@ def _make_handler(
                         {"error": str(exc)},
                         status=400,
                     )
+                    return
+                except RuntimeError as exc:
+                    err_str = str(exc)
+                    if "not loaded" in err_str:
+                        self._send_json(
+                            {"error": str(exc)},
+                            status=503,
+                        )
+                    else:
+                        self._send_json(
+                            {"error": str(exc)},
+                            status=500,
+                        )
                     return
 
                 self._send_json({

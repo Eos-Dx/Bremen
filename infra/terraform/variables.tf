@@ -126,17 +126,17 @@ variable "training_ecr_repository_name" {
 variable "model_version" {
   description = "BREMEN_MODEL_VERSION — active model version string for the runtime."
   type        = string
-  default     = "v0.1"
+  default     = "bremen_mri_triage_logreg_v0_1"
 }
 
 variable "model_uri" {
   description = "BREMEN_MODEL_URI — S3 URI or equivalent reference for the active model package."
   type        = string
-  default     = ""
+  default     = "s3://matur-misc-uk/bremen/models/bremen-xrd-classifier/v0.1/bremen_mri_triage_logreg_v0_1_model_package.joblib"
 }
 
 variable "model_checksum" {
   description = "BREMEN_MODEL_CHECKSUM — SHA-256 hex digest of the active model package joblib file."
   type        = string
-  default     = ""
+  default     = "sha256:8ed0a7c52577c72725c052fbdd3a91b60d1f9eb3f02747fe6e4a7b82d712628e"
 }

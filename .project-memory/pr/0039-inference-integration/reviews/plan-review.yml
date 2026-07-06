@@ -1,0 +1,60 @@
+review_type: plan-review
+branch: 0039-inference-integration
+verdict: warning
+head: "a1d44879055e771d998995fe28c48bd32754e505"
+status: "?? .project-memory/pr/0039-inference-integration/"
+plan_path: ".project-memory/pr/0039-inference-integration/PLAN.md"
+blockers: []
+warnings:
+  - id: "WARNING-1"
+    description: "Stale 'Blockers' section in PLAN.md. The PLAN.md 'Blockers' block states: 'Current working tree is on `0038-preprocessing-bridge`, not `0039-inference-integration`'. However, `git branch --show-current` confirms the branch is already `0039-inference-integration`, and git log shows PR 0038 has been merged into HEAD (commit 69ddf1d 'Merge pull request #41 from Eos-Dx/0038-preprocessing-bridge'). This blocker was likely correct when the plan was originally drafted, but is now stale and factually incorrect. The PLAN.md 'Blockers' section should be removed before implementation begins."
+  - id: "WARNING-2"
+    description: "Validation checklist grep pattern overly broad (section 15). The command includes `predict_proba(` which matches the new `predict_proba_portable` function being created by this PR in `src/bremen/inference.py`. This would produce a false positive when the implementation adds the new function. Pattern should use `from sklearn` or `import sklearn` to detect actual sklearn dependency. Not a blocker — the no-sklearn requirement is correctly enforced by the source code design."
+  - id: "WARNING-3"
+    description: "Minor text duplication in PLAN.md preprocessing_bridge_update_planned section. The 'Implementation details' list includes `meanrms1` twice (once as a standalone new feature, once at the end of the 15-feature list). Also, `weightedrms2` appears as a standalone new feature and is also in the 15-feature list. This is a copy-paste artifact; does not affect correctness but should be cleaned up."
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  schema_rebaseline_recorded: true
+  exact_15_feature_schema_present: true
+  seven_feature_assumption_superseded: true
+  docs_transparency_planned: true
+  roadmap_update_planned: true
+  adr0010_planned: true
+  preprocessing_bridge_update_planned: true
+  portable_inference_planned: true
+  no_sklearn_required: true
+  model_startup_planned: true
+  checksum_before_joblib_load: true
+  model_ready_503_planned: true
+  local_test_mode_without_aws: true
+  s3_fetch_gap_addressed: true
+  mandatory_prediction_fields_complete: true
+  api_routes_planned: true
+  tests_complete: true
+  no_real_artifacts_committed: true
+  scope_controls_clear: true
+  safety_claims_clear: true
+  implementation_agent_coder: true
+  rollback_plan_present: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0039-inference-integration/PLAN.md"
+    - ".project-memory/pr/0039-inference-integration/reviews/plan-review.yml"
+notes:
+  - "VERDICT: warning — blockers are empty; the stale false blocker is a documentation issue not a real block condition. All 21 checks pass."
+  - "Branch is `0039-inference-integration` confirmed by `git branch --show-current` and `git rev-parse --verify HEAD = a1d44879055e771d998995fe28c48bd32754e505`. PR 0038 has been merged into this branch (commit 69ddf1d)."
+  - "Only new/untracked files: `.project-memory/pr/0039-inference-integration/` directory (PLAN.md and this review). No implementation files edited during planning."
+  - "Schema rebaseline is correctly and transparently documented: PR0038's 7-feature assumption (capital-M 'Mahalanobis1/2') is explicitly superseded by the v0.1 model's 15 concrete columns (lowercase 'mahalanobis1/2'). ADR-0001 feature families (uppercase M) remain unchanged as product identity anchor per plan."
+  - "Delivered model facts recorded verbatim: model_version=bremen_mri_triage_logreg_v0_1, checksum=sha256:8ed0a7c52577c72725c052fbdd3a91b60d1f9eb3f02747fe6e4a7b82d712628e, threshold=0.3640352477169748, OOF AUC=0.443."
+  - "All 15 features listed with exact order and lowercase mahalanobis1/2: weightedrms1, sigma_l1, sigma_r1, mahalanobis1, weightedrms2, sigma_l2, sigma_r2, mahalanobis2, peak14_intensity, mean_peak_value_raw, wasserstein_distance_muLR, cosine_distance_full_q2, wasserstein_distance_full_q2, meanrms1, meanrms2."
+  - "S3 download deferred to follow-up PR. PR0039 uses local/file:// path model loading. S3 URI recorded in Terraform variables with clear logging when s3:// is detected."
+  - "No sklearn in inference path. src/bremen/inference.py (NEW) is portable-logreg only using stdlib numpy math."
+  - "terraform variables.tf already has model_version/uri/checksum from PR0036 (default empty strings). PLAN.md plans to update defaults to real v0.1 values."
+  - "Existing preprocessing_bridge.py has BREMEN_FEATURE_COLUMNS (7 features, capital-M Mahalanobis). PLAN.md plans update to BREMEN_V01_FEATURE_COLUMNS (15 features, lowercase mahalanobis1/2)."
+  - "Existing src/bremen/api/jobs.py present. InMemoryJobStore suitable. PLAN.md correctly notes synchronous job execution is acceptable for v0.1."
+  - "No real artifacts committed: find command for *.h5/*.joblib/*.pkl/*.npy/*.npz in repo returned only venv files (excluded from find). git ls-files for same patterns returned empty."
+  - "WARNING-1 action: Remove or correct the stale 'Blockers' section in PLAN.md before implementation begins. The branch is already correct."
+  - "WARNING-2 action: Change validation grep from `predict_proba(` to `from sklearn\|import sklearn` to avoid false positive on `predict_proba_portable`."
+  - "WARNING-3 action: Remove duplicate `meanrms1` and verify `weightedrms2` is not duplicated in the implementation details list."

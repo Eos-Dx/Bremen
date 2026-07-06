@@ -14,17 +14,21 @@ from typing import Any
 
 from .jobs import InMemoryJobStore
 from .schemas import (
+    CompletedResult,
     HealthResponse,
     ModelVersionResponse,
     PredictionRequest,
     PredictionResponse,
     PredictionStatusResponse,
+    STATUS_COMPLETED,
     STATUS_NOT_FOUND,
     build_accepted_response,
     build_health_response,
+    build_not_configured_model_response,
     build_not_found_response,
     validate_prediction_request,
 )
+from .model_state import ModelState
 
 
 def handle_health(version: str | None = None) -> HealthResponse:
@@ -38,7 +42,18 @@ def handle_health(version: str | None = None) -> HealthResponse:
     -------
     A ``HealthResponse`` with current status.
     """
-    return build_health_response(version=version)
+    resp = build_health_response(version=version)
+    return HealthResponse(
+        status=resp.status,
+        service=resp.service,
+        version=resp.version,
+        timestamp=resp.timestamp,
+        model_ready=ModelState.is_ready(),
+    )
+
+
+class ModelNotReadyError(RuntimeError):
+    """Model is not loaded and prediction cannot be submitted."""
 
 
 def handle_model_version(
@@ -64,6 +79,23 @@ def handle_model_version(
     from .model_source import derive_model_source  # noqa: PLC0415
     from ..config import CloudConfig as _CloudConfig  # noqa: PLC0415
 
+    # Check if model is actually loaded
+    model_pkg = ModelState.get_model()
+    if model_pkg is not None:
+        # Model is loaded — return live metadata
+        state = ModelState.get_instance()
+        plr = model_pkg.get("portable_logreg", {})
+        return ModelVersionResponse(
+            model_configured=True,
+            model_version=state._model_version or plr.get("model_version"),
+            model_checksum=state._model_checksum,
+            feature_schema_version=plr.get("feature_schema_version"),
+            threshold_version=plr.get("threshold_version"),
+            threshold_value=float(plr.get("threshold", 0.0)) if plr.get("threshold") is not None else None,
+            qc_criteria_version=None,
+            model_status="configured",
+        )
+
     src = derive_model_source(cloud=cloud)
     return ModelVersionResponse(**src)
 
@@ -88,9 +120,56 @@ def handle_submit_prediction(
     ValueError
         If ``target_scan_ref`` or ``control_scan_ref`` is missing or
         invalid.
+    RuntimeError
+        If model is not loaded (HTTP 503).
     """
+    if not ModelState.is_ready():
+        raise ModelNotReadyError(
+            "Model is not loaded. Prediction cannot be submitted. "
+            "Check BREMEN_MODEL_URI / BREMEN_MODEL_VERSION "
+            "/ BREMEN_MODEL_CHECKSUM environment variables and "
+            "model startup logs."
+        )
+
     request = validate_prediction_request(raw_request)
     record = job_store.create_job(request=request)
+
+    # v0.1: Synchronous job execution (only for filesystem H5 paths)
+    if not raw_request.get("target_scan_ref", "").startswith("/"):
+        # Non-filesystem reference — accept job but skip inference
+        job_store.update_status(record.job_id, STATUS_COMPLETED)
+    else:
+        try:
+            from .inference_handler import run_inference  # noqa: PLC0415
+
+            result_dict = run_inference(
+                raw_request.get("target_scan_ref", ""),
+                patient_id=raw_request.get("patient_id"),
+            )
+
+            completed_result = CompletedResult(
+                prediction_id=result_dict["prediction_id"],
+                model_version=result_dict["model_version"],
+                model_checksum=result_dict["model_checksum"],
+                feature_schema_version=result_dict["feature_schema_version"],
+                threshold_version=result_dict["threshold_version"],
+                threshold_value=result_dict["threshold_value"],
+                qc_status=result_dict["qc_status"],
+                qc_flags=result_dict["qc_flags"],
+            )
+
+            job_store.update_status(
+                record.job_id,
+                STATUS_COMPLETED,
+                result=completed_result,
+            )
+        except Exception as exc:
+            job_store.update_status(
+                record.job_id,
+                "failed",
+                error=str(exc),
+            )
+
     return build_accepted_response(
         job_id=record.job_id,
         submitted_at=record.submitted_at,

@@ -69,6 +69,7 @@ class HealthResponse:
     service: str
     version: str | None
     timestamp: str
+    model_ready: bool = False
 
 
 @dataclass
