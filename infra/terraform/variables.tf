@@ -118,3 +118,25 @@ variable "training_ecr_repository_name" {
   type        = string
   default     = "bremen-training"
 }
+
+# ---------------------------------------------------------------------------
+# Model package variables
+# ---------------------------------------------------------------------------
+
+variable "model_version" {
+  description = "BREMEN_MODEL_VERSION — active model version string for the runtime."
+  type        = string
+  default     = "v0.1"
+}
+
+variable "model_uri" {
+  description = "BREMEN_MODEL_URI — S3 URI or equivalent reference for the active model package."
+  type        = string
+  default     = ""
+}
+
+variable "model_checksum" {
+  description = "BREMEN_MODEL_CHECKSUM — SHA-256 hex digest of the active model package joblib file."
+  type        = string
+  default     = ""
+}
