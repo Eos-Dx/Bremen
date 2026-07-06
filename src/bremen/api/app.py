@@ -52,6 +52,10 @@ def handle_health(version: str | None = None) -> HealthResponse:
     )
 
 
+class ModelNotReadyError(RuntimeError):
+    """Model is not loaded and prediction cannot be submitted."""
+
+
 def handle_model_version(
     cloud: CloudConfig | None = None,
 ) -> ModelVersionResponse:
@@ -120,7 +124,7 @@ def handle_submit_prediction(
         If model is not loaded (HTTP 503).
     """
     if not ModelState.is_ready():
-        raise RuntimeError(
+        raise ModelNotReadyError(
             "Model is not loaded. Prediction cannot be submitted. "
             "Check BREMEN_MODEL_URI / BREMEN_MODEL_VERSION "
             "/ BREMEN_MODEL_CHECKSUM environment variables and "
