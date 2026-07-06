@@ -1,0 +1,54 @@
+review_type: plan-review
+branch: 0036-model-v01-package-publication
+verdict: approve
+head: "2b3b26b635489335d5db91261e5d1d03fa86ec78"
+status: "?? .project-memory/pr/0036-model-v01-package-publication/"
+plan_path: ".project-memory/pr/0036-model-v01-package-publication/PLAN.md"
+blockers: []
+warnings: []
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  project_memory_used_as_primary_context: true
+  roadmap_override_recorded: true
+  critical_path_recorded: true
+  adr0007_contract_confirmed: true
+  model_package_validator_confirmed: true
+  human_agent_boundary_clear: true
+  model_package_strategy_complete: true
+  manifest_fields_complete: true
+  v01_smoke_path_complete: true
+  real_artifact_not_required_in_ci: true
+  s3_publication_human_only: true
+  terraform_runtime_env_vars_planned: true
+  tests_complete: true
+  no_real_h5_data_or_model_artifacts: true
+  no_inference_or_api_changes: true
+  no_agent_aws_terraform_commands: true
+  allowed_files_clear: true
+  forbidden_files_clear: true
+  validation_commands_present: true
+  block_conditions_present: true
+  no_clinical_claims: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0036-model-v01-package-publication/PLAN.md"
+    - ".project-memory/pr/0036-model-v01-package-publication/reviews/plan-review.yml"
+notes:
+  - "Branch confirmed as 0036-model-v01-package-publication. HEAD 2b3b26b635489335d5db91261e5d1d03fa86ec78. Only planning directory untracked; no implementation files edited."
+  - "Roadmap override recorded: 2026-07-06 redefined, critical path to first working prediction July 2026. PR 0036 target: Model v0.1 Package Publication. PR 0037: H5 Preflight Gate. PR 0038: Preprocessing Bridge. PR 0039: Inference Integration / First Working Prediction."
+  - "ADR-0007 contract confirmed: EXPECTED_ARTIFACT_TYPE='bremen.joblib.model_package' (model_package.py line 34), 8 manifest fields confirmed present (artifact_type, model_version, model_checksum, model_filename, feature_schema_version, threshold_version, threshold_value, qc_criteria_version)."
+  - "PR 0035 release helpers confirmed present: build_runtime_manifest(), stage_model_package(), dry_run_publication_summary(), load_training_artifact(), validate_training_artifact() all in model_release.py (grep confirmed)."
+  - "Scope: 9 allowed files enumerated (publish_v01.py NEW, 5 Terraform files MODIFY, 2 test files NEW, config.py deferred). Forbidden files explicitly listed with no overlap. model_release.py and publish_model_package.py reused (not modified)."
+  - "Model package strategy: correctly identifies that v0.1 artifact from Kubytskyi is raw joblib (not bremen_training_artifact dict), so a thin v0.1-specific wrapper is needed. Thin CLI takes raw joblib path, computes SHA-256, builds ADR-0007 manifest, stages locally. Correctly reuses existing helpers for manifest building."
+  - "Manifest fields: all 8 ADR-0007 fields with correct sources: artifact_type=constant, model_version='v0.1' default, model_checksum=SHA-256 from joblib bytes, model_filename=joblib_path.name (relative), feature_schema_version=required CLI arg, threshold_version='v0.1' default, threshold_value=0.5 default, qc_criteria_version='v0.1' default."
+  - "Real artifact smoke path: opt-in via BREMEN_V01_JOBLIB_PATH env var. pytest.skip if not set. Not required in CI. Validates CLI runs, checksum reported, DRY RUN in output. No artifact committed to repo."
+  - "Human/agent boundary clear: Human supplies artifact (outside repo), verifies checksum, runs --no-dry-run, uploads to S3, sets Terraform vars, applies Terraform. Agent computes checksum, generates manifest, writes local staging code, writes opt-in smoke test. Agent: no AWS commands, no Terraform apply, no credential handling."
+  - "Terraform runtime env vars: model_version (default 'v0.1'), model_uri (no default, human-provided), model_checksum (no default, human-provided) added to variables.tf. ECS: all three env vars added (replacing existing empty BREMEN_MODEL_VERSION). App Runner: all three env vars added in image_configuration block (consistent with ECS). Outputs: all three added. README: 8-step human-only publication procedure documented."
+  - "Tests: test_bremen_model_v01_publication.py (9 scenarios: dry-run, staging, artifact_type, checksum, relative filename, missing file, required arg, --help, validate_model_package compatibility). test_bremen_model_package_terraform_env.py (4 scenarios: variables exist, ecs env vars exist, ecs uses variable refs, apprunner env vars exist). Plus opt-in real artifact smoke test."
+  - "Runtime boundary: model_loader.py unchanged, api/** unchanged, config.py unchanged (deferred to PR 0039), __main__.py unchanged. No inference integration."
+  - "Non-goals: no training pipeline changes, no feature computation changes, no inference, no H5 preflight, no preprocessing bridge, no API changes, no clinical claims, no real training run, no committed model artifact."
+  - "Dependency decision: no new dependencies. pyproject.toml/requirements.txt unchanged."
+  - "Validation checklist: 16 numbered checks, all static/read-only or deferred. No Docker run, no Terraform apply, no AWS commands by agents at plan-review stage."
+  - "All 10 stop conditions match block conditions from task prompt. All 22 checks pass."
