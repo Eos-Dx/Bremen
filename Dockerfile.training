@@ -12,14 +12,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency files
-COPY pyproject.toml requirements.txt ./
+COPY pyproject.toml requirements.txt README.md ./
 
 # Install all dependencies (runtime + training)
-RUN pip install --no-cache-dir -e ".[dev]" && \
+# Note: --no-build-isolation ensures pyproject.toml extras resolve correctly
+RUN pip install --no-cache-dir ".[training]" && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy training package and supporting modules
-COPY src/bremen/ src/bremen/
+COPY src/ src/
 
 # Copy training config
 COPY config/training/ config/training/

@@ -1,0 +1,54 @@
+review_type: plan-review
+branch: 0035-model-package-publication-path
+verdict: approve
+head: "f401fef9a88ab1c20ae16bc30e63ed2ed1f52950"
+status: "?? .project-memory/pr/0035-model-package-publication-path/"
+plan_path: ".project-memory/pr/0035-model-package-publication-path/PLAN.md"
+blockers: []
+warnings: []
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  project_memory_used_as_primary_context: true
+  pr0034_training_prerequisite_confirmed: true
+  adr0007_manifest_prerequisite_confirmed: true
+  scope_complete: true
+  training_artifact_validation_planned: true
+  runtime_manifest_fields_complete: true
+  checksum_strategy_complete: true
+  feature_schema_version_strategy_complete: true
+  threshold_selection_strategy_complete: true
+  local_staging_planned: true
+  dry_run_publication_only: true
+  cli_contract_complete: true
+  tests_complete: true
+  runtime_boundary_preserved: true
+  no_real_s3_aws_network: true
+  no_real_h5_data_or_model_artifacts: true
+  allowed_files_clear: true
+  forbidden_files_clear: true
+  validation_commands_present: true
+  block_conditions_present: true
+  no_clinical_or_inference_claims: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0035-model-package-publication-path/PLAN.md"
+    - ".project-memory/pr/0035-model-package-publication-path/reviews/plan-review.yml"
+notes:
+  - "Branch confirmed as 0035-model-package-publication-path. HEAD f401fef9a88ab1c20ae16bc30e63ed2ed1f52950. Only planning directory untracked; no implementation files edited."
+  - "PR 0034 prerequisite confirmed: src/bremen/training/pipeline.py exists (directory listing), REQUIRED_TRAINING_ARTIFACT_FIELDS defined as 21-field tuple (grep confirmed), kind=='bremen_training_artifact' (pipeline.py), precommit-review passed with all tests green (HEAD 2307f173)."
+  - "ADR-0007 prerequisite confirmed: src/bremen/model_package.py exists with EXPECTED_ARTIFACT_TYPE='bremen.joblib.model_package' (line 34), _REQUIRED_MANIFEST_FIELDS has 8 fields: artifact_type, model_version, model_checksum, model_filename, feature_schema_version, threshold_version, threshold_value, qc_criteria_version."
+  - "Scope: 6 allowed files exactly enumerated (model_release.py NEW, publish_model_package.py NEW, __init__.py MODIFY prefer-not, bremen_v0_1_release.yaml DECIDED NOT ADDED, test_bremen_model_release.py NEW, test_bremen_publish_model_package_cli.py NEW). Forbidden files explicitly listed with no overlap."
+  - "Training artifact validation: load_training_artifact() validates file exists/is joblib dict/kind=='bremen_training_artifact', validate_training_artifact() checks REQUIRED_TRAINING_ARTIFACT_FIELDS, both raise ValueError (fail-closed), explicit note 'Does NOT load arbitrary joblib files — only validated training artifacts'."
+  - "Runtime manifest: all 8 ADR-0007 fields required with explicit sources: artifact_type=constant, model_version=explicit CLI arg, model_checksum=SHA-256 of staged joblib, model_filename=relative default model_{version}.joblib, feature_schema_version/threshold_version/qc_criteria_version=explicit CLI args, threshold_value=from artifact['thresholds'][key]."
+  - "Local staging: stage_model_package() takes caller-provided output_dir, writes manifest.json + model joblib file, dry_run=True default, returns summary dict only, no absolute paths, no credentials."
+  - "Dry-run S3: dry_run_publication_summary() takes optional bucket/prefix, returns intended_s3_uri='s3://{bucket}/{prefix}{model_version}/', explicit 'No AWS calls, no network access, no file writes', grep for boto3/awscli/requests/urllib planned as validation check."
+  - "CLI contract: 8 flags (--training-artifact/--output-dir/--model-version/--feature-schema-version/--threshold-version/--qc-criteria-version/--threshold-key/--no-dry-run), --help exits 0, non-zero on error, no action on import, returns JSON summary. Matches exact command from task prompt."
+  - "Tests: 18 scenarios across 2 files. test_bremen_model_release.py (13 scenarios): valid artifact accepted, invalid kind rejected, missing field rejected, manifest has exact 8 ADR-0007 fields, artifact_type constant, checksum=SHA-256, relative filename, threshold selection, dry-run no writes, dry-run writes, S3 URI, no network imports. test_bremen_publish_model_package_cli.py (5 scenarios): --help, missing flags, dry-run, no-write default, staged files."
+  - "Runtime boundary: model_release.py under training/ (offline-only), model_loader.py/model_package.py unchanged, api/** unchanged, __main__.py unchanged, explicit 'Runtime modules must NOT import from bremen.training.model_release'."
+  - "Non-goals: no real S3/AWS upload, no model artifacts committed (test temp only), no real H5/data access, no training run, no runtime changes, no inference, no clinical claims."
+  - "Dependency decision: no new dependencies. pyproject.toml/requirements.txt unchanged. No Dockerfile changes needed (training image already has all needed packages)."
+  - "Release config decision: DECIDED NOT TO ADD bremen_v0_1_release.yaml. CLI flags provide explicit release parameters. Deferred to PR 0036+."
+  - "Validation checklist: 14 numbered checks, all static/read-only or deferred to implementation phase. No Docker run, no Terraform apply, no AWS commands by agents at plan-review stage."
+  - "All 10 stop conditions match block conditions from task prompt. All 20 checks pass."
