@@ -1,14 +1,25 @@
-# Bremen — non-clinical build and smoke validation image
+# Bremen — Runtime Service Image
 #
-# This Dockerfile is for CI smoke testing only.
-# It does NOT include H5 data, model artifacts, credentials, or project-memory.
-# It does NOT push images, deploy, or download large datasets.
+# Two build targets:
 #
-# Private dependencies (xrd-preprocessing, container) are installed by the
-# CI workflow, not by this Dockerfile. This image installs only public/base
-# dependencies and runs the non-clinical Bremen import identity test.
+#   smoke      CI validation only — public deps, no private GitHub installs,
+#              runs import identity test. Used by quality.yml on every PR.
+#
+#   production Full runtime service — all deps including private
+#              (xrd-preprocessing), non-root user, healthcheck, EXPOSE.
+#              Used by ecr-publish.yml for ECR publish.
+#
+# Build examples:
+#   CI smoke:      docker build --target smoke .
+#   ECR publish:   docker build --target production \
+#                    --build-arg BREMEN_CI_GITHUB_TOKEN=<token> .
+#
+# Note: server uses stdlib http.server (single-threaded).
+# Replacing with gunicorn/uvicorn is tracked as a future PR.
+# See ADR-0003 for the API architecture decision.
 
-FROM python:3.13-slim AS builder
+# ── shared base ────────────────────────────────────────────────────────────
+FROM python:3.13-slim AS base
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -19,36 +30,68 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Copy dependency manifests and readme
 COPY pyproject.toml README.md ./
-
-# Copy source for bremen package install
 COPY src/ /app/src/
 
-# Install bremen package and its public dependencies.
-# Private dependencies (xrd-preprocessing, container) are handled
-# by the CI workflow and are not needed for the smoke test.
-RUN pip install --no-cache-dir . && \
-    pip install --no-cache-dir \
-        pytest
+# ── smoke target ────────────────────────────────────────────────────────────
+FROM base AS smoke-builder
 
-# --- Smoke stage ---
+# Install only public dependencies — private deps handled by CI workflow
+RUN pip install --no-cache-dir . && \
+    pip install --no-cache-dir pytest
+
 FROM python:3.13-slim AS smoke
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
-
-# Copy source and tests
+COPY --from=smoke-builder /usr/local/lib/python3.13/site-packages \
+                          /usr/local/lib/python3.13/site-packages
+COPY --from=smoke-builder /usr/local/bin /usr/local/bin
 COPY src/ /app/src/
 COPY tests/ /app/tests/
 
 WORKDIR /app
 
-# Verify source and tests compile
 RUN python -m compileall src tests
 
-# Run focused Bremen import identity test as smoke validation
 CMD ["python", "-m", "pytest", "-q", "tests/test_bremen_import_identity.py"]
+
+# ── production target ────────────────────────────────────────────────────────
+FROM base AS production
+
+# Build arg for private GitHub dependency — never hardcoded, always from CI.
+# ARG (not ENV) — does not persist into the final image.
+ARG BREMEN_CI_GITHUB_TOKEN
+
+# Install all dependencies including private xrd-preprocessing.
+# Token is configured, used, and removed in one RUN layer —
+# it never appears in any cached image layer.
+RUN if [ -n "$BREMEN_CI_GITHUB_TOKEN" ]; then \
+        git config --global \
+            url."https://${BREMEN_CI_GITHUB_TOKEN}@github.com/".insteadOf \
+            "https://github.com/"; \
+    fi && \
+    pip install --no-cache-dir "." && \
+    if [ -n "$BREMEN_CI_GITHUB_TOKEN" ]; then \
+        git config --global --unset \
+            url."https://${BREMEN_CI_GITHUB_TOKEN}@github.com/".insteadOf \
+            || true; \
+    fi
+
+RUN python -m compileall src
+
+# Non-root user — required for ECS/App Runner security best practices
+RUN useradd --system --no-create-home --shell /sbin/nologin bremen
+USER bremen
+
+EXPOSE 8080
+
+# Healthcheck for ECS task health / App Runner health check
+# Matches the /health route in src/bremen/api/server.py
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD python -c \
+        "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')" \
+        2>/dev/null || exit 1
+
+ENTRYPOINT ["python", "-m", "bremen"]
+CMD ["serve", "--host", "0.0.0.0", "--port", "8080"]
