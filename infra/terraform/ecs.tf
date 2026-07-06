@@ -74,8 +74,16 @@ resource "aws_ecs_task_definition" "bremen" {
         },
         {
           name  = "BREMEN_MODEL_VERSION"
-          value = ""
-        }
+          value = var.model_version
+        },
+        {
+          name  = "BREMEN_MODEL_URI"
+          value = var.model_uri
+        },
+        {
+          name  = "BREMEN_MODEL_CHECKSUM"
+          value = var.model_checksum
+        },
       ]
 
       logConfiguration = {

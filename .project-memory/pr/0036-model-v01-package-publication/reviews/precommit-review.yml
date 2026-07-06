@@ -1,0 +1,87 @@
+review_type: precommit-review
+branch: 0036-model-v01-package-publication
+verdict: pass
+head: "3f1a5972ef5e136ba2d4c5ae2c0b972c215410f0"
+status: "M infra/terraform/README.md; M infra/terraform/apprunner.tf; M infra/terraform/ecs.tf; M infra/terraform/outputs.tf; M infra/terraform/variables.tf; ?? src/bremen/training/publish_v01.py; ?? tests/test_bremen_model_package_terraform_env.py; ?? tests/test_bremen_model_v01_publication.py"
+changed_files:
+  - "infra/terraform/README.md"
+  - "infra/terraform/apprunner.tf"
+  - "infra/terraform/ecs.tf"
+  - "infra/terraform/outputs.tf"
+  - "infra/terraform/variables.tf"
+  - "src/bremen/training/publish_v01.py"
+  - "tests/test_bremen_model_package_terraform_env.py"
+  - "tests/test_bremen_model_v01_publication.py"
+blockers: []
+warnings:
+  - id: "WARNING-1"
+    description: "The task prompt's 'Review checklist' step 'scripts/publish_model_v01.sh exists and prints the three required values' references a shell script that is not in the PLAN.md's allowed implementation files. The PLAN.md does not include a shell script — the publication path is `src/bremen/training/publish_v01.py` (the Python CLI). `scripts/publish_model_v01.sh` does not exist and was not planned. The PLAN-approved publication path via `python -m bremen.training.publish_v01` is the authoritative mechanism."
+validation:
+  git_rev_parse_head: "3f1a5972ef5e136ba2d4c5ae2c0b972c215410f0"
+  branch_confirmed: "0036-model-v01-package-publication"
+  compileall: "pass — exit 0"
+  pytest_v01_tests: "pass — 21 passed, 1 skipped (real artifact smoke test correctly skipped)"
+  pytest_full_suite: "pass — 367 passed, 1 skipped, 28 warnings in 48.60s"
+  pytest_import_identity: "pass — 10 passed"
+  terraform_variables_grep: "pass — model_version (line 127), model_uri (line 133), model_checksum (line 139) confirmed in variables.tf"
+  terraform_ecs_env_vars: "pass — BREMEN_MODEL_VERSION (line 76), BREMEN_MODEL_URI (line 80), BREMEN_MODEL_CHECKSUM (line 84) confirmed in ecs.tf"
+  terraform_apprunner_env_vars: "pass — BREMEN_MODEL_VERSION (line 18), BREMEN_MODEL_URI (line 19), BREMEN_MODEL_CHECKSUM (line 20) confirmed in apprunner.tf"
+  terraform_ecs_var_refs: "pass — var.model_version (line 77), var.model_uri (line 81), var.model_checksum (line 85) confirmed in ecs.tf"
+  no_s3_sdk_production: "pass — grep for s3.upload/boto3/s3_client/upload_file/put_object returned nothing in production code paths"
+  skipif_smoke_test: "pass — pytest.mark.skipif with BREMEN_V01_JOBLIB_PATH confirmed at line 191 of test_bremen_model_v01_publication.py"
+  no_committed_artifacts: "pass — only pre-existing ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5 found (not new, not a joblib)"
+  forbidden_diff_check: "pass — no forbidden files modified (ADR, ROADMAP, docs/architecture, model_loader.py, api/, config.py, Dockerfile, requirements.txt, pyproject.toml, agents/)"
+  ds_store_check: "pass — no .DS_Store files found"
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  plan_followed: true
+  three_terraform_variables_present: true
+  three_terraform_variables_wired_to_container: true
+  packaging_code_present_and_callable: true
+  synthetic_tests_pass: true
+  smoke_test_properly_skipped: true
+  no_s3_boto3_sdk_in_production_paths: true
+  no_real_joblib_committed: true
+  no_adr_roadmap_architecture_changes: true
+  terraform_defaults_acceptable: true
+  terraform_variable_refs_not_hardcoded: true
+  full_pytest_suite_still_green: true
+  human_agent_boundary_clear: true
+  dry_run_default_preserved: true
+  adr0007_manifest_fields_preserved: true
+  no_secrets_or_account_identifiers: true
+  no_clinical_claims: true
+  scripts_publish_model_v01_sh_gap_noted: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "src/bremen/training/publish_v01.py"
+    - "tests/test_bremen_model_v01_publication.py"
+    - "tests/test_bremen_model_package_terraform_env.py"
+    - "infra/terraform/variables.tf"
+    - "infra/terraform/ecs.tf"
+    - "infra/terraform/apprunner.tf"
+    - "infra/terraform/outputs.tf"
+    - "infra/terraform/README.md"
+    - ".project-memory/pr/0036-model-v01-package-publication/reviews/precommit-review.yml"
+notes:
+  - "HEAD 3f1a5972ef5e136ba2d4c5ae2c0b972c215410f0 on branch 0036-model-v01-package-publication. Branch confirmed before content review."
+  - "Seven changed files: 3 new (publish_v01.py, 2 test files) + 5 modified Terraform files. Exactly matches PLAN.md allowed files (1 source + 2 tests + 5 Terraform + README)."
+  - "publish_v01.py: thin CLI taking raw joblib path, computing SHA-256, building ADR-0007 manifest, staging locally. No boto3/s3/requests/urllib. Dry-run default (--no-dry-run flag required for file writes). _build_manifest() uses 'bremen.joblib.model_package' constant (line 104). _sha256() computes SHA-256 (lines 123-131). Required flags: --joblib-path, --output-dir, --feature-schema-version. Defaults: model-version=v0.1, threshold-version=v0.1, threshold-value=0.5, qc-criteria-version=v0.1."
+  - "Terraform variables.tf: model_version (default='v0.1', line 121), model_uri (default='', line 127), model_checksum (default='', line 133). Descriptions reference BREMEN_MODEL_VERSION/URI/CHECKSUM. model_uri and model_checksum have empty defaults (intentional human-provided placeholders; not literal 'PLACEHOLDER' string which grep confirms is absent)."
+  - "ECS env vars: BREMEN_MODEL_VERSION=var.model_version (replaces empty string), BREMEN_MODEL_URI=var.model_uri (new), BREMEN_MODEL_CHECKSUM=var.model_checksum (new). All three use variable references, not hardcoded values."
+  - "App Runner env vars: BREMEN_MODEL_VERSION=var.model_version, BREMEN_MODEL_URI=var.model_uri, BREMEN_MODEL_CHECKSUM=var.model_checksum. Consistent with ECS."
+  - "Terraform outputs.tf: model_version (line 103), model_uri (line 108), model_checksum (line 113) all output var.* references."
+  - "README.md: 'Model v0.1 Package Publication (Human-Only)' section added with 8-step human-only procedure."
+  - "Test results: 21 passed, 1 skipped (test_v01_real_artifact_smoke correctly skipped per pytest.mark.skipif). Full suite: 367 passed, 1 skipped, 28 warnings (numpy/joblib deprecation warnings, unrelated to PR 0036)."
+  - "Smoke test decorator (line 191): @pytest.mark.skipif(not bool(os.environ.get('BREMEN_V01_JOBLIB_PATH')), reason='Set BREMEN_V01_JOBLIB_PATH to run real artifact smoke test'). Skipped reason is correct — env var not set."
+  - "No S3 SDK: grep for s3.upload/boto3/s3_client/upload_file/put_object in publish_v01.py/model_release.py/publish_model_package.py returned exit code 1 (no matches). publish_v01.py uses only hashlib, json, shutil (stdlib)."
+  - "No committed joblib: find for *.joblib/*.pkl/*.npy/*.npz/*.h5/*.hdf5 returned only pre-existing ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5 (not new, not in changed files)."
+  - "Forbidden diff: git diff --name-only for ADR/ROADMAP/architecture/model_loader.py/api/config.py/Dockerfile/requirements.txt/pyproject.toml/agents/ returned empty. No forbidden files modified."
+  - "WARNING-1: scripts/publish_model_v01.sh is not in PLAN.md and does not exist. PLAN-authoritative publication path is python -m bremen.training.publish_v01. Not a blocker since the PLAN is the contract."
+  - "Dry-run is default in publish_v01.py: `if not args.no_dry_run:` prints DRY RUN without writing files (lines 79-85)."
+  - "manifest artifact_type: 'bremen.joblib.model_package' (line 104), matching EXPECTED_ARTIFACT_TYPE constant from model_package.py."
+  - "Human-only boundary confirmed: no aws commands in production code, no terraform apply by agent, no real joblib committed, no S3 upload by agent."
+  - "git diff --stat: 5 modified files (+95 lines), 3 new files. Total diff is additive changes to Terraform + new Python + new tests."
+  - "PLAN.md decision to not modify config.py confirmed correct — BREMEN_MODEL_URI and BREMEN_MODEL_CHECKSUM are added to Terraform env vars but not yet read by runtime config."

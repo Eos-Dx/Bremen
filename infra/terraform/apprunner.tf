@@ -13,6 +13,12 @@ resource "aws_apprunner_service" "bremen_smoke" {
     image_repository {
       image_configuration {
         port = var.container_port
+
+        runtime_environment_variables = {
+          BREMEN_MODEL_VERSION  = var.model_version
+          BREMEN_MODEL_URI      = var.model_uri
+          BREMEN_MODEL_CHECKSUM = var.model_checksum
+        }
       }
 
       image_identifier      = "${aws_ecr_repository.bremen.repository_url}:${var.app_runner_image_tag}"

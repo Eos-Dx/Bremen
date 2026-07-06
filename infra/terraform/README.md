@@ -68,3 +68,41 @@ This skeleton is **not** production-ready. It is infrastructure scaffolding
 for the Platform Readiness Track. Real HTTP service wiring, load balancing,
 autoscaling, CI/CD pipeline, disaster recovery, and security hardening are
 future work.
+
+## Model v0.1 Package Publication (Human-Only)
+
+1. **Human obtains `bremen_v0.1.joblib`** from Kubytskyi (outside this
+   repository).
+2. **Agent or human runs dry-run:**
+   ```
+   python -m bremen.training.publish_v01 \
+     --joblib-path /path/to/bremen_v0.1.joblib \
+     --output-dir /tmp/model-package-v0.1 \
+     --feature-schema-version v0.1
+   ```
+3. **Human verifies SHA-256 checksum** from the dry-run output.
+4. **Human stages package locally:**
+   ```
+   python -m bremen.training.publish_v01 \
+     --joblib-path /path/to/bremen_v0.1.joblib \
+     --output-dir /tmp/model-package-v0.1 \
+     --feature-schema-version v0.1 \
+     --no-dry-run
+   ```
+5. **Human uploads staged package to S3:**
+   ```
+   aws s3 cp /tmp/model-package-v0.1/ s3://<bucket>/model-packages/v0.1/ --recursive
+   ```
+6. **Human sets Terraform variables:**
+   ```
+   model_version  = "v0.1"
+   model_uri      = "s3://<bucket>/model-packages/v0.1/"
+   model_checksum = "<sha256 from step 3>"
+   ```
+7. **Human applies Terraform** to update ECS/App Runner environment
+   variables.
+8. **Human verifies runtime model package** by checking ``/model/version``
+   endpoint after deployment.
+
+**Agent must not:** run ``aws`` commands, run ``terraform apply``, handle
+credentials, upload to S3, commit the model artifact.
