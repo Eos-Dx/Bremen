@@ -1,0 +1,51 @@
+review_type: plan-review
+branch: 0038-preprocessing-bridge
+verdict: warning
+head: "6e1c42831eef2eca823e9445a388bd145d211235"
+status: "?? .project-memory/pr/0038-preprocessing-bridge/"
+plan_path: ".project-memory/pr/0038-preprocessing-bridge/PLAN.md"
+blockers: []
+warnings:
+  - id: "WARNING-1"
+    description: "PLAN.md duplicates 6 private feature computation functions in preprocessing_bridge.py: _sigma_rms, _mahalanobis_difference, _profile_wasserstein, _rms_difference, _weighted_rms_difference, _extract_profiles (H5 profile reader). These are mathematically deterministic pure functions on numpy arrays. Duplication is justified as runtime/training separation (ADR-0008 boundary: src/bremen/api/ must not import src/bremen/training/). No reusable runtime-safe shared module exists. Follow-up extraction to a shared feature utility is deferred. Acceptable per task prompt policy (warn-not-block). Recommend: in PR 0039 or a later refactoring, extract the pure feature formulas into a shared runtime-safe module (e.g., src/bremen/features.py) to eliminate duplication once the full pipeline is proven.
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  critical_path_recorded: true
+  preprocessing_bridge_only: true
+  feature_schema_complete: true
+  exact_feature_order_required: true
+  public_api_complete: true
+  model_package_schema_gate_planned: true
+  no_model_loading_or_inference: true
+  h5_preflight_integration_planned: true
+  xrd_preprocessing_evidence_reviewed: true
+  runtime_training_separation_preserved: true
+  private_feature_duplication_justified: true
+  tests_complete: true
+  external_h5_policy_preserved: true
+  no_real_h5_required_in_ci: true
+  runtime_api_boundary_preserved: true
+  allowed_files_clear: true
+  forbidden_files_clear: true
+  validation_commands_present: true
+  block_conditions_present: true
+  no_clinical_claims: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0038-preprocessing-bridge/PLAN.md"
+    - ".project-memory/pr/0038-preprocessing-bridge/reviews/plan-review.yml"
+notes:
+  - "Branch confirmed as 0038-preprocessing-bridge. HEAD 6e1c42831eef2eca823e9445a388bd145d211235. Clean state — only planning directory untracked. No implementation files edited."
+  - "Critical path: PR 0036 (v0.1 model package) completed, PR 0037 (H5 preflight) completed, PR 0038 (this PR — preprocessing bridge), PR 0039 (inference integration) follows. All recorded."
+  - "WARNING-1: 6 private deterministic feature computation functions are duplicated in preprocessing_bridge.py (_sigma_rms, _mahalanobis_difference, _profile_wasserstein, _rms_difference, _weighted_rms_difference, _extract_profiles). These are pure numpy math functions with no training state. Duplication is explicitly justified as runtime/training separation (ADR-0008 boundary), no reusable shared module exists yet, and extraction to a shared module is deferred. Acceptable per task prompt warn-not-block policy. Recommend shared feature utility extraction in PR 0039+ once full pipeline is proven."
+  - "Feature schema contract: exact 7-feature order: sigma_l1, sigma_l2, Mahalanobis1, Mahalanobis2, wasserstein_distance_full_q2, meanrms2, weightedrms1. BREMEN_FEATURE_COLUMNS tuple and FEATURE_SCHEMA_VERSION='v0.1' constants defined. All finite numeric. Deterministic. No raw scan arrays in result."
+  - "Public API: src/bremen/api/preprocessing_bridge.py. BremenFeatureVector dataclass, PreprocessingBridgeResult, PreprocessingBridgeError, PreflightNotPassedError, FeatureSchemaMismatchError. BREMEN_FEATURE_COLUMNS, FEATURE_SCHEMA_VERSION. run_preprocessing_bridge(), build_feature_table(), validate_feature_schema(), validate_feature_values(). All specified."
+  - "Preflight integration: requires PreflightResult.passed==True before extracting features. PreflightNotPassedError on failure. skip_preflight flag for testing. Synthetic H5 tmp_path tests default. External H5 via BREMEN_H5_PREFLIGHT_SMOKE_PATH opt-in."
+  - "Model package schema gate: validate_feature_schema() provides internal gate. Checks feature count (7), names, order, version, finiteness. Does NOT load model package — that comparison deferred to PR 0039. Current ADR-0007 manifest does not include feature column list — acknowledged and deferred."
+  - "XRD preprocessing evidence: src/bremen/pipelines.py (research-era) uses xrd_preprocessing and container private deps, local config paths, not suitable for runtime. Plan correctly decides to use h5py directly for H5 profile reading. No reuse of private deps in bridge."
+  - "Tests: 13 total (12 default synthetic + 1 optional real-subset smoke). Valid H5 produces 7 features, exact order, finite values, failed preflight blocks, missing/extra/wrong-order version mismatch fails, result excludes raw arrays, no model loading/inference, bridge import safe (no bremen.training, no joblib). Plus optional real-subset smoke via BREMEN_H5_PREFLIGHT_SMOKE_PATH."
+  - "Runtime boundary: no changes to POST /predictions, no inference module, no model_loader.py changes, no model_package.py changes, no training pipeline changes, no Terraform/Docker/workflows, no ADR/ROADMAP/architecture changes. Stops at feature table creation."
+  - "tests/test_bremen_real_h5_subset_reader.py updated by PR 0037: now opt-in smoke with pytestmark skipif on BREMEN_H5_PREFLIGHT_SMOKE_PATH. No reference to deleted tests/data/aramis_real_h5_subset_20260128_5_patients.h5. Clean — no orphaned test failure risk."
+  - "All 22 checks pass. 1 warning (acceptable feature formula duplication for runtime/training separation). No blockers."
