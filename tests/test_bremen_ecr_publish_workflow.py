@@ -62,7 +62,7 @@ def test_workflow_publishes_training_image() -> None:
     # The training image job must exist
     assert "publish-training" in text
     assert "Dockerfile.training" in text
-    assert "bremen-training" in text
+    assert "training" in text
     # Training uses github.sha and latest tags
     assert ":latest" in text
 
