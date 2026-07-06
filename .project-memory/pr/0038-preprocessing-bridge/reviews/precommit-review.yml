@@ -1,0 +1,68 @@
+review_type: precommit-review
+branch: 0038-preprocessing-bridge
+verdict: pass
+head: "946640aaa7db4a43e2ac74606abf5fc95dbcd504"
+status: "M tests/test_bremen_api_skeleton.py; ?? src/bremen/api/preprocessing_bridge.py; ?? tests/test_bremen_preprocessing_bridge.py"
+changed_files:
+  - "src/bremen/api/preprocessing_bridge.py"
+  - "tests/test_bremen_preprocessing_bridge.py"
+  - "tests/test_bremen_api_skeleton.py"
+blockers: []
+warnings:
+  - id: "WARNING-1"
+    description: "Feature computation functions (_sigma_rms, _mahalanobis_difference, _profile_wasserstein, _rms_difference, _weighted_rms_difference, _extract_profiles) are duplicated in preprocessing_bridge.py from the training pipeline. This is PLAN-approved (warn-not-block) as runtime/training separation maintenance. No reusable shared module exists yet. Extraction to a shared runtime-safe module (e.g., src/bremen/features.py) is deferred to PR 0039+."
+validation:
+  git_rev_parse_head: "946640aaa7db4a43e2ac74606abf5fc95dbcd504"
+  branch_confirmed: "0038-preprocessing-bridge"
+  compileall: "pass — exit 0"
+  preprocessing_bridge_tests: "pass — 18 passed, 1 skipped in 1.79s"
+  h5_preflight_tests: "pass — 19 passed, 1 skipped in 1.55s"
+  import_identity_tests: "pass — 10 passed"
+  api_skeleton_tests: "pass — 39 passed (preflight + bridge added)"
+  full_pytest: "pass — 403 passed, 4 skipped, 28 warnings in 46.97s"
+  feature_schema_grep: "pass — BREMEN_FEATURE_COLUMNS, BremenFeatureVector, PreprocessingBridgeResult, run_preprocessing_bridge, validate_feature_schema confirmed"
+  feature_names_grep: "pass — all 7 feature names in exact order in preprocessing_bridge.py"
+  no_inference_training_grep: "pass — prohibited names only in docstrings/test assertions, not in actual imports"
+  artifact_scan: "pass — no H5/joblib artifacts tracked"
+  forbidden_diff: "pass — no forbidden files modified"
+  skipif_smoke: "pass — BREMEN_H5_PREFLIGHT_SMOKE_PATH skipif present in test file"
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  feature_schema_exact: true
+  feature_order_exact: true
+  feature_schema_version_explicit: true
+  public_api_complete: true
+  preflight_required: true
+  failed_preflight_blocks_bridge: true
+  schema_validation_fail_closed: true
+  finite_numeric_values_only: true
+  result_excludes_raw_arrays: true
+  external_h5_optional_only: true
+  smoke_skips_without_env: true
+  no_real_artifacts_added: true
+  no_training_import_from_runtime: true
+  no_model_loading_or_inference: true
+  no_prediction_route_change: true
+  no_clinical_claims: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "src/bremen/api/preprocessing_bridge.py"
+    - "tests/test_bremen_preprocessing_bridge.py"
+    - "tests/test_bremen_api_skeleton.py"
+    - ".project-memory/pr/0038-preprocessing-bridge/reviews/precommit-review.yml"
+notes:
+  - "HEAD 946640aaa7db4a43e2ac74606abf5fc95dbcd504 on branch 0038-preprocessing-bridge. Branch confirmed before content review."
+  - "Three changed files: preprocessing_bridge.py (new, ~260 lines), test_bremen_preprocessing_bridge.py (new, 19 tests), test_bremen_api_skeleton.py (modified to add preprocessing_bridge to API module discovery). No forbidden files touched."
+  - "Feature schema: BREMEN_FEATURE_COLUMNS tuple in preprocessing_bridge.py contains exact 7 ordered names: sigma_l1, sigma_l2, Mahalanobis1, Mahalanobis2, wasserstein_distance_full_q2, meanrms2, weightedrms1. FEATURE_SCHEMA_VERSION='v0.1'. _EXPECTED_FEATURE_COUNT = len(BREMEN_FEATURE_COLUMNS) = 7."
+  - "Public API: BREMEN_FEATURE_COLUMNS, FEATURE_SCHEMA_VERSION, BremenFeatureVector dataclass, PreprocessingBridgeResult dataclass, PreprocessingBridgeError base, PreflightNotPassedError, FeatureSchemaMismatchError. Public functions: run_preprocessing_bridge, build_feature_table, validate_feature_schema, validate_feature_values."
+  - "Preflight integration: run_preprocessing_bridge requires PreflightResult.passed==True. PreflightNotPassedError raised on failure. skip_preflight=True for testing. PreflightResult imported from .preflight."
+  - "Schema validation fail-closed: validate_feature_schema checks count, names+order, schema version, finiteness. Raises FeatureSchemaMismatchError on any mismatch. validate_feature_values returns warnings list for non-finite values."
+  - "Result contract: PreprocessingBridgeResult with passed, feature_vector (BremenFeatureVector with features/list[float], feature_names/list[str], feature_schema_version/str, patient_id/str, target_side/str, contralateral_side/str), warnings/list[str], qc_flags/list[str], preflight_summary/dict. Raw measurement arrays excluded."
+  - "Runtime/training boundary: preprocessing_bridge.py does NOT import from bremen.training. grep for '^from bremen.training' and '^import bremen.training' returned empty. Prohibited names appear only in docstrings explaining duplication and in test assertion strings. AST test in test_bremen_preprocessing_bridge.py confirms no prohibited imports."
+  - "Tests: 18 passed, 1 skipped (real subset smoke). TestValidBridge (7): valid produces 7 features, exact order, finite numeric, no raw arrays, deterministic, schema version, patient metadata preserved. TestPreflightFailure (3): failed preflight blocks bridge, skip_preflight flag works. TestSchemaValidation (5): missing/extra/wrong-order/version mismatches fail closed, validate_feature_values returns warnings. TestBuildFeatureTable (1): returns exactly 7 keys. TestImportSafety (2): AST check no training/inference/model imports, no joblib/pickle imports."
+  - "Feature functions duplicated: _sigma_rms, _mahalanobis_difference, _profile_wasserstein, _rms_difference, _weighted_rms_difference, _extract_profiles are pure numpy deterministic math on arrays. Duplication is PLAN-approved (WARNING-1, warn-not-block)."
+  - "No new artifacts: git ls-files for *.h5/*.hdf5/*.joblib/*.pkl/*.npy/*.npz returns empty. find outside .git returns only venv packages."
+  - "Full pytest suite: 403 passed, 4 skipped, 28 warnings in 46.97s. Skipped: 2 opt-in H5 smoke + 1 real-artifact training smoke + 1 real-subset bridge smoke. No failures."
+  - "No forbidden files modified: git diff --name-only for docs/adr, ROADMAP, architecture, model_loader.py, model_package.py, training, infra, .github, Dockerfile, requirements.txt, pyproject.toml returned empty."
