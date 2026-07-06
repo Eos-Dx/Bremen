@@ -1,92 +1,64 @@
+"""Real H5 subset reader test — superseded by synthetic preflight tests.
+
+The historically tracked real H5 subset has been removed from the
+repository (PR 0037 artifact cleanup).  This test now runs as an
+optional opt-in smoke test.
+
+Set BREMEN_H5_PREFLIGHT_SMOKE_PATH to the path of the external H5
+subset to run this test.  When the env var is absent, the test is
+skipped.
+
+This test is superseded by tests/test_bremen_h5_preflight.py which
+provides comprehensive synthetic preflight coverage.  No clinical
+validation claims are made.
+"""
+
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
-from xrd_preprocessing import (
-    H5SessionFilter,
-    calibrant_thickness_h5_filters,
-    list_h5_sessions,
-    load_preprocessing_config,
-)
-from xrd_preprocessing.transformers import (
-    H5ToDataFrameTransformer,
-    ProductColumnBuilder,
-    ProductStatusGroupFilter,
+import pytest
+
+pytestmark = pytest.mark.skipif(
+    "BREMEN_H5_PREFLIGHT_SMOKE_PATH" not in os.environ,
+    reason="BREMEN_H5_PREFLIGHT_SMOKE_PATH not set — skipping real subset smoke test",
 )
 
 
-DATA_DIR = Path(__file__).parent / "data"
-REAL_H5_SUBSET = DATA_DIR / "aramis_real_h5_subset_20260128_5_patients.h5"
-BREMEN_CONFIG = (
-    Path(__file__).parents[1]
-    / "config"
-    / "preprocessing"
-    / "bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml"
-)
+def test_real_subset_schema_inspection():
+    """Optional smoke test: inspect real H5 metadata/schema.
 
+    Skips when BREMEN_H5_PREFLIGHT_SMOKE_PATH is not set.
+    No clinical validation assertions.
+    """
+    import h5py  # noqa: PLC0415
 
-def test_real_h5_subset_uses_gfrm_reader_and_xrd_transformers():
-    config = load_preprocessing_config(BREMEN_CONFIG)
-    config["filters"]["accepted_dates"] = ["2026-01-28"]
-    config["labels"]["keep_after_grouping"] = ["BENIGN", "CANCER"]
-    calibrant_min_mm, calibrant_max_mm = config["filters"][
-        "calibrant_thickness_range_mm"
-    ]
-    h5_filters = [
-        H5SessionFilter(
-            column="started_at",
-            op="date in",
-            values=config["filters"]["accepted_dates"],
-        ),
-        *calibrant_thickness_h5_filters(
-            min_mm=calibrant_min_mm,
-            max_mm=calibrant_max_mm,
-        ),
-    ]
-    reader = H5ToDataFrameTransformer(
-        data_preference=config["raw_data"]["source"],
-        drop_missing_sample_thickness=config["filters"][
-            "require_sample_thickness_mm"
-        ],
-        h5_filters=h5_filters,
-        session_category="SAMPLE",
-        set_category="SAMPLE",
-    )
-    raw_df = reader.fit_transform(REAL_H5_SUBSET)
-    product_builder = ProductColumnBuilder()
-    product_df = product_builder.fit_transform(raw_df)
-    label_filter = ProductStatusGroupFilter(
-        config["labels"]["keep_after_grouping"],
-    )
-    binary_df = label_filter.fit_transform(product_df)
+    h5_path = Path(os.environ["BREMEN_H5_PREFLIGHT_SMOKE_PATH"])
+    assert h5_path.is_file(), f"Real H5 not found: {h5_path}"
 
-    session_df = list_h5_sessions(REAL_H5_SUBSET)
-    assert config["xrd_preprocessing"]["release_tag"] == "v0.1.5-beta"
-    assert len(session_df) == 11
-    assert session_df["category"].value_counts().to_dict() == {
-        "SAMPLE": 10,
-        "CALIBRATION": 1,
-    }
-    assert len(raw_df) == 30
-    assert len(binary_df) == 21
-    assert set(product_df["patientId"]) == {
-        "Nova_376",
-        "Nova_378",
-        "Nova_379",
-        "Nova_383",
-        "Nova_384",
-    }
-    assert product_df["product_status_group"].value_counts().to_dict() == {
-        "BENIGN": 15,
-        "NORMAL": 9,
-        "CANCER": 6,
-    }
-    assert set(binary_df["product_status_group"]) == {"BENIGN", "CANCER"}
-    assert set(product_df["calibrant_thickness_mm"]) == {40.0}
-    assert product_df["sample_thickness_mm"].notna().all()
-    assert set(product_df["measurement_data_source"]) == {
-        "embedded_raw_file_gfrm_to_photons"
-    }
-    assert product_df["measurement_data"].iloc[0].shape == (512, 768)
-    assert reader.stats_["measurement_rows"] == 30
-    assert label_filter.stats_["rows_fail"] == 9
+    with h5py.File(h5_path, "r") as f:
+        # Inspect top-level groups
+        top_keys = set(f.keys())
+        assert "patient" in top_keys, "Expected /patient group"
+        assert "scans" in top_keys, "Expected /scans group"
+        assert "target" in f["/scans"], "Expected /scans/target group"
+        assert "contralateral" in f["/scans"], "Expected /scans/contralateral group"
+
+        # Read metadata — no clinical assertions
+        _patient_id = f["/patient/id"][()].decode("utf-8") if isinstance(
+            f["/patient/id"][()], bytes
+        ) else str(f["/patient/id"][()])
+
+        _target_side = f["/scans/target/side"][()].decode("utf-8") if isinstance(
+            f["/scans/target/side"][()], bytes
+        ) else str(f["/scans/target/side"][()])
+
+        _contralateral_side = f["/scans/contralateral/side"][()].decode("utf-8") if isinstance(
+            f["/scans/contralateral/side"][()], bytes
+        ) else str(f["/scans/contralateral/side"][()])
+
+    # No clinical validity assertion — structural only
+    assert isinstance(_patient_id, str)
+    assert isinstance(_target_side, str)
+    assert isinstance(_contralateral_side, str)
