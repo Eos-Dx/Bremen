@@ -147,6 +147,7 @@ An open question exists: do Mahalanobis and Wasserstein-style features require f
 - **PR 0037** — Preprocessing bridge. Connect approved preprocessing path without training or clinical claims.
 - **PR 0038** — Inference pipeline integration. First end-to-end inference.
 - **PR 0039** — Config governance ADR and gate decisions. Close G-CFG-1, G-CFG-2, G-CFG-3. Define config validation, history store, and audit architecture.
+- **PR-0039 — v0.1 feature schema rebaseline + inference integration.** ADR-0010 records the 7→15 schema rebaseline. First working prediction from H5 input. Portable logistic regression inference with 15-column schema. Weak AUC disclosed (OOF 0.443) — pipeline proof, not clinical validation.
 
 ## Training Pipeline Track
 

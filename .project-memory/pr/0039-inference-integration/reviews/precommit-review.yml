@@ -1,0 +1,87 @@
+review_type: precommit-review
+branch: 0039-inference-integration
+verdict: warning
+head: "34962cd2b7bf0dcf4a935840706fe04065776f42"
+status: "M ROADMAP.md; M infra/terraform/variables.tf; M src/bremen/api/app.py; M src/bremen/api/preprocessing_bridge.py; M src/bremen/api/schemas.py; M src/bremen/api/server.py; M tests/test_bremen_api_server.py; M tests/test_bremen_api_skeleton.py; M tests/test_bremen_preprocessing_bridge.py; ?? docs/adr/0010-v01-feature-schema-rebaseline.md; ?? src/bremen/api/inference_handler.py; ?? src/bremen/api/model_state.py; ?? src/bremen/inference.py; ?? tests/test_bremen_inference_integration.py; ?? tests/test_bremen_v01_schema_rebaseline.py"
+changed_files:
+  - "ROADMAP.md"
+  - "infra/terraform/variables.tf"
+  - "src/bremen/api/app.py"
+  - "src/bremen/api/preprocessing_bridge.py"
+  - "src/bremen/api/schemas.py"
+  - "src/bremen/api/server.py"
+  - "tests/test_bremen_api_server.py"
+  - "tests/test_bremen_api_skeleton.py"
+  - "tests/test_bremen_preprocessing_bridge.py"
+  - "docs/adr/0010-v01-feature-schema-rebaseline.md"
+  - "src/bremen/api/inference_handler.py"
+  - "src/bremen/api/model_state.py"
+  - "src/bremen/inference.py"
+  - "tests/test_bremen_inference_integration.py"
+  - "tests/test_bremen_v01_schema_rebaseline.py"
+blockers: []
+warnings:
+  - id: "WARNING-1"
+    description: "ADR-0010 has a documentation typo: feature 5 is listed as 'weighttedrms2' (missing 'e' in 'weightedrms2'). The preprocessing bridge code constant BREMEN_V01_FEATURE_COLUMNS correctly spells 'weightedrms2'. ADR-0010 comment in preprocessing_bridge.py line 246:246 also says 'weighttedrms2'. The typo should be corrected in ADR-0010 and the preprocessing_bridge.py comment. Runtime behavior is unaffected (code constant is correct). The ADR is informational; the code is authoritative."
+  - id: "WARNING-2"
+    description: "ADR-0010 records a documentation fix only. ADR-0010 is untracked (?? status). No ADR-0010 previous version existed on main. ADR-0010 is new in this PR. This is appropriate per ADR creation conventions."
+validation:
+  compileall: "pass — exit 0"
+  schema_rebaseline_tests: "pass — 53 passed, 3 skipped"
+  preprocessing_bridge_tests: "pass — 89 passed"
+  inference_integration_tests: "pass — 89 passed"
+  h5_preflight_tests: "pass — 19 passed"
+  api_skeleton_tests: "pass — 64 passed"
+  full_pytest: "pass — 419 passed, 5 skipped, 28 warnings"
+  artifact_scan: "pass — no *.h5, *.joblib, *.pkl committed"
+  forbidden_diff: "pass — no forbidden files modified"
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  adr0010_present: true
+  weak_auc_disclosed: true
+  exact_15_schema_runtime: true
+  preprocessing_bridge_updated: true
+  portable_inference_no_sklearn: true
+  model_state_checksum_before_load: true
+  S3_warned_not_implemented: true
+  mandatory_prediction_fields_complete: true
+  no_sklearn_predict_proba: true
+  local_file_test_mode_without_AWS: true
+  API_routes_complete: true
+  ADR_rebaseline_correct_safety: true
+  no_clinical_claims: true
+  no_real_artifacts: true
+  ADR0010_weighttedrms2_typo_noted: true
+  ROADMAP_updated: true
+  infra_updated: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "docs/adr/0010-v01-feature-schema-rebaseline.md"
+    - "src/bremen/inference.py"
+    - "src/bremen/api/preprocessing_bridge.py"
+    - "src/bremen/api/model_state.py"
+    - "src/bremen/api/inference_handler.py"
+    - "src/bremen/api/app.py"
+    - "src/bremen/api/schemas.py"
+    - "src/bremen/api/server.py"
+    - "infra/terraform/variables.tf"
+    - "ROADMAP.md"
+    - "tests/test_bremen_v01_schema_rebaseline.py"
+    - "tests/test_bremen_inference_integration.py"
+    - "tests/test_bremen_api_server.py"
+    - "tests/test_bremen_api_skeleton.py"
+    - "tests/test_bremen_preprocessing_bridge.py"
+    - ".project-memory/pr/0039-inference-integration/reviews/precommit-review.yml"
+notes:
+  - "HEAD 34962cd2b7bf0dcf4a935840706fe04065776f42 on branch 0039-inference-integration. Confirmed before content review."
+  - "WARNING-1: ADR-0010 documentation typo 'weighttedrms2' (line 35) vs code constant 'weightedrms2'. ADR comment line 246 in preprocessing_bridge.py also has the typo. Correct spelling in runtime code. Non-blocking documentation issue."
+  - "WARNING-2: ADR-0010 is untracked new file (??). ADR-0010 is a new ADR, not modifying existing ADR files."
+  - "15-feature schema confirmed exact in BREMEN_V01_FEATURE_COLUMNS: weightedrms1, sigma_l1, sigma_r1, mahalanobis1, weightedrms2, sigma_l2, sigma_r2, mahalanobis2, peak14_intensity, mean_peak_value_raw, wasserstein_distance_muLR, cosine_distance_full_q2, wasserstein_distance_full_q2, meanrms1, meanrms2."
+  - "Portable inference: portable_logreg format only. validate_portable_logreg_model() validates structure. predict_proba_portable() runs pure math + numpy. No sklearn import. No fitting."
+  - "ModelState: checksum verification before joblib.load. S3 URI warns and marks not ready. file:// URI supported. reset_for_tests() for test isolation."
+  - "Inference handler: calls preflight → preprocessing bridge → portable inference. Validates feature names against model's feature_columns. Threshold → MRI_RECOMMENDED/MRI_RULE_OUT."
+  - "API routes: /health model_ready, POST /predictions job_id, GET /predictions/{job_id} status. /model/version. Async job store."
+  - "Weak OOF AUC 0.443 disclosed in ADR-0010. Sensitivity 0.966 at threshold. Not clinical validation. Research baseline."
+  - "No real artifacts committed. git ls-files clean. ADR-0010 documents feature schema. Weighttedrms2 typo in ADR-0010 is documentation only."
