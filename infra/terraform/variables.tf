@@ -108,3 +108,13 @@ variable "app_runner_instance_role_arn" {
   type        = string
   default     = null
 }
+
+# ---------------------------------------------------------------------------
+# Training ECR variables
+# ---------------------------------------------------------------------------
+
+variable "training_ecr_repository_name" {
+  description = "ECR repository name for the Bremen training image."
+  type        = string
+  default     = "bremen-training"
+}

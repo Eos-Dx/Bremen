@@ -1,0 +1,99 @@
+review_type: precommit-review
+branch: 0034-bremen-training-pipeline-implementation
+verdict: pass
+head: "2307f173af4c7b72075ab81a8fcea3bf6cf27544"
+status: "M .github/workflows/ecr-publish.yml; M infra/terraform/ecr.tf; M infra/terraform/outputs.tf; M infra/terraform/variables.tf; M tests/test_bremen_ecr_publish_workflow.py; ?? Dockerfile.training; ?? config/training/; ?? src/bremen/training/; ?? tests/test_bremen_training_artifact.py; ?? tests/test_bremen_training_config.py; ?? tests/test_bremen_training_features.py; ?? tests/test_bremen_training_runtime_separation.py"
+changed_files:
+  - "src/bremen/training/__init__.py"
+  - "src/bremen/training/pipeline.py"
+  - "src/bremen/training/train_classifier.py"
+  - "config/training/bremen_v0_1_train.yaml"
+  - "Dockerfile.training"
+  - ".github/workflows/ecr-publish.yml"
+  - "infra/terraform/ecr.tf"
+  - "infra/terraform/variables.tf"
+  - "infra/terraform/outputs.tf"
+  - "tests/test_bremen_training_config.py"
+  - "tests/test_bremen_training_features.py"
+  - "tests/test_bremen_training_artifact.py"
+  - "tests/test_bremen_training_runtime_separation.py"
+  - "tests/test_bremen_ecr_publish_workflow.py"
+blockers: []
+warnings:
+  - id: "WARNING-1"
+    description: "`Dockerfile.training` copies `config/preprocessing/` in addition to `config/training/` and `src/bremen/`. The PLAN.md sample Dockerfile did not include this line. `pipeline.py` does not reference `config/preprocessing/` paths — the copy is harmless but unexplained and marginally expands the image surface area."
+repair_verification:
+  blocker_1_patient_safe_split_test: fixed
+  blocker_2_artifact_hash_determinism_test: fixed
+validation:
+  compileall: pass
+  training_tests: pass
+  cli_help: pass
+  patient_safe_split_grep_reviewed: pass
+  artifact_hash_test_grep_reviewed: pass
+  training_identifiers_grep_reviewed: pass
+  feature_family_grep_reviewed: pass
+  runtime_import_grep_reviewed: pass
+  joblib_dump_boundary_reviewed: pass
+  secret_account_grep_reviewed: pass
+  ecr_workflow_tests: pass
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  plan_followed: true
+  offline_training_only: true
+  no_real_h5_or_data_access: true
+  no_model_artifacts_committed: true
+  no_inference_integration: true
+  no_clinical_or_performance_claims: true
+  training_package_created: true
+  required_source_api_present: true
+  cli_present: true
+  artifact_dict_complete: true
+  config_structure_complete: true
+  seven_feature_families_present: true
+  feature_computation_semantics_tested: true
+  patient_safe_split_tested: true
+  runtime_training_separation_preserved: true
+  joblib_dump_training_only: true
+  dockerfile_training_created: true
+  runtime_dockerfile_unchanged: true
+  ci_changes_plan_approved_if_present: true
+  terraform_changes_plan_approved_if_present: true
+  dependency_changes_plan_approved_if_present: true
+  no_secrets_or_account_identifiers: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "src/bremen/training/__init__.py"
+    - "src/bremen/training/pipeline.py"
+    - "src/bremen/training/train_classifier.py"
+    - "config/training/bremen_v0_1_train.yaml"
+    - "Dockerfile.training"
+    - ".github/workflows/ecr-publish.yml"
+    - "infra/terraform/ecr.tf"
+    - "infra/terraform/variables.tf"
+    - "infra/terraform/outputs.tf"
+    - "tests/test_bremen_training_config.py"
+    - "tests/test_bremen_training_features.py"
+    - "tests/test_bremen_training_artifact.py"
+    - "tests/test_bremen_training_runtime_separation.py"
+    - "tests/test_bremen_ecr_publish_workflow.py"
+notes:
+  - "Branch confirmed as 0034-bremen-training-pipeline-implementation. HEAD 2307f173af4c7b72075ab81a8fcea3bf6cf27544."
+  - "BLOCKER-1 FIXED: `TestPatientSafeSplits` class added in `tests/test_bremen_training_features.py` (line 185). `test_patient_safe_splits_have_disjoint_patient_ids` (line 212): creates synthetic DataFrame with 10 patients (np.random.default_rng(7)), uses GroupShuffleSplit with n_splits=5, test_size=0.3, random_state=42, asserts `len(intersection) == 0` per fold — no patient ID appears in both train and test. Also verifies all patients accounted for across all split folds. `test_group_shuffle_split_used` (line 275): AST check confirming GroupShuffleSplit is imported in pipeline.py."
+  - "BLOCKER-2 FIXED: `test_artifact_hashes_deterministic` (line 113) now calls `_patient_training_artifact` twice with identical inputs (same config, raw_yaml, models dict, df_path, tmp_path), then asserts `artifact_a['training_config_sha256'] == artifact_b['training_config_sha256']` and `artifact_a['input_dataframe_joblib_sha256'] == artifact_b['input_dataframe_joblib_sha256']`. Explicitly skips `created_at` (timestamps change). Also asserts deterministic fields (kind, version, model_type, training_config_text, training_config_yaml) match. Additionally, `test_artifact_does_not_rename_adr_0007_fields` now includes explicit assertions `assert 'model_version' not in artifact`, `assert 'model_checksum' not in artifact`, `assert 'feature_schema_version' not in artifact`."
+  - "All 30 training tests pass (`pytest -q`): 5 config + 13 feature + 5 artifact + 5 runtime_separation tests. All 14 workflow tests pass. compileall exit 0."
+  - "All 23 required source API names confirmed present in pipeline.py (23/23)."
+  - "CLI: `python -m bremen.training.train_classifier --help` exits 0, shows --config option."
+  - "Artifact dict: all 21 required fields assembled. kind=='bremen_training_artifact'. metadata contains bremen_version, git_sha, created_at, branch, training_role. Explicit assertions confirm model_version/model_checksum/feature_schema_version absent from training artifact."
+  - "Training config: all 4 sections and 26 fields present in bremen_v0_1_train.yaml. lr1_row_policy='mri_referred_only'. target_sensitivity=0.85 as QC planning target."
+  - "All 7 feature families present: sigma_l1, sigma_l2, Mahalanobis1, Mahalanobis2, wasserstein_distance_full_q2, meanrms2, weightedrms1."
+  - "Feature computation semantics: per-patient target-vs-contralateral symmetry, NOT population-fitted. Missing contralateral → NaN. Tests: TestMahalanobisSemantics, TestWassersteinSemantics, TestMissingContralateral."
+  - "Dockerfile.training: training-only, ENTRYPOINT python -m bremen.training.train_classifier, no secrets/artifacts/H5 baked in. Runtime Dockerfile unchanged."
+  - "CI ecr-publish.yml: publish-training job uses -f Dockerfile.training, pushes to bremen-training repo with github.sha and latest tags only, no app-runner tag for training."
+  - "Terraform: aws_ecr_repository.bremen_training added. Runtime ECR preserved. No account-specific URLs."
+  - "Runtime separation: no bremen.training imports in runtime modules. test_runtime_does_not_import_training passes. Runtime Dockerfile unchanged."
+  - "joblib.dump: in pipeline.py (output artifact) and test files only. Pre-existing mlflow_tracking.py unchanged (git diff src/bremen/ empty)."
+  - "No clinical claims, no real H5/data access, no model artifacts committed, no inference integration."
+  - "Changed files exactly match allowed set (14 files). No forbidden files changed."
