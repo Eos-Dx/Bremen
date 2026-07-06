@@ -73,8 +73,7 @@ jobs:
       - name: Build and push training image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr-training.outputs.registry }}
-          ECR_REPOSITORY: bremen-training
-          IMAGE_TAG: ${{ github.sha }}
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
           BREMEN_CI_GITHUB_TOKEN: ${{ secrets.BREMEN_CI_GITHUB_TOKEN }}
         run: |
           IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}"
@@ -82,9 +81,7 @@ jobs:
           docker build \
             -f Dockerfile.training \
             --build-arg BREMEN_CI_GITHUB_TOKEN="${BREMEN_CI_GITHUB_TOKEN}" \
-            -t "${IMAGE_URI}:${IMAGE_TAG}" \
-            -t "${IMAGE_URI}:latest" \
+            -t "${IMAGE_URI}:training" \
             .
 
-          docker push "${IMAGE_URI}:${IMAGE_TAG}"
-          docker push "${IMAGE_URI}:latest"
+          docker push "${IMAGE_URI}:training"
