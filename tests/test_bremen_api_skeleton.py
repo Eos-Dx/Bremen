@@ -437,8 +437,15 @@ class TestImportSafety:
                 pytest.fail(f"{py_file} contains 'pickle.load('")
 
     def test_no_h5_references(self):
-        """No API source file references .h5, .hdf5, or h5py."""
+        """No API source file references .h5, .hdf5, or h5py.
+
+        Note: ``preflight.py`` is the sole exception — it implements
+        the H5 preflight gate (PR 0037) and intentionally imports
+        ``h5py`` for reading H5 container metadata only.
+        """
         for py_file in API_SRC.rglob("*.py"):
+            if py_file.name == "preflight.py":
+                continue  # H5 preflight gate (PR 0037)
             content = py_file.read_text(encoding="utf-8")
             for ref in [".h5", ".hdf5", "h5py"]:
                 if ref in content:

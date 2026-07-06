@@ -11,3 +11,11 @@ reports/
 *.egg-info/
 examples/__marimo__/
 .DS_Store
+
+# Bremen external data/model artifact guard
+*.h5
+*.hdf5
+*.joblib
+*.pkl
+*.npy
+*.npz
