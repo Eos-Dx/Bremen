@@ -82,9 +82,59 @@ class ModelState:
 
         if not model_uri:
             _logger.warning(
-                "Model URI not set (env %s). Model not ready.", _ENV_URI
+                "bremen.model.config.missing\t"
+                "stage=config\tstatus=missing\t"
+                "reason=model_uri_not_set\t"
+                "env_var=%s",
+                _ENV_URI,
+            )
+            _logger.warning(
+                "bremen.model.not_ready\t"
+                "stage=startup\tstatus=completed\t"
+                "model_ready=false\t"
+                "reason=model_uri_not_set",
             )
             return False
+
+        # --- Discover and log config state ---
+        uri_scheme = "missing"
+        if str(model_uri).startswith("s3://"):
+            uri_scheme = "s3"
+        elif str(model_uri).startswith("file://"):
+            uri_scheme = "file"
+        elif str(model_uri):
+            uri_scheme = "local"
+
+        checksum_present = bool(model_checksum)
+        staging_dir_source = "default"
+        if os.environ.get("BREMEN_MODEL_STAGING_DIR"):
+            staging_dir_source = "config"
+
+        _logger.info(
+            "bremen.model.config.read\t"
+            "stage=config\tstatus=read\t"
+            "uri_scheme=%s\t"
+            "model_version=%s\t"
+            "checksum_present=%s\t"
+            "checksum_algorithm=sha256\t"
+            "staging_dir_source=%s",
+            uri_scheme,
+            model_version or "",
+            str(checksum_present).lower(),
+            staging_dir_source,
+        )
+
+        if model_uri and model_checksum:
+            _logger.info(
+                "bremen.model.config.detected\t"
+                "stage=config\tstatus=detected\t"
+                "uri_scheme=%s\t"
+                "model_version=%s\t"
+                "checksum_present=%s",
+                uri_scheme,
+                model_version or "",
+                str(checksum_present).lower(),
+            )
 
         # S3 download using stage_model_artifact
         if str(model_uri).startswith("s3://"):
@@ -97,7 +147,18 @@ class ModelState:
                 )
             except ValueError as exc:
                 _logger.error(
-                    "Failed to stage S3 model artifact: %s", exc
+                    "bremen.model.artifact.stage.failure\t"
+                    "stage=staging\tstatus=failed\t"
+                    "exception_class=%s\t"
+                    "safe_reason=%s",
+                    type(exc).__name__,
+                    str(exc).split(".")[0][:200] if str(exc) else "unknown",
+                )
+                _logger.warning(
+                    "bremen.model.not_ready\t"
+                    "stage=startup\tstatus=completed\t"
+                    "model_ready=false\t"
+                    "reason=s3_staging_failure",
                 )
                 return False
 
@@ -112,7 +173,17 @@ class ModelState:
 
             model_file = Path(model_path)
             if not model_file.exists():
-                _logger.error("Model file not found: %s", model_file)
+                _logger.error(
+                    "bremen.model.artifact.stage.failure\t"
+                    "stage=staging\tstatus=failed\t"
+                    "reason=local_file_not_found",
+                )
+                _logger.warning(
+                    "bremen.model.not_ready\t"
+                    "stage=startup\tstatus=completed\t"
+                    "model_ready=false\t"
+                    "reason=local_file_not_found",
+                )
                 return False
 
         # Verify checksum (strip "sha256:" prefix if present)
@@ -121,33 +192,102 @@ class ModelState:
             expected_hash = expected_hash[len("sha256:"):]
 
         if expected_hash:
+            _logger.debug(
+                "bremen.model.checksum.verify.start\t"
+                "stage=checksum\tstatus=started\t"
+                "checksum_algorithm=sha256",
+            )
             computed = _compute_file_sha256(model_file)
             if computed != expected_hash:
                 _logger.error(
-                    "SHA-256 mismatch for %s: computed=%s, expected=%s",
-                    model_file, computed, expected_hash,
+                    "bremen.model.checksum.verify.failure\t"
+                    "stage=checksum\tstatus=failed\t"
+                    "reason=checksum_mismatch\t"
+                    "model_file=%s",
+                    model_file.name,
+                )
+                _logger.warning(
+                    "bremen.model.not_ready\t"
+                    "stage=startup\tstatus=completed\t"
+                    "model_ready=false\t"
+                    "reason=checksum_mismatch",
                 )
                 return False
+            _logger.info(
+                "bremen.model.checksum.verify.success\t"
+                "stage=checksum\tstatus=completed\t"
+                "checksum_algorithm=sha256",
+            )
         else:
             _logger.warning(
-                "No model checksum configured (env %s). Skipping verification.",
+                "bremen.model.checksum.verify.skipped\t"
+                "stage=checksum\tstatus=skipped\t"
+                "reason=checksum_env_not_set\t"
+                "env_var=%s",
                 _ENV_CHECKSUM,
             )
 
         # Load model using joblib (controlled load boundary)
         from joblib import load as _joblib_load  # noqa: PLC0415
 
+        _logger.debug(
+            "bremen.model.load.start\t"
+            "stage=load\tstatus=started\t"
+            "model_file=%s",
+            model_file.name,
+        )
         try:
             package = _joblib_load(model_file)
         except Exception as exc:
-            _logger.error("Failed to load model package: %s", exc)
+            _logger.error(
+                "bremen.model.load.failure\t"
+                "stage=load\tstatus=failed\t"
+                "exception_class=%s\t"
+                "safe_reason=%s",
+                type(exc).__name__,
+                str(exc).split(".")[0][:200] if str(exc) else "unknown",
+            )
+            _logger.warning(
+                "bremen.model.not_ready\t"
+                "stage=startup\tstatus=completed\t"
+                "model_ready=false\t"
+                "reason=joblib_load_failure",
+            )
             return False
+
+        _logger.info(
+            "bremen.model.load.success\t"
+            "stage=load\tstatus=completed\t"
+            "model_file=%s\t"
+            "size_bytes=%s",
+            model_file.name,
+            str(model_file.stat().st_size),
+        )
 
         if not isinstance(package, dict):
             _logger.error(
-                "Model package must be a dict, got %s", type(package).__name__
+                "bremen.model.validation.failure\t"
+                "stage=validation\tstatus=failed\t"
+                "reason=not_a_dict\t"
+                "actual_type=%s",
+                type(package).__name__,
+            )
+            _logger.warning(
+                "bremen.model.not_ready\t"
+                "stage=startup\tstatus=completed\t"
+                "model_ready=false\t"
+                "reason=package_not_dict",
             )
             return False
+
+        _logger.info(
+            "bremen.model.validation.success\t"
+            "stage=validation\tstatus=completed\t"
+            "artifact_type=%s",
+            package.get("portable_logreg", {}).get(
+                "feature_columns", "unknown"
+            ),
+        )
 
         state._model_package = package
         state._model_version = model_version or ""
@@ -155,8 +295,13 @@ class ModelState:
         state._loaded = True
 
         _logger.info(
-            "Model loaded: version=%s, path=%s, size=%d bytes",
-            state._model_version, model_file, model_file.stat().st_size,
+            "bremen.model.ready\t"
+            "stage=startup\tstatus=completed\t"
+            "model_ready=true\t"
+            "model_version=%s\t"
+            "size_bytes=%s",
+            state._model_version,
+            str(model_file.stat().st_size),
         )
         return True
 

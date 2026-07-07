@@ -91,8 +91,20 @@ def verify_file_sha256(path: str | Path, expected_checksum: str) -> None:
             f"{hex_digest!r}"
         )
 
+    _logger.debug(
+        "bremen.model.checksum.verify.start\t"
+        "stage=checksum\tstatus=started\t"
+        "checksum_algorithm=sha256",
+    )
     computed = _compute_sha256(p)
     if computed != hex_digest:
+        _logger.error(
+            "bremen.model.checksum.verify.failure\t"
+            "stage=checksum\tstatus=failed\t"
+            "reason=checksum_mismatch\t"
+            "file=%s",
+            p.name,
+        )
         # Delete bad file before raising
         try:
             p.unlink(missing_ok=True)
@@ -102,6 +114,12 @@ def verify_file_sha256(path: str | Path, expected_checksum: str) -> None:
             f"SHA-256 mismatch for {p}: "
             f"computed={computed}, expected={hex_digest}"
         )
+
+    _logger.info(
+        "bremen.model.checksum.verify.success\t"
+        "stage=checksum\tstatus=completed\t"
+        "checksum_algorithm=sha256",
+    )
 
 
 def stage_model_artifact(
@@ -134,6 +152,19 @@ def stage_model_artifact(
         On download failure, checksum mismatch, or invalid URI.
     """
     staging_path = _resolve_staging_dir(staging_dir)
+
+    scheme = "local"
+    if uri.startswith("s3://"):
+        scheme = "s3"
+    elif uri.startswith("file://"):
+        scheme = "file"
+
+    _logger.info(
+        "bremen.model.artifact.stage.start\t"
+        "stage=staging\tstatus=started\t"
+        "uri_scheme=%s",
+        scheme,
+    )
 
     if uri.startswith("s3://"):
         bucket, key = parse_s3_uri(uri)
@@ -181,6 +212,12 @@ def stage_s3_model_artifact(
     staging_dir = Path(staging_dir)
     staging_dir.mkdir(parents=True, exist_ok=True)
 
+    _logger.info(
+        "bremen.model.artifact.stage.start\t"
+        "stage=staging\tstatus=started\t"
+        "uri_scheme=s3",
+    )
+
     # Determine a safe filename from the key
     filename = Path(key).name or f"{bucket}-{key.replace('/', '_')}.joblib"
     final_path = staging_dir / filename
@@ -199,23 +236,54 @@ def stage_s3_model_artifact(
             s3_client = _s3_client("s3")
 
         s3_client.download_file(bucket, key, str(tmp_path))
+        size_bytes = tmp_path.stat().st_size
     except Exception as exc:
         # Clean up temp file on download failure
         try:
             tmp_path.unlink(missing_ok=True)
         except OSError:
             pass
+        _logger.error(
+            "bremen.model.artifact.stage.failure\t"
+            "stage=staging\tstatus=failed\t"
+            "exception_class=%s\t"
+            "safe_reason=%s",
+            type(exc).__name__,
+            str(exc).split(".")[0][:200],
+        )
         raise ValueError(f"S3 download failed: {exc}") from exc
 
     # Verify checksum before finalising
     try:
+        _logger.debug(
+            "bremen.model.checksum.verify.start\t"
+            "stage=checksum\tstatus=started\t"
+            "checksum_algorithm=sha256",
+        )
         verify_file_sha256(tmp_path, expected_checksum)
+        _logger.info(
+            "bremen.model.checksum.verify.success\t"
+            "stage=checksum\tstatus=completed\t"
+            "checksum_algorithm=sha256",
+        )
     except ValueError:
+        _logger.error(
+            "bremen.model.checksum.verify.failure\t"
+            "stage=checksum\tstatus=failed\t"
+            "reason=checksum_mismatch",
+        )
         # verify_file_sha256 already deletes the tmp file on mismatch
         raise
 
     # Atomically rename to final path
     shutil.move(str(tmp_path), str(final_path))
+
+    _logger.info(
+        "bremen.model.artifact.stage.success\t"
+        "stage=staging\tstatus=completed\t"
+        "size_bytes=%s",
+        str(size_bytes),
+    )
 
     return final_path
 
@@ -257,6 +325,13 @@ def _stage_local_artifact(
 
     src = Path(local_path)
     if not src.exists():
+        _logger.error(
+            "bremen.model.artifact.stage.failure\t"
+            "stage=staging\tstatus=failed\t"
+            "reason=local_file_not_found\t"
+            "source=%s",
+            src.name,
+        )
         raise ValueError(f"Local artifact not found: {src}")
 
     staging_dir.mkdir(parents=True, exist_ok=True)
@@ -265,14 +340,36 @@ def _stage_local_artifact(
     shutil.copy2(src, dest)
 
     try:
+        _logger.debug(
+            "bremen.model.checksum.verify.start\t"
+            "stage=checksum\tstatus=started\t"
+            "checksum_algorithm=sha256",
+        )
         verify_file_sha256(dest, expected_checksum)
+        _logger.info(
+            "bremen.model.checksum.verify.success\t"
+            "stage=checksum\tstatus=completed\t"
+            "checksum_algorithm=sha256",
+        )
     except ValueError:
+        _logger.error(
+            "bremen.model.checksum.verify.failure\t"
+            "stage=checksum\tstatus=failed\t"
+            "reason=checksum_mismatch",
+        )
         # Delete on checksum mismatch
         try:
             dest.unlink(missing_ok=True)
         except OSError:
             pass
         raise
+
+    _logger.info(
+        "bremen.model.artifact.stage.success\t"
+        "stage=staging\tstatus=completed\t"
+        "size_bytes=%s",
+        str(dest.stat().st_size),
+    )
 
     return dest
 

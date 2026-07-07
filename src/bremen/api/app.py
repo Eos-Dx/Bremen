@@ -164,6 +164,18 @@ def handle_submit_prediction(
                 result=completed_result,
             )
         except Exception as exc:
+            import logging
+            _log = logging.getLogger(__name__)
+            _log.error(
+                "bremen.prediction.failed\t"
+                "stage=prediction\tstatus=failed\t"
+                "exception_class=%s\t"
+                "safe_reason=%s\t"
+                "job_id=%s",
+                type(exc).__name__,
+                str(exc)[:200],
+                record.job_id,
+            )
             job_store.update_status(
                 record.job_id,
                 "failed",

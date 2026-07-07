@@ -128,8 +128,13 @@ class TestPortableInference:
 
 
 class TestEndToEndInference:
-    def test_end_to_end_synthetic_inference(self, tmp_path: Path):
-        """run_inference with synthetic H5 + synthetic model produces all mandatory fields."""
+    def test_end_to_end_synthetic_inference(self, tmp_path: Path, caplog):
+        """run_inference with synthetic H5 + synthetic model produces all mandatory fields.
+
+        Also verifies ``bremen.prediction.inference.success`` is emitted.
+        """
+        import logging
+        caplog.set_level(logging.INFO)
         h5_path = _create_synthetic_h5(tmp_path)
 
         # Load synthetic model into ModelState
@@ -154,6 +159,7 @@ class TestEndToEndInference:
 
         assert result["triage_recommendation"] in ("MRI_RECOMMENDED", "MRI_RULE_OUT")
         assert 0.0 <= result["p_mri_needed"] <= 1.0
+        assert "bremen.prediction.inference.success" in caplog.text
         ModelState.reset_for_tests()
 
 

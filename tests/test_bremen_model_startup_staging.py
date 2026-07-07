@@ -269,8 +269,14 @@ class TestModelStateIntegration:
         assert ModelState.is_ready() is True
         ModelState.reset_for_tests()
 
-    def test_ModelState_not_ready_on_download_failure(self):
-        """ModelState stays not ready when S3 download fails."""
+    def test_ModelState_not_ready_on_download_failure(self, caplog):
+        """ModelState stays not ready when S3 download fails.
+
+        Also verifies ``bremen.model.artifact.stage.failure`` and
+        ``bremen.model.not_ready`` events are emitted.
+        """
+        import logging
+        caplog.set_level(logging.WARNING)
         ModelState.reset_for_tests()
 
         with patch("bremen.model_artifacts.stage_model_artifact") as mock_stage:
@@ -284,6 +290,9 @@ class TestModelStateIntegration:
 
         assert result is False
         assert ModelState.is_ready() is False
+        assert "bremen.model.artifact.stage.failure" in caplog.text
+        assert "bremen.model.not_ready" in caplog.text
+        assert "model_ready=false" in caplog.text
         ModelState.reset_for_tests()
 
     def test_ModelState_local_loading_still_works(self, tmp_path: Path):
