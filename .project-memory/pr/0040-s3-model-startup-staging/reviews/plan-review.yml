@@ -1,0 +1,53 @@
+review_type: plan-review
+branch: 0040-s3-model-startup-staging
+verdict: warning
+head: "de379720b819df76af9b110e59ce9061e2d4d37b"
+status: "?? .project-memory/pr/0040-s3-model-startup-staging/"
+plan_path: ".project-memory/pr/0040-s3-model-startup-staging/PLAN.md"
+blockers: []
+warnings:
+  - id: "WARNING-1"
+    description: "boto3 import not covered by existing no-network tests. The existing `test_no_boto3_or_requests` in `test_bremen_api_skeleton.py` walks only `src/bremen/api/` (via `API_SRC = Path(...)/src/bremen/api`). The new `src/bremen/model_artifacts.py` will import `boto3` but lives at `src/bremen/model_artifacts.py` (not under `src/bremen/api/`), so it falls outside the existing test scope. Similarly, `test_no_boto3_or_network` (server.py), `test_no_boto3_network` (model_loader.py), and `test_no_boto3_botocore` (model_source.py, cloud_config.py) are all scoped to specific files. No existing test broadly covers `src/bremen/` core modules for boto3/urllib. The new `tests/test_bremen_model_startup_staging.py` is S3-specific but does not include an import-safety test for `model_artifacts.py`. Not a blocker since the module placement is architecturally correct (S3 staging is not API-layer), and adding boto3 to requirements.txt is the intended mechanism. The precommit-review phase should add an import-safety test or update `test_bremen_api_skeleton.py` to exclude `model_artifacts.py` from the API-layer scope if desired."
+  - id: "WARNING-2"
+    description: "Minor text duplication in S3 fetch implementation plan. The docstring for `stage_model_artifact()` says 'Supports: ... s3:// URIs (new in PR 0040)' but the plan already clarifies this in the Startup model loading contract section above. Redundant but not incorrect."
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  objective_scope_clear: true
+  s3_startup_flow_planned: true
+  checksum_before_deserialization: true
+  staging_directory_planned: true
+  s3_uri_parsing_planned: true
+  dependency_decision_planned: true
+  no_hardcoded_credentials: true
+  tests_no_network_planned: true
+  model_state_integration_planned: true
+  api_behavior_preserved: true
+  terraform_scope_safe: true
+  no_artifacts_committed: true
+  no_feature_schema_or_inference_drift: true
+  no_training_or_clinical_scope: true
+  validation_commands_present: true
+  implementation_agent_coder: true
+  rollback_plan_present: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0040-s3-model-startup-staging/PLAN.md"
+    - ".project-memory/pr/0040-s3-model-startup-staging/reviews/plan-review.yml"
+notes:
+  - "VERDICT: warning — blockers are empty. All 20 checks pass. The boto3 import-safety gap (WARNING-1) is a test-coverage observation, not a real block condition."
+  - "Branch is `0040-s3-model-startup-staging` confirmed by `git branch --show-current` and `git rev-parse --verify HEAD = de379720b819df76af9b110e59ce9061e2d4d37b`. PR 0039 is confirmed merged into this branch (no merge commit in log since HEAD is de379720 which is the PR0039 HEAD)."
+  - "Only new/untracked files: `.project-memory/pr/0040-s3-model-startup-staging/` directory (PLAN.md and this review). No implementation files edited during planning."
+  - "PR0039 foundation files confirmed present: `src/bremen/api/model_state.py`, `src/bremen/model_loader.py`, `src/bremen/model_package.py`, `src/bremen/inference.py`, `src/bremen/api/inference_handler.py`, `src/bremen/api/app.py` all exist."
+  - "boto3 confirmed absent from requirements.txt and pyproject.toml. Plan correctly decides to add `boto3>=1.35` to requirements.txt (not pyproject.toml). Justified: S3 SDK required for download."
+  - "Checksum-before-deserialization verified twice: (1) `stage_model_artifact()` verifies checksum before returning path; (2) `ModelState.load_at_startup()` verifies checksum before `joblib.load()`. No deserialization before checksum passes."
+  - "S3 behavior: current `model_state.py` lines 90-96 detect s3:// and return False with a log message. After PR0040, this block is replaced with call to `stage_model_artifact()`."
+  - "Staging directory: default `tempfile.gettempdir() / 'bremen-models'`, override via `BREMEN_MODEL_STAGING_DIR`. Atomically renames temp file after download. Deletes temp files on checksum mismatch. No staging under repo."
+  - "S3 client injectable via `s3_client` parameter for testing. No real AWS calls in tests — uses `unittest.mock` throughout."
+  - "Local/file behavior preserved. No changes to API routes. 503 when model not ready preserved. `/health` model_ready preserved."
+  - "No real artifacts committed: git ls-files for *.h5/*.joblib/*.pkl/*.npy/*.npz returned empty (only venv files)."
+  - "No secrets, account IDs, hardcoded credentials. AWS default credential provider chain used."
+  - "Validation checklist includes compile check, 8 test suites, grep for S3 staging patterns, checksum boundary grep, no-secrets grep, no-sklearn/training grep, artifact scans, and forbidden diff."
+  - "WARNING-1 action (non-blocking): precommit-review should either (a) update `test_bremen_api_skeleton.py` to exclude `model_artifacts.py` from the API-layer boto3 check (since it's not API-layer), or (b) add a narrow import-safety test in `test_bremen_model_startup_staging.py` confirming `model_artifacts.py` only imports from allowed stdlib/boto3."
+  - "WARNING-2 action: no action required — text redundancy is cosmetic."
