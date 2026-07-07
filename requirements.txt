@@ -33,3 +33,6 @@ container @ git+https://github.com/Eos-Dx/container.git@feat/v0_3-eoscan-session
 #
 # Aramis is not an active Bremen dependency (ADR-0002) — the
 # stale local-path editable line has been removed.
+
+# S3 model artifact download (PR 0040)
+boto3>=1.35

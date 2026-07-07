@@ -86,24 +86,34 @@ class ModelState:
             )
             return False
 
-        # Handle S3 URIs
+        # S3 download using stage_model_artifact
         if str(model_uri).startswith("s3://"):
-            _logger.warning(
-                "S3 model URI detected (%s). S3 download is not implemented "
-                "in this version. Download the model file manually and "
-                "re-point %s to a local path.", model_uri, _ENV_URI
-            )
-            return False
+            from ..model_artifacts import stage_model_artifact  # noqa: PLC0415
 
-        # Resolve filesystem path (support file:// prefix)
-        model_path = str(model_uri)
-        if model_path.startswith("file://"):
-            model_path = model_path[len("file://"):]
+            try:
+                staged_path = stage_model_artifact(
+                    uri=str(model_uri),
+                    expected_checksum=model_checksum,
+                )
+            except ValueError as exc:
+                _logger.error(
+                    "Failed to stage S3 model artifact: %s", exc
+                )
+                return False
 
-        model_file = Path(model_path)
-        if not model_file.exists():
-            _logger.error("Model file not found: %s", model_file)
-            return False
+            # Resolve the staged path for checksum verification below
+            model_path = str(staged_path)
+            model_file = Path(model_path)
+        else:
+            # Resolve filesystem path (support file:// prefix)
+            model_path = str(model_uri)
+            if model_path.startswith("file://"):
+                model_path = model_path[len("file://"):]
+
+            model_file = Path(model_path)
+            if not model_file.exists():
+                _logger.error("Model file not found: %s", model_file)
+                return False
 
         # Verify checksum (strip "sha256:" prefix if present)
         expected_hash = model_checksum
