@@ -297,7 +297,7 @@ class TestPredictionRejection:
     def test_prediction_rejected_logs_one_event(self, caplog):
         """Model not ready through full server path: exactly one
         bremen.prediction.request.rejected event."""
-        caplog.set_level(logging.WARNING)
+        caplog.set_level(logging.INFO)
         from bremen.api.model_state import ModelState
         ModelState.reset_for_tests()
 
@@ -345,6 +345,8 @@ class TestPredictionRejection:
                 "bremen.prediction.request.rejected"
             )
             assert rejection_count == 1
+            # request.received should also be present
+            assert "bremen.prediction.request.received" in caplog.text
             # No request body in logs
             assert "/tmp/test.h5" not in caplog.text
             assert "scan:tgt/001" not in caplog.text
@@ -352,6 +354,185 @@ class TestPredictionRejection:
             server.shutdown()
             thread.join(timeout=2)
             ModelState.reset_for_tests()
+
+
+# ---------------------------------------------------------------------------
+# Startup visibility
+# ---------------------------------------------------------------------------
+
+
+class TestStartupVisibility:
+    def test_server_startup_with_no_model_env(self, caplog):
+        """Server startup with no model env logs config and not_ready."""
+        caplog.set_level(logging.INFO)
+        from bremen.api.model_state import ModelState
+        ModelState.reset_for_tests()
+
+        # Simulate server startup model loading with no env
+        result = ModelState.load_at_startup(
+            model_uri="",
+            model_version="",
+            model_checksum="",
+        )
+        assert result is False
+        assert "bremen.runtime.config.summary" not in caplog.text  # server event, not model_state
+        assert "bremen.model.config.read" not in caplog.text  # empty URI returns early before config.read
+        assert "bremen.model.config.missing" in caplog.text
+        assert "bremen.model.not_ready" in caplog.text
+        ModelState.reset_for_tests()
+
+    def test_server_startup_with_loading_failure(self, caplog, tmp_path):
+        """Server startup with model loading failure logs stage events."""
+        caplog.set_level(logging.INFO)
+        from bremen.api.model_state import ModelState
+        ModelState.reset_for_tests()
+
+        # Use a checksum mismatch to simulate loading failure
+        bad_file = tmp_path / "bad_model.joblib"
+        bad_file.write_bytes(b"not a valid model")
+        result = ModelState.load_at_startup(
+            model_uri=str(bad_file),
+            model_version="v0.1",
+            model_checksum="a" * 64,  # wrong checksum
+        )
+        assert result is False
+        # Stage failure logs
+        assert "bremen.model.config.read" in caplog.text
+        assert "bremen.model.config.detected" in caplog.text
+        assert "bremen.model.checksum.verify.failure" in caplog.text
+        assert "bremen.model.not_ready" in caplog.text
+        ModelState.reset_for_tests()
+
+    def test_prediction_request_received_has_safe_fields(self, caplog):
+        """POST /predictions with model not ready logs request.received."""
+        caplog.set_level(logging.INFO)
+        from bremen.api.model_state import ModelState
+        ModelState.reset_for_tests()
+
+        import socket
+        import threading
+        from http.server import HTTPServer
+        from urllib.request import Request, urlopen
+        from urllib.error import HTTPError
+        import json
+
+        from bremen.api.jobs import InMemoryJobStore
+        from bremen.api.server import _make_handler
+
+        host = "127.0.0.1"
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind((host, 0))
+            port = s.getsockname()[1]
+
+        job_store = InMemoryJobStore()
+        handler = _make_handler(job_store, version="test", load_model=False)
+        server = HTTPServer((host, port), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        try:
+            payload = {
+                "target_scan_ref": "scan:tgt/001",
+                "control_scan_ref": "scan:ctl/001",
+            }
+            data = json.dumps(payload).encode("utf-8")
+            req = Request(
+                f"http://{host}:{port}/predictions",
+                data=data,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            try:
+                urlopen(req, timeout=3)
+            except HTTPError as exc:
+                assert exc.code == 503
+
+            assert "bremen.prediction.request.received" in caplog.text
+            assert "route=/predictions" in caplog.text
+            assert "method=POST" in caplog.text
+            assert "content_length=" in caplog.text
+            assert "model_ready=false" in caplog.text
+            # No request body leaked
+            assert "scan:tgt/001" not in caplog.text
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            ModelState.reset_for_tests()
+
+
+# ---------------------------------------------------------------------------
+# H5 / Preflight / Preprocessing / Inference visibility
+# ---------------------------------------------------------------------------
+
+
+class TestInferenceStageVisibility:
+    def test_inference_stages_log_correctly(self, caplog, tmp_path):
+        """Inference path logs h5.received, preflight start/completed, preprocessing,
+        inference stages."""
+        caplog.set_level(logging.DEBUG)
+        from bremen.api.model_state import ModelState
+        from bremen.api.inference_handler import run_inference
+        from joblib import dump
+        from bremen.api.preprocessing_bridge import BREMEN_V01_FEATURE_COLUMNS
+        import h5py
+        import numpy as np
+
+        ModelState.reset_for_tests()
+
+        # Create synthetic H5
+        h5_path = tmp_path / "inf_stage_test.h5"
+        with h5py.File(h5_path, "w") as f:
+            f.create_dataset("/patient/id", data="TEST-STAGE-001")
+            tg = f.create_group("/scans/target")
+            tg.create_dataset("side", data="L")
+            tg.create_dataset(
+                "measurements",
+                data=np.random.default_rng(1).normal(0, 1, (3, 100)).astype(np.float64),
+            )
+            ct = f.create_group("/scans/contralateral")
+            ct.create_dataset("side", data="R")
+            ct.create_dataset(
+                "measurements",
+                data=np.random.default_rng(2).normal(0.3, 1, (3, 100)).astype(np.float64),
+            )
+
+        # Load synthetic model into ModelState
+        package = {
+            "portable_logreg": {
+                "feature_columns": list(BREMEN_V01_FEATURE_COLUMNS),
+                "imputer_statistics": [0.0] * 15,
+                "scaler_mean": [0.0] * 15,
+                "scaler_scale": [1.0] * 15,
+                "coef": [0.1] * 15,
+                "intercept": 0.0,
+                "threshold": 0.5,
+            }
+        }
+        state = ModelState.get_instance()
+        state._model_package = package
+        state._model_version = "v0.1"
+        state._model_checksum = "a" * 64
+        state._loaded = True
+
+        result = run_inference(str(h5_path))
+        assert result is not None
+
+        # Verify all stage logs present
+        assert "bremen.prediction.h5.received" in caplog.text
+        assert "h5_input_present=true" in caplog.text
+        assert "bremen.prediction.preflight.start" in caplog.text
+        assert "bremen.prediction.preflight.completed" in caplog.text
+        assert "bremen.prediction.preprocessing.start" in caplog.text
+        assert "bremen.prediction.preprocessing.completed" in caplog.text
+        assert "bremen.prediction.inference.start" in caplog.text
+        assert "bremen.prediction.inference.success" in caplog.text
+        assert "bremen.prediction.completed" in caplog.text
+
+        # No forbidden fields in logs
+        log_text = caplog.text
+        assert "TEST-STAGE-001" not in log_text  # patient_id not logged
+        assert "/patient/id" not in log_text  # no H5 raw metadata
+        ModelState.reset_for_tests()
 
 
 # ---------------------------------------------------------------------------

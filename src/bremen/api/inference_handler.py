@@ -55,7 +55,20 @@ def run_inference(
     -------
     A dict with all mandatory prediction response fields.
     """
-    # 1. Preflight
+    # 1. H5 received
+    _log.info(
+        "bremen.prediction.h5.received\t"
+        "stage=h5\tstatus=received\t"
+        "h5_input_present=true\t"
+        "h5_basename=%s",
+        Path(h5_path).name,
+    )
+
+    # 2. Preflight
+    _log.debug(
+        "bremen.prediction.preflight.start\t"
+        "stage=preflight\tstatus=started",
+    )
     preflight = run_h5_preflight(h5_path)
     if not preflight.passed:
         _log.error(
