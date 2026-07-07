@@ -1,64 +1,41 @@
 review_type: precommit-review
 branch: 0040-s3-model-startup-staging
 verdict: pass
-head: "497542d18407ed39a0c86e26a10f10fa93843a98"
-status: " M requirements.txt\n M src/bremen/api/model_state.py\n?? src/bremen/model_artifacts.py\n?? tests/test_bremen_model_startup_staging.py"
+head: "5cff4012a39a51125027e13f54c6a8683346c893"
+status: " M src/bremen/__main__.py"
 changed_files:
-  - requirements.txt
-  - src/bremen/api/model_state.py
-  - src/bremen/model_artifacts.py
-  - tests/test_bremen_model_startup_staging.py
+  - src/bremen/__main__.py
 blockers: []
 warnings: []
 validation:
   compileall: pass
-  model_startup_staging_tests: pass
-  inference_integration_tests: pass
-  api_skeleton_tests: pass
-  api_server_tests: pass
+  cli_top_level_help: pass
+  cli_serve_help: pass
+  cli_preprocess_help: pass
+  cli_serve_starts_server: pass
+  health_responds: pass
+  import_identity_tests: pass
   full_pytest: pass
-  artifact_scan_reviewed: pass
 checks:
   branch_confirmed: true
-  allowed_files_only: true
-  s3_uri_parsing_strict: true
-  staging_dir_safe: true
-  temp_file_then_final_path: true
-  checksum_before_deserialization: true
-  joblib_not_called_on_checksum_mismatch: true
-  bad_staged_files_cleaned: true
-  s3_client_injectable_for_tests: true
-  no_network_in_tests: true
-  import_has_no_s3_side_effect: true
-  model_state_s3_integration_complete: true
-  model_ready_after_fake_s3_success: true
-  model_not_ready_after_s3_failure: true
-  local_file_loading_preserved: true
-  no_per_request_model_loading: true
-  api_behavior_preserved: true
-  dependency_change_narrow: true
-  terraform_scope_safe: true
+  only_allowed_fix_file_changed: true
+  serve_dispatches_to_handler: true
+  top_level_help_not_printed_for_serve: true
+  help_commands_preserved: true
+  no_api_route_change: true
+  no_model_loading_or_s3_staging_change: true
+  no_feature_schema_or_inference_change: true
+  no_training_or_dependency_change: true
   no_real_artifacts_committed: true
-  no_feature_schema_or_inference_drift: true
-  no_training_or_clinical_scope: true
 commit_readiness:
   ready_to_commit: true
   exact_files_to_stage:
-    - requirements.txt
-    - src/bremen/api/model_state.py
-    - src/bremen/model_artifacts.py
-    - tests/test_bremen_model_startup_staging.py
+    - src/bremen/__main__.py
     - .project-memory/pr/0040-s3-model-startup-staging/reviews/precommit-review.yml
 notes:
-  - All 23 S3 model startup staging tests pass
-  - All 443 tests in full suite pass (5 skipped)
-  - S3 URI parsing strictly rejects empty bucket/key
-  - boto3 imported lazily inside stage_s3_model_artifact (not at module level)
-  - Temp file used before final path, cleaned on failure
-  - Checksum verified before joblib.load in ModelState
-  - Fake S3 client injectable via s3_client parameter
-  - No real artifacts committed (no .h5, .joblib, .pkl, .npy, .npz)
-  - boto3>=1.35 added to requirements.txt only
-  - No Terraform changes
-  - No forbidden files changed
-  - API behavior preserved (503 when model not ready)
+  - Root cause: missing `if handler == "serve"` dispatch case in main()
+  - Fix: add `if handler == "serve": return _handle_serve(args)` (2 lines)
+  - `python -m bremen serve --host 127.0.0.1 --port 8080` starts server and /health returns 200
+  - All 443 tests pass, no other files changed
+  - No API routes, model loading, S3 staging, inference, or dependency changes
+  - No artifacts committed

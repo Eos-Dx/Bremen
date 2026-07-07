@@ -114,6 +114,8 @@ def main(argv: list[str] | None = None) -> int:
     handler = getattr(args, "_cmd_handler", None)
     if handler == "preprocess":
         return _handle_preprocess(args)
+    if handler == "serve":
+        return _handle_serve(args)
     if handler == "stub":
         return _handle_stub(args)
 
