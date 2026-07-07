@@ -134,16 +134,25 @@ def handle_submit_prediction(
     request = validate_prediction_request(raw_request)
     record = job_store.create_job(request=request)
 
-    # Always attempt inference for every accepted job
-    h5_path = raw_request.get("h5_path", "")
-    if not h5_path or not isinstance(h5_path, str):
-        raise ValueError("h5_path is required and must be a non-empty string")
+    # Resolve H5 input path: stage from S3 or use filesystem path
+    resolved_h5_path: str
+    if request.h5_uri:
+        from ..h5_inputs import stage_h5_input  # noqa: PLC0415
+
+        staged = stage_h5_input(
+            request.h5_uri,
+            expected_checksum=request.h5_checksum,
+        )
+        resolved_h5_path = str(staged)
+    else:
+        # h5_path is guaranteed non-None by schema validation
+        resolved_h5_path = request.h5_path  # type: ignore[union-attr]
 
     try:
         from .inference_handler import run_inference  # noqa: PLC0415
 
         result_dict = run_inference(
-            h5_path=h5_path,
+            h5_path=resolved_h5_path,
             patient_id=raw_request.get("patient_id"),
         )
 
