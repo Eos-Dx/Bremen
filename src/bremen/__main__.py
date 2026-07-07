@@ -22,7 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
             "Not a diagnostic replacement."
         ),
     )
-    subparsers = parser.add_subparsers(dest="command")
+    subparsers = parser.add_subparsers(dest="command", required=True)
 
     # --- Real command: preprocess ---
     _add_preprocess_subcommand(subparsers)
