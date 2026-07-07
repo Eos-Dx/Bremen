@@ -22,7 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
             "Not a diagnostic replacement."
         ),
     )
-    subparsers = parser.add_subparsers(dest="command")
+    subparsers = parser.add_subparsers(dest="command", required=True)
 
     # --- Real command: preprocess ---
     _add_preprocess_subcommand(subparsers)
@@ -104,7 +104,11 @@ def _handle_stub(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    import sys
     parser = build_parser()
+    if argv is None and len(sys.argv) == 1:
+        parser.print_help()
+        return 0
     args = parser.parse_args(argv)
 
     if args.command is None:
@@ -114,6 +118,8 @@ def main(argv: list[str] | None = None) -> int:
     handler = getattr(args, "_cmd_handler", None)
     if handler == "preprocess":
         return _handle_preprocess(args)
+    if handler == "serve":
+        return _handle_serve(args)
     if handler == "stub":
         return _handle_stub(args)
 
