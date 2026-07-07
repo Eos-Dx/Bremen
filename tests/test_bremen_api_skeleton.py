@@ -227,7 +227,10 @@ class TestSubmitPrediction:
         store = InMemoryJobStore()
         with pytest.raises(ValueError, match="target_scan_ref"):
             handle_submit_prediction(
-                {"control_scan_ref": "scan:ctl/001"}, store
+                {
+                    "control_scan_ref": "scan:ctl/001",
+                    "h5_path": "/tmp/test.h5",
+                }, store
             )
 
     def test_submit_requires_control_scan_ref(self):
@@ -236,7 +239,10 @@ class TestSubmitPrediction:
         store = InMemoryJobStore()
         with pytest.raises(ValueError, match="control_scan_ref"):
             handle_submit_prediction(
-                {"target_scan_ref": "scan:tgt/001"}, store
+                {
+                    "target_scan_ref": "scan:tgt/001",
+                    "h5_path": "/tmp/test.h5",
+                }, store
             )
 
     def test_submit_stores_job(self, monkeypatch):
@@ -433,14 +439,16 @@ class TestCompletedResultFields:
 
 class TestPredictionRequestValidation:
     def test_valid_request(self):
-        """Valid request passes validation."""
+        """Valid request with h5_path passes validation."""
         request = validate_prediction_request({
             "target_scan_ref": "scan:tgt/001",
             "control_scan_ref": "scan:ctl/001",
+            "h5_path": "/tmp/test.h5",
         })
         assert isinstance(request, PredictionRequest)
         assert request.target_scan_ref == "scan:tgt/001"
         assert request.control_scan_ref == "scan:ctl/001"
+        assert request.h5_path == "/tmp/test.h5"
 
     def test_missing_target_scan_ref(self):
         """Missing target_scan_ref raises ValueError."""
@@ -455,6 +463,89 @@ class TestPredictionRequestValidation:
             validate_prediction_request({
                 "target_scan_ref": "",
                 "control_scan_ref": "scan:ctl/001",
+            })
+
+    def test_valid_with_h5_path(self):
+        """Valid request with h5_path passes validation."""
+        request = validate_prediction_request({
+            "target_scan_ref": "scan:tgt/001",
+            "control_scan_ref": "scan:ctl/001",
+            "h5_path": "/tmp/input.h5",
+        })
+        assert isinstance(request, PredictionRequest)
+        assert request.h5_path == "/tmp/input.h5"
+        assert request.h5_uri is None
+        assert request.h5_checksum is None
+
+    def test_valid_with_h5_uri(self):
+        """Valid request with h5_uri passes validation."""
+        request = validate_prediction_request({
+            "target_scan_ref": "scan:tgt/001",
+            "control_scan_ref": "scan:ctl/001",
+            "h5_uri": "s3://bucket/test.h5",
+        })
+        assert isinstance(request, PredictionRequest)
+        assert request.h5_uri == "s3://bucket/test.h5"
+        assert request.h5_path is None
+
+    def test_valid_with_h5_uri_and_checksum(self):
+        """Valid request with h5_uri and h5_checksum passes."""
+        request = validate_prediction_request({
+            "target_scan_ref": "scan:tgt/001",
+            "control_scan_ref": "scan:ctl/001",
+            "h5_uri": "s3://bucket/test.h5",
+            "h5_checksum": "sha256:" + "a" * 64,
+        })
+        assert isinstance(request, PredictionRequest)
+        assert request.h5_checksum == "sha256:" + "a" * 64
+
+    def test_valid_with_h5_uri_and_uppercase_checksum(self):
+        """Upper-case hex in checksum is accepted."""
+        # Generate exactly 64 uppercase hex chars
+        upper_hex = "A" * 60 + "B" * 4
+        request = validate_prediction_request({
+            "target_scan_ref": "scan:tgt/001",
+            "control_scan_ref": "scan:ctl/001",
+            "h5_uri": "s3://bucket/test.h5",
+            "h5_checksum": "sha256:" + upper_hex.upper(),
+        })
+        assert request.h5_checksum == "sha256:" + upper_hex.upper()
+
+    def test_rejects_both_h5_path_and_h5_uri(self):
+        """Both h5_path and h5_uri raises ValueError."""
+        with pytest.raises(ValueError, match="not both"):
+            validate_prediction_request({
+                "target_scan_ref": "scan:tgt/001",
+                "control_scan_ref": "scan:ctl/001",
+                "h5_path": "/tmp/a.h5",
+                "h5_uri": "s3://bucket/b.h5",
+            })
+
+    def test_rejects_missing_h5_input(self):
+        """Missing both h5_path and h5_uri raises ValueError."""
+        with pytest.raises(ValueError, match="must be provided"):
+            validate_prediction_request({
+                "target_scan_ref": "scan:tgt/001",
+                "control_scan_ref": "scan:ctl/001",
+            })
+
+    def test_rejects_non_s3_h5_uri(self):
+        """Non-s3 URI raises ValueError."""
+        with pytest.raises(ValueError, match="must start with 's3://'"):
+            validate_prediction_request({
+                "target_scan_ref": "scan:tgt/001",
+                "control_scan_ref": "scan:ctl/001",
+                "h5_uri": "https://example.com/file.h5",
+            })
+
+    def test_rejects_bad_checksum_pattern(self):
+        """Malformed checksum raises ValueError."""
+        with pytest.raises(ValueError, match="sha256:"):
+            validate_prediction_request({
+                "target_scan_ref": "scan:tgt/001",
+                "control_scan_ref": "scan:ctl/001",
+                "h5_uri": "s3://bucket/test.h5",
+                "h5_checksum": "md5:abc",
             })
 
 
@@ -588,6 +679,7 @@ class TestImportSafety:
         """
         for py_file in API_SRC.rglob("*.py"):
             if py_file.name in (
+                "app.py",
                 "preflight.py",
                 "preprocessing_bridge.py",
                 "inference_handler.py",

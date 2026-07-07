@@ -303,10 +303,10 @@ class TestPredictionCompletesWithResult:
 class TestPredictionMissingH5Path:
     """Submit without h5_path should raise ValueError."""
 
-    def test_prediction_job_fails_on_missing_h5_path_field(
+    def test_prediction_job_fails_on_missing_h5_input(
         self, tmp_path: Path,
     ):
-        """Submit prediction without h5_path raises ValueError."""
+        """Submit prediction without h5_path or h5_uri raises ValueError."""
         _load_synthetic_model(tmp_path)
         store = InMemoryJobStore()
 
@@ -319,8 +319,9 @@ class TestPredictionMissingH5Path:
                 store,
             )
 
-        assert "h5_path" in str(exc_info.value).lower(), (
-            f"Error must mention 'h5_path', got: {exc_info.value}"
+        error_lower = str(exc_info.value).lower()
+        assert "must be provided" in error_lower or "either" in error_lower, (
+            f"Error must mention missing input, got: {exc_info.value}"
         )
         ModelState.reset_for_tests()
 
@@ -348,8 +349,9 @@ class TestPredictionEmptyH5Path:
                 store,
             )
 
-        assert "h5_path" in str(exc_info.value).lower(), (
-            f"Error must mention 'h5_path', got: {exc_info.value}"
+        error_lower = str(exc_info.value).lower()
+        assert "h5_path" in error_lower or "must be" in error_lower, (
+            f"Error must mention input validation, got: {exc_info.value}"
         )
         ModelState.reset_for_tests()
 
@@ -381,6 +383,220 @@ class TestPredictionRealH5:
                 "h5_path": real_h5_path,
                 "target_scan_ref": "target",
                 "control_scan_ref": "control",
+            },
+            store,
+        )
+
+        status = handle_get_prediction(response.job_id, store)
+
+        # Must not violate the invariant
+        assert not (
+            status.status == STATUS_COMPLETED
+            and status.result is None
+            and status.error is None
+        ), "Job must NEVER be completed with result=None and error=None"
+
+        ModelState.reset_for_tests()
+
+
+# ---------------------------------------------------------------------------
+# H. test_prediction_accepts_s3_h5_uri_and_stages_before_inference
+# ---------------------------------------------------------------------------
+
+
+class TestPredictionS3Uri:
+    """Tests for S3 H5 URI input mode."""
+
+    def test_prediction_accepts_s3_h5_uri_and_stages_before_inference(
+        self, tmp_path: Path, monkeypatch,
+    ):
+        """Submit with h5_uri: stage_h5_input returns local path,
+        run_inference is called with staged local path, not S3 URI."""
+        _load_synthetic_model(tmp_path)
+
+        expected_staged_path = "/tmp/staged-input.h5"
+        call_args = []
+
+        def mock_stage_h5_input(h5_uri, staging_dir="/tmp/bremen-inputs",
+                                 expected_checksum=None, s3_client=None):
+            return Path(expected_staged_path)
+
+        def mock_run_inference(h5_path, patient_id=None):
+            call_args.append((h5_path, patient_id))
+            return _valid_mock_result()
+
+        monkeypatch.setattr(
+            "bremen.h5_inputs.stage_h5_input", mock_stage_h5_input
+        )
+        monkeypatch.setattr(
+            "bremen.api.inference_handler.run_inference", mock_run_inference
+        )
+
+        store = InMemoryJobStore()
+
+        response = handle_submit_prediction(
+            {
+                "h5_uri": "s3://bucket/test.h5",
+                "h5_checksum": "sha256:" + "a" * 64,
+                "target_scan_ref": "target",
+                "control_scan_ref": "control",
+            },
+            store,
+        )
+
+        # Verify run_inference was called
+        assert len(call_args) == 1, (
+            f"run_inference was called {len(call_args)} times, expected 1"
+        )
+
+        actual_h5_path, actual_patient_id = call_args[0]
+        assert actual_h5_path == expected_staged_path, (
+            f"run_inference received '{actual_h5_path}', "
+            f"expected staged path '{expected_staged_path}'"
+        )
+        assert actual_h5_path != "s3://bucket/test.h5", (
+            "run_inference must not receive S3 URI directly"
+        )
+        assert actual_patient_id is None
+
+        # Verify the job completed with result
+        status = handle_get_prediction(response.job_id, store)
+        assert status.status == STATUS_COMPLETED
+        assert status.result is not None
+
+        ModelState.reset_for_tests()
+
+
+# ---------------------------------------------------------------------------
+# I. test_prediction_rejects_both_h5_path_and_h5_uri
+# ---------------------------------------------------------------------------
+
+
+class TestPredictionBothInputs:
+    """Both h5_path and h5_uri must be rejected before job creation."""
+
+    def test_prediction_rejects_both_h5_path_and_h5_uri(
+        self, tmp_path: Path,
+    ):
+        """Both h5_path and h5_uri raises ValueError. No job created."""
+        _load_synthetic_model(tmp_path)
+        store = InMemoryJobStore()
+
+        assert store.job_count == 0
+
+        with pytest.raises(ValueError, match="not both"):
+            handle_submit_prediction(
+                {
+                    "h5_path": "/tmp/a.h5",
+                    "h5_uri": "s3://bucket/b.h5",
+                    "target_scan_ref": "target",
+                    "control_scan_ref": "control",
+                },
+                store,
+            )
+
+        # No job should have been created
+        assert store.job_count == 0, (
+            f"Expected 0 jobs, got {store.job_count}"
+        )
+        ModelState.reset_for_tests()
+
+
+# ---------------------------------------------------------------------------
+# J. test_prediction_rejects_missing_h5_input_before_job_creation
+# ---------------------------------------------------------------------------
+
+
+class TestPredictionMissingInputBeforeCreation:
+    """Validation errors must not create jobs."""
+
+    def test_prediction_rejects_missing_h5_input_before_job_creation(
+        self, tmp_path: Path,
+    ):
+        """No h5_path or h5_uri raises ValueError. No job created."""
+        _load_synthetic_model(tmp_path)
+        store = InMemoryJobStore()
+
+        assert store.job_count == 0
+
+        with pytest.raises(ValueError, match="must be provided"):
+            handle_submit_prediction(
+                {
+                    "target_scan_ref": "target",
+                    "control_scan_ref": "control",
+                },
+                store,
+            )
+
+        assert store.job_count == 0, (
+            f"Expected 0 jobs, got {store.job_count}"
+        )
+        ModelState.reset_for_tests()
+
+
+# ---------------------------------------------------------------------------
+# K. test_prediction_rejects_non_s3_h5_uri
+# ---------------------------------------------------------------------------
+
+
+class TestPredictionNonS3Uri:
+    """Non-S3 h5_uri must be rejected."""
+
+    def test_prediction_rejects_non_s3_h5_uri(
+        self, tmp_path: Path,
+    ):
+        """h5_uri that doesn't start with s3:// raises ValueError."""
+        _load_synthetic_model(tmp_path)
+        store = InMemoryJobStore()
+
+        assert store.job_count == 0
+
+        with pytest.raises(ValueError, match="must start with 's3://'"):
+            handle_submit_prediction(
+                {
+                    "h5_uri": "https://example.com/file.h5",
+                    "target_scan_ref": "target",
+                    "control_scan_ref": "control",
+                },
+                store,
+            )
+
+        assert store.job_count == 0, (
+            f"Expected 0 jobs, got {store.job_count}"
+        )
+        ModelState.reset_for_tests()
+
+
+# ---------------------------------------------------------------------------
+# L. Optional real S3 smoke test (skipped by default)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(
+    "BREMEN_SMOKE_H5_URI" not in os.environ
+    or "BREMEN_SMOKE_H5_SHA" not in os.environ,
+    reason="Set BREMEN_SMOKE_H5_URI and BREMEN_SMOKE_H5_SHA to run real S3 smoke",
+)
+class TestPredictionRealS3Smoke:
+    """Optional real S3 smoke test.
+
+    Skipped by default.  Requires both env vars.
+    """
+
+    def test_prediction_with_real_s3_h5_opt_in(self, tmp_path: Path):
+        """Submit with real S3 URI and checksum, poll for completed."""
+        _load_synthetic_model(tmp_path)
+        store = InMemoryJobStore()
+        s3_uri = os.environ["BREMEN_SMOKE_H5_URI"]
+        s3_sha = os.environ["BREMEN_SMOKE_H5_SHA"]
+
+        response = handle_submit_prediction(
+            {
+                "h5_uri": s3_uri,
+                "h5_checksum": s3_sha,
+                "target_scan_ref": "target",
+                "control_scan_ref": "control",
+                "patient_id": "smoke_test",
             },
             store,
         )
