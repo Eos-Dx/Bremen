@@ -198,7 +198,21 @@ def _make_handler(
                     return
 
                 import logging
+                from .model_state import ModelState  # noqa: PLC0415
                 _log = logging.getLogger("bremen.api.server")
+
+                content_length = self.headers.get("Content-Length", "0")
+
+                _log.info(
+                    "bremen.prediction.request.received\t"
+                    "stage=prediction\tstatus=received\t"
+                    "route=/predictions\t"
+                    "method=POST\t"
+                    "content_length=%s\t"
+                    "model_ready=%s",
+                    content_length,
+                    str(ModelState.is_ready()).lower(),
+                )
 
                 try:
                     resp = handle_submit_prediction(body, job_store)
@@ -296,6 +310,27 @@ def run_server(
         host, port,
     )
 
+    # --- Model startup: load exactly once per process ---
+    from .model_state import ModelState as _ModelState  # noqa: PLC0415
+
+    import os as _os
+    _model_env_present = bool(_os.environ.get("BREMEN_MODEL_URI", ""))
+    model_ready = _ModelState.load_at_startup()
+    _log_level = _os.environ.get("BREMEN_LOG_LEVEL", "INFO")
+    _log.info(
+        "bremen.runtime.config.summary\t"
+        "stage=startup\tstatus=summary\t"
+        "model_env_present=%s\t"
+        "model_ready=%s\t"
+        "log_level=%s\t"
+        "server_host=%s\t"
+        "server_port=%s",
+        str(_model_env_present).lower(),
+        str(model_ready).lower(),
+        _log_level,
+        host, str(port),
+    )
+
     job_store = InMemoryJobStore()
     handler = _make_handler(job_store, version=version)
     server = HTTPServer((host, port), handler)
@@ -305,6 +340,15 @@ def run_server(
         "host=%s\tport=%s",
         host, port,
     )
+
+    _log.info(
+        "bremen.api.routes.ready\t"
+        "stage=startup\tstatus=ready\t"
+        "health_route=true\t"
+        "model_version_route=true\t"
+        "predictions_route=true",
+    )
+
     print(f"Bremen API server listening on http://{host}:{port}")
     print("Dev/smoke mode only. Not for production use.")
 

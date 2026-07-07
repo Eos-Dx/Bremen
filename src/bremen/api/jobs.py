@@ -6,6 +6,7 @@ no concurrency handling beyond basic safety.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -16,6 +17,8 @@ from .schemas import (
     PredictionRequest,
     STATUS_ACCEPTED,
 )
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -66,6 +69,12 @@ class InMemoryJobStore:
             error=None,
         )
         self._jobs[job_id] = record
+        _log.info(
+            "bremen.job.created\t"
+            "stage=job\tstatus=created\t"
+            "job_id=%s",
+            job_id,
+        )
         return record
 
     def get_job(self, job_id: str) -> JobRecord | None:
@@ -109,6 +118,22 @@ class InMemoryJobStore:
             record.result = result
         if error is not None:
             record.error = error
+        if status == "completed":
+            _log.info(
+                "bremen.job.completed\t"
+                "stage=job\tstatus=completed\t"
+                "job_id=%s",
+                job_id,
+            )
+        elif status == "failed":
+            _log.error(
+                "bremen.job.failed\t"
+                "stage=job\tstatus=failed\t"
+                "job_id=%s\t"
+                "safe_reason=%s",
+                job_id,
+                (error or "")[:200],
+            )
 
     @property
     def job_count(self) -> int:
