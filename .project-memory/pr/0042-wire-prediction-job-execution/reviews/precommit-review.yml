@@ -1,0 +1,60 @@
+review_type: precommit-review
+branch: 0042-wire-prediction-job-execution
+verdict: pass
+head: "cfb6d2b93339c71942b0def9d951e7ce2d9a20fd
+status: " M src/bremen/api/app.py"
+  " M tests/test_bremen_api_server.py"
+  " M tests/test_bremen_api_skeleton.py"
+  "?? tests/test_bremen_predictions.py"
+changed_files:
+  - "src/bremen/api/app.py"
+  - "tests/test_bremen_api_server.py"
+  - "tests/test_bremen_api_skeleton.py"
+  - "tests/test_bremen_predictions.py"
+blockers: []
+warnings: []
+validation:
+  compileall: pass
+  prediction_tests: pass
+  api_skeleton_tests: pass
+  api_server_tests: pass
+  logging_tests: pass
+  inference_integration_tests: pass
+  full_pytest: pass
+  artifact_scan_reviewed: pass
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  skeleton_test_scope_approved: true
+  skeleton_test_changes_narrow: true
+  skip_guard_removed: true
+  inference_always_attempted_for_accepted_jobs: true
+  run_inference_receives_h5_path: true
+  target_scan_ref_not_used_as_h5_path: true
+  completed_jobs_require_result: true
+  failed_jobs_require_error: true
+  no_completed_null_error_null_state: true
+  missing_h5_fails_not_completed: true
+  success_path_completes_with_result: true
+  tests_cover_production_bug: true
+  tests_cover_run_inference_argument: true
+  no_inference_handler_preflight_bridge_changes: true
+  no_api_schema_change: true
+  no_inference_or_schema_drift: true
+  no_training_or_clinical_scope: true
+  no_real_artifacts_committed: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "src/bremen/api/app.py"
+    - "tests/test_bremen_predictions.py"
+    - "tests/test_bremen_api_server.py"
+    - "tests/test_bremen_api_skeleton.py"
+    - ".project-memory/pr/0042-wire-prediction-job-execution/reviews/precommit-review.yml"
+notes:
+  - "Production bug fixed: skip guard removed, h5_path validated and passed to run_inference, no completed/null state possible."
+  - "app.py diff: Bug A (startswith guard) removed. Bug B (target_scan_ref passed instead of h5_path) fixed. Inference always attempted for every accepted job."
+  - "test_bremen_predictions.py: 7 tests (6 passed, 1 skipped optional) covering missing H5, invariant, run_inference argument, success path."
+  - "test_bremen_api_skeleton.py: 35 tests pass. Changes narrowly scoped: monkeypatch run_inference, add h5_path to request dicts. Scope approved by human."
+  - "test_bremen_api_server.py: +2 lines only. Adds h5_path to two POST payloads. Necessary adaptation."
+  - "Full suite: 468 passed, 6 skipped. All checks pass."

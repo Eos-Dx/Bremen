@@ -183,11 +183,37 @@ class TestModelVersion:
 
 class TestSubmitPrediction:
 
-    def test_submit_returns_accepted_with_job_id(self):
+    @staticmethod
+    def _mock_run_inference(h5_path, patient_id=None):
+        """Fake run_inference that returns a valid result dict."""
+        return {
+            "prediction_id": "mock-pred-001",
+            "model_version": "test-v0.1",
+            "model_checksum": "a" * 64,
+            "feature_schema_version": "v0.1",
+            "threshold_version": "v0.1",
+            "threshold_value": 0.5,
+            "qc_status": "passed",
+            "qc_flags": [],
+            "patient_id": "mock-patient",
+            "p_mri_needed": 0.75,
+            "triage_recommendation": "MRI_RECOMMENDED",
+            "created_at_utc": "2026-01-01T00:00:00",
+        }
+
+    def test_submit_returns_accepted_with_job_id(self, monkeypatch):
         """handle_submit_prediction returns accepted response with UUID job_id."""
+        monkeypatch.setattr(
+            "bremen.api.inference_handler.run_inference",
+            self._mock_run_inference,
+        )
         _load_synthetic_model(Path("/tmp"))
         store = InMemoryJobStore()
-        request = {"target_scan_ref": "scan:tgt/001", "control_scan_ref": "scan:ctl/001"}
+        request = {
+            "target_scan_ref": "scan:tgt/001",
+            "control_scan_ref": "scan:ctl/001",
+            "h5_path": "/tmp/test.h5",
+        }
         response = handle_submit_prediction(request, store)
         assert isinstance(response, PredictionResponse)
         assert response.status == "accepted"
@@ -200,30 +226,50 @@ class TestSubmitPrediction:
         _load_synthetic_model(Path("/tmp"))
         store = InMemoryJobStore()
         with pytest.raises(ValueError, match="target_scan_ref"):
-            handle_submit_prediction({"control_scan_ref": "scan:ctl/001"}, store)
+            handle_submit_prediction(
+                {"control_scan_ref": "scan:ctl/001"}, store
+            )
 
     def test_submit_requires_control_scan_ref(self):
         """submit_prediction fails if control_scan_ref is missing."""
         _load_synthetic_model(Path("/tmp"))
         store = InMemoryJobStore()
         with pytest.raises(ValueError, match="control_scan_ref"):
-            handle_submit_prediction({"target_scan_ref": "scan:tgt/001"}, store)
+            handle_submit_prediction(
+                {"target_scan_ref": "scan:tgt/001"}, store
+            )
 
-    def test_submit_stores_job(self):
+    def test_submit_stores_job(self, monkeypatch):
         """The submitted job is stored in the job store."""
+        monkeypatch.setattr(
+            "bremen.api.inference_handler.run_inference",
+            self._mock_run_inference,
+        )
         _load_synthetic_model(Path("/tmp"))
         store = InMemoryJobStore()
-        request = {"target_scan_ref": "scan:tgt/001", "control_scan_ref": "scan:ctl/001"}
+        request = {
+            "target_scan_ref": "scan:tgt/001",
+            "control_scan_ref": "scan:ctl/001",
+            "h5_path": "/tmp/test.h5",
+        }
         response = handle_submit_prediction(request, store)
         job = store.get_job(response.job_id)
         assert job is not None
         assert job.status in ("accepted", "completed"), f"Expected accepted or completed, got {job.status}"
 
-    def test_submit_has_poll_link(self):
+    def test_submit_has_poll_link(self, monkeypatch):
         """The accepted response includes a poll link."""
+        monkeypatch.setattr(
+            "bremen.api.inference_handler.run_inference",
+            self._mock_run_inference,
+        )
         _load_synthetic_model(Path("/tmp"))
         store = InMemoryJobStore()
-        request = {"target_scan_ref": "scan:tgt/001", "control_scan_ref": "scan:ctl/001"}
+        request = {
+            "target_scan_ref": "scan:tgt/001",
+            "control_scan_ref": "scan:ctl/001",
+            "h5_path": "/tmp/test.h5",
+        }
         response = handle_submit_prediction(request, store)
         assert response.links is not None
         assert "poll" in response.links
@@ -237,11 +283,37 @@ class TestSubmitPrediction:
 
 class TestGetPrediction:
 
-    def test_get_known_job_returns_status(self):
+    @staticmethod
+    def _mock_run_inference(h5_path, patient_id=None):
+        """Fake run_inference that returns a valid result dict."""
+        return {
+            "prediction_id": "mock-pred-002",
+            "model_version": "test-v0.1",
+            "model_checksum": "b" * 64,
+            "feature_schema_version": "v0.1",
+            "threshold_version": "v0.1",
+            "threshold_value": 0.5,
+            "qc_status": "passed",
+            "qc_flags": [],
+            "patient_id": "mock-patient",
+            "p_mri_needed": 0.75,
+            "triage_recommendation": "MRI_RECOMMENDED",
+            "created_at_utc": "2026-01-01T00:00:00",
+        }
+
+    def test_get_known_job_returns_status(self, monkeypatch):
         """get_prediction for a known job_id returns the job status."""
+        monkeypatch.setattr(
+            "bremen.api.inference_handler.run_inference",
+            self._mock_run_inference,
+        )
         _load_synthetic_model(Path("/tmp"))
         store = InMemoryJobStore()
-        request = {"target_scan_ref": "scan:tgt/001", "control_scan_ref": "scan:ctl/001"}
+        request = {
+            "target_scan_ref": "scan:tgt/001",
+            "control_scan_ref": "scan:ctl/001",
+            "h5_path": "/tmp/test.h5",
+        }
         submit_response = handle_submit_prediction(request, store)
         status_response = handle_get_prediction(submit_response.job_id, store)
         assert isinstance(status_response, PredictionStatusResponse)
@@ -253,14 +325,19 @@ class TestGetPrediction:
         response = handle_get_prediction("00000000-0000-0000-0000-000000000000", store)
         assert response.status == "not_found"
 
-    def test_get_returns_request_metadata(self):
+    def test_get_returns_request_metadata(self, monkeypatch):
         """get_prediction preserves the original request metadata."""
+        monkeypatch.setattr(
+            "bremen.api.inference_handler.run_inference",
+            self._mock_run_inference,
+        )
         _load_synthetic_model(Path("/tmp"))
         store = InMemoryJobStore()
         raw_request = {
             "target_scan_ref": "scan:tgt/002",
             "control_scan_ref": "scan:ctl/002",
             "request_id": "idem-123",
+            "h5_path": "/tmp/test.h5",
         }
         submit_response = handle_submit_prediction(raw_request, store)
         job = store.get_job(submit_response.job_id)

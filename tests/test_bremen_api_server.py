@@ -157,6 +157,7 @@ class TestSubmitPrediction:
         payload = {
             "target_scan_ref": "scan:tgt/001",
             "control_scan_ref": "scan:ctl/001",
+            "h5_path": "/tmp/test.h5",
         }
         status, body, _ = _post(host, port, "/predictions", payload)
         assert status == 202
@@ -169,6 +170,7 @@ class TestSubmitPrediction:
         payload = {
             "target_scan_ref": "scan:tgt/001",
             "control_scan_ref": "scan:ctl/001",
+            "h5_path": "/tmp/test.h5",
         }
         _, body, _ = _post(host, port, "/predictions", payload)
         data = json.loads(body)
