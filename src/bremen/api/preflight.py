@@ -71,6 +71,16 @@ class PreflightReason:
 
 
 @dataclass
+class PatientMetadata:
+    """Resolved patient identifier with source tracking."""
+
+    patient_identifier: str
+    patient_identifier_source: str  # "patient_id" or "patient_name_fallback"
+    patient_metadata_path: str | None  # e.g., "/patient/id" or first sample/patient_name path
+    fallback_used: bool
+
+
+@dataclass
 class PreflightResult:
     """Structured result of an H5 preflight.
 
@@ -88,11 +98,84 @@ class PreflightResult:
     contralateral_measurement_count: int | None
     metadata: dict[str, Any]
     qc_flags: list[str]
+    patient_identifier_source: str = "patient_id"
+    metadata_fallback_used: bool = False
 
 
 # ---------------------------------------------------------------------------
 # Public functions
 # ---------------------------------------------------------------------------
+
+
+def resolve_patient_metadata(h5_file: h5py.File) -> PatientMetadata:
+    """Resolve patient identifier from an H5 container.
+
+    Primary: /patient/id
+    Fallback: sample-level patient_name under calibration groups.
+
+    Returns PatientMetadata with source tracking.
+    Raises H5MetadataError if neither source yields a valid identifier.
+    """
+    # ---- Primary path ----
+    if "/patient/id" in h5_file:
+        try:
+            raw = h5_file["/patient/id"][()]
+            if isinstance(raw, bytes):
+                decoded = raw.decode("utf-8")
+            else:
+                decoded = str(raw)
+            if decoded and decoded.strip():
+                return PatientMetadata(
+                    patient_identifier=decoded.strip(),
+                    patient_identifier_source="patient_id",
+                    patient_metadata_path="/patient/id",
+                    fallback_used=False,
+                )
+        except Exception:
+            pass
+
+    # ---- Fallback path ----
+    # Search recursively for datasets ending with /sample/patient_name
+    patient_names: list[str] = []
+    patient_paths: list[str] = []
+
+    def _walk_for_patient_name(obj: Any, prefix: str) -> None:
+        for key in obj.keys():
+            path = f"{prefix}/{key}" if prefix else f"/{key}"
+            item = obj[path]
+            if isinstance(item, h5py.Group):
+                _walk_for_patient_name(item, path)
+            elif path.endswith("/sample/patient_name"):
+                try:
+                    raw = item[()]
+                    if isinstance(raw, bytes):
+                        val = raw.decode("utf-8")
+                    else:
+                        val = str(raw)
+                    val_stripped = val.strip()
+                    if val_stripped:
+                        patient_names.append(val_stripped)
+                        patient_paths.append(path)
+                except Exception:
+                    pass
+
+    _walk_for_patient_name(h5_file, "")
+
+    if not patient_names:
+        raise H5MetadataError("Missing patient identifier metadata")
+
+    distinct_values = set(patient_names)
+    if len(distinct_values) > 1:
+        raise H5MetadataError("Ambiguous sample patient_name metadata")
+
+    # Exactly one distinct non-empty value
+    resolved_value = distinct_values.pop()
+    return PatientMetadata(
+        patient_identifier=resolved_value,
+        patient_identifier_source="patient_name_fallback",
+        patient_metadata_path=patient_paths[0] if patient_paths else None,
+        fallback_used=True,
+    )
 
 
 def run_h5_preflight(h5_path: str | Path) -> PreflightResult:
@@ -134,9 +217,16 @@ def run_h5_preflight(h5_path: str | Path) -> PreflightResult:
         container_reason = _check_top_level_structure(top_keys)
         reasons.append(container_reason)
 
-        # Patient ID
-        patient_id = _get_patient_id(f)
-        metadata = {"patient_id": patient_id}
+        # Patient ID with fallback
+        patient_meta = resolve_patient_metadata(f)
+        patient_id = patient_meta.patient_identifier
+        patient_identifier_source = patient_meta.patient_identifier_source
+        metadata_fallback_used = patient_meta.fallback_used
+        metadata = {
+            "patient_id": patient_id,
+            "patient_identifier_source": patient_identifier_source,
+            "metadata_fallback_used": metadata_fallback_used,
+        }
 
         # Target side
         target_side, target_measurements = _get_scan_side_and_measurements(
@@ -161,7 +251,9 @@ def run_h5_preflight(h5_path: str | Path) -> PreflightResult:
         reasons.append(sides_reason)
 
         # Required metadata
-        metadata_reason = validate_required_metadata(f, patient_id)
+        metadata_reason = validate_required_metadata(
+            f, patient_id, patient_id_fallback_active=metadata_fallback_used
+        )
         reasons.append(metadata_reason)
 
         # Measurement count
@@ -220,6 +312,8 @@ def run_h5_preflight(h5_path: str | Path) -> PreflightResult:
         contralateral_measurement_count=contralateral_count,
         metadata=metadata,
         qc_flags=qc_flags,
+        patient_identifier_source=patient_identifier_source,
+        metadata_fallback_used=metadata_fallback_used,
     )
 
 
@@ -287,15 +381,21 @@ def validate_opposite_sides(
 def validate_required_metadata(
     h5_file: h5py.File,
     patient_id: str | None = None,
+    patient_id_fallback_active: bool = False,
 ) -> PreflightReason:
     """Check required metadata fields exist and are non-empty."""
     required_paths = [
-        "/patient/id",
         "/scans/target/side",
         "/scans/target/measurements",
         "/scans/contralateral/side",
         "/scans/contralateral/measurements",
     ]
+
+    # /patient/id is required for the primary layout, but when
+    # fallback has resolved a patient identifier from sample-level
+    # metadata, it is no longer structurally required.
+    if not patient_id_fallback_active:
+        required_paths.insert(0, "/patient/id")
 
     missing: list[str] = []
     for p in required_paths:
@@ -389,16 +489,12 @@ def _check_top_level_structure(top_keys: set[str]) -> PreflightReason:
 
 
 def _get_patient_id(f: h5py.File) -> str | None:
-    """Read /patient/id from an H5 file."""
-    if "/patient/id" not in f:
-        raise H5MetadataError("Missing /patient/id")
-    try:
-        raw = f["/patient/id"][()]
-        if isinstance(raw, bytes):
-            return raw.decode("utf-8")
-        return str(raw)
-    except Exception as exc:
-        raise H5MetadataError(f"Cannot read /patient/id: {exc}") from exc
+    """Read /patient/id from an H5 file using the resolver.
+
+    Delegates to resolve_patient_metadata() for consistent
+    primary + fallback resolution behavior.
+    """
+    return resolve_patient_metadata(f).patient_identifier
 
 
 def _get_scan_side_and_measurements(
