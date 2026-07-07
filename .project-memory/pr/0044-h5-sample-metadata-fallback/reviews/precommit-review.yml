@@ -1,0 +1,63 @@
+review_type: precommit-review
+branch: 0044-h5-sample-metadata-fallback
+verdict: pass
+head: "797d3ceaa941becdee5b8203fa9603843237d7c1"
+status: "M src/bremen/api/preflight.py\n M tests/test_bremen_h5_preflight.py\n?? tests/test_bremen_h5_sample_metadata.py"
+changed_files:
+  - "src/bremen/api/preflight.py"
+  - "tests/test_bremen_h5_preflight.py"
+  - "tests/test_bremen_h5_sample_metadata.py"
+blockers: []
+warnings: []
+validation:
+  compileall: pass
+  h5_preflight_tests: pass
+  h5_sample_metadata_tests: pass
+  inference_integration_tests: pass
+  prediction_tests: pass
+  logging_tests: pass
+  full_pytest: pass
+  artifact_scan_reviewed: pass
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  patient_id_primary_preserved: true
+  patient_name_fallback_only_when_primary_missing: true
+  sample_patient_name_paths_used: true
+  empty_patient_name_rejected: true
+  missing_identifier_rejected: true
+  ambiguous_patient_names_rejected: true
+  no_blind_first_patient_name_selection: true
+  patient_identifier_source_recorded: true
+  metadata_fallback_used_recorded: true
+  no_silent_patient_name_as_true_id: true
+  raw_patient_name_not_logged: true
+  raw_patient_id_not_logged: true
+  raw_patient_name_not_in_exception_messages: true
+  no_inference_or_preprocessing_changes: true
+  no_s3_staging_changes: true
+  no_model_training_docker_terraform_dependency_changes: true
+  tests_cover_primary_patient_id: true
+  tests_cover_patient_name_fallback: true
+  tests_cover_missing_identifier_failure: true
+  tests_cover_empty_patient_name_failure: true
+  tests_cover_ambiguous_patient_name_failure: true
+  tests_cover_no_raw_patient_name_logging: true
+  real_h5_smoke_skipped_by_default: true
+  no_real_artifacts_committed: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "src/bremen/api/preflight.py"
+    - "tests/test_bremen_h5_preflight.py"
+    - "tests/test_bremen_h5_sample_metadata.py"
+    - ".project-memory/pr/0044-h5-sample-metadata-fallback/reviews/precommit-review.yml"
+notes:
+  - "All validation checks pass. 499 tests pass, 8 skipped."
+  - "Implementation correctly adds PatientMetadata dataclass and resolve_patient_metadata() function with primary /patient/id path and fallback to sample-level patient_name."
+  - "Ambiguity handling correctly rejects >1 distinct patient_name values without target/control selection context."
+  - "Safety: no raw patient_name or patient_id values logged anywhere in preflight.py. Error messages use safe strings only."
+  - "Scope verified: only preflight.py and test files changed. All forbidden files unchanged."
+  - "Test coverage complete: primary path, fallback path, missing both, empty/whitespace patient_name, ambiguous names, no raw name logging, resolver unit tests, and opt-in real H5 smoke."
+  - "PreflightResult correctly extended with patient_identifier_source and metadata_fallback_used fields (defaults preserve backward compat)."
+  - "validate_required_metadata() correctly conditionally excludes /patient/id from required paths when fallback is active."

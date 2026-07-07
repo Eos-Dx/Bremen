@@ -121,7 +121,7 @@ agents:
     add_date: true
     add_environment_info: true
     redact_secrets: true
-    max_iterations: 14
+    max_iterations: 30
 
     toolsets:
       - type: filesystem
