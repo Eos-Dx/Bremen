@@ -134,53 +134,55 @@ def handle_submit_prediction(
     request = validate_prediction_request(raw_request)
     record = job_store.create_job(request=request)
 
-    # v0.1: Synchronous job execution (only for filesystem H5 paths)
-    if not raw_request.get("target_scan_ref", "").startswith("/"):
-        # Non-filesystem reference — accept job but skip inference
-        job_store.update_status(record.job_id, STATUS_COMPLETED)
-    else:
-        try:
-            from .inference_handler import run_inference  # noqa: PLC0415
+    # Always attempt inference for every accepted job
+    h5_path = raw_request.get("h5_path", "")
+    if not h5_path or not isinstance(h5_path, str):
+        raise ValueError("h5_path is required and must be a non-empty string")
 
-            result_dict = run_inference(
-                raw_request.get("target_scan_ref", ""),
-                patient_id=raw_request.get("patient_id"),
-            )
+    try:
+        from .inference_handler import run_inference  # noqa: PLC0415
 
-            completed_result = CompletedResult(
-                prediction_id=result_dict["prediction_id"],
-                model_version=result_dict["model_version"],
-                model_checksum=result_dict["model_checksum"],
-                feature_schema_version=result_dict["feature_schema_version"],
-                threshold_version=result_dict["threshold_version"],
-                threshold_value=result_dict["threshold_value"],
-                qc_status=result_dict["qc_status"],
-                qc_flags=result_dict["qc_flags"],
-            )
+        result_dict = run_inference(
+            h5_path=h5_path,
+            patient_id=raw_request.get("patient_id"),
+        )
 
-            job_store.update_status(
-                record.job_id,
-                STATUS_COMPLETED,
-                result=completed_result,
-            )
-        except Exception as exc:
-            import logging
-            _log = logging.getLogger(__name__)
-            _log.error(
-                "bremen.prediction.failed\t"
-                "stage=prediction\tstatus=failed\t"
-                "exception_class=%s\t"
-                "safe_reason=%s\t"
-                "job_id=%s",
-                type(exc).__name__,
-                str(exc)[:200],
-                record.job_id,
-            )
-            job_store.update_status(
-                record.job_id,
-                "failed",
-                error=str(exc),
-            )
+        completed_result = CompletedResult(
+            prediction_id=result_dict["prediction_id"],
+            model_version=result_dict["model_version"],
+            model_checksum=result_dict["model_checksum"],
+            feature_schema_version=result_dict["feature_schema_version"],
+            threshold_version=result_dict["threshold_version"],
+            threshold_value=result_dict["threshold_value"],
+            qc_status=result_dict["qc_status"],
+            qc_flags=result_dict["qc_flags"],
+        )
+
+        job_store.update_status(
+            record.job_id,
+            STATUS_COMPLETED,
+            result=completed_result,
+        )
+    except ValueError:
+        raise  # Propagate for HTTP 400
+    except Exception as exc:
+        import logging
+        _log = logging.getLogger(__name__)
+        _log.error(
+            "bremen.prediction.failed\t"
+            "stage=prediction\tstatus=failed\t"
+            "exception_class=%s\t"
+            "safe_reason=%s\t"
+            "job_id=%s",
+            type(exc).__name__,
+            str(exc)[:200],
+            record.job_id,
+        )
+        job_store.update_status(
+            record.job_id,
+            "failed",
+            error=str(exc),
+        )
 
     return build_accepted_response(
         job_id=record.job_id,
