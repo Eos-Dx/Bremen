@@ -82,8 +82,15 @@ def _create_synthetic_h5(
 
 
 class TestValidSynthetic:
-    def test_valid_synthetic_h5_passes(self, tmp_path: Path):
-        """A correctly structured H5 passes all checks."""
+    def test_valid_synthetic_h5_passes(self, tmp_path: Path, caplog):
+        """A correctly structured H5 passes all checks.
+
+        Also verifies that ``bremen.prediction.preflight.completed`` is NOT
+        emitted by ``run_h5_preflight()`` alone (only by ``run_inference()``).
+        """
+        import logging
+        caplog.set_level(logging.INFO)
+        import logging
         h5_path = _create_synthetic_h5(tmp_path)
         result = run_h5_preflight(h5_path)
         assert result.passed is True
@@ -94,6 +101,7 @@ class TestValidSynthetic:
         assert result.target_measurement_count == 3
         assert result.contralateral_measurement_count == 3
         assert len(result.reasons) >= 6
+        assert "bremen.prediction.preflight.completed" not in caplog.text
 
 
 # ---------------------------------------------------------------------------

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone, timedelta
+from logging import getLogger as _getLogger
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,8 @@ from ..inference import (
     validate_portable_logreg_model,
     predict_proba_portable,
 )
+
+_log = _getLogger(__name__)
 
 TRIAGE_RECOMMENDED = "MRI_RECOMMENDED"
 TRIAGE_RULE_OUT = "MRI_RULE_OUT"
@@ -55,20 +58,47 @@ def run_inference(
     # 1. Preflight
     preflight = run_h5_preflight(h5_path)
     if not preflight.passed:
+        _log.error(
+            "bremen.prediction.preflight.failure\t"
+            "stage=preflight\tstatus=failed\t"
+            "preflight_status=%s",
+            preflight.status,
+        )
         raise RuntimeError(
             f"Preflight did not pass (status={preflight.status}). "
             f"Reason: {[r.message for r in preflight.reasons if not r.passed]}"
         )
 
+    _log.info(
+        "bremen.prediction.preflight.completed\t"
+        "stage=preflight\tstatus=completed",
+    )
+
     pid = patient_id or preflight.patient_id or "unknown"
 
     # 2. Preprocessing bridge
+    _log.debug(
+        "bremen.prediction.preprocessing.start\t"
+        "stage=preprocessing\tstatus=started",
+    )
     bridge_result = run_preprocessing_bridge(
         h5_path,
         preflight_result=preflight,
     )
     if not bridge_result.passed or bridge_result.feature_vector is None:
+        _log.error(
+            "bremen.prediction.preprocessing.failure\t"
+            "stage=preprocessing\tstatus=failed\t"
+            "reason=bridge_failed_to_produce_features",
+        )
         raise RuntimeError("Preprocessing bridge failed to produce features.")
+
+    _log.info(
+        "bremen.prediction.preprocessing.completed\t"
+        "stage=preprocessing\tstatus=completed\t"
+        "feature_count=%s",
+        str(len(bridge_result.feature_vector.features)),
+    )
 
     fv = bridge_result.feature_vector
 
@@ -95,8 +125,28 @@ def run_inference(
         )
 
     # 5. Portable inference
-    inference_result = predict_proba_portable(
-        model_pkg, list(fv.features), skip_validation=True
+    _log.debug(
+        "bremen.prediction.inference.start\t"
+        "stage=inference\tstatus=started",
+    )
+    try:
+        inference_result = predict_proba_portable(
+            model_pkg, list(fv.features), skip_validation=True
+        )
+    except Exception as exc:
+        _log.error(
+            "bremen.prediction.inference.failure\t"
+            "stage=inference\tstatus=failed\t"
+            "exception_class=%s\t"
+            "safe_reason=%s",
+            type(exc).__name__,
+            str(exc)[:200],
+        )
+        raise
+
+    _log.info(
+        "bremen.prediction.inference.success\t"
+        "stage=inference\tstatus=completed",
     )
 
     # 6. Threshold and triage
@@ -130,6 +180,15 @@ def run_inference(
         "triage_recommendation": triage,
         "created_at_utc": created_at,
     }
+
+    _log.info(
+        "bremen.prediction.completed\t"
+        "stage=prediction\tstatus=completed\t"
+        "triage=%s\t"
+        "prediction_id=%s",
+        triage,
+        prediction["prediction_id"],
+    )
 
     return prediction
 

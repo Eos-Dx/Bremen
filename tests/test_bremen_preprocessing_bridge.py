@@ -65,13 +65,21 @@ def _create_synthetic_h5(
 
 
 class TestValidBridge:
-    def test_valid_produces_15_features(self, tmp_path: Path):
-        """Valid preflight + synthetic H5 produces exactly 15 features."""
+    def test_valid_produces_15_features(self, tmp_path: Path, caplog):
+        """Valid preflight + synthetic H5 produces exactly 15 features.
+
+        Also verifies that ``bremen.prediction.preprocessing.completed`` is NOT
+        emitted by ``run_preprocessing_bridge()`` alone (only by ``run_inference()``).
+        """
+        import logging
+        caplog.set_level(logging.INFO)
+        import logging
         h5_path = _create_synthetic_h5(tmp_path)
         result = run_preprocessing_bridge(h5_path)
         assert result.passed is True
         assert result.feature_vector is not None
         assert len(result.feature_vector.features) == 15
+        assert "bremen.prediction.preprocessing.completed" not in caplog.text
 
     def test_feature_order_matches_v01(self, tmp_path: Path):
         """Feature names match BREMEN_V01_FEATURE_COLUMNS exact order."""

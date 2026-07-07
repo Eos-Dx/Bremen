@@ -59,6 +59,7 @@ def _load_synthetic_model() -> None:
 
 
 from .app import (
+    ModelNotReadyError,
     handle_health,
     handle_model_version,
     handle_submit_prediction,
@@ -196,8 +197,23 @@ def _make_handler(
                     )
                     return
 
+                import logging
+                _log = logging.getLogger("bremen.api.server")
+
                 try:
                     resp = handle_submit_prediction(body, job_store)
+                except ModelNotReadyError:
+                    _log.warning(
+                        "bremen.prediction.request.rejected\t"
+                        "stage=prediction\tstatus=rejected\t"
+                        "reason=model_not_ready"
+                    )
+                    self._send_json(
+                        {"error": "Model is not loaded. "
+                                  "Prediction cannot be submitted."},
+                        status=503,
+                    )
+                    return
                 except ValueError as exc:
                     self._send_json(
                         {"error": str(exc)},
@@ -217,6 +233,13 @@ def _make_handler(
                             status=500,
                         )
                     return
+
+                _log.info(
+                    "bremen.prediction.request.accepted\t"
+                    "stage=prediction\tstatus=accepted\t"
+                    "job_id=%s",
+                    resp.job_id,
+                )
 
                 self._send_json({
                     "job_id": resp.job_id,
@@ -264,10 +287,24 @@ def run_server(
     port : Port number to listen on (default ``8000``).
     version : Optional version string for health endpoint.
     """
+    import logging
+
+    _log = logging.getLogger(__name__)
+    _log.info(
+        "bremen.server.starting\tstage=startup\tstatus=started\t"
+        "host=%s\tport=%s",
+        host, port,
+    )
+
     job_store = InMemoryJobStore()
     handler = _make_handler(job_store, version=version)
     server = HTTPServer((host, port), handler)
 
+    _log.info(
+        "bremen.server.started\tstage=startup\tstatus=completed\t"
+        "host=%s\tport=%s",
+        host, port,
+    )
     print(f"Bremen API server listening on http://{host}:{port}")
     print("Dev/smoke mode only. Not for production use.")
 

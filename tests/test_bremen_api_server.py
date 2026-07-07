@@ -233,8 +233,13 @@ class TestSubmitPredictionModelNotReady:
         server.shutdown()
         thread.join(timeout=2)
 
-    def test_submit_returns_503_when_model_not_ready(self, no_model_server_info):
-        """POST /predictions returns 503 when model is not loaded."""
+    def test_submit_returns_503_when_model_not_ready(self, no_model_server_info, caplog):
+        """POST /predictions returns 503 when model is not loaded.
+
+        Also verifies ``bremen.prediction.request.rejected`` is emitted.
+        """
+        import logging
+        caplog.set_level(logging.WARNING)
         host, port, _ = no_model_server_info
         payload = {
             "target_scan_ref": "scan:tgt/001",
@@ -244,6 +249,7 @@ class TestSubmitPredictionModelNotReady:
         assert status == 503
         data = json.loads(body)
         assert "not loaded" in data.get("error", "")
+        assert "bremen.prediction.request.rejected" in caplog.text
 
 
 # ---------------------------------------------------------------------------
