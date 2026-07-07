@@ -1,0 +1,52 @@
+review_type: plan-review
+branch: 0041-runtime-observability-logging
+verdict: approve
+head: "c38803286ccb94295621b6b401af80a85375027d"
+status: "?? .project-memory/pr/0041-runtime-observability-logging/"
+plan_path: ".project-memory/pr/0041-runtime-observability-logging/PLAN.md"
+blockers: []
+warnings: []
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  runtime_flow_mapped: true
+  minimal_logging_criteria_present: true
+  anti_log_spam_budget_present: true
+  startup_observability_planned: true
+  config_observability_planned: true
+  s3_staging_observability_planned: true
+  checksum_boundary_observability_planned: true
+  model_load_validation_observability_planned: true
+  model_ready_observability_planned: true
+  prediction_stage_observability_planned: true
+  health_log_spam_avoided: true
+  safe_redaction_policy_planned: true
+  no_patient_data_logging: true
+  no_secret_logging: true
+  no_raw_paths_or_request_bodies: true
+  lightweight_logging_design: true
+  tests_planned: true
+  no_real_aws_in_tests: true
+  no_inference_or_schema_drift: true
+  no_training_or_clinical_scope: true
+  validation_commands_present: true
+  implementation_agent_coder: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0041-runtime-observability-logging/PLAN.md"
+    - ".project-memory/pr/0041-runtime-observability-logging/reviews/plan-review.yml"
+notes:
+  - "Branch confirmed as exactly 0041-runtime-observability-logging."
+  - "Plan maps 18+ distinct runtime path points: __main__.py main/serve, server.py run_server/_make_handler/do_POST, model_state.py load_at_startup, model_artifacts.py stage_model_artifact/stage_s3_model_artifact/verify_file_sha256, inference_handler.py run_inference, inference.py predict_proba_portable."
+  - "Plan explicitly forbids broad function-entry/function-exit logging (Section 6 explicit prohibition; Section 5 minimal placement criteria)."
+  - "Section 18 defines quantitative event budgets: startup ~9-11 events, prediction success ~5, prediction failure ~3, health/version 0 per-request events. Total per startup+prediction ~16-20 max."
+  - "Redaction policy (Section 14) forbids: patient_id, target_scan_ref, control_scan_ref, raw H5 arrays, feature values (15 floats), model coefficients, /Users/ paths, AWS credentials, Authorization headers, request bodies, full S3 URI (logs only uri_scheme), raw checksum hex. Allowed safe fields: event, stage, status, exception_class, safe_reason, uri_scheme, model_version, checksum_present, size_bytes, host, port, job_id, model_ready, count."
+  - "Design uses standard Python logging (Section 5), default INFO (Section 5), BREMEN_LOG_LEVEL env var, stdout/stderr for App Runner (Section 5), idempotent configure_logging (test test_idempotent), no heavy dependency, grep-friendly bremen.* dot-prefixed event names."
+  - "New file tests/test_bremen_logging.py covers 14 test cases including no_secrets_in_logs (AWS keys + Authorization), no_patient_data_in_logs (patient_id=TEST-PATIENT), no_raw_paths_in_logs (/Users/), no_health_noisy_logs."
+  - "Existing tests extended with caplog assertions: test_bremen_model_startup_staging.py, test_bremen_api_server.py, test_bremen_inference_integration.py, test_bremen_h5_preflight.py, test_bremen_preprocessing_bridge.py."
+  - "Section 15 allowed-to-modify list is restricted to: logging_config.py (new), __main__.py, server.py, model_state.py, model_artifacts.py, inference_handler.py, test_bremen_logging.py (new). All other paths (inference math, feature schema, training, Docker, workflows, Terraform, real artifacts) are explicitly forbidden."
+  - "Section 19 block-yourself conditions include: no real AWS calls in tests, no patient data, no secrets, no broad logging without justification, no inference/schema/training changes, no heavy dependencies, no real cloud/artifact tests."
+  - "Validation commands (Section 17) use only static checks: compileall, pytest -q, grep for secrets/paths/forbidden imports. No pytest is executed during plan review."
+  - "Implementation agent is correctly assigned to coder."
+  - "Approve: all review checks pass, no blockers, no warnings, comprehensive observability with explicit anti-spam guardrails."
