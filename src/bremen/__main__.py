@@ -104,7 +104,11 @@ def _handle_stub(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    import sys
     parser = build_parser()
+    if argv is None and len(sys.argv) == 1:
+        parser.print_help()
+        return 0
     args = parser.parse_args(argv)
 
     if args.command is None:
