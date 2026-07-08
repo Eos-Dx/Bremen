@@ -21,6 +21,10 @@ import numpy as np
 
 from .preflight import PreflightResult, run_h5_preflight
 
+# Import H5PredictionContext for layout-aware extraction
+# (cyclic-safe — h5_layouts does not import preprocessing_bridge)
+from .h5_layouts import H5PredictionContext
+
 
 # ---------------------------------------------------------------------------
 # Feature schema constants
@@ -112,6 +116,7 @@ def run_preprocessing_bridge(
     h5_path: str | Path,
     *,
     preflight_result: PreflightResult | None = None,
+    layout_context: H5PredictionContext | None = None,
     skip_preflight: bool = False,
 ) -> PreprocessingBridgeResult:
     """Run the preprocessing bridge on a validated H5 container.
@@ -123,6 +128,12 @@ def run_preprocessing_bridge(
         If provided and ``passed`` is ``True``, the bridge proceeds.
         If not provided and ``skip_preflight`` is ``False``, the bridge
         calls ``run_h5_preflight()`` first.
+    layout_context : Optional ``H5PredictionContext`` for layout-aware
+        extraction.  When ``layout_context.layout_name == "calibration_sample"``,
+        the bridge reads integration i/q arrays from the resolved group paths
+        instead of the canonical ``/scans/target/measurements`` paths.
+        When ``None`` or ``layout_name == "canonical"``, the canonical path
+        is used (backward compatible).
     skip_preflight : If ``True``, skip preflight check (for testing).
 
     Returns
@@ -163,9 +174,32 @@ def run_preprocessing_bridge(
     else:
         preflight_summary = {"skipped": True}
 
+    # Determine layout context if not provided but preflight_result has metadata
+    resolved_context = layout_context
+    if resolved_context is None and preflight_result is not None:
+        meta = preflight_result.metadata or {}
+        layout_name = meta.get("layout_name")
+        if layout_name == "calibration_sample":
+            # Build a minimal context from PreflightResult metadata
+            resolved_context = H5PredictionContext(
+                layout_name="calibration_sample",
+                target_scan_ref="",
+                control_scan_ref="",
+                target_group_path=meta.get("target_group_path", ""),
+                control_group_path=meta.get("control_group_path", ""),
+                target_side=preflight_result.target_side,
+                control_side=preflight_result.contralateral_side,
+                patient_identifier=preflight_result.patient_id or "",
+                patient_identifier_source=preflight_result.patient_identifier_source,
+                metadata_fallback_used=preflight_result.metadata_fallback_used,
+                target_measurement_count=preflight_result.target_measurement_count,
+                control_measurement_count=preflight_result.contralateral_measurement_count,
+                adapter_metadata={},
+            )
+
     # Open H5 and extract
     try:
-        feature_dict = build_feature_table(h5_path)
+        feature_dict = build_feature_table(h5_path, layout_context=resolved_context)
     except Exception as exc:
         raise PreprocessingBridgeError(
             f"Feature extraction failed: {exc}"
@@ -207,7 +241,11 @@ def run_preprocessing_bridge(
     )
 
 
-def build_feature_table(h5_path: str | Path) -> dict[str, float]:
+def build_feature_table(
+    h5_path: str | Path,
+    *,
+    layout_context: H5PredictionContext | None = None,
+) -> dict[str, float]:
     """Extract the 15-feature v0.1 vector from an H5 container.
 
     Reads target and contralateral profiles from H5.
@@ -216,14 +254,29 @@ def build_feature_table(h5_path: str | Path) -> dict[str, float]:
     Parameters
     ----------
     h5_path : Path to the H5 container.
+    layout_context : Optional ``H5PredictionContext`` for layout-aware
+        extraction.  When ``layout_context.layout_name == "calibration_sample"``,
+        reads integration i/q arrays from resolved group paths.
+        When ``None`` or ``layout_name == "canonical"``, uses canonical path.
 
     Returns
     -------
     A dict mapping all 15 v0.1 feature names to finite float values.
     """
     with h5py.File(h5_path, "r") as f:
-        target_profiles = _extract_profiles(f, "target")
-        contralateral_profiles = _extract_profiles(f, "contralateral")
+        # Determine extraction path based on layout context
+        if layout_context is not None and layout_context.layout_name == "calibration_sample":
+            target_path = layout_context.target_group_path
+            control_path = layout_context.control_group_path
+            if not target_path or not control_path:
+                raise PreprocessingBridgeError(
+                    "Missing target/control group paths for calibration preprocessing"
+                )
+            target_profiles = _extract_calibration_profiles(f, target_path)
+            contralateral_profiles = _extract_calibration_profiles(f, control_path)
+        else:
+            target_profiles = _extract_profiles(f, "target")
+            contralateral_profiles = _extract_profiles(f, "contralateral")
 
     if not target_profiles or not contralateral_profiles:
         raise PreprocessingBridgeError(
@@ -382,6 +435,89 @@ def _extract_profiles(
         np.asarray(measurements[i], dtype=np.float64)
         for i in range(measurements.shape[0])
     ]
+
+
+def _extract_calibration_profiles(
+    h5_file: h5py.File,
+    sample_group_path: str,
+) -> list[np.ndarray]:
+    """Read profiles from a calibration sample group.
+
+    Reads integration/i and integration/q from each set_* group under
+    ``{sample_group_path}/sets/``, computes per-set magnitude
+    ``sqrt(i^2 + q^2)``, and returns a list of 1D profile arrays.
+
+    Parameters
+    ----------
+    h5_file : Open H5 file handle.
+    sample_group_path : Absolute H5 group path to the sample
+        (e.g. ``/calib_20260128_132622/sample_01_...``).
+
+    Returns
+    -------
+    List of 1D numpy arrays (one per set).
+
+    Raises
+    ------
+    PreprocessingBridgeError
+        If sets group is missing, sets are empty, i/q arrays are missing,
+        or i/q arrays have incompatible lengths.
+    """
+    sets_path = f"{sample_group_path}/sets"
+    if sets_path not in h5_file:
+        raise PreprocessingBridgeError(
+            "Missing calibration sample sets group"
+        )
+
+    sets_group = h5_file[sets_path]
+    set_keys = sorted(
+        k for k in sets_group.keys() if k.startswith("set_")
+    )
+
+    if not set_keys:
+        raise PreprocessingBridgeError(
+            "No measurement sets found in calibration sample"
+        )
+
+    profiles: list[np.ndarray] = []
+    for set_key in set_keys:
+        set_path = f"{sets_path}/{set_key}"
+
+        # Read integration/i
+        i_path = f"{set_path}/integration/i"
+        if i_path not in h5_file:
+            raise PreprocessingBridgeError(
+                "Missing calibration integration/i"
+            )
+        i_arr = np.asarray(h5_file[i_path][()], dtype=np.float64)
+        if i_arr.ndim != 1:
+            raise PreprocessingBridgeError(
+                "Calibration integration/i is not a 1D array"
+            )
+
+        # Read integration/q
+        q_path = f"{set_path}/integration/q"
+        if q_path not in h5_file:
+            raise PreprocessingBridgeError(
+                "Missing calibration integration/q"
+            )
+        q_arr = np.asarray(h5_file[q_path][()], dtype=np.float64)
+        if q_arr.ndim != 1:
+            raise PreprocessingBridgeError(
+                "Calibration integration/q is not a 1D array"
+            )
+
+        # Validate compatible lengths
+        if len(i_arr) != len(q_arr):
+            raise PreprocessingBridgeError(
+                "Calibration integration i and q have different lengths"
+            )
+
+        # Compute magnitude: sqrt(i^2 + q^2)
+        magnitude = np.sqrt(i_arr**2 + q_arr**2)
+        profiles.append(magnitude)
+
+    return profiles
 
 
 def _sigma_rms(
