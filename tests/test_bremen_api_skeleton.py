@@ -680,12 +680,13 @@ class TestImportSafety:
         for py_file in API_SRC.rglob("*.py"):
             if py_file.name in (
                 "app.py",
+                "h5_layouts.py",
                 "preflight.py",
                 "preprocessing_bridge.py",
                 "inference_handler.py",
                 "model_state.py",
             ):
-                continue  # H5 preflight gate (PR 0037)
+                continue  # H5-related modules (PR 0037, PR 0044, PR 0045)
             content = py_file.read_text(encoding="utf-8")
             for ref in [".h5", ".hdf5", "h5py"]:
                 if ref in content:

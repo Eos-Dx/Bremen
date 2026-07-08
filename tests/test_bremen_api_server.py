@@ -44,9 +44,12 @@ def server_info():
     Yields ``(host, port, job_store)``.  Shuts down the server
     and joins the thread on teardown.
     """
+    from bremen.api.model_state import ModelState
+
     host = "127.0.0.1"
     port = _find_free_port()
     job_store = InMemoryJobStore()
+    ModelState.reset_for_tests()
     handler = _make_handler(job_store, version="test-version", load_model=True)
     server = HTTPServer((host, port), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)

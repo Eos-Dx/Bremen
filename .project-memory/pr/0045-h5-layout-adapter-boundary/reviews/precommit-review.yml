@@ -1,0 +1,90 @@
+review_type: precommit-review
+branch: 0045-h5-layout-adapter-boundary
+verdict: warning
+head: "796150273ae306f4f80883884d38799650e422bd"
+status: "M src/bremen/api/preflight.py\n M tests/test_bremen_api_server.py\n M tests/test_bremen_api_skeleton.py\n?? src/bremen/api/h5_layouts.py\n?? tests/test_bremen_h5_layouts.py"
+changed_files:
+  - "src/bremen/api/preflight.py"
+  - "src/bremen/api/h5_layouts.py"
+  - "tests/test_bremen_h5_layouts.py"
+  - "tests/test_bremen_h5_preflight.py"
+  - "tests/test_bremen_h5_sample_metadata.py"
+  - "tests/test_bremen_api_server.py"
+  - "tests/test_bremen_api_skeleton.py"
+blockers: []
+warnings:
+  - "tests/test_bremen_api_server.py and tests/test_bremen_api_skeleton.py are modified but not in the allowed files list. Both changes are narrow and correct (ModelState.reset_for_tests() hygiene fix; h5_layouts.py added to H5-safety exclusion list). However, the plan only listed 6 files as expected changed files. These 2 extra files are a scope deviation from the plan, though not a blocker since they are correct, narrow, and have been read."
+validation:
+  compileall: pass
+  h5_layout_tests: pass
+  h5_preflight_tests: pass
+  h5_sample_metadata_tests: pass
+  inference_integration_tests: pass
+  prediction_tests: pass
+  logging_tests: pass
+  full_pytest: pass
+  artifact_scan_reviewed: pass
+checks:
+  branch_confirmed: true
+  allowed_files_only: false
+  adapter_boundary_defined: true
+  h5_prediction_context_defined: true
+  layout_registry_or_selection_defined: true
+  canonical_adapter_defined: true
+  canonical_behavior_preserved: true
+  patient_id_primary_preserved: true
+  pr0044_fallback_preserved: true
+  calibration_adapter_defined: true
+  calibration_detection_works: true
+  explicit_refs_required_for_calibration: true
+  refs_validated_as_safe_group_paths: true
+  target_control_groups_validated: true
+  patient_name_required: true
+  patient_name_match_required: true
+  sample_type_required: true
+  opposite_sides_required: true
+  same_side_rejected: true
+  no_auto_select_first_patient_or_sample: true
+  preflight_backward_compatible: true
+  preflight_explicit_refs_supported: true
+  no_fake_preprocessing_readiness: true
+  raw_patient_name_not_logged: true
+  raw_patient_id_not_logged: true
+  raw_patient_name_not_in_exception_messages: true
+  no_inference_or_preprocessing_math_changes: true
+  no_s3_staging_changes: true
+  no_model_training_docker_terraform_dependency_changes: true
+  pr0046_boundary_clear: true
+  tests_cover_canonical_detection: true
+  tests_cover_calibration_detection: true
+  tests_cover_explicit_context_resolution: true
+  tests_cover_missing_refs_and_metadata: true
+  tests_cover_mismatched_patient_names: true
+  tests_cover_same_side_rejection: true
+  tests_cover_no_auto_selection: true
+  tests_cover_preflight_adapter_use: true
+  tests_cover_canonical_no_ref_behavior: true
+  tests_cover_no_raw_patient_name_logging: true
+  real_h5_smoke_skipped_by_default: true
+  no_real_artifacts_committed: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "src/bremen/api/h5_layouts.py"
+    - "src/bremen/api/preflight.py"
+    - "tests/test_bremen_h5_layouts.py"
+    - "tests/test_bremen_h5_preflight.py"
+    - "tests/test_bremen_h5_sample_metadata.py"
+    - "tests/test_bremen_api_server.py"
+    - "tests/test_bremen_api_skeleton.py"
+    - ".project-memory/pr/0045-h5-layout-adapter-boundary/reviews/precommit-review.yml"
+notes:
+  - "Core implementation is excellent. All 40+ checks pass. 532 tests pass, 9 skipped."
+  - "Warning only: test_bremen_api_server.py (adds ModelState.reset_for_tests() hygiene fix) and test_bremen_api_skeleton.py (adds h5_layouts.py to H5-safety exclusion list) are scope deviations — not in the allowed files list. Both changes are correct and narrow. The plan listed only 6 changed files; 2 additional files were modified. This is a non-blocking scope deviation."
+  - "Adapter boundary: H5LayoutAdapter ABC (detect() + resolve_prediction_context()), H5PredictionContext dataclass, CanonicalH5LayoutAdapter + CalibrationSampleH5LayoutAdapter, detect_layout() registry. Clean plugin architecture — NOT ad hoc layout conditionals in preflight."
+  - "Preflight integration: Option A — when target_scan_ref/control_scan_ref are None, preflight uses legacy canonical path unchanged. When refs are provided, preflight delegates to detect_layout() + adapter.resolve_prediction_context(). Clean separation of concerns."
+  - "Calibration adapter: explicit refs required as relative group paths, validated (no .., no leading /), distinct refs required, group existence validated, sample/patient_name read and match enforced (H5PatientMismatchError with safe message), sample/sample_type required and mapped to opposite sides (H5SideMismatchError with safe message), set counting for measurement count. No raw patient_name or sample_type in any error messages."
+  - "Canonical preserved: CanonicalH5LayoutAdapter.detect() returns True only if /scans/target/measurements exists. Mutual exclusivity with calibration adapter. Legacy path (no refs) calls existing _get_scan_side_and_measurements() unchanged. All 19 existing preflight tests pass."
+  - "PR0044 preserved: resolve_patient_metadata() unchanged. CalibrSampleH5LayoutAdapter sets patient_identifier_source='patient_name_fallback' and metadata_fallback_used=True explicitly. All 14 sample metadata tests pass."
+  - "PR0046 boundary: CalibrSampleH5LayoutAdapter counts sets but does NOT read integration/i or integration/q arrays. Preflight passes with calibration refs but preprocessing bridge will still fail (expected, deferred). No preprocessing_bridge.py changes."
+  - "Privacy: no Nova_* or other raw patient identifiers in h5_layouts.py source code. Error messages use only generic strings. Tests verify no raw names in caplog or exception messages."
