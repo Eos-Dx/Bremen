@@ -34,6 +34,8 @@ TRIAGE_RULE_OUT = "MRI_RULE_OUT"
 def run_inference(
     h5_path: str,
     patient_id: str | None = None,
+    target_scan_ref: str | None = None,
+    control_scan_ref: str | None = None,
 ) -> dict[str, Any]:
     """Run full inference pipeline from H5 path to prediction JSON.
 
@@ -50,26 +52,41 @@ def run_inference(
     h5_path : Path to the H5 container.
     patient_id : Optional override for patient ID.  If ``None``,
         the patient ID from the H5 container is used.
+    target_scan_ref : Optional explicit target scan ref for layout-aware
+        preflight.  When provided (and ``control_scan_ref`` is provided),
+        preflight uses the H5 layout adapter to resolve the target sample
+        group path.  When ``None``, the canonical preflight path is used.
+    control_scan_ref : Optional explicit control scan ref for layout-aware
+        preflight.  Must be provided together with ``target_scan_ref``.
 
     Returns
     -------
     A dict with all mandatory prediction response fields.
     """
     # 1. H5 received
+    explicit_refs = target_scan_ref is not None
     _log.info(
         "bremen.prediction.h5.received\t"
         "stage=h5\tstatus=received\t"
         "h5_input_present=true\t"
-        "h5_basename=%s",
+        "h5_basename=%s\t"
+        "explicit_refs=%s",
         Path(h5_path).name,
+        str(explicit_refs).lower(),
     )
 
     # 2. Preflight
     _log.debug(
         "bremen.prediction.preflight.start\t"
-        "stage=preflight\tstatus=started",
+        "stage=preflight\tstatus=started\t"
+        "explicit_refs=%s",
+        str(explicit_refs).lower(),
     )
-    preflight = run_h5_preflight(h5_path)
+    preflight = run_h5_preflight(
+        h5_path,
+        target_scan_ref=target_scan_ref,
+        control_scan_ref=control_scan_ref,
+    )
     if not preflight.passed:
         _log.error(
             "bremen.prediction.preflight.failure\t"
@@ -84,7 +101,9 @@ def run_inference(
 
     _log.info(
         "bremen.prediction.preflight.completed\t"
-        "stage=preflight\tstatus=completed",
+        "stage=preflight\tstatus=completed\t"
+        "explicit_refs=%s",
+        str(explicit_refs).lower(),
     )
 
     pid = patient_id or preflight.patient_id or "unknown"
