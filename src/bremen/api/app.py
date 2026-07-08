@@ -154,6 +154,8 @@ def handle_submit_prediction(
         result_dict = run_inference(
             h5_path=resolved_h5_path,
             patient_id=raw_request.get("patient_id"),
+            target_scan_ref=request.target_scan_ref,
+            control_scan_ref=request.control_scan_ref,
         )
 
         completed_result = CompletedResult(

@@ -196,8 +196,10 @@ class TestPredictionCallsRunInference:
 
         call_args = []
 
-        def mock_run_inference(h5_path, patient_id=None):
-            call_args.append((h5_path, patient_id))
+        def mock_run_inference(
+            h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None
+        ):
+            call_args.append((h5_path, patient_id, target_scan_ref, control_scan_ref))
             return _valid_mock_result()
 
         monkeypatch.setattr(
@@ -219,7 +221,7 @@ class TestPredictionCallsRunInference:
             f"run_inference was called {len(call_args)} times, expected 1"
         )
 
-        actual_h5_path, actual_patient_id = call_args[0]
+        actual_h5_path, actual_patient_id, actual_target_ref, actual_control_ref = call_args[0]
         assert actual_h5_path == "/tmp/test-input.h5", (
             f"run_inference received '{actual_h5_path}', "
             f"expected '/tmp/test-input.h5'"
@@ -228,6 +230,10 @@ class TestPredictionCallsRunInference:
             "run_inference must not receive 'target' as the H5 path"
         )
         assert actual_patient_id is None  # not provided in request
+        assert actual_target_ref == "target"
+        assert actual_control_ref == "control"
+
+        # Verify the job completed with result
 
         # Verify the job completed with result
         status = handle_get_prediction(response.job_id, store)
@@ -251,7 +257,9 @@ class TestPredictionCompletesWithResult:
         """Monkeypatch run_inference to return a valid result."""
         _load_synthetic_model(tmp_path)
 
-        def mock_run_inference(h5_path, patient_id=None):
+        def mock_run_inference(
+            h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None
+        ):
             return _valid_mock_result()
 
         monkeypatch.setattr(
@@ -421,8 +429,10 @@ class TestPredictionS3Uri:
                                  expected_checksum=None, s3_client=None):
             return Path(expected_staged_path)
 
-        def mock_run_inference(h5_path, patient_id=None):
-            call_args.append((h5_path, patient_id))
+        def mock_run_inference(
+            h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None
+        ):
+            call_args.append((h5_path, patient_id, target_scan_ref, control_scan_ref))
             return _valid_mock_result()
 
         monkeypatch.setattr(
@@ -449,7 +459,7 @@ class TestPredictionS3Uri:
             f"run_inference was called {len(call_args)} times, expected 1"
         )
 
-        actual_h5_path, actual_patient_id = call_args[0]
+        actual_h5_path, actual_patient_id, actual_target_ref, actual_control_ref = call_args[0]
         assert actual_h5_path == expected_staged_path, (
             f"run_inference received '{actual_h5_path}', "
             f"expected staged path '{expected_staged_path}'"
@@ -458,6 +468,10 @@ class TestPredictionS3Uri:
             "run_inference must not receive S3 URI directly"
         )
         assert actual_patient_id is None
+        assert actual_target_ref == "target"
+        assert actual_control_ref == "control"
+
+        # Verify the job completed
 
         # Verify the job completed with result
         status = handle_get_prediction(response.job_id, store)
