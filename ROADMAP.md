@@ -42,8 +42,12 @@ No hard calendar dates — use sequence and dependencies.
 - PR0043 — S3 H5 input staging. `src/bremen/h5_inputs.py`, `stage_h5_input()`.
 - PR0044 — H5 sample metadata fallback. `resolve_patient_metadata()`, `patient_name_fallback`.
 - PR0045 — H5 layout adapter boundary. `src/bremen/api/h5_layouts.py`, adapter protocol, canonical + calibration adapters.
+- PR0047 — Calibration sample preprocessing bridge. Map calibration sample layout into runtime preprocessing without changing inference math. Explicit target/control sample refs. Integration i/q arrays. 15-feature v0.1 schema.
+- PR0048 — HTTP explicit-ref wiring. `target_scan_ref` / `control_scan_ref` carried through HTTP → staging → preflight/layout context → preprocessing/inference.
+- PR0049 — Production E2E smoke hardening. In-process handler-call smoke test with synthetic H5, monkeypatched S3 staging, explicit refs, calibration layout, log leakage checks, and operator runbook.
+- Agent loop guardrails — Process-only project hygiene (no numbered PR). Enforced by `AGENT_TEST_DEBUGGING_RULES.md` and `TEST_DESIGN_STANDARD.md.
 
-## Current state through PR0045
+## Current state through PR0049
 
 - Runtime service exists and is operational on App Runner.
 - Runtime model is loaded at startup from a checksum-verified model package (S3 staging + joblib).
@@ -53,8 +57,10 @@ No hard calendar dates — use sequence and dependencies.
 - Prediction job execution is wired (submit → validate → stage → preflight → bridge → inference → completed/failed).
 - H5 metadata fallback is implemented (primary `/patient/id`, fallback sample-level `patient_name` with source tracking).
 - H5 layout adapter boundary exists (abstract adapter protocol, detect/resolve, Canonical + CalibrationSample adapters, layout registry).
-- Calibration sample layout is supported at metadata/context level only (preflight passes, preprocessing not yet implemented).
-- Calibration sample preprocessing is not yet implemented (scheduled PR0047).
+- Calibration sample preprocessing bridge exists (PR0047 — integration i/q read, 15-feature v0.1 schema, explicit refs).
+- Explicit target/control refs are wired through predictions (PR0048 — HTTP → staging → preflight/layout context → bridge → inference).
+- Production E2E smoke hardening exists (PR0049 — in-process handler-call smoke test with synthetic H5, monkeypatched S3 staging, log leakage checks, operator runbook).
+- Agent loop guardrails exist as process-only project hygiene (no numbered PR).
 
 ## Product Track sequence
 
@@ -165,13 +171,10 @@ An open question exists: do Mahalanobis and Wasserstein-style features require f
 
 **Numbering clarification**: Product Track sequence positions (items 1–12) are ordering, not PR-00XX identifiers. The next literal PR number after 0025 will be assigned when the next scheduled sequence item is actually planned. PR 0019–0024 Platform Readiness Track numbers remain unchanged and are not renumbered by this or any subsequent PR. Reprioritization changes execution order only, not existing PR labels.
 
-## Next Execution Sequence (post-PR0045)
+## Next Execution Sequence (post-PR0049)
 
 | PR | Title | Description |
 |----|-------|-------------|
-| **PR0047** | Calibration sample preprocessing bridge | Map calibration sample layout into runtime preprocessing without changing inference math. Use explicit target/control sample refs. Read integration i/q arrays safely. Produce the existing 15-feature v0.1 schema. No clinical claims. |
-| **PR0048** | HTTP prediction explicit-ref wiring | Ensure `target_scan_ref` / `control_scan_ref` are carried through HTTP → staging → preflight/layout context → preprocessing/inference. Production smoke with explicit refs. |
-| **PR0049** | Production end-to-end smoke hardening | S3 H5 → explicit sample refs → checksum → layout adapter → preprocessing → inference → completed job/result. Document expected failures and safe errors. |
 | **PR0050** | Model/version readiness endpoint cleanup | Align `/model/version` `model_status` with actual `model_ready` state. Preserve safe metadata only. |
 | **PR0051** | Config governance ADR/gates | Close G-CFG-1/G-CFG-2/G-CFG-3 or explicitly defer with rationale. Config audit/history architecture only, no UI unless separately planned. |
 | **PR0052** | Matador boundary / system-of-record adapter skeleton | Contract only, no local path dependency, no raw patient data logging. |

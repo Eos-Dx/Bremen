@@ -1,0 +1,130 @@
+# Plan Review — PR: Roadmap Correction After PR0049
+
+review_type: plan-review
+pr: "roadmap-correction-after-pr0049"
+branch: "roadmap-correction-after-pr0049"
+head_verified: "ae3655b47cef88563ba063e8fc4ee9a315142298"
+date: "2026-07-08T23:12:48Z"
+
+verdict: approve
+head_verified: true
+branch_confirmed: true
+
+blockers: []
+warnings: []
+
+checks:
+  # Plan existence and structure
+  plan_md_exists: true
+  plan_identifies_minor_drift: true
+  plan_is_docs_only: true
+  plan_forbids_source_test_runtime_dependency_changes: true
+
+  # Roadmap anchor check
+  anchor_a_completed_prs_insertion_present: true
+  anchor_b_current_state_header_present: true
+  anchor_c_calibration_note_present: true
+  anchor_d_new_state_bullets_present: true
+  anchor_e_next_sequence_removal_present: true
+  anchor_f_process_guardrails_mention_present: true
+  anchor_g_h5_strategy_cross_ref_note_present: true
+  anchors_include_grep_verification_commands: true
+  anchors_require_reverify_before_edit: true
+
+  # Completed work check
+  requires_adding_pr0047_completed: true
+  requires_adding_pr0048_completed: true
+  requires_adding_pr0049_completed: true
+  process_guardrails_not_numbered_pr: true
+  process_guardrails_note_is_process_only: true
+
+  # Current state check
+  requires_current_state_through_pr0049: true
+  includes_calibration_preprocessing_bridge: true
+  includes_explicit_ref_wiring: true
+  includes_production_e2e_smoke_hardening: true
+  includes_agent_loop_guardrails_process_only: true
+
+  # Next sequence check
+  keeps_pr0050_as_next: true
+  pr0050_is_model_version_readiness: true
+  pr0051_remains_config_governance: true
+  pr0052_remains_matador_boundary: true
+  pr0053_remains_decision_support_wrapper: true
+  pr0054_remains_release_readiness: true
+  pr0049_not_future_work: true
+  fastapi_not_next: true
+  config_governance_not_moved_before_pr0050: true
+
+  # Preserved decisions check
+  app_runner_near_term_preserved: true
+  ecs_fargate_long_term_preserved: true
+  apana_retired_preserved: true
+  runtime_model_binding_lifecycle_preserved: true
+  g_cfg1_remains_open: true
+  g_cfg2_remains_open: true
+  g_cfg3_remains_open: true
+  g_api1_remains_decided: true
+  g_api2_remains_decided: true
+  g_infra1_remains_decided: true
+  fastapi_deferred_preserved: true
+  h5_layout_strategy_preserved: true
+
+  # Validation
+  validation_15_steps_present: true
+  validation_includes_working_tree_check: true
+  validation_includes_future_work_absence_check: true
+  validation_includes_current_state_header_check: true
+  validation_includes_stale_claim_removal_check: true
+  validation_includes_sequence_order_check: true
+  validation_includes_preserved_decisions_check: true
+  validation_includes_fastapi_scan: true
+  validation_includes_guardrail_number_check: true
+  validation_includes_artifact_scan: true
+
+  # Non-goals respected
+  no_implementation: true
+  no_roadmap_edit_in_review: true
+  no_source_edit: true
+  no_test_edit: true
+  no_docs_edit_except_review_artifact: true
+  no_adr_edit: true
+  no_fastapi: true
+  no_production_smoke: true
+  no_aws_docker_terraform: true
+  no_dependency_install: true
+
+validation:
+  git_diff_name_only: "only .project-memory/pr/roadmap-correction-after-pr0049/ untracked directory"
+  forbidden_content_scan: pass
+  fastapi_not_recommended_as_next: pass
+  no_pr_number_consumed_by_guardrails: pass
+  docs_only_scope: pass
+
+commit_readiness:
+  ready_to_commit: true
+  files_in_scope:
+    - ".project-memory/pr/roadmap-correction-after-pr0049/reviews/plan-review.yml"
+  files_explicitly_excluded:
+    - "ROADMAP.md"
+    - "src/**"
+    - "tests/**"
+    - "docs/**"
+    - "docs/adr/**"
+    - "docs/architecture.md"
+    - "Dockerfile"
+    - "Dockerfile.training"
+    - "infra/**"
+    - ".github/**"
+    - "requirements.txt"
+    - "pyproject.toml"
+    - "src/bremen/training/**"
+    - ".project-memory/pr/roadmap-correction-after-pr0049/PLAN.md"
+  notes:
+    - "Plan is minimal and correct. Exactly one file to edit: ROADMAP.md. Three categories of edit: (1) add PR0047/PR0048/PR0049 + process guardrails bullet to Completed foundation PRs, (2) update Current State section header and bullets, (3) remove PR0047–PR0049 from Next Execution Sequence table and update header from post-PR0045 to post-PR0049."
+    - "7 anchors (A–G) with grep verification commands. Anchor G correctly notes that H5 Layout Strategy PR0047 cross-references are historical notes, not future-work claims — no action required on them."
+    - "Process guardrails correctly labeled as process-only hygiene with explicit 'no roadmap number consumed' statement. Plan section 3 and section 6.2 confirm this."
+    - "PR0050 confirmed as next code step. No FastAPI recommendation. No config governance moved before PR0050."
+    - "All 16 preserved decisions explicitly listed in Section 9. Validation checklist has 15 commands covering all drift corrections and preservation checks."
+    - "Edit order specified: Completed PRs additions first, then current state, then Next Sequence. Prevents line-number drift between edits."
+    - "Warnings correctly note: (1) H5 Layout Strategy PR0047 cross-references are historical, not errors; (2) line numbers may shift — verify anchors with grep before editing; (3) edit order matters."
