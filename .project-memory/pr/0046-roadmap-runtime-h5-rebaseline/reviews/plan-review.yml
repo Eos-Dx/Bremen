@@ -1,0 +1,46 @@
+review_type: plan-review
+branch: 0046-roadmap-runtime-h5-rebaseline
+verdict: approve
+head: "8b699d53e5965d153263bdc95ee6d2da93ff982d"
+status: "?? .project-memory/pr/0046-roadmap-runtime-h5-rebaseline/"
+plan_path: ".project-memory/pr/0046-roadmap-runtime-h5-rebaseline/PLAN.md"
+blockers: []
+warnings: []
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  roadmap_drift_recorded: true
+  completed_state_through_pr0045_recorded: true
+  next_sequence_pr0047_to_pr0054_defined: true
+  h5_strategy_required: true
+  agent_debugging_rules_required: true
+  app_runner_target_preserved: true
+  ecs_long_term_preserved: true
+  aprana_retired_preserved: true
+  model_binding_lifecycle_preserved: true
+  config_gates_remain_open: true
+  decided_gates_preserved: true
+  docs_process_only_scope: true
+  no_src_or_tests_changes_allowed: true
+  no_infra_docker_dependency_changes_allowed: true
+  no_real_artifacts_allowed: true
+  no_secrets_or_account_ids_allowed: true
+  no_clinical_claims_allowed: true
+  validation_commands_present: true
+  implementation_agent_coder: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0046-roadmap-runtime-h5-rebaseline/PLAN.md"
+    - ".project-memory/pr/0046-roadmap-runtime-h5-rebaseline/reviews/plan-review.yml"
+notes:
+  - "All 21 checks pass. No blockers."
+  - "Roadmap drift: Section 3 documents 6 distinct problems — completed PRs stop at PR0022C (missing PR0026–PR0045), Next Execution Sequence lists 12 already-completed PRs as future work, duplicate/conflicting PR0039 entries, Training Pipeline Track overlapping numbering, no H5 layout strategy section, no agent debugging protocol."
+  - "Completed state: Section 4 table records all 20 PRs PR0026–PR0045 with correct titles and key artifacts. Includes PR0040 S3 model startup staging, PR0041 runtime observability logging, PR0042 prediction job execution wiring, PR0043 S3 H5 input staging, PR0044 H5 sample metadata fallback, PR0045 H5 layout adapter boundary. Current state summary covers runtime operational status through PR0045."
+  - "Next sequence: Section 5 defines PR0047–PR0054 with correct titles and descriptions. PR0045 plan-review approved (532 tests pass) is confirmed."
+  - "H5 strategy: Section 6 adds H5 Layout Strategy section with core principles (adapter/plugin, canonical preserved, calibration at metadata/context only, explicit refs for multi-patient, no auto-selection, no raw identifiers in logs), adapter inventory table showing CanonicalH5LayoutAdapter (production) and CalibrationSampleH5LayoutAdapter (preflight-only, preprocessing in PR0047)."
+  - "Agent debugging rules: Section 7 creates .project-memory/AGENT_TEST_DEBUGGING_RULES.md with 9 rules. Rule 1: no tail/head on pytest output. Rule 2: first failure -x --tb=long -vv. Rule 3: isolate single failing test. Rule 4: anti-loop (3 attempts/20min then classify). Rule 5: exception identity/import-order issue. Rule 6: global state leakage. Rule 7: test isolation preferences. Rule 8: no real AWS/Docker/Terraform/network in unit tests. Rule 9: no sensitive data in logs."
+  - "Scope: Section 10 allows only ROADMAP.md, AGENT_TEST_DEBUGGING_RULES.md, review artifacts. Section 11 forbids all source, test, ADR, infra, CI/CD, Dockerfile, dependency files. Validation commands confirm no source/test/infra changes. PASS."
+  - "Decisions preserved: Section 8 confirms App Runner near-term + ECS Fargate long-term, APRANA retired, model lifecycle (no in-image, startup load, checksum, no hot-swap), G-CFG-1/2/3 OPEN, G-API-1/2 and G-INFRA-1 DECIDED."
+  - "Safety: No secrets/account IDs/registry URLs. No real artifacts. No clinical claims. No runtime behavior changes. PASS."
+  - "Implementation agent: coder (correctly assigned)."
