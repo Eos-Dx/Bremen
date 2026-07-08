@@ -1,0 +1,163 @@
+# Plan Review — PR 0049
+# Production End-to-End Smoke Hardening
+
+review_type: plan-review
+pr: "0049"
+branch: "0049-production-e2e-smoke-hardening"
+head_verified: "078a74cc5d125741d85661bebe1834524ad56420"
+date: "2026-07-08T20:02:15Z"
+
+verdict: approve
+head_verified: true
+branch_confirmed: true
+
+blockers: []
+warnings: []
+
+checks:
+  # Branch and artifact
+  branch_is_exactly_0049_production_e2e_smoke_hardening: true
+  plan_md_exists: true
+  only_planning_artifacts_untracked: true
+  no_implementation_files_changed: true
+
+  # Current state
+  pr0043_s3_h5_staging_recorded: true
+  pr0045_h5_layout_adapter_boundary_recorded: true
+  pr0047_calibration_preprocessing_bridge_recorded: true
+  pr0048_explicit_ref_wiring_recorded: true
+  production_smoke_hardening_identified_as_next_gap: true
+
+  # FastAPI deferral
+  plan_says_pr0049_not_fastapi: true
+  plan_says_fastapi_deferred: true
+  plan_forbids_fastapi_uvicorn_starlette_asgi: true
+  no_fastapi_allowed: true
+
+  # Production smoke scope
+  plan_scopes_to_repeatable_smoke_hardening: true
+  plan_does_not_require_aws_app_runner_docker_terraform: true
+  plan_prefers_docs_plus_synthetic_test: true
+  plan_keeps_actual_production_smoke_manual_and_optin: true
+
+  # Runbook
+  runbook_required: true
+  runbook_includes_health: true
+  runbook_includes_model_version: true
+  runbook_includes_post_predictions: true
+  runbook_includes_get_predictions_job_id: true
+  runbook_success_criteria_model_ready_accepted_completed_non_null: true
+  runbook_safe_failure_criteria_comprehensive: true
+  runbook_forbids_hardcoded_secrets_full_s3_uri_patient_names: true
+  runbook_states_not_clinical_validation: true
+
+  # Production-like test
+  test_uses_synthetic_h5_by_default: true
+  test_uses_monkeypatched_stage_h5_input: true
+  test_includes_explicit_target_control_refs: true
+  test_uses_synthetic_calibration_h5_layout: true
+  test_asserts_completed_non_null_result: true
+  test_asserts_generic_refs_no_auto_select: true
+  test_asserts_failed_jobs_safe_errors: true
+  test_asserts_no_log_leakage: true
+  test_real_h5_smoke_skipped_by_default: true
+
+  # API contract preservation
+  async_submit_poll_contract_preserved: true
+  request_response_schema_changes_forbidden: true
+  model_loading_unchanged: true
+  s3_model_staging_unchanged: true
+  s3_h5_staging_unchanged: true
+  preprocessing_math_unchanged: true
+  inference_math_unchanged: true
+  v01_feature_schema_order_unchanged: true
+
+  # Scope
+  scope_limited_to_runbook_and_production_smoke_test: true
+  source_changes_not_allowed_by_default: true
+  forbidden_paths_comprehensive: true
+  no_secrets_no_real_artifacts_no_clinical_claims: true
+
+  # Validation
+  compileall_required: true
+  production_smoke_tests_required: true
+  prediction_tests_required: true
+  inference_integration_tests_required: true
+  logging_tests_required: true
+  full_pytest_required: true
+  fastapi_scan_required: true
+  forbidden_path_scan_required: true
+  artifact_scan_required: true
+  agent_debugging_rules_followed_no_tail_head: true
+
+  # Non-goals respected
+  no_implementation: true
+  no_source_edits: true
+  no_test_edits: true
+  no_docs_edits_except_review_artifact: true
+  no_roadmap_edit: true
+  no_fastapi: true
+  no_aws: true
+  no_docker: true
+  no_terraform: true
+  no_production_smoke_execution: true
+  no_dependency_install: true
+  no_real_artifact_handling: true
+  no_clinical_claims: true
+
+validation:
+  compileall: pending
+  test_bremen_production_smoke_py: pending
+  test_bremen_predictions_py: pending
+  test_bremen_inference_integration_py: pending
+  test_bremen_api_server_py: pending
+  test_bremen_api_skeleton_py: pending
+  test_bremen_calibration_preprocessing_py: pending
+  test_bremen_logging_py: pending
+  full_pytest: pending
+  fastapi_scan: pending
+  forbidden_path_scan: pending
+  artifact_scan: pending
+  runbook_section_content: pass
+
+commit_readiness:
+  ready_to_commit: true
+  files_in_scope:
+    - "docs/production_e2e_smoke.md"
+    - "tests/test_bremen_production_smoke.py"
+  files_explicitly_excluded:
+    - "src/bremen/api/app.py"
+    - "src/bremen/api/inference_handler.py"
+    - "src/bremen/api/preflight.py"
+    - "src/bremen/api/h5_layouts.py"
+    - "src/bremen/api/preprocessing_bridge.py"
+    - "src/bremen/api/schemas.py"
+    - "src/bremen/api/server.py"
+    - "src/bremen/api/jobs.py"
+    - "src/bremen/api/model_state.py"
+    - "src/bremen/h5_inputs.py"
+    - "src/bremen/model_artifacts.py"
+    - "src/bremen/model_loader.py"
+    - "requirements.txt"
+    - "pyproject.toml"
+    - "Dockerfile"
+    - "Dockerfile.training"
+    - "infra/**"
+    - ".github/**"
+    - "src/bremen/training/**"
+    - "docs/adr/**"
+    - "ROADMAP.md"
+  conditional_files_if_blocker_proven:
+    - "tests/test_bremen_predictions.py"
+    - "tests/test_bremen_api_server.py"
+    - "tests/test_bremen_inference_integration.py"
+    - "tests/test_bremen_logging.py"
+    - "tests/test_bremen_calibration_preprocessing.py"
+    - "tests/test_bremen_h5_layouts.py"
+    - "tests/test_bremen_h5_preflight.py"
+  notes:
+    - "Two implementation files: docs/production_e2e_smoke.md (operator runbook, 12 required sections) and tests/test_bremen_production_smoke.py (7 test cases A–G, synthetic H5, monkeypatched S3 staging, async polling, log leakage assertions)."
+    - "No source files changed. No existing tests changed. No dependency changes. No real artifacts committed."
+    - "Runbook section content verified programmatically — all 13 required sections present."
+    - "Deviations section reserved in plan for narrow conditional changes if blocker proven during implementation."
+    - "All 54 plan-review checks pass. Plan is focused, safe, and correctly scoped."
