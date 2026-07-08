@@ -1,0 +1,70 @@
+review_type: plan-review
+branch: 0048-http-explicit-ref-wiring
+verdict: approve
+head: "4fcbec042ca08b7fd4087001acc464a1b454fc72"
+status: "?? .project-memory/pr/0048-http-explicit-ref-wiring/"
+plan_path: ".project-memory/pr/0048-http-explicit-ref-wiring/PLAN.md"
+blockers: []
+warnings: []
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  fastapi_deferred: true
+  no_fastapi_dependency_allowed: true
+  current_state_recorded: true
+  http_gap_recorded: true
+  explicit_refs_forwarded_from_request: true
+  calibration_refs_required: true
+  canonical_legacy_supported: true
+  no_auto_select_first_patient_or_sample: true
+  invalid_ref_handling_safe: true
+  run_inference_accepts_refs: true
+  refs_forwarded_to_preflight: true
+  preflight_context_reaches_preprocessing: true
+  model_loading_unchanged: true
+  inference_math_unchanged: true
+  h5_path_mode_preserved: true
+  h5_uri_staging_mode_preserved: true
+  completed_jobs_non_null_result: true
+  failed_jobs_safe_error: true
+  server_parity_addressed: true
+  raw_patient_not_logged: true
+  raw_features_not_logged: true
+  full_s3_uri_not_logged: true
+  no_clinical_claims: true
+  allowed_files_scoped: true
+  no_model_s3_preprocessing_math_changes: true
+  no_training_docker_infra_dependency_changes: true
+  tests_cover_ref_forwarding: true
+  tests_cover_context_to_preprocessing: true
+  tests_cover_h5_path_explicit_refs: true
+  tests_cover_h5_uri_explicit_refs: true
+  tests_cover_safe_ref_failures: true
+  tests_cover_canonical_preserved: true
+  tests_cover_no_log_leakage: true
+  real_h5_smoke_skipped_by_default: true
+  agent_debugging_rules_required: true
+  no_tail_on_failing_pytest: true
+  validation_commands_present: true
+  implementation_agent_coder: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0048-http-explicit-ref-wiring/PLAN.md"
+    - ".project-memory/pr/0048-http-explicit-ref-wiring/reviews/plan-review.yml"
+notes:
+  - "All 39 checks pass. No blockers."
+  - "FastAPI deferral: Section 4 explicitly states FastAPI deferred until after PR0048 and PR0049, must be thin transport adapter only. Forbidden #1 bans FastAPI/uvicorn/starlette. PASS."
+  - "Current state: Section 3 documents PR0043 S3 staging ✓, PR0044 metadata fallback ✓, PR0045 adapter boundary ✓, PR0046 roadmap rebaseline ✓, PR0047 calibration preprocessing ✓ (544 tests pass per PR0047 precommit-review). Gap: run_inference() signature is (h5_path, patient_id=None) — refs are dropped before preflight. Calibration H5 requests fail at preflight without refs. PASS."
+  - "HTTP path analysis: POST /predictions → handle_submit_prediction() → PredictionRequest (refs validated) → request.target_scan_ref available → run_inference(h5_path, patient_id) — refs DROPPED → run_h5_preflight(h5_path) → multi-patient H5 detected → Ambiguous. Fix: forward request.target_scan_ref and request.control_scan_ref to run_inference(), forward to run_h5_preflight(). PASS."
+  - "Request contract: schemas.py unchanged — target_scan_ref and control_scan_ref already validated non-empty strings. Adapter layer validates ref structure (no leading /, no .., distinct, existing groups). PASS."
+  - "Inference handler: Section 7 adds target_scan_ref: str | None = None and control_scan_ref: str | None = None to run_inference(). Forwards to run_h5_preflight(). Safe explicit_refs=true/false boolean log field. Backward compat: None defaults preserve existing callers. No model loading or inference math changes. PASS."
+  - "App/job execution: Section 9 — one-line change in app.py: pass request.target_scan_ref and request.control_scan_ref to run_inference(). Error handling unchanged. Adapter exceptions (H5ContainerError, H5MetadataError, H5PatientMismatchError, H5SideMismatchError) are caught by existing except Exception clause → failed job with safe error. Job invariant preserved. PASS."
+  - "Server parity: Section 10 — server.py unchanged. do_POST passes body to handle_submit_prediction(). Refs flow through request object automatically. PASS."
+  - "Preprocessing wiring: run_preprocessing_bridge() already reconstructs H5PredictionContext from PreflightResult.metadata (PR0047 Section 8). PreflightResult.metadata already contains layout_name, target_group_path, control_group_path (PR0045). The entire pipeline works once refs reach preflight. PASS."
+  - "Backward compat: canonical h5_path, h5_uri staging, model readiness, model loading, job semantics, response schemas, feature schema order all preserved. Default param values ensure existing callers unchanged. PASS."
+  - "Safety: Section 11 forbids raw patient/logs. Safe explicit_refs=true/false boolean logged. No patient identifiers, S3 URIs, or feature values in logs. PASS."
+  - "Scope: Allowed = inference_handler.py (add ref params + forwarding + safe log), app.py (pass refs from request), test files. Forbidden = FastAPI/deps, requirements.txt, pyproject.toml, Dockerfile, infra, .github, training, preflight.py (already accepts refs), h5_layouts.py (already correct), preprocessing_bridge.py (already handles context from metadata), schemas.py (refs already validated), jobs.py, server.py (unchanged), h5_inputs.py, model_state, artifacts. PASS."
+  - "Tests: 10 tests (A-J) cover ref forwarding to preflight (A), context reaches preprocessing (B), h5_path+refs completes (C), h5_uri+refs stages+runs (D), generic refs on calibration fail safely (E), missing refs fail safely (F), canonical preserved (G), no-refs backward compat (H), logging safety (I), opt-in real H5 smoke (J). All synthetic H5. PASS."
+  - "Validation: Follow AGENT_TEST_DEBUGGING_RULES.md, no tail/head on failing pytest, -x --tb=long -vv first, grep for ref wiring, no FastAPI deps, no forbidden changes, no artifacts committed. PASS."
+  - "Implementation agent: coder (correctly assigned)."
