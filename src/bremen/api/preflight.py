@@ -178,7 +178,12 @@ def resolve_patient_metadata(h5_file: h5py.File) -> PatientMetadata:
     )
 
 
-def run_h5_preflight(h5_path: str | Path) -> PreflightResult:
+def run_h5_preflight(
+    h5_path: str | Path,
+    *,
+    target_scan_ref: str | None = None,
+    control_scan_ref: str | None = None,
+) -> PreflightResult:
     """Run full H5 preflight on a target/control H5 container.
 
     Validates:
@@ -212,66 +217,128 @@ def run_h5_preflight(h5_path: str | Path) -> PreflightResult:
         ) from exc
 
     try:
-        # Check required structure
-        top_keys = set(f.keys())
-        container_reason = _check_top_level_structure(top_keys)
-        reasons.append(container_reason)
+        # ---- Explicit refs path (adapter-based) ----
+        if target_scan_ref is not None or control_scan_ref is not None:
+            if target_scan_ref is None or control_scan_ref is None:
+                raise ValueError(
+                    "Both target_scan_ref and control_scan_ref must be provided"
+                )
+            from bremen.api.h5_layouts import detect_layout
 
-        # Patient ID with fallback
-        patient_meta = resolve_patient_metadata(f)
-        patient_id = patient_meta.patient_identifier
-        patient_identifier_source = patient_meta.patient_identifier_source
-        metadata_fallback_used = patient_meta.fallback_used
-        metadata = {
-            "patient_id": patient_id,
-            "patient_identifier_source": patient_identifier_source,
-            "metadata_fallback_used": metadata_fallback_used,
-        }
+            # Detect layout and resolve context
+            adapter = detect_layout(f)
+            ctx = adapter.resolve_prediction_context(
+                f, target_scan_ref, control_scan_ref
+            )
 
-        # Target side
-        target_side, target_measurements = _get_scan_side_and_measurements(
-            f, "target"
-        )
-        metadata["target_side"] = target_side
+            # Top-level structure check
+            top_keys = set(f.keys())
+            container_reason = _check_top_level_structure(top_keys)
+            reasons.append(container_reason)
 
-        # Contralateral side
-        contralateral_side, contralateral_measurements = (
-            _get_scan_side_and_measurements(f, "contralateral")
-        )
-        metadata["contralateral_side"] = contralateral_side
+            patient_id = ctx.patient_identifier
+            patient_identifier_source = ctx.patient_identifier_source
+            metadata_fallback_used = ctx.metadata_fallback_used
+            target_side = ctx.target_side
+            contralateral_side = ctx.control_side
+            target_count = ctx.target_measurement_count or 0
+            contralateral_count = ctx.control_measurement_count or 0
 
-        # Same patient check
-        patient_reason = validate_same_patient(f, patient_id)
-        reasons.append(patient_reason)
+            metadata = {
+                "patient_id": patient_id,
+                "patient_identifier_source": patient_identifier_source,
+                "metadata_fallback_used": metadata_fallback_used,
+                "layout_name": ctx.layout_name,
+                "target_group_path": ctx.target_group_path,
+                "control_group_path": ctx.control_group_path,
+                "target_side": target_side,
+                "contralateral_side": contralateral_side,
+            }
 
-        # Opposite sides check
-        sides_reason = validate_opposite_sides(
-            target_side, contralateral_side
-        )
-        reasons.append(sides_reason)
+            # Same patient check
+            patient_reason = validate_same_patient(f, patient_id)
+            reasons.append(patient_reason)
 
-        # Required metadata
-        metadata_reason = validate_required_metadata(
-            f, patient_id, patient_id_fallback_active=metadata_fallback_used
-        )
-        reasons.append(metadata_reason)
+            # Opposite sides check
+            sides_reason = validate_opposite_sides(
+                target_side, contralateral_side
+            )
+            reasons.append(sides_reason)
 
-        # Measurement count
-        target_count = len(target_measurements) if target_measurements is not None else 0
-        contralateral_count = (
-            len(contralateral_measurements)
-            if contralateral_measurements is not None
-            else 0
-        )
-        measurements_reason = validate_measurement_counts(
-            target=target_measurements,
-            contralateral=contralateral_measurements,
-        )
-        reasons.append(measurements_reason)
+            # Measurement count
+            measurements_reason = _validate_measurement_counts_int(
+                target_count, contralateral_count
+            )
+            reasons.append(measurements_reason)
 
-        # SNR thresholds (if present)
-        snr_reason = validate_snr_thresholds(f)
-        reasons.append(snr_reason)
+        # ---- Legacy path (no explicit refs) ----
+        else:
+            # Check required structure
+            top_keys = set(f.keys())
+            container_reason = _check_top_level_structure(top_keys)
+            reasons.append(container_reason)
+
+            # Patient ID with fallback
+            patient_meta = resolve_patient_metadata(f)
+            patient_id = patient_meta.patient_identifier
+            patient_identifier_source = patient_meta.patient_identifier_source
+            metadata_fallback_used = patient_meta.fallback_used
+            metadata = {
+                "patient_id": patient_id,
+                "patient_identifier_source": patient_identifier_source,
+                "metadata_fallback_used": metadata_fallback_used,
+            }
+
+            # Target side
+            target_side, target_measurements = _get_scan_side_and_measurements(
+                f, "target"
+            )
+            metadata["target_side"] = target_side
+
+            # Contralateral side
+            contralateral_side, contralateral_measurements = (
+                _get_scan_side_and_measurements(f, "contralateral")
+            )
+            metadata["contralateral_side"] = contralateral_side
+
+            # Same patient check
+            patient_reason = validate_same_patient(f, patient_id)
+            reasons.append(patient_reason)
+
+            # Opposite sides check
+            sides_reason = validate_opposite_sides(
+                target_side, contralateral_side
+            )
+            reasons.append(sides_reason)
+
+            # Required metadata
+            metadata_reason = validate_required_metadata(
+                f,
+                patient_id,
+                patient_id_fallback_active=metadata_fallback_used,
+            )
+            reasons.append(metadata_reason)
+
+            # Measurement count
+            target_count = (
+                len(target_measurements)
+                if target_measurements is not None
+                else 0
+            )
+            contralateral_count = (
+                len(contralateral_measurements)
+                if contralateral_measurements is not None
+                else 0
+            )
+            measurements_reason = validate_measurement_counts(
+                target=target_measurements,
+                contralateral=contralateral_measurements,
+            )
+            reasons.append(measurements_reason)
+
+            # SNR thresholds (if present)
+            snr_reason = validate_snr_thresholds(f)
+            reasons.append(snr_reason)
 
     finally:
         f.close()
@@ -534,6 +601,32 @@ def _get_scan_side_and_measurements(
         raise H5MeasurementError(f"Empty measurements array at {measurements_path}")
 
     return side, measurements
+
+
+def _validate_measurement_counts_int(
+    target_count: int, control_count: int, min_count: int = 1
+) -> PreflightReason:
+    """Validate measurement counts as integers."""
+    if target_count < min_count:
+        from bremen.api.preflight import H5MeasurementError
+
+        raise H5MeasurementError(
+            f"Target has {target_count} measurements, "
+            f"minimum required: {min_count}"
+        )
+
+    if control_count < min_count:
+        raise H5MeasurementError(
+            f"Control has {control_count} measurements, "
+            f"minimum required: {min_count}"
+        )
+
+    return PreflightReason(
+        check="measurement_counts",
+        passed=True,
+        message=f"Target has {target_count} measurements, "
+        f"control has {control_count} measurements.",
+    )
 
 
 def _walk_h5(
