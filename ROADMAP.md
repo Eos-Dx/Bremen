@@ -22,6 +22,39 @@ No hard calendar dates — use sequence and dependencies.
 - PR-0022A — Terraform AWS runtime skeleton. `infra/terraform/` with ECR, S3 versioned bucket, ECS Fargate cluster/service/task definition, CloudWatch, scoped IAM roles. Not yet applied.
 - PR-0022B — ECR publish workflow. `.github/workflows/ecr-publish.yml` building and pushing Docker image to ECR on push to main.
 - PR-0022C — ECR workflow credentials hotfix / scoped publisher credentials. Uses scoped IAM user credentials via secrets for ECR authentication (interim operational path; OIDC is the planned long-term approach).
+- PR0026 — Runtime HTTP service runner. Exposes `src/bremen/api/server.py` as a service process.
+- PR0027 — Model package source integration. `read_cloud_config()` + `model_package.validate_model_package()`.
+- PR0028 — Runtime model loading boundary. Controlled `joblib.load()` deserialization with checksum/trust rules.
+- PR0029 — Runtime model config roadmap rebaseline.
+- PR0030 — App Runner pivot docs. ADR-0008 + APRANA retirement + model lifecycle.
+- PR0031 — App Runner image tag. `app-runner` stable tag in ECR workflow.
+- PR0032 — Model package fetch/staging from S3.
+- PR0033 — Startup model loading + readiness probe.
+- PR0034 — Bremen training pipeline. `Dockerfile.training`, `src/bremen/training/`, feature computation.
+- PR0035 — Model package publication path. v0.1 model published to S3, manifest validation.
+- PR0036 — H5 preflight gate. `run_h5_preflight()` with target/control validation.
+- PR0037 — Preprocessing bridge. `run_preprocessing_bridge()` with 15-feature extraction.
+- PR0038 — Inference pipeline integration. `run_inference()` end-to-end.
+- PR0039 — v0.1 schema rebaseline + inference integration. ADR-0010, 15-column schema, portable logistic regression.
+- PR0040 — S3 model startup staging. Model fetch from S3 at container startup.
+- PR0041 — Runtime observability logging. `bremen.*` structured log events.
+- PR0042 — Prediction job execution wiring. `handle_submit_prediction()` → job → `run_inference()`.
+- PR0043 — S3 H5 input staging. `src/bremen/h5_inputs.py`, `stage_h5_input()`.
+- PR0044 — H5 sample metadata fallback. `resolve_patient_metadata()`, `patient_name_fallback`.
+- PR0045 — H5 layout adapter boundary. `src/bremen/api/h5_layouts.py`, adapter protocol, canonical + calibration adapters.
+
+## Current state through PR0045
+
+- Runtime service exists and is operational on App Runner.
+- Runtime model is loaded at startup from a checksum-verified model package (S3 staging + joblib).
+- App Runner proving path is operational (S3 staging, inference, prediction jobs).
+- S3 model startup staging works (container start → S3 fetch → checksum → joblib.load).
+- S3 H5 input staging works (`h5_uri` accepted, downloaded, checksum verified, staged locally).
+- Prediction job execution is wired (submit → validate → stage → preflight → bridge → inference → completed/failed).
+- H5 metadata fallback is implemented (primary `/patient/id`, fallback sample-level `patient_name` with source tracking).
+- H5 layout adapter boundary exists (abstract adapter protocol, detect/resolve, Canonical + CalibrationSample adapters, layout registry).
+- Calibration sample layout is supported at metadata/context level only (preflight passes, preprocessing not yet implemented).
+- Calibration sample preprocessing is not yet implemented (scheduled PR0047).
 
 ## Product Track sequence
 
@@ -132,27 +165,24 @@ An open question exists: do Mahalanobis and Wasserstein-style features require f
 
 **Numbering clarification**: Product Track sequence positions (items 1–12) are ordering, not PR-00XX identifiers. The next literal PR number after 0025 will be assigned when the next scheduled sequence item is actually planned. PR 0019–0024 Platform Readiness Track numbers remain unchanged and are not renumbered by this or any subsequent PR. Reprioritization changes execution order only, not existing PR labels.
 
-## Next Execution Sequence (post-platform-foundation)
+## Next Execution Sequence (post-PR0045)
 
-- **PR 0026** — Runtime HTTP service runner. Expose existing API skeleton (`src/bremen/api/`) as an actual service process suitable for container/ECS smoke testing. No inference, no H5 read, no model loading.
-- **PR 0027** — Model package source integration. Resolve local/cloud model package references and validate manifests/checksums without `joblib.load()`. Uses `read_cloud_config()` and `model_package.validate_model_package()`.
-- **PR 0028** — Runtime model loading boundary. Controlled `joblib.load()` deserialization boundary, only after checksum/trust rules are in place. Must not load untrusted artifacts.
-- **PR 0030** — Roadmap/ADR amendment (this PR). App Runner pivot, APRANA retirement, model lifecycle, config governance, DS inventory note.
-- **PR 0031** — ECR workflow: add stable App Runner image tag (`app-runner` tag alongside existing SHA + latest).
-- **PR 0032** — Model package fetch/staging from S3. Download model package to local staging directory using `read_cloud_config()`. No joblib.
-- **PR 0033** — Startup model loading and readiness probe. Wire fetch + validate + load into server startup. Readiness endpoint returns 503 until model is loaded.
-- **PR 0034** — App Runner Terraform skeleton. Add App Runner service Terraform alongside existing ECS skeleton.
-- **PR 0035** — DS feature inventory and model package composition decision. Confirm whether Mahalanobis/Wasserstein features require fitted reference statistics. Decide classifier-only vs. composite package.
-- **PR 0036** — H5/preflight metadata gate. Target/control consistency and H5 metadata validation.
-- **PR 0037** — Preprocessing bridge. Connect approved preprocessing path without training or clinical claims.
-- **PR 0038** — Inference pipeline integration. First end-to-end inference.
-- **PR 0039** — Config governance ADR and gate decisions. Close G-CFG-1, G-CFG-2, G-CFG-3. Define config validation, history store, and audit architecture.
-- **PR-0039 — v0.1 feature schema rebaseline + inference integration.** ADR-0010 records the 7→15 schema rebaseline. First working prediction from H5 input. Portable logistic regression inference with 15-column schema. Weak AUC disclosed (OOF 0.443) — pipeline proof, not clinical validation.
+| PR | Title | Description |
+|----|-------|-------------|
+| **PR0047** | Calibration sample preprocessing bridge | Map calibration sample layout into runtime preprocessing without changing inference math. Use explicit target/control sample refs. Read integration i/q arrays safely. Produce the existing 15-feature v0.1 schema. No clinical claims. |
+| **PR0048** | HTTP prediction explicit-ref wiring | Ensure `target_scan_ref` / `control_scan_ref` are carried through HTTP → staging → preflight/layout context → preprocessing/inference. Production smoke with explicit refs. |
+| **PR0049** | Production end-to-end smoke hardening | S3 H5 → explicit sample refs → checksum → layout adapter → preprocessing → inference → completed job/result. Document expected failures and safe errors. |
+| **PR0050** | Model/version readiness endpoint cleanup | Align `/model/version` `model_status` with actual `model_ready` state. Preserve safe metadata only. |
+| **PR0051** | Config governance ADR/gates | Close G-CFG-1/G-CFG-2/G-CFG-3 or explicitly defer with rationale. Config audit/history architecture only, no UI unless separately planned. |
+| **PR0052** | Matador boundary / system-of-record adapter skeleton | Contract only, no local path dependency, no raw patient data logging. |
+| **PR0053** | Decision-support report/output wrapper | Controlled output around prediction result. No diagnosis, no clinical validation claim. |
+| **PR0054** | Release readiness / operator notes | Production checklist, rollback, smoke commands, model artifact notes. |
 
-## Training Pipeline Track
+## Training Pipeline Track (completed)
 
-- **PR 0033** — ADR-0008: two-image build strategy and training/runtime separation (this PR).
-- **PR 0034** — Bremen training pipeline implementation:
+This track ran in parallel with the runtime track. All items are completed:
+
+- **PR0034** — Bremen training pipeline implementation:
   - `Dockerfile.training`
   - `src/bremen/training/`
   - CI extension for runtime and training images
@@ -161,9 +191,42 @@ An open question exists: do Mahalanobis and Wasserstein-style features require f
   - Bremen training joblib artifact assembly
   - Feature computation for 7 Bremen feature families (sigma_l1, sigma_l2, Mahalanobis1, Mahalanobis2, wasserstein_distance_full_q2, meanrms2, weightedrms1)
   - Tests for training artifact shape and patient-safe splits
-- **PR 0035 (tentative)** — First controlled training run and model package publication:
+- **PR0035** — First controlled training run and model package publication:
   - Run training on approved Bremen/Nova study data
   - Publish `bremen_v0_1.joblib` to S3 model store
   - Create/verify manifest with `model_checksum` and `feature_schema_version`
   - Verify `model_package.py` can validate package
   - Update configured `BREMEN_MODEL_VERSION` through approved model release process
+
+## H5 Layout Strategy
+
+### Core principles
+
+- H5 layouts are adapter/plugin based (`H5LayoutAdapter` protocol). New H5 layouts
+  must add an adapter + tests, not hardcoded conditionals in preflight.
+- The canonical layout (single patient, `/patient/id`, `/scans/target/`,
+  `/scans/contralateral/`) remains fully supported with zero regression.
+- The calibration sample layout (multiple patients under `/calib_*/sample_*/`,
+  `sample/patient_name`, `sample/sample_type`, `sets/set_*/integration/i/q`)
+  is supported through the `CalibrationSampleH5LayoutAdapter` at the
+  metadata/context/preflight level. Preprocessing is PR0047 scope.
+- Multi-patient H5 containers require explicit `target_scan_ref` /
+  `control_scan_ref` to select which samples to process.
+- No automatic first-patient or first-sample selection is permitted under any
+  adapter.
+- Raw patient identifiers (`patient_name`, `patient_id`) must not be logged.
+  Raw scan arrays must not be logged.
+- Future H5 layouts must add adapters and passing tests. Adapters must include
+  `detect()` and `resolve_prediction_context()` methods.
+
+### Current adapter inventory
+
+| Adapter | Detection trigger | Status |
+|---------|------------------|--------|
+| `CanonicalH5LayoutAdapter` | `/scans/target/measurements` exists | Production — supported |
+| `CalibrationSampleH5LayoutAdapter` | `/calib_*` groups with `sample/patient_name` + `sample/sample_type`, no `/scans/target/measurements` | Preflight metadata/context only — preprocessing in PR0047 |
+
+## Agent test debugging
+
+Agent test debugging rules are defined in
+`.project-memory/AGENT_TEST_DEBUGGING_RULES.md`.
