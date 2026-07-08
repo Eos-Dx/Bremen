@@ -1,0 +1,69 @@
+review_type: precommit-review
+branch: 0047-calibration-sample-preprocessing-bridge
+verdict: pass
+head: "c0280841dd0224016be2e2931e690db6280786b9"
+status: "M src/bremen/api/preprocessing_bridge.py\n?? tests/test_bremen_calibration_preprocessing.py\n?? .project-memory/pr/0047-calibration-sample-preprocessing-bridge/"
+changed_files:
+  - "src/bremen/api/preprocessing_bridge.py"
+  - "tests/test_bremen_calibration_preprocessing.py"
+blockers: []
+warnings: []
+validation:
+  compileall: pass
+  calibration_preprocessing_tests: pass
+  preprocessing_bridge_tests: pass
+  h5_layout_tests: pass
+  h5_preflight_tests: pass
+  inference_integration_tests: pass
+  prediction_tests: pass
+  logging_tests: pass
+  full_pytest: pass
+  fastapi_scan: pass
+  artifact_scan_reviewed: pass
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  fastapi_deferred: true
+  no_fastapi_dependency_or_import: true
+  canonical_preprocessing_preserved: true
+  feature_schema_order_preserved: true
+  inference_math_not_changed: true
+  calibration_preprocessing_defined: true
+  explicit_refs_used: true
+  no_auto_select_first_patient_or_sample: true
+  integration_i_read: true
+  integration_q_read: true
+  multiple_sets_deterministic: true
+  missing_i_fails_safely: true
+  missing_q_fails_safely: true
+  iq_mismatch_fails_safely: true
+  raw_detector_arrays_not_primary_inputs: true
+  raw_patient_not_logged: true
+  raw_features_not_logged: true
+  no_clinical_claims: true
+  no_model_or_s3_staging_changes: true
+  no_training_docker_infra_dependency_changes: true
+  tests_cover_canonical_path: true
+  tests_cover_calibration_iq_path: true
+  tests_cover_multiple_sets: true
+  tests_cover_missing_iq: true
+  tests_cover_iq_mismatch: true
+  tests_cover_schema_order: true
+  tests_cover_no_raw_array_reads: true
+  real_h5_smoke_skipped_by_default: true
+  agent_debugging_rules_followed: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "src/bremen/api/preprocessing_bridge.py"
+    - "tests/test_bremen_calibration_preprocessing.py"
+    - ".project-memory/pr/0047-calibration-sample-preprocessing-bridge/reviews/precommit-review.yml"
+notes:
+  - "All 35 checks pass. 544 tests pass, 10 skipped."
+  - "Only preprocessing_bridge.py modified (+140/-4 lines). No preflight.py or h5_layouts.py changes needed — PR0045 already populated target_group_path and control_group_path in PreflightResult.metadata."
+  - "Feature schema: build_feature_table() return dict exactly matches BREMEN_V01_FEATURE_COLUMNS order. BREMEN_V01_FEATURE_COLUMNS unchanged. 15 pure-numpy computation functions reused unchanged."
+  - "Calibration extraction: _extract_calibration_profiles() reads sets/set_*/integration/i and sets/set_*/integration/q, computes magnitude = sqrt(i^2 + q^2) per set, returns list of profiles. Sorted set keys for deterministic order. PreprocessingBridgeError on missing sets, missing i, missing q, non-1D arrays, mismatched lengths."
+  - "Bridge wiring: run_preprocessing_bridge() reconstructs H5PredictionContext from PreflightResult.metadata when layout_context not provided (backward compatible). layout_context param optional and defaults to None (canonical path)."
+  - "Safety: no raw patient identifiers or feature values logged. Error messages use only generic strings. No FastAPI/uvicorn/starlette. No forbidden files changed. No artifacts committed."
+  - "Test coverage: 12 calibration tests (A-I + extras), all synthetic H5. Canonical preserved tests pass. Monkeypatch test verifies no raw detector array reads."
+  - "Agent debugging rules followed: no tail/head on failing pytest output."

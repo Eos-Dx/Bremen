@@ -1,0 +1,60 @@
+review_type: plan-review
+branch: 0047-calibration-sample-preprocessing-bridge
+verdict: approve
+head: "7236b7813a760219558ce71d67cb72cb229464c1"
+status: "?? .project-memory/pr/0047-calibration-sample-preprocessing-bridge/"
+plan_path: ".project-memory/pr/0047-calibration-sample-preprocessing-bridge/PLAN.md"
+blockers: []
+warnings: []
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  fastapi_deferred: true
+  no_fastapi_dependency_allowed: true
+  current_state_recorded: true
+  real_h5_structure_recorded: true
+  canonical_preprocessing_preserved: true
+  calibration_preprocessing_defined: true
+  explicit_refs_required: true
+  no_auto_select_first_patient_or_sample: true
+  integration_iq_arrays_used: true
+  raw_image_arrays_not_default_inputs: true
+  multiple_sets_handled_deterministically: true
+  missing_iq_fail_safely: true
+  q_grid_compatibility_checked: true
+  v01_feature_schema_preserved: true
+  inference_math_not_changed: true
+  raw_patient_not_logged: true
+  raw_features_not_logged: true
+  no_clinical_claims: true
+  allowed_files_scoped: true
+  no_model_or_s3_staging_changes: true
+  no_training_docker_infra_dependency_changes: true
+  tests_cover_canonical_path: true
+  tests_cover_calibration_iq_path: true
+  tests_cover_missing_iq: true
+  tests_cover_q_grid_mismatch: true
+  tests_cover_schema_order: true
+  tests_cover_no_raw_array_reads: true
+  real_h5_smoke_skipped_by_default: true
+  agent_debugging_rules_required: true
+  no_tail_on_failing_pytest: true
+  validation_commands_present: true
+  implementation_agent_coder: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0047-calibration-sample-preprocessing-bridge/PLAN.md"
+    - ".project-memory/pr/0047-calibration-sample-preprocessing-bridge/reviews/plan-review.yml"
+notes:
+  - "All 32 checks pass. No blockers."
+  - "FastAPI deferral: Section 4 explicitly states FastAPI is NOT part of PR0047, must be deferred until PR0047-0049 prove the E2E path, must be a thin transport adapter only. Forbidden #1 bans FastAPI/uvicorn/starlette. Validation grep command confirms no FastAPI dependencies. PASS."
+  - "Current state: Section 3 documents PR0043 S3 staging ✓, PR0044 metadata fallback ✓, PR0045 adapter boundary ✓. Calibration sample layout is metadata/context/preflight only. Preprocessing is the gap. PR0045 precommit-review confirmed (532+ tests pass). PASS."
+  - "Real H5 structure: Section 5 records /calib_20260128_132622, sample groups with sample/patient_name, sample/sample_type, sets/set_00*_sample_main/integration/i (1D I), sets/set_00*_sample_main/integration/q (1D Q), multiple sets per sample, raw/data and measurements/.../data marked NOT used in PR0047. PASS."
+  - "Preprocessing contract: Option A extends preprocessing_bridge.py. _extract_calibration_profiles() reads integration/i/q, computes magnitude = sqrt(i^2+q^2) per set, returns list of 1D profiles (same interface as _extract_profiles). layout_context param backward-compatible (None = canonical). target_group_path/control_group_path from PreflightResult.metadata (already populated by PR0045's preflight). All sets processed deterministically (sorted group keys). PreprocessingBridgeError on missing i, missing q, mismatched lengths, incompatible profiles. PASS."
+  - "Feature schema: Section 8 lists all 15 features in exact v0.1 order. BREMEN_V01_FEATURE_COLUMNS unchanged. Same 15 pure-numpy computation functions reused. No inference math changed. PASS."
+  - "Safety: Section 10 rules forbid raw patient_name, raw feature values, raw scan arrays, full S3 URI, raw detector images. Forbidden #14 bans raw Logging. Forbidden #15 bans reading raw detector arrays. Forbidden #18 bans clinical claims. PASS."
+  - "Scope: Allowed = preprocessing_bridge.py (add _extract_calibration_profiles + layout_context param), preflight.py (add target_group_path/control_group_path to metadata — only in adapter path, not legacy canonical), new test file + narrow modifications. Forbidden = FastAPI/deps, requirements.txt, pyproject.toml, Dockerfile, infra, .github, training, model loading, S3 staging, ROADMAP.md, docs/adr. preflight.py change is correctly scoped (adapter path only). PASS."
+  - "Tests: 10 tests (A-J) cover canonical unchanged (A), calibration i/q reading (B), multiple sets deterministic (C), missing i fail (D), missing q fail (E), mismatched i/q lengths fail (F), v0.1 schema order (G), no raw identifiers in logs (H), monkeypatch verifying no raw detector array reads (I), real H5 smoke opt-in (J). All use synthetic H5. PASS."
+  - "Validation/debugging: Section 13 mandates following AGENT_TEST_DEBUGGING_RULES.md, no tail/head on failing pytest, first failure -x --tb=long -vv, isolate single test. 9-agent-rules confirmed from .project-memory/AGENT_TEST_DEBUGGING_RULES.md read. PASS."
+  - "Implementation agent: coder (correctly assigned)."
