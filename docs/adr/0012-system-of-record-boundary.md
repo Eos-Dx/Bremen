@@ -1,6 +1,6 @@
 # ADR-0012: System-of-Record Boundary
 
-**Status**: Draft (PR0052)
+**Status**: Decided (PR0052)
 
 **Gates**: G-SOR-1 (system-of-record boundary), G-SOR-2 (Matador integration timeline)
 
@@ -25,7 +25,7 @@ must be resolved through a platform system of record that owns:
 - H5 container location and access credentials.
 - Audit trail for data provenance.
 
-PR0052 introduces a typed boundary skeleton for this future integration.
+PR0052 introduced a typed boundary skeleton for this integration.
 It does not implement Matador API calls, credentials, or network adapters.
 
 ---
@@ -37,11 +37,11 @@ It does not implement Matador API calls, credentials, or network adapters.
    adapter. `h5_path` and `h5_uri` are explicitly not source-of-record
    ownership modes.
 
-2. **PR0052 introduces boundary only.** The module
+2. **PR0052 introduced boundary only.** The module
    `src/bremen/system_of_record.py` defines:
    - `ExternalRecordRef` — typed opaque ref with validation.
    - `ResolvedInput` — resolved H5 source with refs and checksum.
-   - `RecordResolver` — protocol for future implementations.
+   - `RecordResolver` — protocol for resolver implementations.
    - `UnconfiguredRecordResolver` — default that raises safe error.
    - Safe error hierarchy (`ResolutionError`,
      `ResolutionNotConfiguredError`, `RefValidationError`).
@@ -51,7 +51,7 @@ It does not implement Matador API calls, credentials, or network adapters.
    mode remains the only request input mechanism.
 
 4. **No router change in PR0052.** `handle_submit_prediction` in `app.py`
-   is not modified. The boundary is a typed scaffold, not a live code path.
+   was not modified. The boundary is a typed scaffold, not a live code path.
 
 5. **Future Matador resolver** must implement `RecordResolver` protocol
    and be wired into the request path. This is tracked as future work
