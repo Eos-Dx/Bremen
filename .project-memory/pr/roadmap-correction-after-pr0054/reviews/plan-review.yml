@@ -1,0 +1,57 @@
+# Plan Review — roadmap-correction-after-pr0054
+# Reviewer: plan-review agent
+# Reviewed: 2026-07-09T18:05:21Z
+# HEAD: 827b19e8139e7e62d4427eca78cc4467397d2979
+# Branch: roadmap-correction-after-pr0054
+
+verdict: warning
+
+blockers: []
+
+warnings:
+  - ADR-0012 status change from "Draft (PR0052)" to "Decided (PR0052)" (Section 3.1) is slightly more than a minor future-tense correction — it is a status metadata change. However, it is fully justified by PR0052 completion, follows the audit recommendation, and does not alter any architectural decisions. All ADR-0012 decisions, non-goals, and future-work boundaries remain intact. Not a blocker.
+  - The Decision Gate Register in ROADMAP.md has pre-existing inconsistencies with ADR-0011 (G-CFG-1 shows OPEN in ROADMAP.md but DECIDED in ADR-0011; G-CFG-2/G-CFG-3 show OPEN in ROADMAP.md but DEFERRED/DECIDED in ADR-0011). The plan does not propose correcting these, which is acceptable for its stated scope, but the next roadmap block should address this drift. Not a blocker.
+  - Audit files (.project-memory/audits/roadmap-release-audit-after-pr0054.md and -review.yml) exist on branch `roadmap-release-audit-after-pr0054` but not on the current branch. Read via `git show` from the audit branch. The plan acknowledges this in its header. Future planning workflows should ensure audit artifacts are accessible on the planning branch.
+
+checks:
+  scope: pass
+  plan_exists: pass
+  follows_audit_recommendation: pass
+  docs_only: pass
+  moves_pr0050_0054_to_completed: pass
+  updates_current_state_through_pr0054: pass
+  no_invented_unsupported_next_block: pass
+  defines_next_block_or_requires_human_decision: pass
+  minor_adr_0011_corrections_only: pass
+  preserves_adr_0011_g_cfg_decisions: pass
+  minor_adr_0012_corrections_only: pass
+  preserves_matador_not_implemented: pass
+  no_source_runtime_changes: pass
+  no_test_changes: pass
+  no_forbidden_additions: pass
+  preserves_clinical_safety_boundaries: pass
+  plan_review_boundary: pass
+  safety_boundaries: pass
+  dirty_tree: pass
+
+validation:
+  - command: git rev-parse --verify HEAD
+    exit_code: 0
+    output: 827b19e8139e7e62d4427eca78cc4467397d2979
+  - command: git branch --show-current
+    exit_code: 0
+    output: roadmap-correction-after-pr0054
+  - command: git status --short
+    exit_code: 0
+    output: '?? .project-memory/pr/roadmap-correction-after-pr0054/'
+  - command: git diff --name-only
+    exit_code: 0
+    output: (empty — no modified tracked files)
+
+commit_readiness:
+  branch_matches: true
+  working_tree_clean: true
+  plan_exists: true
+  audit_artifacts_exist: true
+  only_plan_review_artifact_new: true
+  verification: "Branch is correct (roadmap-correction-after-pr0054). Working tree is clean. PLAN.md exists and is readable. Audit files read from roadmap-release-audit-after-pr0054 branch. The only new file is this plan-review.yml."

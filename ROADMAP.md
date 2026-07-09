@@ -46,8 +46,26 @@ No hard calendar dates — use sequence and dependencies.
 - PR0048 — HTTP explicit-ref wiring. `target_scan_ref` / `control_scan_ref` carried through HTTP → staging → preflight/layout context → preprocessing/inference.
 - PR0049 — Production E2E smoke hardening. In-process handler-call smoke test with synthetic H5, monkeypatched S3 staging, explicit refs, calibration layout, log leakage checks, and operator runbook.
 - Agent loop guardrails — Process-only project hygiene (no numbered PR). Enforced by `AGENT_TEST_DEBUGGING_RULES.md` and `TEST_DESIGN_STANDARD.md.
+- PR0050 — Model/version readiness endpoint cleanup. Aligns `/model/version`
+  `model_status` with actual `model_ready` state. Preserves safe metadata
+  only via `ModelState.get_load_error()` safe categories.
+- PR0051 — Config governance ADR/gates. Closes G-CFG-1 (DECIDED —
+  lightweight in-repo governance), G-CFG-2 (DEFERRED — no DynamoDB/backend
+  until Matador boundary), G-CFG-3 (DECIDED — validation gates as repo
+  tests/static checks). ADR-0011 records all decisions.
+- PR0052 — Matador boundary / system-of-record adapter skeleton. Typed
+  boundary with `ExternalRecordRef`, `ResolvedInput`, `RecordResolver`
+  protocol, and `UnconfiguredRecordResolver`. Scaffold only — no real
+  Matador API calls, credentials, or network adapters. ADR-0012 documents
+  the contract.
+- PR0053 — Decision-support report/output wrapper. `build_decision_support_report()`
+  produces safe structured report around inference results. No diagnosis,
+  no clinical validation claim. `report_schema_version: "v0.1"`.
+- PR0054 — Release readiness / operator notes. Production checklist,
+  rollback, smoke commands, model artifact boundaries, clinical-safety
+  disclaimers, and sign-off checklist.
 
-## Current state through PR0049
+## Current state through PR0054
 
 - Runtime service exists and is operational on App Runner.
 - Runtime model is loaded at startup from a checksum-verified model package (S3 staging + joblib).
@@ -61,6 +79,19 @@ No hard calendar dates — use sequence and dependencies.
 - Explicit target/control refs are wired through predictions (PR0048 — HTTP → staging → preflight/layout context → bridge → inference).
 - Production E2E smoke hardening exists (PR0049 — in-process handler-call smoke test with synthetic H5, monkeypatched S3 staging, log leakage checks, operator runbook).
 - Agent loop guardrails exist as process-only project hygiene (no numbered PR).
+- Model/version readiness cleanup completed.
+- Config governance gates resolved (G-CFG-1 DECIDED, G-CFG-2 DEFERRED,
+  G-CFG-3 DECIDED). ADR-0011 records config surface taxonomy and
+  lightweight in-repo governance.
+- System-of-record boundary skeleton exists (typed scaffold only —
+  `ExternalRecordRef`, `ResolvedInput`, `RecordResolver` protocol,
+  safe error hierarchy). Real Matador integration is not yet implemented.
+- Decision-support report wrapper exists (`decision_support_report` with
+  `report_schema_version: "v0.1"`, safety limitations, no diagnosis
+  claims).
+- Release readiness operator notes exist (16-section checklist covering
+  startup, health, smoke, failure modes, logging, rollback, security,
+  clinical-safety boundaries).
 
 ## Product Track sequence
 
@@ -81,7 +112,10 @@ Product core before infrastructure wrappers.
 
 > **Note**: Feature family implementation (`sigma_l1`, `sigma_l2`, `Mahalanobis1`, `Mahalanobis2`, `wasserstein_distance_full_q2`, `meanrms2`, `weightedrms1`) is covered by PR 0034's Bremen training pipeline, not by a separate unscoped PR.
 
-Items 8–12 must not be silently dropped, but must appear after items 1–7 because there is no model, API surface, or workflow yet for them to gate.
+> **Note**: Items 8–12 from the original Product Track sequence have been
+> completed as part of the PR0050–PR0054 execution sequence. The remaining
+> Product Track items (2, 3, 6, 7) and any new candidates require human
+> product/engineering prioritisation for the next execution block.
 
 ## Platform Readiness Track (parallel to Product Track)
 
@@ -171,15 +205,47 @@ An open question exists: do Mahalanobis and Wasserstein-style features require f
 
 **Numbering clarification**: Product Track sequence positions (items 1–12) are ordering, not PR-00XX identifiers. The next literal PR number after 0025 will be assigned when the next scheduled sequence item is actually planned. PR 0019–0024 Platform Readiness Track numbers remain unchanged and are not renumbered by this or any subsequent PR. Reprioritization changes execution order only, not existing PR labels.
 
-## Next Execution Sequence (post-PR0049)
+## Next Execution Block (post-PR0054)
 
-| PR | Title | Description |
-|----|-------|-------------|
-| **PR0050** | Model/version readiness endpoint cleanup | Align `/model/version` `model_status` with actual `model_ready` state. Preserve safe metadata only. |
-| **PR0051** | Config governance ADR/gates | Close G-CFG-1/G-CFG-2/G-CFG-3 or explicitly defer with rationale. Config audit/history architecture only, no UI unless separately planned. |
-| **PR0052** | Matador boundary / system-of-record adapter skeleton | Contract only, no local path dependency, no raw patient data logging. |
-| **PR0053** | Decision-support report/output wrapper | Controlled output around prediction result. No diagnosis, no clinical validation claim. |
-| **PR0054** | Release readiness / operator notes | Production checklist, rollback, smoke commands, model artifact notes. |
+The PR0050–PR0054 execution sequence is complete. The next execution block
+requires a human product/engineering decision to select and prioritize
+the next set of work from the candidates below.
+
+**Remaining Product Track candidates** (from the original Product Track
+sequence):
+
+| Position | Description | Status |
+|----------|-------------|--------|
+| 2 | YAML/PDF clinical report template | Not started |
+| 3 | YAML training config template | Not started |
+| 6 | GitHub demo — real H5 patients, end-to-end prediction | Not started |
+| 7 | Platform deployment plan document | Not started |
+
+**Open Decision Gate candidates** (from the Decision Gate Register):
+
+| Gate | Description | Status |
+|------|-------------|--------|
+| G-CFG-1 | Build vs. adopt config management product | OPEN |
+| G-CFG-2 | Config state history store (DynamoDB or other) | DEFERRED |
+| G-DEP-1 | Container repo merges feat/v0_3 to main | OPEN |
+
+**Other roadmap-referenced candidates**:
+
+| Candidate | Reference | Status |
+|-----------|-----------|--------|
+| Config editing surface (operator UI/API) | PR 0024, ADR-0009 | BLOCKED on G-CFG-1 |
+| Matador resolver implementation (real adapter) | ADR-0012 Section "Future Matador Resolver" | Not started |
+| FastAPI transport adapter (thin ASGI layer) | ROADMAP.md, ADR-0011 "Boundaries and Non-Goals" | Deferred |
+| DynamoDB config state history store | G-CFG-2 | DEFERRED |
+
+**Decision required**: Before PR0055 can be planned, a human
+product/engineering decision must define which of these candidates (or
+a new candidate not listed here) constitutes the next execution block.
+
+> **Note**: The Product Track sequence positions (1–12) are ordering
+> guidance, not chronological commitment. Reprioritisation is expected.
+> Items 8–12 from the original Product Track have been completed as
+> PR0050–PR0054.
 
 ## Training Pipeline Track (completed)
 

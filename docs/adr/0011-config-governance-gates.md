@@ -19,7 +19,7 @@ lifecycle requirements. The previous ADR-0009 identified three open gates
 
 PR0051 resolves these three gates. It does not implement backend
 persistence, DynamoDB, or Matador integration — those are separately
-tracked in PR0052 (Matador boundary / system-of-record adapter skeleton)
+tracked in PR0052 (now completed — Matador boundary / system-of-record adapter skeleton)
 and subsequent platform work.
 
 ---
@@ -40,7 +40,7 @@ Rationale:
 - In-repo governance is sufficient for current needs: synthetic configs,
   explicit schema checks, and documented taxonomy.
 - A future shift to an external platform will be re-evaluated when
-  Matador/system-of-record boundary work (PR0052) clarifies the ops
+  the Matador/system-of-record boundary (defined in PR0052) clarifies the ops
   contract.
 
 ### G-CFG-2: Config state history store
@@ -49,7 +49,9 @@ Rationale:
 in PR0051.
 
 Persistence backend decisions are deferred until the Matador/system-of-record
-boundary is defined (planned PR0052). At that point the data model,
+boundary is further evaluated. PR0052 defined the typed scaffold
+(ExternalRecordRef, RecordResolver protocol); a real Matador resolver
+is still future work. At that point the data model,
 consistency requirements, and operational load will be clearer.
 
 Until then, all config state is:
@@ -122,8 +124,9 @@ Implemented in `tests/test_bremen_config_governance.py`:
 
 - **No FastAPI.** PR0051 does not add FastAPI, uvicorn, starlette, or any
   web framework. FastAPI remains a later thin transport adapter (deferred).
-- **No Matador integration.** PR0052 is the Matador boundary PR. PR0051
-  defers to PR0052.
+- **No Matador integration.** PR0052 (now completed) introduced the Matador
+  boundary scaffold. PR0051 defers Matador integration to that PR — real
+  integration remains future work.
 - **No DynamoDB/backend implementation.** G-CFG-2 is explicitly deferred.
 - **No new dependencies.** All gates use existing Python/pytest infrastructure.
 - **No runtime source changes.** PR0051 is docs/tests/config only.
