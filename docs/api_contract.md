@@ -222,6 +222,10 @@ PR0052 introduces a typed boundary skeleton in
 - The `UnconfiguredRecordResolver` returns a safe message telling
   operators to use `h5_path`/`h5_uri` or configure Matador.
 
+For the product input pipeline contract defining the canonical Bremen
+input package, see
+[docs/product_input_pipeline_contract.md](product_input_pipeline_contract.md).
+
 ## Decision-Support Report (PR0053)
 
 When a prediction job completes, the `result` dict includes a
