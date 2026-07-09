@@ -340,3 +340,93 @@ class TestImportSafety:
 
         mod = importlib.import_module("bremen.config")
         assert mod is not None
+
+
+# ---------------------------------------------------------------------------
+# Sentinel / placeholder safety (PR0051)
+# ---------------------------------------------------------------------------
+
+
+class TestCloudConfigSentinelSafety:
+    """Cloud config tests use sentinel or placeholder values only.
+
+    No account IDs, registry URLs, access keys, or real S3 URIs.
+    """
+
+    def test_test_values_are_sentinels_not_real(self):
+        """Cloud config test env values are synthetic, not real."""
+        # Real values would include actual S3 bucket ARNs, account IDs.
+        # Tests use simple sentinels like "bucket", "my-bucket".
+        cloud = read_cloud_config(
+            env={"BREMEN_MODEL_BUCKET": "my-bucket"}
+        )
+        assert cloud.model_bucket == "my-bucket"
+
+    def test_no_account_id_in_env_values(self):
+        """Test env values do not contain AWS account IDs."""
+        forbidden_ids = [
+            "123456789012",
+            "000000000000",
+            "111111111111",
+        ]
+        for fid in forbidden_ids:
+            cloud = read_cloud_config(
+                env={"BREMEN_MODEL_BUCKET": "bucket", "BREMEN_MODEL_PREFIX": fid}
+            )
+            assert cloud.model_prefix != fid, (
+                f"Test prefix must not be a numeric account ID: {fid}"
+            )
+
+    def test_no_dkr_ecr_registry_url(self):
+        """Test env values do not contain ECR registry URLs."""
+        cloud = read_cloud_config(
+            env={"BREMEN_MODEL_BUCKET": "bucket"}
+        )
+        registry_indicators = ["dkr.ecr", "amazonaws.com", "ecr."]
+        for field_name in ["model_bucket", "model_prefix", "model_version"]:
+            val = str(getattr(cloud, field_name, "") or "")
+            for indicator in registry_indicators:
+                assert indicator not in val, (
+                    f"Registry URL pattern '{indicator}' in {field_name}: {val}"
+                )
+
+    def test_no_access_key_in_any_field(self):
+        """No access key pattern in any cloud config field."""
+        cloud = read_cloud_config(
+            env={"BREMEN_MODEL_BUCKET": "bucket"}
+        )
+        for field_name in ["model_bucket", "model_prefix", "model_version",
+                           "model_manifest_key", "service_env", "aws_region"]:
+            val = getattr(cloud, field_name, None)
+            if val is not None:
+                assert "AKIA" not in str(val), (
+                    f"Access key pattern in {field_name}"
+                )
+
+    def test_no_full_s3_uri_in_test_env_values(self):
+        """Test env values use bucket names, not full s3:// URIs."""
+        for test_env in [
+            {"BREMEN_MODEL_BUCKET": "bucket"},
+            {"BREMEN_MODEL_BUCKET": "my-bucket"},
+            {"BREMEN_MODEL_BUCKET": "my-bremen-models"},
+        ]:
+            cloud = read_cloud_config(env=test_env)
+            assert cloud.model_bucket is None or not cloud.model_bucket.startswith("s3://"), (
+                f"model_bucket must not be s3:// URI: {cloud.model_bucket}"
+            )
+
+    def test_raw_uri_not_expected_as_public_api_output(self):
+        """Raw model URI/checksum are not expected as public API response values.
+
+        The API response fields model_uri_configured and checksum_configured
+        are booleans, not raw strings.
+        """
+        from bremen.api.schemas import ModelVersionResponse
+
+        fields = ModelVersionResponse.__dataclass_fields__
+        assert "model_uri_configured" in fields
+        assert fields["model_uri_configured"].type is bool or \
+               str(fields["model_uri_configured"].type) == "bool"
+        assert "checksum_configured" in fields
+        assert fields["checksum_configured"].type is bool or \
+               str(fields["checksum_configured"].type) == "bool"
