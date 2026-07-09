@@ -1,0 +1,94 @@
+# Plan Review — PR0056 Converter Preprosync Preprocessing Boundary Specification
+# Reviewer: plan-review agent
+# Reviewed: 2026-07-09T23:22:56Z
+# HEAD: dd0dc49d4bde2a91db8e35fff2ac114d9378f731
+# Branch: 0056-converter-preprocessing-boundary-spec
+
+verdict: approve
+
+blockers: []
+
+warnings: []
+
+checks:
+  plan_exists: pass
+  aligns_with_product_input_pipeline_readiness: pass
+  confirms_pr0056_follows_pr0055: pass
+  defines_pr0056_as_converter_boundary_spec: pass
+  does_not_start_pr0057_0058: pass
+  describes_productizable_workflow_no_demo_only_fork: pass
+  treats_candidates_as_candidates: pass
+  defines_controlled_converter_boundary: pass
+  defines_output_contract_to_canonical_input: pass
+  requires_h5_preflight_layout_compatibility: pass
+  requires_explicit_target_control_refs: pass
+  preserves_existing_runtime_request_schema: pass
+  preserves_h5_path_h5_uri_modes: pass
+  preserves_h5_staging_preflight_behavior: pass
+  preserves_preprocessing_bridge_inference_ds_behavior: pass
+  runtime_not_converter_service: pass
+  runtime_does_not_train: pass
+  keeps_matador_future: pass
+  keeps_fastapi_deferred: pass
+  includes_static_tests_for_boundary_docs: pass
+  no_source_changes_preferred: pass
+  prohibits_real_artifacts_secrets_identifiers: pass
+  preserves_clinical_safety_boundaries: pass
+  no_converter_implementation: pass
+  no_preprosync_implementation: pass
+  no_protobuf_parser: pass
+  no_geoframe_parser: pass
+  no_converter_cli: pass
+  no_preprocessing_container_execution: pass
+  no_claims_external_path_works_without_evidence: pass
+  no_runtime_request_schema_change: pass
+  no_h5_path_uri_behavior_change: pass
+  no_matador_integration: pass
+  no_fastapi: pass
+  no_runtime_training: pass
+  no_demo_only_fork: pass
+  no_source_runtime_changes: pass
+  no_clinical_diagnosis_replacement_claims: pass
+  no_real_artifacts_secrets_allowed: pass
+  inventory_geoframe_verified: pass
+  inventory_protobuf_verified: pass
+  inventory_preprosync_verified: pass
+  inventory_converter_not_implemented: pass
+  plan_review_boundary: pass
+  safety_boundaries: pass
+  dirty_tree: pass
+
+validation:
+  - command: git rev-parse --verify HEAD
+    exit_code: 0
+    output: dd0dc49d4bde2a91db8e35fff2ac114d9378f731
+  - command: git branch --show-current
+    exit_code: 0
+    output: 0056-converter-preprocessing-boundary-spec
+  - command: git status --short
+    exit_code: 0
+    output: '?? .project-memory/pr/0056-converter-preprocessing-boundary-spec/'
+  - command: git diff --name-only
+    exit_code: 0
+    output: (empty — no modified tracked files)
+  - command: grep -r "GeoFrame\|geoframe" --include="*.py" --include="*.md" src/ tests/ docs/ .project-memory/ --exclude-dir=.project-memory/pr/0056*
+    exit_code: 1
+    output: (empty — no GeoFrame references outside PR0056 PLAN.md)
+  - command: grep -r "protobuf\|\.proto" --include="*.py" --include="*.md" src/ tests/ docs/ --exclude-dir=.project-memory/pr/0056*
+    exit_code: 1
+    output: (empty — no protobuf references outside PR0056 PLAN.md)
+  - command: grep -r "Preprosync\|preprosync" --include="*.py" --include="*.md" src/ tests/ docs/ --exclude-dir=.project-memory/pr/0056*
+    exit_code: 1
+    output: (empty — no Preprosync references outside PR0056 PLAN.md)
+  - command: grep -r "converter" src/ --include="*.py"
+    exit_code: 1
+    output: (empty — no converter implementation in source)
+
+commit_readiness:
+  branch_matches: true
+  working_tree_clean: true
+  plan_exists: true
+  pr0055_contract_test_exists: true
+  inventory_verified: true
+  only_plan_review_artifact_new: true
+  verification: "Branch is correct (0056-converter-preprocessing-boundary-spec). Working tree is clean. PLAN.md exists and is readable. PR0055 contract and tests exist. Inventory claims verified by repo search (no GeoFrame, protobuf, Preprosync, or converter implementation in src/tests/docs). All required reads completed. The only new file is this plan-review.yml."

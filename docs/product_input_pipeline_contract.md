@@ -156,6 +156,9 @@ The converter is **not yet implemented**. PR0055 defines the output
 contract the converter must satisfy. Converter specification and
 interface design are tracked as future work (PR0056+).
 
+The detailed converter boundary specification is in
+[docs/converter_preprocessing_boundary.md](converter_preprocessing_boundary.md).
+
 ---
 
 ## 7. Canonical Bremen Input Package
