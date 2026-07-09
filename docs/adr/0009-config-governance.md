@@ -38,6 +38,8 @@
    | G-CFG-2 (new) | Config state history store: DynamoDB vs. other | DynamoDB |
    | G-CFG-3 (new) | Config validation schema: JSON Schema vs. Pydantic vs. custom | Not decided |
 
+> **Note**: G-CFG-1 through G-CFG-3 are resolved in [ADR-0011](0011-config-governance-gates.md), which records current implementation decisions and static repository gates. This ADR-0009 records the original context and config change classification; ADR-0011 supersedes the gate status table above.
+
 ## Non-goals
 
 - No config UI or API implementation in this ADR.

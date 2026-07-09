@@ -1,0 +1,154 @@
+# Precommit Review — PR 0051: Config Governance ADR/Gates
+
+review_type: precommit-review
+pr: "0051-config-governance-adr-gates"
+branch: "0051-config-governance-adr-gates"
+head_verified: "65e99a8ef0910603043dd578fa508fab266c1a3c"
+date: "2026-07-09T08:22:44Z"
+
+verdict: pass
+head_verified: true
+branch_confirmed: true
+
+blockers: []
+warnings: []
+
+checks:
+  # Scope check
+  changed_files_limited_to_allowed: true
+  changed_files: [
+    "config/README.md",
+    "docs/adr/0009-config-governance.md",
+    "tests/test_bremen_cloud_config.py"
+  ]
+  new_files: [
+    "docs/adr/0011-config-governance-gates.md",
+    "tests/test_bremen_config_governance.py"
+  ]
+  no_forbidden_files_changed: true
+  src_not_changed: true
+  roadmap_md_unchanged: true
+  docker_unchanged: true
+  infra_unchanged: true
+  ci_unchanged: true
+  training_unchanged: true
+  adrs_unchanged_except_cross_ref: true
+  dependencies_unchanged: true
+
+  # Governance decision check
+  adr_0011_exists: true
+  adr_0011_records_g_cfg1: true
+  g_cfg1_decided_lightweight_in_repo: true
+  g_cfg1_no_external_platform: true
+  adr_0011_records_g_cfg2: true
+  g_cfg2_deferred_dynamodb: true
+  g_cfg2_no_backend_until_matador: true
+  adr_0011_records_g_cfg3: true
+  g_cfg3_decided_static_pytest_gates: true
+  g_cfg3_no_new_validation_dependency: true
+  adr_0009_cross_references_adr_0011: true
+  no_existing_adr_broadly_rewritten: true
+
+  # Config taxonomy check
+  adr_0011_classifies_runtime_config: true
+  adr_0011_classifies_model_artifact_metadata: true
+  adr_0011_classifies_preprocessing_config: true
+  adr_0011_classifies_training_config: true
+  adr_0011_classifies_deployment_config: true
+  adr_0011_classifies_test_only_synthetic_config: true
+  config_readme_references_adr_0011: true
+
+  # Static gate check
+  governance_test_exists: true
+  governance_test_adr_existence_checks: true
+  governance_test_g_cfg_decision_checks: true
+  governance_test_surface_taxonomy_checks: true
+  governance_test_runtime_env_key_checks: true
+  governance_test_model_package_metadata_checks: true
+  governance_test_training_runtime_separation_checks: true
+  governance_test_preprocessing_separation_checks: true
+  governance_test_no_secrets_checks: true
+  governance_test_no_artifacts_checks: true
+  governance_test_no_local_paths_checks: true
+  governance_test_no_matador_implementation_checks: true
+  governance_test_fastapi_deferred_checks: true
+  governance_test_dynamodb_deferred_checks: true
+  cloud_config_test_narrow_sentinel_safety: true
+  governance_test_all_synthetic: true
+  governance_test_no_network_aws_docker_terraform: true
+
+  # Boundary check
+  no_source_changes: true
+  no_runtime_behavior_change: true
+  no_model_lifecycle_change: true
+  no_checksum_boundary_change: true
+  no_s3_model_staging_change: true
+  no_s3_h5_staging_change: true
+  no_preprocessing_change: true
+  no_inference_math_change: true
+  no_training_behavior_change: true
+  no_fastapi_implementation: true
+  no_matador_implementation: true
+  no_dynamodb_backend_implementation: true
+  no_dependencies_changed: true
+  no_docker_terraform_ci_deployment_changes: true
+  no_production_smoke_execution: true
+  no_clinical_validation_claims: true
+
+  # Safety check
+  no_secrets_added: true
+  no_account_ids_added: true
+  no_registry_urls_added: true
+  no_access_keys_added: true
+  no_full_s3_uris_added: true
+  no_raw_patient_identifiers_added: true
+  no_raw_scan_refs_added: true
+  no_raw_feature_values_added: true
+  no_local_machine_paths_added: true
+  no_artifact_files_added: true
+
+validation:
+  compileall_src_tests: pass
+  pytest_config_governance: "39 passed in 1.45s"
+  pytest_cloud_config: "33 passed in 1.02s"
+  pytest_config_loading: "31 passed in 1.12s"
+  pytest_training_runtime_separation: "5 passed in 3.26s"
+  pytest_model_package: "31 passed in 1.10s"
+  pytest_full_suite: "624 passed, 11 skipped, 28 warnings in 48.58s"
+
+  # Safety validations
+  git_diff_forbidden_files: "no output — none changed"
+  git_diff_binary_artifacts: "no output — none changed"
+  fastapi_scan: |
+    All FastAPI references are safe:
+    - tests/test_bremen_config_governance.py: AST-based safety gate checking FastAPI NOT imported
+    - docs/adr/0011-config-governance-gates.md: Correct governance record stating FastAPI deferred
+    - docs/repository_cleanup.md: Pre-existing doc mentioning no FastAPI
+    Classification: safe — safety checks and governance documentation only
+  dynamodb_boto3_scan: |
+    All DynamoDB/boto3 references are safe:
+    - src/bremen/model_artifacts.py, h5_inputs.py: Existing source (NOT changed), boto3 lazy import in S3 staging
+    - Existing test files: AST safety gates verifying boto3 NOT imported
+    - docs/adr/0011-config-governance-gates.md: Correct governance record stating DynamoDB deferred
+    - requirements.txt, pyproject.toml: Pre-existing boto3 dependency (NOT changed by this PR)
+    Classification: safe — no new boto3/DynamoDB introduced
+  secrets_leakage_scan: |
+    All grep hits are safe:
+    - config/README.md: Nova_ format spec documentation (format spec, not raw ID value)
+    - tests/test_bremen_config_governance.py: Safety tests checking AKIA/DynamoDB/Nova_/s3:// are absent
+    - tests/test_bremen_cloud_config.py: Safety tests checking sentinel values are not real
+    Classification: safe — all are format specs or absence assertions
+
+commit_readiness:
+  ready_to_commit: true
+  files_in_scope: [
+    "docs/adr/0011-config-governance-gates.md",
+    "docs/adr/0009-config-governance.md",
+    "config/README.md",
+    "tests/test_bremen_config_governance.py",
+    "tests/test_bremen_cloud_config.py"
+  ]
+  implementation_matches_plan: true
+  all_governance_decisions_recorded: true
+  all_gates_implemented_as_static_tests: true
+  boundary_preservations_verified: true
