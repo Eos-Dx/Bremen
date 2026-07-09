@@ -553,3 +553,56 @@ class TestConfigGovernanceRoadmapBoundaries:
         assert "ADR-0011" in content, (
             "ADR-0009 must cross-reference ADR-0011"
         )
+
+
+# ===================================================================
+# ADR-0012 system-of-record boundary acknowledgment (PR0052)
+# ===================================================================
+
+
+class TestSystemOfRecordBoundaryAcknowledgment:
+    """PR0052 acknowledges ADR-0012 and does not implement Matador."""
+
+    ADR_0012 = DOCS_ADR_DIR / "0012-system-of-record-boundary.md"
+
+    def test_adr_0012_exists(self):
+        """ADR-0012 exists documenting the system-of-record boundary."""
+        assert self.ADR_0012.exists(), (
+            "ADR-0012 must exist for PR0052 boundary"
+        )
+
+    def test_adr_0012_mentions_no_matador_implementation(self):
+        """ADR-0012 states no real Matador integration in PR0052."""
+        content = self.ADR_0012.read_text(encoding="utf-8")
+        assert "not implement" in content.lower() or \
+               "scaffold" in content.lower() or \
+               "skeleton" in content.lower(), (
+            "ADR-0012 must state PR0052 does not implement Matador"
+        )
+
+    def test_h5_path_h5_uri_remain_non_source_of_record(self):
+        """ADR-0012 states h5_path and h5_uri are not source-of-record modes."""
+        content = self.ADR_0012.read_text(encoding="utf-8")
+        assert "not source-of-record" in content.lower() or \
+               "convenience/staging" in content.lower() or \
+               "convenience mode" in content.lower(), (
+            "ADR-0012 must state h5_path/h5_uri are not source-of-record"
+        )
+
+    def test_no_matador_import_in_governance_test(self):
+        """This governance test does not import Matador (redundant with PR0051)."""
+        import ast
+        tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if "matador" in alias.name.lower():
+                        pytest.fail(
+                            f"Matador import found: {alias.name}"
+                        )
+            elif isinstance(node, ast.ImportFrom):
+                module = node.module or ""
+                if "matador" in module.lower():
+                    pytest.fail(
+                        f"Matador import found: {module}"
+                    )
