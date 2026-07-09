@@ -21,6 +21,9 @@ clinically valid or safe for patient-facing use.
 - Synthetic test H5 file (or compatible real patient H5 for opt-in smoke).
 - Baselined model package (default smoke uses a synthetic model).
 
+For the full release readiness checklist, see
+[docs/release_readiness_operator_notes.md](release_readiness_operator_notes.md).
+
 ---
 
 ## Environment variables

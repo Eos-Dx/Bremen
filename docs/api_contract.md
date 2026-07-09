@@ -302,3 +302,6 @@ Safe recommendation framing:
   `model_checksum`, `feature_schema_version`, `threshold_version`,
   `threshold_value`, `qc_status`, `qc_flags`) remain at the top level
   of the result dict for backward compatibility.
+
+For the full release readiness operator notes, see
+[docs/release_readiness_operator_notes.md](release_readiness_operator_notes.md).
