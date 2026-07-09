@@ -24,6 +24,7 @@ from ..inference import (
     validate_portable_logreg_model,
     predict_proba_portable,
 )
+from .decision_support import build_decision_support_report
 
 _log = _getLogger(__name__)
 
@@ -36,6 +37,7 @@ def run_inference(
     patient_id: str | None = None,
     target_scan_ref: str | None = None,
     control_scan_ref: str | None = None,
+    input_mode: str | None = None,
 ) -> dict[str, Any]:
     """Run full inference pipeline from H5 path to prediction JSON.
 
@@ -46,6 +48,7 @@ def run_inference(
     4. Portable logistic regression inference.
     5. Apply threshold → triage decision.
     6. Assemble prediction JSON.
+    7. Build decision-support report.
 
     Parameters
     ----------
@@ -58,6 +61,10 @@ def run_inference(
         group path.  When ``None``, the canonical preflight path is used.
     control_scan_ref : Optional explicit control scan ref for layout-aware
         preflight.  Must be provided together with ``target_scan_ref``.
+    input_mode : Optional input mode category ("h5_uri", "h5_path").
+        Passed through to the decision-support report.  Default ``None``
+        preserves backward compatibility and produces "unknown" in the
+        report.
 
     Returns
     -------
@@ -212,6 +219,15 @@ def run_inference(
         "triage_recommendation": triage,
         "created_at_utc": created_at,
     }
+
+    # 9. Build decision-support report around the prediction result
+    layout_category = preflight.metadata.get("layout_name") if preflight.metadata else None
+    prediction["decision_support_report"] = build_decision_support_report(
+        prediction,
+        input_mode=input_mode or "unknown",
+        explicit_refs=explicit_refs,
+        layout_category=layout_category,
+    )
 
     _log.info(
         "bremen.prediction.completed\t"

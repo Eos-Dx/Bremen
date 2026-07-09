@@ -159,6 +159,18 @@ class TestEndToEndInference:
 
         assert result["triage_recommendation"] in ("MRI_RECOMMENDED", "MRI_RULE_OUT")
         assert 0.0 <= result["p_mri_needed"] <= 1.0
+
+        # PR 0053: decision-support report is present
+        report = result.get("decision_support_report")
+        assert report is not None, "decision_support_report must be present"
+        assert "report_schema_version" in report
+        assert "intended_use" in report
+        assert "limitations" in report
+        assert "model_metadata" in report
+        assert "input_summary" in report
+        assert "prediction_summary" in report
+        assert "decision_support" in report
+
         assert "bremen.prediction.inference.success" in caplog.text
         ModelState.reset_for_tests()
 

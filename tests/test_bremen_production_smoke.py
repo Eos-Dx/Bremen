@@ -184,7 +184,8 @@ class TestProductionSmokeH5UriExplicitRefs:
         # Monkeypatch run_inference to return a valid result
         # This avoids ModelState global state sensitivity in full-suite runs.
         def mock_run_inference(
-            h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None
+            h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None,
+            input_mode=None,
         ):
             return {
                 "prediction_id": "smoke-pred-001",
@@ -199,6 +200,15 @@ class TestProductionSmokeH5UriExplicitRefs:
                 "p_mri_needed": 0.75,
                 "triage_recommendation": "MRI_RECOMMENDED",
                 "created_at_utc": "2026-01-01T00:00:00",
+                "decision_support_report": {
+                    "report_schema_version": "v0.1",
+                    "intended_use": "MRI continuation decision support only.",
+                    "limitations": ["Not a diagnostic result."],
+                    "model_metadata": {"model_version": "smoke-v0.1"},
+                    "input_summary": {"input_mode": "h5_uri"},
+                    "prediction_summary": {"p_mri_needed": 0.75},
+                    "decision_support": {"recommendation": "MRI_RECOMMENDED"},
+                },
             }
 
         monkeypatch.setattr(
@@ -241,6 +251,11 @@ class TestProductionSmokeH5UriExplicitRefs:
         assert r["threshold_value"] == pytest.approx(0.5)
         assert r["qc_status"] == "passed"
         assert isinstance(r["qc_flags"], list)
+
+        # PR 0053: decision-support report is present
+        dsr = r.get("decision_support_report")
+        assert dsr is not None, "decision_support_report must be present"
+        assert dsr["report_schema_version"] == "v0.1"
 
         # Error must be null on completed jobs
         assert status.error is None, (
@@ -377,7 +392,8 @@ class TestProductionSmokeLogLeakage:
 
         # Monkeypatch run_inference for stable full-suite execution
         def mock_run_inference(
-            h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None
+            h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None,
+            input_mode=None,
         ):
             return {
                 "prediction_id": "smoke-pred-002",
@@ -392,6 +408,15 @@ class TestProductionSmokeLogLeakage:
                 "p_mri_needed": 0.75,
                 "triage_recommendation": "MRI_RECOMMENDED",
                 "created_at_utc": "2026-01-01T00:00:00",
+                "decision_support_report": {
+                    "report_schema_version": "v0.1",
+                    "intended_use": "MRI continuation decision support only.",
+                    "limitations": ["Not a diagnostic result."],
+                    "model_metadata": {"model_version": "smoke-v0.1"},
+                    "input_summary": {"input_mode": "h5_uri"},
+                    "prediction_summary": {"p_mri_needed": 0.75},
+                    "decision_support": {"recommendation": "MRI_RECOMMENDED"},
+                },
             }
 
         monkeypatch.setattr(
