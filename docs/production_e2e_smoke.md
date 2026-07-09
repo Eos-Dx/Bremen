@@ -74,7 +74,10 @@ Expected response (200 OK):
     "threshold_version": "<version>",
     "threshold_value": 0.5,
     "qc_criteria_version": null,
-    "model_status": "configured"
+    "model_status": "ready",
+    "model_uri_configured": true,
+    "checksum_configured": true,
+    "error_category": null
 }
 ```
 

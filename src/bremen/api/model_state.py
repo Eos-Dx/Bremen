@@ -39,6 +39,8 @@ class ModelState:
         self._model_version: str | None = None
         self._model_checksum: str | None = None
         self._loaded: bool = False
+        self._load_attempted: bool = False
+        self._load_error: str | None = None
 
     @classmethod
     def get_instance(cls) -> ModelState:
@@ -71,6 +73,8 @@ class ModelState:
         ``True`` if model loaded successfully.
         """
         state = cls.get_instance()
+        state._load_attempted = True
+        state._load_error = None
 
         # Read from env if not provided
         if model_uri is None:
@@ -94,6 +98,7 @@ class ModelState:
                 "model_ready=false\t"
                 "reason=model_uri_not_set",
             )
+            state._load_error = "model_uri_not_set"
             return False
 
         # --- Discover and log config state ---
@@ -160,6 +165,7 @@ class ModelState:
                     "model_ready=false\t"
                     "reason=s3_staging_failure",
                 )
+                state._load_error = "s3_staging_failure"
                 return False
 
             # Resolve the staged path for checksum verification below
@@ -184,6 +190,7 @@ class ModelState:
                     "model_ready=false\t"
                     "reason=local_file_not_found",
                 )
+                state._load_error = "local_file_not_found"
                 return False
 
         # Verify checksum (strip "sha256:" prefix if present)
@@ -212,6 +219,7 @@ class ModelState:
                     "model_ready=false\t"
                     "reason=checksum_mismatch",
                 )
+                state._load_error = "checksum_mismatch"
                 return False
             _logger.info(
                 "bremen.model.checksum.verify.success\t"
@@ -253,6 +261,7 @@ class ModelState:
                 "model_ready=false\t"
                 "reason=joblib_load_failure",
             )
+            state._load_error = "joblib_load_failure"
             return False
 
         _logger.info(
@@ -278,6 +287,7 @@ class ModelState:
                 "model_ready=false\t"
                 "reason=package_not_dict",
             )
+            state._load_error = "package_validation_failure"
             return False
 
         _logger.info(
@@ -321,6 +331,27 @@ class ModelState:
         """Returns ``True`` if model is loaded and ready for inference."""
         state = cls.get_instance()
         return state._loaded
+
+    @classmethod
+    def was_load_attempted(cls) -> bool:
+        """Returns ``True`` if ``load_at_startup`` has been called at least once."""
+        state = cls.get_instance()
+        return state._load_attempted
+
+    @classmethod
+    def get_load_error(cls) -> str | None:
+        """Return safe error category, or ``None`` if no error or model is ready.
+
+        Safe categories:
+        - ``model_uri_not_set``
+        - ``s3_staging_failure``
+        - ``local_file_not_found``
+        - ``checksum_mismatch``
+        - ``joblib_load_failure``
+        - ``package_validation_failure``
+        """
+        state = cls.get_instance()
+        return state._load_error
 
     @classmethod
     def reset_for_tests(cls) -> None:
