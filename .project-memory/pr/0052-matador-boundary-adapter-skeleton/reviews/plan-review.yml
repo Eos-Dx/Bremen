@@ -1,0 +1,216 @@
+# Plan Review Artifact: PR0052 Matador Boundary Adapter Skeleton
+# Generated: 2026-07-09T09:44:53Z
+# Agent: plan-review
+# Branch: 0052-matador-boundary-adapter-skeleton
+
+verdict: approve
+
+head_verified: "6466314ca31666fd3a260b1f34685d927a213db0"
+branch_confirmed: "0052-matador-boundary-adapter-skeleton"
+
+blockers: []
+
+warnings:
+  - "git diff --name-only shows modifications to agents/plan-review.yml and agents/precommit-review.yml (existing repo files). These changes are unrelated to PR0052 planning scope and should be reviewed separately."
+
+checks:
+  # ROADMAP CHECK (4/4)
+  - check: "ROADMAP: PR0052 follows PR0051"
+    status: pass
+    evidence: "PLAN.md Section 4 confirms PR0052 follows PR0051 per ROADMAP.md sequence"
+  - check: "ROADMAP: PR0052 is Matador boundary/skeleton"
+    status: pass
+    evidence: "PLAN.md Section 1 confirms objective is boundary contract, not real integration"
+  - check: "ROADMAP: PR0053 deferred"
+    status: pass
+    evidence: "PLAN.md Section 4 confirms PR0053 (decision-support report) is not started"
+  - check: "ROADMAP: FastAPI deferred"
+    status: pass
+    evidence: "PLAN.md Section 4 explicitly keeps FastAPI deferred"
+
+  # BOUNDARY CONTRACT CHECK (11/11)
+  - check: "BOUNDARY: Opaque system-of-record refs defined"
+    status: pass
+    evidence: "SystemOfRecordRef = NewType in src/bremen/api/system_of_record.py (PLAN.md Section 5.1)"
+  - check: "BOUNDARY: No raw local paths as boundary"
+    status: pass
+    evidence: "validate_system_of_record_ref() rejects /Users/, /home/, /tmp/ patterns"
+  - check: "BOUNDARY: No raw patient identifiers"
+    status: pass
+    evidence: "FORBIDDEN_PATTERNS excludes Nova_ pattern"
+  - check: "BOUNDARY: No full S3 URIs in response"
+    status: pass
+    evidence: "validate_system_of_record_ref() rejects s3:// pattern"
+  - check: "BOUNDARY: ResolvedInput as safe internal object"
+    status: pass
+    evidence: "ResolvedInput dataclass with input_uri, checksum, target_scan_ref, control_scan_ref, resolution_source"
+  - check: "BOUNDARY: Preserves checksum semantics"
+    status: pass
+    evidence: "ResolvedInput includes optional checksum field with sha256:<64hex> pattern"
+  - check: "BOUNDARY: Preserves target/control refs"
+    status: pass
+    evidence: "ResolvedInput includes target_scan_ref and control_scan_ref fields"
+  - check: "BOUNDARY: Resolver interface defined"
+    status: pass
+    evidence: "RecordResolver Protocol with resolve(SystemOfRecordRef) -> ResolvedInput method"
+  - check: "BOUNDARY: UnconfiguredResolver only"
+    status: pass
+    evidence: "UnconfiguredResolver raises ResolutionNotConfiguredError - no real Matador calls"
+  - check: "BOUNDARY: Safe error categories"
+    status: pass
+    evidence: "ResolutionError -> ResolutionNotConfiguredError, ResolutionInvalidRefError hierarchy"
+  - check: "BOUNDARY: h5_path/h5_uri modes preserved"
+    status: pass
+    evidence: "PLAN.md Section 5.3 confirms existing modes unchanged"
+
+  # REQUEST CONTRACT CHECK (5/5)
+  - check: "REQUEST: No h5_path/h5_uri contract break"
+    status: pass
+    evidence: "PredictionRequest unchanged - no schema modification in PR0052"
+  - check: "REQUEST: source_record_ref skeleton-safe"
+    status: pass
+    evidence: "Field NOT added in PR0052 - deferred to Matador integration PR (PLAN.md Section 6)"
+  - check: "REQUEST: Exactly-one input mode documented"
+    status: pass
+    evidence: "ADR-0012 documents future three-layer hierarchy (PLAN.md Section 6)"
+  - check: "REQUEST: Default resolver not calling Matador"
+    status: pass
+    evidence: "UnconfiguredResolver raises error, no network calls"
+  - check: "REQUEST: No Matador endpoint/URL/token/SDK"
+    status: pass
+    evidence: "PLAN.md Section 12 non-goals explicitly exclude these"
+
+  # ADR CHECK (6/6)
+  - check: "ADR: Included only if justified"
+    status: pass
+    evidence: "ADR-0012 documents boundary contract, resolver protocol, safety rules, deferred scope"
+  - check: "ADR: Records Matador as source of record"
+    status: pass
+    evidence: "ADR Section 2 states 'Matador owns patient data, measurement metadata, scan references'"
+  - check: "ADR: Records PR0052 as boundary/skeleton only"
+    status: pass
+    evidence: "ADR Section 5 lists deferred scope explicitly"
+  - check: "ADR: Records h5_path/h5_uri as dev/staging modes"
+    status: pass
+    evidence: "ADR Section 3 documents three-layer hierarchy with source_of_record_ref as future"
+  - check: "ADR: Records future Matador resolver behind boundary"
+    status: pass
+    evidence: "ADR Section 4 describes RecordResolver protocol and future implementations"
+  - check: "ADR: No network/credentials/dependencies in PR0052"
+    status: pass
+    evidence: "ADR Section 5 deferred scope excludes these"
+
+  # TEST PLAN CHECK (13/13)
+  - check: "TEST: Static/synthetic only"
+    status: pass
+    evidence: "PLAN.md Section 9 confirms all tests are synthetic/mocked, no network/AWS/Docker"
+  - check: "TEST: Covers boundary types"
+    status: pass
+    evidence: "Class A: TestSystemOfRecordRef (6 tests)"
+  - check: "TEST: Covers unconfigured resolver safe error"
+    status: pass
+    evidence: "Class D: TestUnconfiguredResolver (3 tests)"
+  - check: "TEST: Synthetic resolver without network"
+    status: pass
+    evidence: "Class C: TestRecordResolverProtocol - structural subtyping only"
+  - check: "TEST: No raw ref leakage"
+    status: pass
+    evidence: "test_unconfigured_resolver_message_is_safe verifies no ref in error"
+  - check: "TEST: Exactly-one input mode governance"
+    status: pass
+    evidence: "Class G: TestPredictionRequestHasNoSourceRecordRef (2 tests)"
+  - check: "TEST: Preserves h5_path/h5_uri support"
+    status: pass
+    evidence: "No changes to validate_prediction_request()"
+  - check: "TEST: No Matador strings"
+    status: pass
+    evidence: "Class E: test_module_does_not_import_forbidden checks matador"
+  - check: "TEST: No FastAPI"
+    status: pass
+    evidence: "Class E: AST check excludes fastapi/uvicorn/starlette"
+  - check: "TEST: No DynamoDB/backend"
+    status: pass
+    evidence: "Class E: AST check excludes boto3/botocore"
+  - check: "TEST: No local absolute path dependency"
+    status: pass
+    evidence: "Class E: AST check excludes path imports, test_module_does_not_import_forbidden"
+  - check: "TEST: No AWS/Docker/real artifacts/credentials"
+    status: pass
+    evidence: "PLAN.md Section 9.1 explicitly states no AWS/Docker/Terraform/network/real H5"
+  - check: "TEST: Production smoke unchanged"
+    status: pass
+    evidence: "PLAN.md Section 9.3 confirms no changes to smoke tests"
+
+  # FILE CHANGE CHECK (7/7)
+  - check: "FILE: Minimal implementation"
+    status: pass
+    evidence: "3 new files (module, ADR, test), 2 modified (governance, api_contract)"
+  - check: "FILE: New boundary module allowed"
+    status: pass
+    evidence: "src/bremen/api/system_of_record.py - Protocol/dataclasses/errors only"
+  - check: "FILE: schemas/app changes allowed"
+    status: pass
+    evidence: "No schema change in PR0052 - field deferred"
+  - check: "FILE: api_contract.md change allowed"
+    status: pass
+    evidence: "Adding boundary section (PLAN.md Section 7.2)"
+  - check: "FILE: New ADR allowed"
+    status: pass
+    evidence: "ADR-0012 for boundary contract documentation"
+  - check: "FILE: New test file allowed"
+    status: pass
+    evidence: "test_bremen_system_of_record_boundary.py (22 tests)"
+  - check: "FILE: Avoids dependencies/Docker/infra/training changes"
+    status: pass
+    evidence: "PLAN.md Section 10 lists 20 preserved boundaries"
+
+  # BOUNDARY CHECK (15/15)
+  - check: "BOUNDARY: No FastAPI"
+    status: pass
+  - check: "BOUNDARY: No real Matador integration"
+    status: pass
+  - check: "BOUNDARY: No Matador credentials/endpoints"
+    status: pass
+  - check: "BOUNDARY: No DynamoDB/backend"
+    status: pass
+  - check: "BOUNDARY: No deployment target change"
+    status: pass
+  - check: "BOUNDARY: No Docker/Terraform/CI/dependency changes"
+    status: pass
+  - check: "BOUNDARY: No training behavior change"
+    status: pass
+  - check: "BOUNDARY: No runtime model lifecycle change"
+    status: pass
+  - check: "BOUNDARY: No S3 model staging change"
+    status: pass
+  - check: "BOUNDARY: No S3 H5 staging redesign"
+    status: pass
+  - check: "BOUNDARY: No preprocessing change"
+    status: pass
+  - check: "BOUNDARY: No inference math change"
+    status: pass
+  - check: "BOUNDARY: No production smoke execution"
+    status: pass
+  - check: "BOUNDARY: No clinical validation claims"
+    status: pass
+  - check: "BOUNDARY: No PR0053 implementation"
+    status: pass
+
+validation:
+  command: "git diff --name-only"
+  exit_code: 0
+  output: "agents/plan-review.yml\nagents/precommit-review.yml"
+  note: "Unexpected modifications to existing repo files (agents/). These are unrelated to PR0052 planning scope."
+
+commit_readiness: ready
+reason: |
+  Plan passes all 59 checks across 7 categories.
+  - ROADMAP: PR0052 follows PR0051, boundary skeleton only, PR0053 deferred, FastAPI deferred
+  - BOUNDARY CONTRACT: SystemOfRecordRef type, validation against forbidden patterns, RecordResolver Protocol, UnconfiguredResolver, safe error hierarchy, preserved h5_path/h5_uri
+  - REQUEST CONTRACT: No schema change, source_record_ref deferred, no Matador endpoints
+  - ADR: ADR-0012 documents boundary, Matador as source-of-record, deferred scope, safety rules
+  - TEST PLAN: 22 synthetic tests covering types, protocol, errors, governance gates
+  - FILE CHANGES: 3 new files + 2 modified files, minimal scope
+  - BOUNDARIES: All 15 boundaries preserved
+
+  One non-blocking warning: git diff shows modifications to agents/plan-review.yml and agents/precommit-review.yml (unrelated to PR0052 planning).

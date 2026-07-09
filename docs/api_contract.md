@@ -178,3 +178,46 @@ Rules:
 - Stub must not fabricate completed clinical predictions.
 - No clinical diagnosis wording, no replacement of MRI/biopsy/radiologist/clinician judgment.
 - `not_found` status for unknown/synthetic `job_id`.
+
+## System-of-Record Boundary (PR0052)
+
+Bremen currently supports two request input modes for H5 containers:
+
+| Mode | Request field | Description | Status |
+|---|---|---|---|
+| Direct path | `h5_path` | Local filesystem path | Dev/test convenience mode |
+| S3 staging | `h5_uri` | S3 URI with optional checksum | Staging/smoke mode |
+
+Both modes remain fully supported and unchanged in PR0052. They are
+**convenience/staging modes**, not long-term source-of-record ownership.
+
+The future source of record for patient/scan/H5 resolution is Matador.
+
+### Boundary scaffold (PR0052)
+
+PR0052 introduces a typed boundary skeleton in
+`src/bremen/system_of_record.py`:
+
+- `ExternalRecordRef` — opaque system-of-record reference with
+  validation (rejects empty refs, local paths, S3 URIs, raw patient
+  identifiers).
+- `ResolvedInput` — resolved H5 source with exactly one of `h5_uri`
+  or `h5_path`, plus target/control refs and optional checksum.
+- `RecordResolver` — protocol for future resolver implementations.
+- `UnconfiguredRecordResolver` — default resolver that raises a safe
+  `ResolutionNotConfiguredError`.
+
+### What PR0052 does NOT add
+
+- No public `source_record_ref` request field in `POST /predictions`.
+- No real Matador API calls, credentials, or network adapters.
+- No change to existing `h5_path`/`h5_uri` behavior.
+- No new dependencies.
+
+### Safety rules
+
+- Raw external refs must not appear in public API error messages.
+- Resolution errors must be subclasses of `ResolutionError` (safe by
+  default).
+- The `UnconfiguredRecordResolver` returns a safe message telling
+  operators to use `h5_path`/`h5_uri` or configure Matador.
