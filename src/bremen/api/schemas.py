@@ -31,12 +31,16 @@ ALL_STATUSES = frozenset({
 
 MODEL_STATUS_NOT_CONFIGURED = "not_configured"
 MODEL_STATUS_CONFIGURED = "configured"
-MODEL_STATUS_INVALID = "invalid"
-MODEL_STATUS_UNAVAILABLE = "unavailable"
+MODEL_STATUS_READY = "ready"
+MODEL_STATUS_ERROR = "error"
+MODEL_STATUS_INVALID = "invalid"  # kept for backward compatibility
+MODEL_STATUS_UNAVAILABLE = "unavailable"  # kept for backward compatibility
 
 ALL_MODEL_STATUSES = frozenset({
     MODEL_STATUS_NOT_CONFIGURED,
     MODEL_STATUS_CONFIGURED,
+    MODEL_STATUS_READY,
+    MODEL_STATUS_ERROR,
     MODEL_STATUS_INVALID,
     MODEL_STATUS_UNAVAILABLE,
 })
@@ -83,7 +87,10 @@ class ModelVersionResponse:
     threshold_version: str | None
     threshold_value: float | None
     qc_criteria_version: str | None
-    model_status: str  # "not_configured" | "configured" | "invalid" | "unavailable"
+    model_status: str  # "not_configured" | "configured" | "ready" | "error"
+    model_uri_configured: bool = False
+    checksum_configured: bool = False
+    error_category: str | None = None
 
 
 @dataclass
@@ -278,6 +285,9 @@ def build_not_configured_model_response() -> ModelVersionResponse:
         threshold_value=None,
         qc_criteria_version=None,
         model_status=MODEL_STATUS_NOT_CONFIGURED,
+        model_uri_configured=False,
+        checksum_configured=False,
+        error_category=None,
     )
 
 

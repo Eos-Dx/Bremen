@@ -1,0 +1,150 @@
+# Precommit Review — PR 0050: Model Version Readiness Cleanup
+
+review_type: precommit-review
+pr: "0050-model-version-readiness-cleanup"
+branch: "0050-model-version-readiness-cleanup"
+head_verified: "820a7d7a567162a3e4997dfa28947b9c97d16cb6"
+date: "2026-07-09T07:29:20Z"
+
+verdict: pass
+head_verified: true
+branch_confirmed: true
+
+blockers: []
+
+warnings: []
+
+checks:
+  # Scope check
+  changed_files_limited_to_allowed: true
+  changed_files: [
+    "docs/api_contract.md",
+    "docs/production_e2e_smoke.md",
+    "src/bremen/api/app.py",
+    "src/bremen/api/model_state.py",
+    "src/bremen/api/schemas.py",
+    "tests/test_bremen_api_server.py",
+    "tests/test_bremen_api_skeleton.py"
+  ]
+  no_forbidden_files_changed: true
+  roadmap_md_unchanged: true
+  docker_unchanged: true
+  infra_unchanged: true
+  ci_unchanged: true
+  training_unchanged: true
+  adrs_unchanged: true
+  dependencies_unchanged: true
+
+  # Status semantics check
+  model_status_not_configured_exists: true
+  model_status_configured_exists: true
+  model_status_ready_exists: true
+  model_status_error_exists: true
+  ready_returned_when_model_loaded: true
+  configured_returned_when_config_only: true
+  error_returned_when_load_failed: true
+  not_configured_returned_when_no_env: true
+  model_ready_true_only_when_ready: true
+
+  # Endpoint contract check
+  model_uri_configured_is_bool: true
+  checksum_configured_is_bool: true
+  error_category_is_safe_enum: true
+  error_category_values_safe: true
+  no_raw_full_s3_uri_in_response: true
+  no_raw_checksum_in_response: true
+  no_raw_exception_in_response: true
+  no_secrets_leaked: true
+  no_account_ids_leaked: true
+  no_registry_urls_leaked: true
+  no_raw_patient_identifiers_leaked: true
+  no_raw_scan_refs_leaked: true
+  no_raw_feature_values_leaked: true
+
+  # Health consistency check
+  health_model_ready_matches_version_ready: true
+  health_remains_lightweight: true
+  health_does_not_load_model: true
+  app_runner_health_compatible: true
+  handle_health_signature_unchanged: true
+
+  # Lifecycle boundary check
+  no_model_in_image: true
+  no_hot_swap: true
+  no_per_request_model_loading: true
+  no_changed_loading_timing: true
+  no_retry_loop_added: true
+  checksum_before_joblib_load_preserved: true
+  s3_model_staging_unchanged: true
+  h5_staging_unchanged: true
+  runtime_does_not_train: true
+  training_code_unchanged: true
+  preprocessing_math_unchanged: true
+  inference_math_unchanged: true
+  model_source_unchanged: true
+  fastapi_not_introduced: true
+  joblib_load_boundary_preserved: true
+
+  # Test check
+  test_unconfigured_state_exists: true
+  test_configured_not_loaded_state_exists: true
+  test_ready_state_exists: true
+  test_error_state_exists: true
+  test_health_version_consistency_exists: true
+  test_no_raw_uri_checksum_leakage_exists: true
+  test_prediction_not_ready_behavior_exists: true
+  loaded_model_assertion_changed_to_ready: true
+  config_only_cloud_assertion_unchanged: true
+  all_tests_synthetic_or_mocked: true
+  no_http_server_in_production_smoke: true
+
+  # Doc check
+  api_contract_documents_ready: true
+  api_contract_documents_error: true
+  api_contract_documents_configured_vs_ready: true
+  api_contract_documents_model_uri_configured_bool: true
+  api_contract_documents_checksum_configured_bool: true
+  api_contract_documents_safe_error_category: true
+  production_e2e_smoke_no_stale_configured_expectation: true
+  docs_no_secrets_or_real_paths: true
+
+validation:
+  compileall_src_tests: pass
+  pytest_api_skeleton: "50 passed in 1.54s"
+  pytest_api_server: "21 passed in 9.07s"
+  pytest_model_startup_staging: "23 passed in 1.28s"
+  pytest_predictions: "10 passed, 2 skipped in 0.99s"
+  pytest_logging: "19 passed in 1.54s"
+  pytest_full_suite: "579 passed, 11 skipped, 28 warnings in 46.79s"
+
+  # Safety validations
+  git_diff_forbidden_files: "no output — none changed"
+  git_diff_binary_artifacts: "no output — none changed"
+  fastapi_web_framework_scan: "no output — not introduced"
+  secrets_leakage_scan: |
+    All grep hits are safe:
+    - s3:// prefix checks in code (string parsing, not leakage)
+    - s3:// in synthetic test data (test fixtures, "my-bucket", "test-bucket")
+    - s3:// in test assertions (verifying it is NOT in error_category)
+    - s3:// in validation messages (schema validation)
+    - s3:// placeholder in docs (env var description)
+    - AKIA/AWS_SECRET in test assertions verifying they are NOT in logs
+    Classification: safe — all are synthetic/assertion/schemavalidation contexts
+
+  smoke_doc_ready_count: "1 occurrence of 'model_status: \"ready\"' — correct"
+
+commit_readiness:
+  ready_to_commit: true
+  files_in_scope: [
+    "src/bremen/api/model_state.py",
+    "src/bremen/api/app.py",
+    "src/bremen/api/schemas.py",
+    "tests/test_bremen_api_skeleton.py",
+    "tests/test_bremen_api_server.py",
+    "docs/api_contract.md",
+    "docs/production_e2e_smoke.md"
+  ]
+  implementation_matches_plan: true
+  all_plan_tests_added: true
+  all_plan_assertions_updated: true
+  boundary_preservations_verified: true

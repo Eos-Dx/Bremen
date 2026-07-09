@@ -23,7 +23,7 @@
 
 **Purpose:** Expose configured model package metadata/status. Must not call `joblib.load()`. Must not deserialize model artifacts.
 
-**Response:**
+**Response (not configured):**
 
 ```json
 {
@@ -34,11 +34,78 @@
   "threshold_version": null,
   "threshold_value": null,
   "qc_criteria_version": null,
-  "model_status": "not_configured"
+  "model_status": "not_configured",
+  "model_uri_configured": false,
+  "checksum_configured": false,
+  "error_category": null
 }
 ```
 
-`model_status` values: `not_configured`, `configured`, `invalid`, `unavailable`.
+**Response (configured — env set, not yet loaded):**
+
+```json
+{
+  "model_configured": true,
+  "model_version": null,
+  "model_checksum": null,
+  "feature_schema_version": null,
+  "threshold_version": null,
+  "threshold_value": null,
+  "qc_criteria_version": null,
+  "model_status": "configured",
+  "model_uri_configured": true,
+  "checksum_configured": false,
+  "error_category": null
+}
+```
+
+**Response (ready — fully loaded and validated):**
+
+```json
+{
+  "model_configured": true,
+  "model_version": "<version>",
+  "model_checksum": "<sha256-hex>",
+  "feature_schema_version": "v0.1",
+  "threshold_version": "<version>",
+  "threshold_value": 0.5,
+  "qc_criteria_version": null,
+  "model_status": "ready",
+  "model_uri_configured": true,
+  "checksum_configured": true,
+  "error_category": null
+}
+```
+
+**Response (error — load/staging/checksum/validation failed):**
+
+```json
+{
+  "model_configured": true,
+  "model_version": "<version>",
+  "model_checksum": "<sha256-hex>",
+  "feature_schema_version": null,
+  "threshold_version": null,
+  "threshold_value": null,
+  "qc_criteria_version": null,
+  "model_status": "error",
+  "model_uri_configured": true,
+  "checksum_configured": true,
+  "error_category": "<safe_category>"
+}
+```
+
+`model_status` values: `not_configured`, `configured`, `ready`, `error`.
+
+- `not_configured` — Required model configuration (env vars) is absent. Model is not available.
+- `configured` — Required model configuration exists but model has not been fully loaded and validated yet (or loading has not been attempted).
+- `ready` — Model artifact has been staged, checksum verified, loaded, and validated. Ready for inference.
+- `error` — Model configuration exists but staging, checksum verification, loading, or validation failed. `error_category` provides a safe enum-style classification.
+
+Safe fields:
+- `model_uri_configured` (bool) — whether `BREMEN_MODEL_URI` was configured. No raw URI string is exposed.
+- `checksum_configured` (bool) — whether `BREMEN_MODEL_CHECKSUM` was configured. No raw checksum string is exposed.
+- `error_category` (str or null) — safe classification when `model_status` is `"error"`. Values: `model_uri_not_set`, `s3_staging_failure`, `local_file_not_found`, `checksum_mismatch`, `joblib_load_failure`, `package_validation_failure`. Not a raw exception message or stack trace.
 
 ### `POST /predictions`
 

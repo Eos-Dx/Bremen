@@ -177,6 +177,266 @@ class TestModelVersion:
 
 
 # ---------------------------------------------------------------------------
+# Model version readiness (PR 0050)
+# ---------------------------------------------------------------------------
+
+
+class TestModelVersionReadiness:
+    """Tests for PR 0050 model/version readiness cleanup.
+
+    Covers all four status values: not_configured, configured, ready, error.
+    """
+
+    def test_model_version_ready_after_load(self, tmp_path):
+        """After successful model load, model_status is ready."""
+        import hashlib
+        from joblib import dump
+        from bremen.api.preprocessing_bridge import BREMEN_V01_FEATURE_COLUMNS
+
+        ModelState.reset_for_tests()
+        n_features = 15
+        package = {
+            "portable_logreg": {
+                "feature_columns": list(BREMEN_V01_FEATURE_COLUMNS),
+                "imputer_statistics": [0.0] * n_features,
+                "scaler_mean": [0.0] * n_features,
+                "scaler_scale": [1.0] * n_features,
+                "coef": [0.1] * n_features,
+                "intercept": 0.0,
+                "threshold": 0.5,
+            }
+        }
+        model_path = tmp_path / "ready_model.joblib"
+        dump(package, model_path)
+        checksum = hashlib.sha256(model_path.read_bytes()).hexdigest()
+        result = ModelState.load_at_startup(
+            model_uri=str(model_path),
+            model_version="ready-v0.1",
+            model_checksum=checksum,
+        )
+        assert result is True
+
+        response = handle_model_version()
+        assert response.model_status == "ready"
+        assert response.model_configured is True
+        assert response.error_category is None
+        assert response.model_uri_configured is True
+        assert response.checksum_configured is True
+        assert response.model_version is not None
+        assert response.model_checksum is not None
+        assert response.threshold_value is not None
+
+        ModelState.reset_for_tests()
+
+    def test_model_version_error_after_failed_load(self, tmp_path):
+        """After failed model load, model_status is error with safe category."""
+        import hashlib
+
+        ModelState.reset_for_tests()
+
+        # Create a corrupt file and use a mismatched checksum
+        bad_file = tmp_path / "bad_model.joblib"
+        bad_file.write_bytes(b"not a valid model package")
+        model_checksum = hashlib.sha256(b"different content").hexdigest()
+
+        result = ModelState.load_at_startup(
+            model_uri=str(bad_file),
+            model_version="bad-v0.1",
+            model_checksum=model_checksum,
+        )
+        assert result is False
+
+        response = handle_model_version()
+        assert response.model_status == "error"
+        assert response.model_configured is True
+        assert response.error_category is not None
+        assert isinstance(response.error_category, str)
+        assert len(response.error_category) > 0
+        assert response.model_uri_configured is True
+        # error_category must be a safe enum string, not raw exception
+        assert response.error_category in (
+            "s3_staging_failure", "local_file_not_found",
+            "checksum_mismatch", "joblib_load_failure",
+            "package_validation_failure",
+        )
+        # Verify health agrees
+        health = handle_health()
+        assert health.model_ready is False
+
+        ModelState.reset_for_tests()
+
+    def test_model_version_configured_not_loaded(self):
+        """Configured but not loaded returns configured and not ready."""
+        from bremen.config import read_cloud_config
+
+        ModelState.reset_for_tests()
+        cloud = read_cloud_config(
+            env={"BREMEN_MODEL_BUCKET": "my-bucket"}
+        )
+        response = handle_model_version(cloud=cloud)
+        assert response.model_status == "configured"
+        assert response.model_configured is True
+        assert response.error_category is None
+        assert response.model_uri_configured is True
+        assert response.checksum_configured is False
+
+        health = handle_health()
+        assert health.model_ready is False
+
+    def test_model_version_not_configured(self):
+        """No env vars set returns not_configured."""
+        from bremen.config import read_cloud_config
+
+        ModelState.reset_for_tests()
+        cloud = read_cloud_config(env={})
+        response = handle_model_version(cloud=cloud)
+        assert response.model_status == "not_configured"
+        assert response.model_configured is False
+        assert response.error_category is None
+        assert response.model_uri_configured is False
+        assert response.checksum_configured is False
+
+    def test_health_model_ready_consistency(self, tmp_path):
+        """Health model_ready and version model_status are consistent.
+
+        After load: health model_ready=True, version status=ready.
+        After failed load: health model_ready=False, version status=error.
+        Not configured: health model_ready=False, version status=not_configured.
+        """
+        import hashlib
+        from joblib import dump
+        from bremen.api.preprocessing_bridge import BREMEN_V01_FEATURE_COLUMNS
+
+        ModelState.reset_for_tests()
+
+        # Not configured consistency
+        from bremen.config import read_cloud_config
+        cloud = read_cloud_config(env={})
+        version_resp = handle_model_version(cloud=cloud)
+        health_resp = handle_health()
+        assert health_resp.model_ready is False
+        assert version_resp.model_status == "not_configured"
+        # model_ready is True iff model_status == "ready"
+        assert health_resp.model_ready == (version_resp.model_status == "ready")
+
+        # Ready consistency
+        n_features = 15
+        package = {
+            "portable_logreg": {
+                "feature_columns": list(BREMEN_V01_FEATURE_COLUMNS),
+                "imputer_statistics": [0.0] * n_features,
+                "scaler_mean": [0.0] * n_features,
+                "scaler_scale": [1.0] * n_features,
+                "coef": [0.1] * n_features,
+                "intercept": 0.0,
+                "threshold": 0.5,
+            }
+        }
+        model_path = tmp_path / "consistency_ready.joblib"
+        dump(package, model_path)
+        checksum = hashlib.sha256(model_path.read_bytes()).hexdigest()
+        ModelState.load_at_startup(
+            model_uri=str(model_path),
+            model_version="consistency-v0.1",
+            model_checksum=checksum,
+        )
+        version_resp = handle_model_version()
+        health_resp = handle_health()
+        assert health_resp.model_ready is True
+        assert version_resp.model_status == "ready"
+        assert health_resp.model_ready == (version_resp.model_status == "ready")
+
+        ModelState.reset_for_tests()
+
+        # Error consistency (checksum mismatch)
+        bad_file = tmp_path / "consistency_bad.joblib"
+        bad_file.write_bytes(b"not a model")
+        wrong_checksum = hashlib.sha256(b"different content").hexdigest()
+        ModelState.load_at_startup(
+            model_uri=str(bad_file),
+            model_version="bad-v0.1",
+            model_checksum=wrong_checksum,
+        )
+        version_resp = handle_model_version()
+        health_resp = handle_health()
+        assert health_resp.model_ready is False
+        assert version_resp.model_status == "error"
+        assert health_resp.model_ready == (version_resp.model_status == "ready")
+
+        ModelState.reset_for_tests()
+
+    def test_no_raw_uri_or_checksum_leakage_in_model_version(self):
+        """model_uri_configured and checksum_configured are bools, not strings.
+        error_category is a safe enum string, not raw exception.
+        """
+        from bremen.config import read_cloud_config
+
+        ModelState.reset_for_tests()
+
+        # not_configured — all safe
+        cloud = read_cloud_config(env={})
+        response = handle_model_version(cloud=cloud)
+        assert isinstance(response.model_uri_configured, bool)
+        assert isinstance(response.checksum_configured, bool)
+        assert response.error_category is None or isinstance(response.error_category, str)
+
+        # After error state — safe
+        import hashlib
+        bad_file = Path("/tmp") / "leak_check_bad.joblib"
+        bad_file.write_bytes(b"not a model")
+        wrong_checksum = hashlib.sha256(b"different").hexdigest()
+        ModelState.load_at_startup(
+            model_uri=str(bad_file),
+            model_version="leak-v0.1",
+            model_checksum=wrong_checksum,
+        )
+        response = handle_model_version()
+        assert isinstance(response.model_uri_configured, bool)
+        assert isinstance(response.checksum_configured, bool)
+        assert response.error_category is None or isinstance(response.error_category, str)
+        # error_category must not contain raw S3 URI pattern
+        if response.error_category:
+            assert "s3://" not in response.error_category
+            assert "sha256:" not in response.error_category
+
+        ModelState.reset_for_tests()
+        import os
+        try:
+            os.remove(str(bad_file))
+        except OSError:
+            pass
+
+    def test_prediction_rejected_on_error_state(self, tmp_path, monkeypatch):
+        """After failed model load, prediction submit raises ModelNotReadyError."""
+        import hashlib
+
+        ModelState.reset_for_tests()
+
+        # Failed checksum → error state
+        bad_file = tmp_path / "pred_reject_bad.joblib"
+        bad_file.write_bytes(b"not a model")
+        wrong_checksum = hashlib.sha256(b"different").hexdigest()
+        ModelState.load_at_startup(
+            model_uri=str(bad_file),
+            model_version="bad-v0.1",
+            model_checksum=wrong_checksum,
+        )
+
+        store = InMemoryJobStore()
+        with pytest.raises(app.ModelNotReadyError):
+            handle_submit_prediction(
+                {
+                    "h5_path": "/tmp/test.h5",
+                    "target_scan_ref": "target",
+                    "control_scan_ref": "control",
+                },
+                store,
+            )
+
+        ModelState.reset_for_tests()
+
+
+# ---------------------------------------------------------------------------
 # Submit prediction (async)
 # ---------------------------------------------------------------------------
 

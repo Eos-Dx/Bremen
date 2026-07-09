@@ -121,9 +121,9 @@ class TestModelVersion:
         status, body, _ = _get(host, port, "/model/version")
         assert status == 200
         data = json.loads(body)
-        # Model was loaded at server startup — it should be configured
+        # Model was loaded at server startup — it should be ready
         assert data["model_configured"] is True
-        assert data["model_status"] == "configured"
+        assert data["model_status"] == "ready"
 
     def test_model_version_content_type(self, server_info):
         host, port, _ = server_info

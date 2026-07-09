@@ -82,7 +82,7 @@ def handle_model_version(
     # Check if model is actually loaded
     model_pkg = ModelState.get_model()
     if model_pkg is not None:
-        # Model is loaded — return live metadata
+        # Model is loaded and validated — return live metadata with ready status
         state = ModelState.get_instance()
         plr = model_pkg.get("portable_logreg", {})
         return ModelVersionResponse(
@@ -93,11 +93,42 @@ def handle_model_version(
             threshold_version=plr.get("threshold_version"),
             threshold_value=float(plr.get("threshold", 0.0)) if plr.get("threshold") is not None else None,
             qc_criteria_version=None,
-            model_status="configured",
+            model_status="ready",
+            model_uri_configured=True,
+            checksum_configured=True,
+            error_category=None,
         )
 
+    # Check if loading was attempted and failed
+    if ModelState.was_load_attempted():
+        state = ModelState.get_instance()
+        load_error = ModelState.get_load_error()
+        # Determine configured booleans from available state info
+        uri_configured = bool(state._model_version) or (state._load_error not in (None, "model_uri_not_set"))
+        checksum_configured = bool(state._model_checksum)
+        return ModelVersionResponse(
+            model_configured=True,
+            model_version=state._model_version,
+            model_checksum=state._model_checksum,
+            feature_schema_version=None,
+            threshold_version=None,
+            threshold_value=None,
+            qc_criteria_version=None,
+            model_status="error",
+            model_uri_configured=uri_configured,
+            checksum_configured=checksum_configured,
+            error_category=load_error,
+        )
+
+    # Loading not yet attempted — delegate to derive_model_source (config-only)
     src = derive_model_source(cloud=cloud)
-    return ModelVersionResponse(**src)
+    is_configured = src["model_configured"]
+    return ModelVersionResponse(
+        **src,
+        model_uri_configured=is_configured,
+        checksum_configured=bool(src.get("model_checksum")),
+        error_category=None,
+    )
 
 
 def handle_submit_prediction(
