@@ -1,0 +1,88 @@
+# Plan Review — PR0055 Product Input Pipeline Inventory And Canonical Input Contract
+# Reviewer: plan-review agent
+# Reviewed: 2026-07-09T22:02:53Z
+# HEAD: eda0224d7ba78eebcea9df5d621ca0c823337e83
+# Branch: 0055-product-input-pipeline-inventory
+
+verdict: approve
+
+blockers: []
+
+warnings:
+  - The optional `docs/api_contract.md` cross-reference edit (Section 7.2) is recommended with "Yes" but would add scope beyond the 2 new files. The plan properly justifies it and marks it as optional/minimal (single sentence). Not a blocker.
+  - The new static test file with 18 test classes is more extensive than strictly necessary for a contract-only PR, but all tests are static/text-only, well-scoped, and serve as enforcement for the contract. Not a blocker.
+
+checks:
+  plan_exists: pass
+  aligns_with_product_input_pipeline_readiness_block: pass
+  defines_pr0055_as_inventory_contract_first: pass
+  does_not_start_pr0056_0058: pass
+  describes_productizable_workflow_no_demo_only_fork: pass
+  treats_geoframe_protobuf_as_candidates_not_implemented: pass
+  defines_controlled_converter_boundary: pass
+  keeps_runtime_stable: pass
+  runtime_not_converter_service: pass
+  runtime_does_not_train: pass
+  defines_canonical_bremen_input_package: pass
+  requires_explicit_target_control_refs: pass
+  preserves_h5_path_h5_uri_modes: pass
+  keeps_matador_future: pass
+  keeps_fastapi_deferred: pass
+  includes_static_tests_for_contract: pass
+  no_source_changes_preferred: pass
+  prohibits_real_artifacts_secrets_identifiers: pass
+  preserves_clinical_safety_boundaries: pass
+  no_converter_implementation_in_pr0055: pass
+  no_preprosync_implementation: pass
+  no_protobuf_geoframe_parser: pass
+  no_geoframe_protobuf_claimed_working_without_evidence: pass
+  no_runtime_schema_change: pass
+  no_h5_path_uri_behavior_change: pass
+  no_matador_integration: pass
+  no_fastapi: pass
+  no_runtime_training: pass
+  no_demo_only_fork: pass
+  no_source_runtime_changes: pass
+  no_clinical_diagnosis_replacement_claims: pass
+  no_real_artifacts_secrets_allowed: pass
+  inventory_geoframe_verified: pass
+  inventory_protobuf_verified: pass
+  inventory_preprosync_verified: pass
+  inventory_converter_verified: pass
+  plan_review_boundary: pass
+  safety_boundaries: pass
+  dirty_tree: pass
+
+validation:
+  - command: git rev-parse --verify HEAD
+    exit_code: 0
+    output: eda0224d7ba78eebcea9df5d621ca0c823337e83
+  - command: git branch --show-current
+    exit_code: 0
+    output: 0055-product-input-pipeline-inventory
+  - command: git status --short
+    exit_code: 0
+    output: '?? .project-memory/pr/0055-product-input-pipeline-inventory/'
+  - command: git diff --name-only
+    exit_code: 0
+    output: (empty — no modified tracked files)
+  - command: grep -r "GeoFrame\|geoframe" src/ tests/ docs/ --include="*.py" --include="*.md"
+    exit_code: 1
+    output: (empty — no GeoFrame references in source, tests, or docs)
+  - command: grep -r "protobuf\|\.proto" src/ tests/ docs/ --include="*.py" --include="*.md"
+    exit_code: 1
+    output: (empty — no protobuf references in source, tests, or docs)
+  - command: grep -r "Preprosync\|preprosync" src/ tests/ docs/ --include="*.py" --include="*.md"
+    exit_code: 1
+    output: (empty — no Preprosync references in source, tests, or docs)
+  - command: grep -r "converter" src/ tests/ docs/ --include="*.py" --include="*.md"
+    exit_code: 1
+    output: (empty — "converter" only in PLAN.md, not in src/tests/docs)
+
+commit_readiness:
+  branch_matches: true
+  working_tree_clean: true
+  plan_exists: true
+  inventory_verified: true
+  only_plan_review_artifact_new: true
+  verification: "Branch is correct (0055-product-input-pipeline-inventory). Working tree is clean. PLAN.md exists and is readable. Inventory claims verified by repo search (no GeoFrame, protobuf, Preprosync, or converter code exists outside PLAN.md). All 21 required reads completed. The only new file is this plan-review.yml."
