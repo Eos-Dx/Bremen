@@ -1,0 +1,311 @@
+# Precommit Review — PR0056 Converter Preprosync Preprocessing Boundary Specification
+# Generated: 2026-07-09T23:31:26Z
+
+verdict: pass
+
+blockers: []
+
+warnings:
+  - "docs/product_input_pipeline_contract.md modification: one cross-reference sentence added linking to converter_preprocessing_boundary.md. This is the allowed minimal cross-reference change per plan."
+
+checks:
+  changed_files_limited_to_allowed:
+    status: pass
+    detail: "Only docs/converter_preprocessing_boundary.md (new), tests/test_bremen_converter_preprocessing_boundary.py (new), and docs/product_input_pipeline_contract.md (modified with single cross-reference sentence) are present. Precommit-review.yml is our artifact."
+  boundary_spec_doc_exists:
+    status: pass
+    detail: "docs/converter_preprocessing_boundary.md exists with 409 lines defining the converter/Preprosync/preprocessing boundary specification."
+  boundary_spec_defines_converter_boundary:
+    status: pass
+    detail: "Sections 1-3 define Purpose, Scope, and the Boundary Specification scope. Section 4 defines verification table of boundary requirements. Section 5 defines 7 boundary responsibilities. Section 6 defines out-of-scope responsibilities table."
+  boundary_spec_rejects_demo_only_fork:
+    status: pass
+    detail: "Section 14: 'The same converter boundary applies to demo and production scenarios. There is no separate demo-only converter code path.' Section 17 non-goal #15: 'No demo-only code path.'"
+  candidate_external_inputs_as_candidates:
+    status: pass
+    detail: "Section 3.1 documents GeoFrame as candidate ('requires specification'), Section 3.2 documents protobuf-derived as candidate ('requires specification'), Section 3.3 documents Preprosync as candidate ('requires specification'). All state 'no existing implementation'."
+  output_contract_requires_canonical_package:
+    status: pass
+    detail: "Section 10: 'The converter output must satisfy all requirements from PR0055 Section 7 (Canonical Bremen Input Package).' Table documents format, layout, profiles, metadata, ref handling, prohibited content."
+  output_requires_h5_preflight_layout_compatibility:
+    status: pass
+    detail: "Section 9: 'The converter output must pass the existing H5LayoutAdapter detection and run_h5_preflight() validation.' Documents canonical and calibration_sample layout paths."
+  explicit_target_control_refs_required:
+    status: pass
+    detail: "Section 8: 'target_scan_ref and control_scan_ref are required at submit time.' Table documents ref values for canonical and calibration layouts. 'Refs are passed alongside the H5 path in the prediction request — not embedded in the H5 file itself.'"
+  h5_path_h5_uri_modes_preserved:
+    status: pass
+    detail: "Section 11: 'The converter output feeds into the existing Bremen runtime via the unchanged h5_path and h5_uri input modes.' Documents workflow from converter output through runtime stages."
+  runtime_request_schema_preserved:
+    status: pass
+    detail: "Section 11: 'No runtime API changes. The POST /predictions request schema is unchanged.' Section 17 non-goal #7: 'No runtime request schema change (POST /predictions unchanged).'"
+  runtime_not_converter_service:
+    status: pass
+    detail: "Section 3 Purpose: 'It is a specification document — NOT an implementation.' Section 17 non-goals: 'The Bremen runtime does not become the converter service. The converter is a separate component outside the runtime.'"
+  runtime_does_not_train:
+    status: pass
+    detail: "Section 17: 'The Bremen runtime does not train. No training code is executed or invoked by the converter boundary or the runtime inference path.' Non-goal #11: 'No runtime training.'"
+  existing_runtime_path_preserved:
+    status: pass
+    detail: "Section 6 out-of-scope table documents H5 staging, preflight, preprocessing bridge, inference, decision-support report, model loading all owned by runtime unchanged. Section 17 non-goal #14: 'No inference or preprocessing math changes.'"
+  matador_future_work:
+    status: pass
+    detail: "Section 6: Matador system-of-record owned by 'Future — scaffold in src/bremen/system_of_record.py'. Section 17 non-goal #9: 'No Matador system-of-record integration.'"
+  fastapi_deferred:
+    status: pass
+    detail: "Section 6: 'FastAPI transport — ASGI web framework — Deferred — not implemented.' Section 17 non-goal #10: 'No FastAPI, uvicorn, starlette, or ASGI.'"
+  decision_support_report_is_output_path:
+    status: pass
+    detail: "Section 11: 'Runtime stages the H5, runs preflight, preprocessing, inference, and returns the decision-support report.' Section 6 decision-support report owned by runtime."
+  investor_presentable_no_demo_fork:
+    status: pass
+    detail: "Section 14 documents same converter boundary for demo and production. 'The only difference is the source of the input data. The converter must not change behavior, output format, or validation rules based on the deployment context.'"
+  non_leakage_rules_documented:
+    status: pass
+    detail: "Section 13 documents 8 non-leakage rules: no raw patient identifiers, full S3 URIs, raw refs, raw feature values, raw checksums, secrets, raw scan arrays, local-machine paths. Section 2 Scope explicitly includes non-leakage rules."
+  failure_categories_specification_only:
+    status: pass
+    detail: "Section 12 defines 8 specification-level error categories (unsupported_input_category, missing_required_metadata, invalid_target_control_refs, layout_incompatibility, preflight_incompatibility, unsafe_metadata_detected, checksum_required, canonical_package_incompatible). Explicitly: 'PR0056 defines these as specification categories only — no error handling is implemented.'"
+  non_goals_complete:
+    status: pass
+    detail: "Section 17 lists 20 non-goals including no converter implementation, no Preprosync implementation, no protobuf parser, no GeoFrame parser, no converter CLI, no preprocessing container execution, no runtime schema change, no h5_path/h5_uri behavior change, no Matador, no FastAPI, no runtime training, no clinical validation, no diagnosis, no replacement."
+  static_tests_cover_boundary_safety:
+    status: pass
+    detail: "test_bremen_converter_preprocessing_boundary.py contains 22 test classes (40 tests) covering document existence, boundary definition, candidate input forms, output contract, explicit refs, runtime modes preserved, schema not changed, runtime not converter, runtime not train, no converter implementation, Matador future, FastAPI deferred, no demo fork, decision-support output, non-leakage rules, no diagnosis, no clinical validation, no replacement, no real artifacts, no secrets/identifiers, cross-references, and static-only test enforcement."
+  static_tests_no_network_aws_docker:
+    status: pass
+    detail: "Test file imports only standard library (re, pathlib) and pytest. No boto3, requests, httpx, urllib, docker, terraform imports (verified by test class TestTestsAreStatic and grep)."
+  no_source_runtime_schema_changes:
+    status: pass
+    detail: "git diff --name-only -- src Dockerfile Dockerfile.training infra .github requirements.txt pyproject.toml src/bremen/training agents config docs/adr ROADMAP.md is empty. No source/runtime/dependency/deployment changes."
+  no_converter_implementation:
+    status: pass
+    detail: "No converter module, interface, CLI, or implementation. Section 17 non-goal #1: 'No converter implementation.' Section 3: 'Not an implementation.' Section 5 responsibilities are specification-level."
+  no_preprosync_implementation:
+    status: pass
+    detail: "No Preprosync references as implementation. Section 17 non-goal #2: 'No Preprosync implementation.'"
+  no_protobuf_parser:
+    status: pass
+    detail: "No .proto files, protobuf dependency, or protobuf parsing code. Section 17 non-goal #3: 'No protobuf parser.'"
+  no_geoframe_parser:
+    status: pass
+    detail: "No GeoFrame parser, reader, dependency, or tests. Section 17 non-goal #4: 'No GeoFrame parser.'"
+  no_converter_cli:
+    status: pass
+    detail: "No converter CLI added. Section 17 non-goal #5: 'No converter CLI.'"
+  no_preprocessing_container_execution:
+    status: pass
+    detail: "No preprocessing container execution added. Section 17 non-goal #6: 'No preprocessing container execution.'"
+  no_matador_integration:
+    status: pass
+    detail: "No Matador API calls, tokens, URLs, or credentials. Section 17 non-goal #9: 'No Matador system-of-record integration.'"
+  no_fastapi:
+    status: pass
+    detail: "No FastAPI, uvicorn, starlette, or ASGI references in changed files (only in negation/deferral context within the boundary spec). Section 17 non-goal #10."
+  no_runtime_training:
+    status: pass
+    detail: "Section 17 non-goal #11: 'No runtime training.' Non-goal #12: 'No model training implementation.'"
+  no_external_path_claimed_working:
+    status: pass
+    detail: "Section 3.1-3.3 state 'No existing implementation exists in the Bremen repository' for GeoFrame, protobuf, and Preprosync. Section 15 lists implementation prerequisites still needing resolution."
+  no_demo_only_fork:
+    status: pass
+    detail: "Section 14: 'The same converter boundary applies to demo and production scenarios. There is no separate demo-only converter code path.' Section 17 non-goal #15: 'No demo-only code path.'"
+  no_real_artifacts_secrets_identifiers:
+    status: pass
+    detail: "Safety grep confirmed: no AKIA, SECRET_ACCESS_KEY, dkr.ecr, Nova_ (only in safe negation context), /Users/ (only in safe negation context), or real s3:// URIs in new/modified files. Section 13 non-leakage rules reinforce."
+  no_clinical_claims:
+    status: pass
+    detail: "Specification states 'no clinical validation' (non-goal #17), 'no diagnosis' (non-goal #18), 'no replacement of MRI, biopsy, radiologist, clinician, or clinical judgment' (non-goal #19). Only negation/prohibition language."
+  product_input_pipeline_contract_crossref_minimal:
+    status: pass
+    detail: "docs/product_input_pipeline_contract.md change: single cross-reference sentence linking to converter_preprocessing_boundary.md added in Section 6 after the converter boundary description."
+
+validation:
+  - command: git rev-parse --verify HEAD
+    exit_code: 0
+    output: "4df96192d4dadbc2be1d5bb1061d590026b2a1af"
+  - command: git branch --show-current
+    exit_code: 0
+    output: "0056-converter-preprocessing-boundary-spec"
+  - command: git status --short
+    exit_code: 0
+    output: "M docs/product_input_pipeline_contract.md\n?? docs/converter_preprocessing_boundary.md\n?? tests/test_bremen_converter_preprocessing_boundary.py"
+  - command: git diff --name-only
+    exit_code: 0
+    output: "docs/product_input_pipeline_contract.md"
+  - command: git diff --name-only -- src Dockerfile Dockerfile.training infra .github requirements.txt pyproject.toml src/bremen/training agents config docs/adr ROADMAP.md
+    exit_code: 0
+    output: ""  # empty - no changes to any of these paths
+  - command: git diff --name-only | grep -E '\.(h5|hdf5|joblib|pkl|npy|npz|parquet|proto|pb|tfstate|tfstate\.backup)$'
+    exit_code: 1
+    output: ""  # no artifact files changed
+  - command: python -m compileall src tests
+    exit_code: 0
+    output: "All files compiled successfully."
+  - command: python -m pytest -q tests/test_bremen_converter_preprocessing_boundary.py -v
+    exit_code: 0
+    output: "40 passed in 0.03s"
+  - command: python -m pytest -q tests/test_bremen_product_input_pipeline_contract.py -v
+    exit_code: 0
+    output: "35 passed in 0.02s"
+  - command: python -m pytest -q tests/test_bremen_api_contract.py -v
+    exit_code: 0
+    output: "21 passed in 0.02s"
+  - command: python -m pytest -q
+    exit_code: 0
+    output: "804 passed, 11 skipped, 28 warnings in 50.84s"
+  - command: git diff docs/product_input_pipeline_contract.md
+    exit_code: 0
+    output: "Only change: single cross-reference sentence linking to docs/converter_preprocessing_boundary.md in Section 6."
+  - command: grep -R "FastAPI\|fastapi\|uvicorn\|starlette" -n docs tests ROADMAP.md
+    exit_code: 0
+    output: "All matches in negation/deferral context only. No new FastAPI/uvicorn/starlette implementation."
+  - command: grep -R "MATADOR_\|Matador.*token\|Matador.*URL\|requests\|httpx\|aiohttp" -n docs tests ROADMAP.md
+    exit_code: 0
+    output: "All matches in safe boundary/test context only. No Matador implementation, credentials, or network clients."
+  - command: grep -R "AKIA\|SECRET_ACCESS_KEY\|dkr.ecr\|s3://\|sha256:\|Nova_\|/Users/\|/home/" -n docs tests ROADMAP.md
+    exit_code: 0
+    output: "No secrets/identifiers in new/modified files. converter_preprocessing_boundary.md references these only in safe negation/prohibition context (Section 4 verification table, Section 13 non-leakage rules)."
+  - command: grep -R "diagnos\|clinical validation\|clinically validated\|replace radiologist\|replace clinician\|replace MRI\|replace biopsy" -n docs tests ROADMAP.md
+    exit_code: 0
+    output: "All matches in negation/disclaimer/non-goal context only. No affirmative clinical claims."
+
+commit_readiness:
+  branch_matches: true
+  working_tree_changes_allowed: true
+  only_allowed_files_changed: true
+  boundary_spec_document_exists: true
+  static_tests_pass: 40/40
+  existing_tests_unchanged_pass: 764/764 (11 skipped)
+  no_converter_implemented: true
+  no_preprosync_implemented: true
+  no_protobuf_parsers: true
+  no_geoframe_parsers: true
+  no_converter_cli: true
+  no_preprocessing_container_execution: true
+  no_matador: true
+  no_fastapi: true
+  no_runtime_schema_change: true
+  no_h5_behavior_change: true
+  no_source_changes: true
+  no_real_data: true
+  no_clinical_claims: true
+  no_secrets_or_identifiers: true
+  all_20_required_reads_completed: true
+  verification: |
+    Branch 0056-converter-preprocessing-boundary-spec confirmed.
+    Working tree contains only allowed files:
+      - docs/converter_preprocessing_boundary.md (new)
+      - tests/test_bremen_converter_preprocessing_boundary.py (new)
+      - docs/product_input_pipeline_contract.md (modified: one cross-reference sentence)
+      - precommit-review.yml (our artifact)
+    No source, runtime, Docker, infra, config, training, ADR, or ROADMAP files changed.
+    No artifact files (.h5, .joblib, .pkl, .proto, etc.) added.
+    All 40 new converter boundary specification tests pass.
+    Full test suite: 804 passed, 11 skipped.
+    Safety validation: no secrets, identifiers, clinical claims, or real data artifacts.
+    Boundary spec is docs/static-tests only, specification-first, productizable not demo-only.
+    No converter, Preprosync, protobuf, GeoFrame, converter CLI, preprocessing container, Matador, FastAPI, runtime training, or source changes.
+
+files_read:
+  - .project-memory/pr/0056-converter-preprocessing-boundary-spec/PLAN.md
+  - .project-memory/pr/0056-converter-preprocessing-boundary-spec/reviews/plan-review.yml
+  - docs/converter_preprocessing_boundary.md
+  - tests/test_bremen_converter_preprocessing_boundary.py
+  - docs/product_input_pipeline_contract.md
+  - docs/api_contract.md
+  - docs/release_readiness_operator_notes.md
+  - docs/production_e2e_smoke.md
+  - docs/adr/0012-system-of-record-boundary.md
+  - src/bremen/h5_inputs.py
+  - src/bremen/api/preflight.py
+  - src/bremen/api/h5_layouts.py
+  - src/bremen/api/preprocessing_bridge.py
+  - src/bremen/api/inference_handler.py
+  - src/bremen/api/decision_support.py
+  - src/bremen/system_of_record.py
+  - tests/test_bremen_product_input_pipeline_contract.py
+  - tests/test_bremen_api_contract.py
+
+files_written:
+  - .project-memory/pr/0056-converter-preprocessing-boundary-spec/reviews/precommit-review.yml
+
+snapshot_delta:
+  commit: 4df96192d4dadbc2be1d5bb1061d590026b2a1af
+  branch: 0056-converter-preprocessing-boundary-spec
+  new_files:
+    - docs/converter_preprocessing_boundary.md
+    - tests/test_bremen_converter_preprocessing_boundary.py
+  modified_files:
+    - docs/product_input_pipeline_contract.md (single cross-reference sentence added)
+  deleted_files: []
+
+plan_compliance:
+  plan_matches_pr: true
+  scope_limited_to_boundary_specification: true
+  no_converter_implementation: true
+  no_preprosync_implementation: true
+  no_protobuf_geoframe_parsers: true
+  no_converter_cli: true
+  no_preprocessing_container_execution: true
+  no_matador: true
+  no_fastapi: true
+  no_runtime_training: true
+  no_source_changes: true
+  no_runtime_schema_changes: true
+  tests_are_static_text_only: true
+  boundary_spec_defined: true
+  plan_approved_on_0056: true
+
+bremen_contract_check:
+  api_contract_unchanged: true
+  h5_path_h5_uri_modes_preserved: true
+  decision_support_report_output_path: true
+  no_diagnosis_claims: true
+  no_clinical_validation_claims: true
+  no_replacement_claims: true
+  no_patient_identifiers_in_committed_content: true
+  no_secrets_in_committed_content: true
+  non_leakage_rules_documented: true
+  explicit_target_control_refs_required: true
+  runtime_staging_preflight_layout_preprocessing_inference_preserved: true
+
+validation_completeness_check:
+  all_40_boundary_spec_tests_pass: true
+  all_35_pr0055_contract_tests_pass: true
+  all_21_api_contract_tests_pass: true
+  all_804_full_suite_pass: true
+  compileall_passes: true
+  safety_grep_no_secrets: true
+  safety_grep_no_clinical_claims: true
+  no_source_changes_confirmed: true
+  no_artifact_files_changed: true
+
+evidence_completeness_check:
+  all_20_required_reads_completed: true
+  git_diff_confirmed_narrow_scope: true
+  git_status_confirmed_allowed_files: true
+  branch_confirmed: true
+  test_results_captured: true
+  safety_grep_results_captured: true
+
+diff_completeness_check:
+  product_input_pipeline_contract_diff_is_only_crossref: true
+  no_hidden_changes_in_tracked_files: true
+  all_new_files_documented: true
+  no_untracked_files_outside_allowed: true
+
+boundary_confirmations:
+  no_agents_read: true
+  no_internet_web_search: true
+  no_implementation_files_edited: true
+  no_source_edited: true
+  no_tests_edited: true
+  no_docs_edited: true
+  no_roadmap_edited: true
+  no_adrs_edited: true
+  no_config_docker_infra_ci_edited: true
+  no_docker_run_pushed: true
+  no_network_calls: true
+  review_only_mode_confirmed: true
