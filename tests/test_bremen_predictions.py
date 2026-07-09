@@ -197,7 +197,8 @@ class TestPredictionCallsRunInference:
         call_args = []
 
         def mock_run_inference(
-            h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None
+            h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None,
+            input_mode=None,
         ):
             call_args.append((h5_path, patient_id, target_scan_ref, control_scan_ref))
             return _valid_mock_result()
@@ -258,7 +259,8 @@ class TestPredictionCompletesWithResult:
         _load_synthetic_model(tmp_path)
 
         def mock_run_inference(
-            h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None
+            h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None,
+            input_mode=None,
         ):
             return _valid_mock_result()
 
@@ -430,7 +432,8 @@ class TestPredictionS3Uri:
             return Path(expected_staged_path)
 
         def mock_run_inference(
-            h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None
+            h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None,
+            input_mode=None,
         ):
             call_args.append((h5_path, patient_id, target_scan_ref, control_scan_ref))
             return _valid_mock_result()

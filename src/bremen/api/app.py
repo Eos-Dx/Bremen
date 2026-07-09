@@ -182,11 +182,19 @@ def handle_submit_prediction(
     try:
         from .inference_handler import run_inference  # noqa: PLC0415
 
+        # Determine input_mode for the decision-support report
+        input_mode: str | None = None
+        if request.h5_uri:
+            input_mode = "h5_uri"
+        elif request.h5_path:
+            input_mode = "h5_path"
+
         result_dict = run_inference(
             h5_path=resolved_h5_path,
             patient_id=raw_request.get("patient_id"),
             target_scan_ref=request.target_scan_ref,
             control_scan_ref=request.control_scan_ref,
+            input_mode=input_mode,
         )
 
         completed_result = CompletedResult(
@@ -198,6 +206,7 @@ def handle_submit_prediction(
             threshold_value=result_dict["threshold_value"],
             qc_status=result_dict["qc_status"],
             qc_flags=result_dict["qc_flags"],
+            decision_support_report=result_dict.get("decision_support_report"),
         )
 
         job_store.update_status(
@@ -265,6 +274,10 @@ def handle_get_prediction(
             "qc_status": record.result.qc_status,
             "qc_flags": record.result.qc_flags,
         }
+        if record.result.decision_support_report is not None:
+            result["decision_support_report"] = (
+                record.result.decision_support_report
+            )
 
     return PredictionStatusResponse(
         job_id=record.job_id,

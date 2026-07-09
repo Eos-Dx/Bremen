@@ -1,0 +1,166 @@
+# PR0053 Plan Review — Decision Support Output Wrapper
+# Reviewer: plan-review agent
+# Reviewed: 2026-07-09T10:56:21Z
+
+verdict: approve
+head_verified: d7d8719faa2c70bbd0386b3774f696d9dafc8604
+branch_confirmed: 0053-decision-support-output-wrapper
+
+blockers: []
+
+warnings:
+  - "input_mode parameter addition to run_inference() changes function signature, but default None preserves backward compatibility for all existing callers."
+  - "Safety validation greps (Section 11.2) will produce false positives for s3:// and Nova_ patterns that appear in validation logic, not secrets. These must be classified by the implementer, not hidden."
+
+checks:
+  scope: pass
+  plan-review boundary: pass
+  validation strategy: pass
+  safety boundaries: pass
+  drift gate: pass
+  evidence completeness: pass
+  dirty tree: pass
+
+validation:
+  - command: "git rev-parse --verify HEAD"
+    exit_code: 0
+    output: "d7d8719faa2c70bbd0386b3774f696d9dafc8604"
+  - command: "git branch --show-current"
+    exit_code: 0
+    output: "0053-decision-support-output-wrapper"
+  - command: "git status --short"
+    exit_code: 0
+    output: "?? .project-memory/pr/0053-decision-support-output-wrapper/"
+  - command: "git diff --name-only"
+    exit_code: 0
+    output: "(empty — no modified tracked files)"
+
+commit_readiness:
+  branch_matches: true
+  working_tree_clean: true
+  only_planning_artifacts_untracked: true
+  verification: All preconditions satisfied. Branch is 0053-decision-support-output-wrapper. Working tree has no modified tracked files. Only untracked planning artifacts present.
+
+# ==========================================================================
+# ROADMAP CHECK
+# ==========================================================================
+roadmap_check: pass
+roadmap_check_details:
+  - "PR0053 follows PR0052: Confirmed. ROADMAP.md 'Next Execution Sequence' lists PR0053 after PR0052. PLAN.md Section 4.1 confirms PR0052 merged."
+  - "PR0053 is decision-support report / output wrapper: Confirmed. PLAN.md Section 1 objective: 'Add a safe, structured decision-support report around existing inference results.'"
+  - "PR0054 remains release readiness/operator notes and is not implemented: Confirmed. PLAN.md Section 4.3: 'This plan does not start PR0054 work. No release readiness, no operator runbook changes.'"
+  - "FastAPI remains deferred: Confirmed. PLAN.md Section 4.5: 'No FastAPI, uvicorn, starlette, or ASGI references.'"
+
+# ==========================================================================
+# OUTPUT CONTRACT CHECK
+# ==========================================================================
+output_contract_check: pass
+output_contract_details:
+  - "report_schema_version defined: 'v0.1'"
+  - "intended_use as MRI continuation decision support: 'MRI continuation decision support only.'"
+  - "safety_notice/limitations: 5-item predefined limitation list including 'Not a diagnostic result', 'Not clinically validated', and no-replacement language."
+  - "No diagnosis claim: Limitations explicitly state 'Not a diagnostic result.'"
+  - "No clinical validation claim: Limitations explicitly state 'Not clinically validated.'"
+  - "No replacement of MRI, biopsy, radiologist, clinician, or clinical judgment: Limitations state 'Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment.'"
+  - "Safe model metadata: model_version, feature_schema_version, threshold_version, threshold_value only — no raw model_checksum, no raw model URI."
+  - "Prohibits raw model URI: Section 5.3 table explicitly lists 'full S3 URI, bucket/key' as forbidden."
+  - "Prohibits raw checksum: Section 5.1 comment '# No raw model_checksum' and Section 5.3 table."
+  - "Safe input summary: input_mode category string, explicit_refs_provided bool, layout_category string."
+  - "Prohibits raw H5 path/full S3 URI/raw refs/patient identifiers/raw feature values: Section 5.3 table."
+  - "Preserves existing score/probability/result fields: Section 6.1 — 8 mandatory COMPLETED_RESULT_FIELDS preserved at top level."
+  - "Does not recalculate inference output: build_decision_support_report() is a pure wrapper, passes inference_result unchanged."
+  - "Does not change threshold behavior: Section 10 point 17 explicitly preserves threshold behavior."
+  - "Decision-support language cautious: Template-based 'may be recommended' / 'may not be indicated' language."
+
+# ==========================================================================
+# COMPATIBILITY CHECK
+# ==========================================================================
+compatibility_check: pass
+compatibility_details:
+  - "Preserves existing prediction job shape: All 12 existing keys preserved in run_inference() return dict. CompletedResult gets new optional field, 8 existing fields unchanged."
+  - "Nested decision_support_report added without deleting current public fields: Confirmed — nested dict appended at end of result dict."
+  - "Request schema unchanged: validate_prediction_request() and PredictionRequest unchanged."
+  - "h5_path/h5_uri unchanged: No changes to input modes."
+  - "No source_record_ref added: Confirmed — plan explicitly prohibits this."
+  - "Production smoke remains in-process: test_bremen_production_smoke.py gets one additive assertion, still uses monkeypatched in-process handler calls."
+  - "No FastAPI/transport change: Confirmed."
+
+# ==========================================================================
+# FILE CHANGE CHECK
+# ==========================================================================
+file_change_check: pass
+file_change_details:
+  - "Implementation minimal: 2 new files (decision_support.py ~60 lines, test file ~32 tests). 4 modified source files (~10 lines total). 2 modified test files (2 assertions total). 1 modified doc (new section)."
+  - "New schemas/report constants: decision_support.py module with REPORT_SCHEMA_VERSION, INTENDED_USE, LIMITATIONS, CAUTION_TEXT."
+  - "Pure output wrapper around existing inference result: build_decision_support_report() function."
+  - "inference_handler/jobs/app changes only for result wrapping/serialization: inference_handler.py gets ~5 lines, app.py gets ~3 lines."
+  - "docs/api_contract.md updated: New 'Decision-Support Report (PR0053)' section at end."
+  - "New decision-support output tests: tests/test_bremen_decision_support_output.py with 8 test classes, ~32 methods."
+  - "No preprocessing, H5 layout, H5 staging, model loading, model artifacts, training, system_of_record, dependencies, Docker, infra, CI, roadmap, or agent changes: Section 7.3 lists 12+ files with explicitly 'No changes.'"
+
+# ==========================================================================
+# TEST PLAN CHECK
+# ==========================================================================
+test_plan_check: pass
+test_plan_details:
+  - "report_schema_version: TestReportSchema (2 tests)."
+  - "Intended use: TestIntendedUseAndLimitations — test_report_contains_intended_use, test_intended_use_contains_mri_continuation."
+  - "Safety limitations: Limitations list test, no-diagnosis test, no-clinical-validation test, no-replacement test."
+  - "No diagnosis claim: test_limitations_mention_not_diagnosis."
+  - "No clinical validation claim: test_limitations_mention_no_clinical_validation."
+  - "No replacement of MRI/biopsy/radiologist/clinician: test_limitations_mention_no_replacement."
+  - "Safe metadata: TestModelMetadata (6 tests) — checks model_version, feature_schema_version, threshold_version, threshold_value present, checksum absent, model_uri absent."
+  - "No raw URI/checksum/H5 path/S3 URI/patient ID/feature values: Tests 13, 14, 18, 31, 32 explicitly verify these prohibitions."
+  - "Existing score/result preservation: TestBackwardCompatibility (2 tests) — additive test, parameter defaults test."
+  - "No inference math change: Explicitly stated in plan scope. No test verifies inference math — all tests are structural/safety only."
+  - "No threshold behavior change: Explicitly stated in preserved boundaries."
+  - "Completed prediction job includes report: Test report_is_additive — verified through run_inference() integration test."
+  - "Failed/not-ready behavior remains safe: TestSafetyBoundary (2 tests) — no feature values, no patient_id duplication in report."
+  - "Logging safety: No new log events — report is data, not observability."
+  - "All tests synthetic/mocked: Confirmed — no AWS, Docker, Terraform, network, real H5, real model artifact."
+
+# ==========================================================================
+# CLINICAL SAFETY CHECK
+# ==========================================================================
+clinical_safety_check: pass
+clinical_safety_details:
+  - "No diagnosis: Limitations say 'Not a diagnostic result.' recommendation_label uses 'may be recommended' / 'may not be indicated.'"
+  - "No diagnostic label implying cancer/benign decision: The words 'cancer', 'benign', 'malignant' do not appear in any output schema. Test 25 explicitly verifies this."
+  - "No clinical validation claim: Limitations say 'Not clinically validated.'"
+  - "No claim that output is sufficient for MRI decision: recommendation_label says 'MRI follow-up may be recommended.' Caution says 'final decision must be made by a qualified clinician.'"
+  - "No replacement of clinician/radiologist: Limitations explicitly state 'Does not replace radiologist, clinician, or clinical judgment.'"
+  - "No replacement of MRI/biopsy: Limitations explicitly state 'Does not replace MRI, biopsy.'"
+  - "Output framed as controlled decision-support only: intended_use = 'MRI continuation decision support only.' caution = 'decision-support recommendation only.'"
+
+# ==========================================================================
+# BOUNDARY CHECK
+# ==========================================================================
+boundary_check: pass
+boundary_details:
+  - "No FastAPI: Confirmed — FastAPI remains deferred."
+  - "No Matador integration: Confirmed — no Matador API calls, credentials, or network adapters."
+  - "No public system-of-record request field: Confirmed — PredictionRequest unchanged."
+  - "No DynamoDB/backend implementation: Confirmed."
+  - "No deployment target change: Confirmed."
+  - "No Docker/Terraform/CI/dependency changes: Confirmed — all 24 preserved boundaries listed in Section 10."
+  - "No training behavior change: Confirmed."
+  - "No runtime model lifecycle change: Confirmed."
+  - "No checksum boundary change: Confirmed."
+  - "No S3 model staging change: Confirmed."
+  - "No S3 H5 staging change: Confirmed."
+  - "No H5 layout change: Confirmed."
+  - "No preprocessing change: Confirmed."
+  - "No inference math change: Confirmed."
+  - "No threshold behavior change: Confirmed."
+  - "No production smoke execution: Confirmed — plan lists validation commands but does not require smoke execution during review."
+  - "No PR0054 implementation: Confirmed."
+
+# ==========================================================================
+# BOUNDARY CONFIRMATIONS
+# ==========================================================================
+boundary_confirmations:
+  no_docker_run: true
+  no_pytest_run: true
+  no_dependency_install: true
+  no_implementation_files_edited: true
+  no_git_mutation_commands: true

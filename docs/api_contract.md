@@ -221,3 +221,84 @@ PR0052 introduces a typed boundary skeleton in
   default).
 - The `UnconfiguredRecordResolver` returns a safe message telling
   operators to use `h5_path`/`h5_uri` or configure Matador.
+
+## Decision-Support Report (PR0053)
+
+When a prediction job completes, the `result` dict includes a
+`decision_support_report` field with the following structure.
+
+### report_schema_version
+
+`"v0.1"` — stable version string for the decision-support report
+contract.
+
+### intended_use
+
+String stating "MRI continuation decision support only." States that
+the output is not a diagnosis, not clinically validated, and does not
+replace MRI, biopsy, radiologist, clinician, or clinical judgment.
+
+### limitations
+
+List of predefined safety limitation strings. Captures that this is
+decision-support output only, not a diagnostic result, not clinically
+validated, and does not replace MRI, biopsy, radiologist, clinician,
+or clinical judgment.
+
+### model_metadata
+
+Safe model identification fields:
+
+- `model_version` (str)
+- `feature_schema_version` (str)
+- `threshold_version` (str) — when available
+- `threshold_value` (float) — when available
+
+Does NOT include raw `model_checksum` or model URI.
+
+### input_summary
+
+Safe input context fields:
+
+- `input_mode` (str): `"h5_uri"`, `"h5_path"`, or `"unknown"`
+- `explicit_refs_provided` (bool or null)
+- `layout_category` (str or null): `"canonical"`,
+  `"calibration_sample"`, or `"unknown"`
+
+Does NOT include raw H5 path, full S3 URI, or raw target/control refs.
+
+### prediction_summary
+
+Model output fields:
+
+- `p_mri_needed` (float): Probability estimate in [0.0, 1.0]
+- `triage_recommendation` (str): `"MRI_RECOMMENDED"` or
+  `"MRI_RULE_OUT"`
+- `qc_status` (str): `"passed"` or `"failed"`
+- `qc_flags` (list)
+
+### decision_support
+
+Safe recommendation framing:
+
+- `recommendation` (str): Same value as `triage_recommendation`
+- `recommendation_label` (str): Human-readable cautionary label
+  using "may be recommended" / "may not be indicated" language
+- `caution` (str): Standard decision-support disclaimer stating
+  the final decision must be made by a qualified clinician
+
+### Safety rules
+
+- No raw patient identifiers in report fields.
+- No raw checksum, full S3 URI, or model artifact path.
+- No raw feature values or feature vectors.
+- No clinical diagnosis or definitive claims.
+- `recommendation_label` uses only "may be recommended" / "may not
+  be indicated" language.
+- No replacement of MRI, biopsy, radiologist, clinician, or clinical
+  judgment.
+- No clinical validation claim.
+- All eight mandatory result fields (`prediction_id`, `model_version`,
+  `model_checksum`, `feature_schema_version`, `threshold_version`,
+  `threshold_value`, `qc_status`, `qc_flags`) remain at the top level
+  of the result dict for backward compatibility.

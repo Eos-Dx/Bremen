@@ -445,7 +445,8 @@ class TestSubmitPrediction:
 
     @staticmethod
     def _mock_run_inference(
-        h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None
+        h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None,
+        input_mode=None,
     ):
         """Fake run_inference that returns a valid result dict."""
         return {
@@ -553,7 +554,8 @@ class TestGetPrediction:
 
     @staticmethod
     def _mock_run_inference(
-        h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None
+        h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None,
+        input_mode=None,
     ):
         """Fake run_inference that returns a valid result dict."""
         return {

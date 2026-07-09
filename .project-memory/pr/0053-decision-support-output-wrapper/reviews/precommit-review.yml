@@ -1,0 +1,282 @@
+# PR0053 Precommit Review — Decision Support Output Wrapper
+# Reviewer: precommit-review agent
+# Reviewed: 2026-07-09T11:55:27Z
+
+verdict: pass
+head_verified: a9d56c4120c191b40dd88fb9b3f5838bc17e2522
+branch_confirmed: 0053-decision-support-output-wrapper
+
+blockers: []
+
+warnings:
+  - "test_bremen_api_contract.py clinical-validation test was narrowed: prohibited phrase changed from 'clinically validated' (which blocked negated disclaimers) to 'is clinically validated' / 'clinically validated for' (which allows negated disclaimers while blocking affirmative claims). This is the approved scope change."
+  - "Safety validation greps match s3:// and Nova_ patterns in existing validation logic, not leaked secrets. All matches classified safe per inspection."
+
+checks:
+  scope: pass
+  plan_compliance: pass
+  clinical_safety: pass
+  safety: pass
+  boundary: pass
+  validation: pass
+  evidence_completeness: pass
+
+validation:
+  - command: "git rev-parse --verify HEAD"
+    exit_code: 0
+    output: "a9d56c4120c191b40dd88fb9b3f5838bc17e2522"
+  - command: "git branch --show-current"
+    exit_code: 0
+    output: "0053-decision-support-output-wrapper"
+  - command: "git status --short"
+    exit_code: 0
+    output: |-
+       M docs/api_contract.md
+       M src/bremen/api/app.py
+       M src/bremen/api/inference_handler.py
+       M src/bremen/api/schemas.py
+       M tests/test_bremen_api_contract.py
+       M tests/test_bremen_api_skeleton.py
+       M tests/test_bremen_inference_integration.py
+       M tests/test_bremen_predictions.py
+       M tests/test_bremen_production_smoke.py
+       ?? src/bremen/api/decision_support.py
+       ?? tests/test_bremen_decision_support_output.py
+  - command: "python -m compileall src tests"
+    exit_code: 0
+    output: "Compilation successful (no errors)"
+  - command: "python -m pytest -q tests/test_bremen_decision_support_output.py -v"
+    exit_code: 0
+    output: "38 passed"
+  - command: "python -m pytest -q tests/test_bremen_inference_integration.py -v"
+    exit_code: 0
+    output: "11 passed, 1 skipped"
+  - command: "python -m pytest -q tests/test_bremen_predictions.py -v"
+    exit_code: 0
+    output: "10 passed, 2 skipped"
+  - command: "python -m pytest -q tests/test_bremen_api_skeleton.py -v"
+    exit_code: 0
+    output: "50 passed"
+  - command: "python -m pytest -q tests/test_bremen_api_server.py -v"
+    exit_code: 0
+    output: "21 passed"
+  - command: "python -m pytest -q tests/test_bremen_production_smoke.py -v"
+    exit_code: 0
+    output: "5 passed, 1 skipped"
+  - command: "python -m pytest -q tests/test_bremen_logging.py -v"
+    exit_code: 0
+    output: "19 passed"
+  - command: "python -m pytest -q tests/test_bremen_api_contract.py -v"
+    exit_code: 0
+    output: "21 passed"
+  - command: "python -m pytest -q"
+    exit_code: 0
+    output: "695 passed, 11 skipped"
+  - command: "git diff --name-only -- ROADMAP.md Dockerfile Dockerfile.training infra .github requirements.txt pyproject.toml src/bremen/training agents docs/adr config"
+    exit_code: 0
+    output: "(empty — no forbidden files changed)"
+  - command: "git diff --name-only | grep -E '\\.(h5|hdf5|joblib|pkl|npy|npz|tfstate|tfstate\\.backup)$' || true"
+    exit_code: 0
+    output: "(empty — no binary artifacts)"
+  - command: "grep -R 'FastAPI\\|fastapi\\|uvicorn\\|starlette' -n src tests docs requirements.txt pyproject.toml || true"
+    exit_code: 0
+    output: "FastAPI references only in governance tests/ADRs — no FastAPI implementation introduced"
+  - command: "grep -R 'MATADOR_\\|Matador.*token\\|Matador.*URL\\|requests\\|httpx\\|aiohttp' -n src tests docs requirements.txt pyproject.toml || true"
+    exit_code: 0
+    output: "Matador/requests/httpx references only in test assertions and ADRs — no Matador integration introduced"
+  - command: "grep -R 'AKIA\\|SECRET_ACCESS_KEY\\|dkr.ecr\\|Nova_\\|s3://\\|/Users/\\|/home/' -n src/bremen tests/test_bremen_*.py docs/*.md || true"
+    exit_code: 0
+    output: "All matches are safe: S3 validation patterns, test constants, synthetic leakage checks, config validation rules"
+  - command: "grep -R 'diagnos\\|clinical validation\\|clinically validated\\|replace radiologist\\|replace clinician\\|replace MRI\\|replace biopsy' -n src/bremen tests/test_bremen_decision_support_output.py tests/test_bremen_api_contract.py docs/api_contract.md || true"
+    exit_code: 0
+    output: "All matches are safety limitation/disclaimer language or test assertions verifying safety language — no affirmative clinical claims"
+  - command: "git diff --name-only -- agents/"
+    exit_code: 0
+    output: "(empty — no agent changes in PR diff)"
+  - command: "git diff --name-only -- src/bremen/inference.py"
+    exit_code: 0
+    output: "(empty — inference.py unchanged)"
+  - command: "git diff --name-only -- src/bremen/api/jobs.py"
+    exit_code: 0
+    output: "(empty — jobs.py unchanged)"
+  - command: "git diff --name-only -- src/bremen/system_of_record.py"
+    exit_code: 0
+    output: "(empty — system_of_record.py unchanged)"
+  - command: "git diff --name-only -- docs/production_e2e_smoke.md"
+    exit_code: 0
+    output: "(empty — production_e2e_smoke.md unchanged)"
+
+commit_readiness:
+  branch_matches: true
+  working_tree: "Modified tracked files are limited to allowed files + untracked new files matching PLAN.md. No forbidden files changed."
+  verification: "All checks pass. PR0053 adds a safe, additive decision-support report wrapper around existing inference results while preserving all runtime behavior and clinical-safety boundaries."
+
+# ==========================================================================
+# FILES READ
+# ==========================================================================
+
+FILES READ:
+  - .project-memory/pr/0053-decision-support-output-wrapper/PLAN.md
+  - .project-memory/pr/0053-decision-support-output-wrapper/reviews/plan-review.yml
+  - src/bremen/api/decision_support.py
+  - src/bremen/api/schemas.py
+  - src/bremen/api/inference_handler.py
+  - src/bremen/api/app.py
+  - src/bremen/api/jobs.py
+  - tests/test_bremen_decision_support_output.py
+  - tests/test_bremen_inference_integration.py
+  - tests/test_bremen_predictions.py
+  - tests/test_bremen_api_skeleton.py
+  - tests/test_bremen_api_server.py
+  - tests/test_bremen_production_smoke.py
+  - tests/test_bremen_logging.py
+  - tests/test_bremen_api_contract.py
+  - docs/api_contract.md
+  - docs/production_e2e_smoke.md
+  - src/bremen/inference.py
+  - src/bremen/api/preprocessing_bridge.py
+  - src/bremen/api/h5_layouts.py
+  - src/bremen/h5_inputs.py
+  - src/bremen/system_of_record.py
+  - .project-memory/AGENT_TEST_DEBUGGING_RULES.md
+  - .project-memory/TEST_DESIGN_STANDARD.md
+  - git diff output
+  - git status --short output
+
+# ==========================================================================
+# FILES WRITTEN
+# ==========================================================================
+
+FILES WRITTEN:
+  - .project-memory/pr/0053-decision-support-output-wrapper/reviews/precommit-review.yml
+
+# ==========================================================================
+# SNAPSHOT DELTA
+# ==========================================================================
+
+SNAPSHOT DELTA:
+  new files:
+    - src/bremen/api/decision_support.py
+    - tests/test_bremen_decision_support_output.py
+  modified files:
+    - docs/api_contract.md (81 lines added — Decision-Support Report section)
+    - src/bremen/api/app.py (13 lines added — input_mode wiring + report in response)
+    - src/bremen/api/inference_handler.py (16 lines added — import, input_mode param, report assembly)
+    - src/bremen/api/schemas.py (1 line added — decision_support_report field in CompletedResult)
+    - tests/test_bremen_api_contract.py (14 lines changed — narrow clinical-claim test update)
+    - tests/test_bremen_api_skeleton.py (6 lines changed — mock signature updates)
+    - tests/test_bremen_inference_integration.py (12 lines added — report presence assertion)
+    - tests/test_bremen_predictions.py (9 lines changed — mock signature updates)
+    - tests/test_bremen_production_smoke.py (29 lines added — mock signature updates + report assertions)
+  unchanged files (verified no changes):
+    - src/bremen/inference.py
+    - src/bremen/api/jobs.py
+    - src/bremen/api/preprocessing_bridge.py
+    - src/bremen/api/h5_layouts.py
+    - src/bremen/h5_inputs.py
+    - src/bremen/system_of_record.py
+    - docs/production_e2e_smoke.md
+    - ROADMAP.md, Dockerfile, Dockerfile.training, infra/**, .github/**, requirements.txt, pyproject.toml, src/bremen/training/**, agents/**, docs/adr/**, config/**
+  artifact files (not added): confirmed none
+
+# ==========================================================================
+# PLAN COMPLIANCE
+# ==========================================================================
+
+PLAN COMPLIANCE: pass
+  - New module src/bremen/api/decision_support.py: created as specified with pure function build_decision_support_report()
+  - Constants: REPORT_SCHEMA_VERSION="v0.1", INTENDED_USE, LIMITATIONS, CAUTION_TEXT — all match PLAN.md section 5.1
+  - CompletedResult has decision_support_report: dict | None = None — matches PLAN.md section 6.1
+  - run_inference has optional input_mode parameter (default None) — matches PLAN.md section 5.4
+  - app.py passes input_mode and includes report in response — matches PLAN.md section 7.2
+  - docs/api_contract.md has Decision-Support Report section — matches PLAN.md section 9.1
+  - tests/test_bremen_decision_support_output.py has 8 test classes (A-H), 38 tests — matches PLAN.md section 8.1
+  - test modifications are minimal (mock signatures, report presence assertions) — matches PLAN.md section 8.2
+
+# ==========================================================================
+# BREMEN CONTRACT CHECK
+# ==========================================================================
+
+BREMEN CONTRACT CHECK: pass
+  - REPORT_SCHEMA_VERSION = "v0.1": confirmed
+  - INTENDED_USE states "MRI continuation decision support only": confirmed
+  - INTENDED_USE states "not a diagnosis": confirmed
+  - INTENDED_USE states "not clinically validated": confirmed
+  - INTENDED_USE states "does not replace MRI, biopsy, radiologist, clinician, or clinical judgment": confirmed
+  - LIMITATIONS list is non-empty and contains all 5 items from PLAN.md: confirmed
+  - build_decision_support_report does not recalculate score/probability: confirmed
+  - build_decision_support_report does not change threshold behavior: confirmed
+  - build_decision_support_report copies only safe public scalar result fields: confirmed
+  - build_decision_support_report avoids diagnostic labels (cancer, benign, malignant): confirmed
+  - build_decision_support_report avoids saying output determines MRI requirement: confirmed
+  - build_decision_support_report does not accept raw H5 paths, full S3 URIs, raw refs, raw checksums, raw patient IDs, raw feature values, or secrets: confirmed
+  - recommendation_label uses "may be recommended" / "may not be indicated" language: confirmed
+  - CAUTION_TEXT states "decision-support recommendation only. It is not a clinical decision": confirmed
+
+# ==========================================================================
+# VALIDATION COMPLETENESS CHECK
+# ==========================================================================
+
+VALIDATION COMPLETENESS CHECK: pass
+  - python -m compileall src tests: passed (no errors)
+  - tests/test_bremen_decision_support_output.py: 38 passed
+  - tests/test_bremen_inference_integration.py: 11 passed, 1 skipped
+  - tests/test_bremen_predictions.py: 10 passed, 2 skipped
+  - tests/test_bremen_api_skeleton.py: 50 passed
+  - tests/test_bremen_api_server.py: 21 passed
+  - tests/test_bremen_production_smoke.py: 5 passed, 1 skipped
+  - tests/test_bremen_logging.py: 19 passed
+  - tests/test_bremen_api_contract.py: 21 passed
+  - Full test suite: 695 passed, 11 skipped
+  - All validation commands executed unfiltered as specified
+
+# ==========================================================================
+# EVIDENCE COMPLETENESS CHECK
+# ==========================================================================
+
+EVIDENCE COMPLETENESS CHECK: pass
+  - All changed files read: confirmed (9 modified + 2 new = 11 files, all read)
+  - All required reads completed: confirmed (26 files read per required list)
+  - Validation outputs captured from unfiltered commands: confirmed
+  - Safety grep outputs inspected and classified: confirmed
+  - No agent narrative substituted for evidence: confirmed
+
+# ==========================================================================
+# DIFF COMPLETENESS CHECK
+# ==========================================================================
+
+DIFF COMPLETENESS CHECK: pass
+  - All modified files match PLAN.md file change plan
+  - No unauthorized files changed
+  - Untracked new files (decision_support.py, test_bremen_decision_support_output.py) match plan
+  - No agents/** files included
+  - No ROADMAP.md, Docker, infra, CI, dependencies, training, ADRs, or config changes
+  - No binary artifact files added
+  - No inference.py, jobs.py, system_of_record.py, preprocessing_bridge.py, h5_layouts.py, h5_inputs.py changes
+
+# ==========================================================================
+# BOUNDARY CONFIRMATIONS
+# ==========================================================================
+
+BOUNDARY CONFIRMATIONS: pass
+  no_inference_math_change: true
+  no_preprocessing_change: true
+  no_threshold_behavior_change: true
+  no_request_schema_change: true
+  no_source_of_record_schema_change: true
+  no_model_loading_lifecycle_change: true
+  no_checksum_boundary_change: true
+  no_s3_model_staging_change: true
+  no_s3_h5_staging_change: true
+  no_fastapi_introduced: true
+  no_matador_integration: true
+  no_dynamodb_or_backend: true
+  no_dependency_docker_terraform_ci_deployment_training_roadmap_change: true
+  no_affirmative_diagnosis_claim: true
+  no_affirmative_clinical_validation_claim: true
+  no_replacement_claims: true
+  no_secret_uri_checksum_patient_id_ref_feature_leakage: true
+  no_agents_changes: true
+  test_api_contract_change_narrow_only: true
+  no_production_smoke_execution: true
+  no_pr0054_implementation: true

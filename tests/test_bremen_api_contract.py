@@ -114,14 +114,20 @@ class TestSafety:
         )
 
     def test_no_clinical_validation_claim(self):
-        """Contract must not claim clinical validation."""
+        """Contract must not claim clinical validation.
+
+        Negated safety disclaimers (e.g., "not clinically validated")
+        are safe and allowed.
+        """
         content = _read_contract().lower()
-        prohibited = [
-            "clinically validated",
+        # Check for affirmative claims, not negations
+        prohibited_claims = [
+            "is clinically validated",
+            "clinically validated for",
             "fda cleared",
             "fda approved",
         ]
-        for phrase in prohibited:
+        for phrase in prohibited_claims:
             assert phrase not in content, (
                 f"Contract contains prohibited phrase: {phrase}"
             )

@@ -144,6 +144,7 @@ class CompletedResult:
     threshold_value: float
     qc_status: str
     qc_flags: list[str] | dict[str, Any]
+    decision_support_report: dict[str, Any] | None = None
 
 
 # ---------------------------------------------------------------------------
