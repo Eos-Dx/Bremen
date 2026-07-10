@@ -487,6 +487,13 @@ selected by the human product/engineering team.
 **No demo-only fork is allowed.** Whatever option is chosen must apply
 equally to investor demonstrations and production deployments.
 
+**PR0058 update**: Option C was selected.  The feature artifact
+ingestion boundary is defined in
+[docs/feature_artifact_ingestion_boundary.md](feature_artifact_ingestion_boundary.md).
+PR0058 implements internal validation only — no public API wiring.
+Options A, B, and D remain deferred.
+`/scans/target/` remains not eosdx-container v0.3.
+
 ---
 
 ## 12. Safety and Non-Leakage Boundaries
