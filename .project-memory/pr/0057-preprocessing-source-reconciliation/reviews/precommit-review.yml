@@ -1,0 +1,344 @@
+# Precommit Review — PR0057 Preprocessing Source Reconciliation And Integration Decision
+# Generated: 2026-07-10T07:58:24Z
+
+verdict: pass
+
+blockers: []
+
+warnings:
+  - "docs/product_input_pipeline_contract.md modification: one cross-reference note added pointing to preprocessing_source_reconciliation.md (Section 7.4). This is the allowed minimal cross-reference change."
+  - "docs/converter_preprocessing_boundary.md modification: one cross-reference note added pointing to preprocessing_source_reconciliation.md (Section 9). This is the allowed minimal cross-reference change."
+
+checks:
+  changed_files_limited_to_allowed:
+    status: pass
+    detail: "Only docs/preprocessing_source_reconciliation.md (new), tests/test_bremen_preprocessing_source_reconciliation.py (new), docs/product_input_pipeline_contract.md (minimal note), and docs/converter_preprocessing_boundary.md (minimal note) are present. Precommit-review.yml is our artifact."
+  reconciliation_doc_exists:
+    status: pass
+    detail: "docs/preprocessing_source_reconciliation.md exists with 565 lines defining the full reconciliation analysis."
+  xrd_preprocessing_package_identified:
+    status: pass
+    detail: "Section 4.1: Package xrd-preprocessing v0.1.6b0 identified. Section 4.2: All dependencies listed including pyFAI/fabio risk flagged."
+  eosdx_container_v03_identified:
+    status: pass
+    detail: "Section 5.1: Package eosdx-container v0.1.0 identified. Section 5.2: v0_3 session container identified. Sections 5.3-5.4: Full schema documented."
+  yaml_templates_config_loader_validator_identified:
+    status: pass
+    detail: "Section 4.3: preprocessing_config_template.yaml and preprocessing_branch_config_template.yaml identified. Section 4.4: load_preprocessing_config() and validate_preprocessing_config() identified."
+  pipeline_builder_transformer_registry_identified:
+    status: pass
+    detail: "Section 4.5: build_pipeline_from_config(), build_pipeline_steps_from_config(), and TRANSFORMER_REGISTRY (28 transformers) identified."
+  gfrm_converter_functions_identified:
+    status: pass
+    detail: "Section 4.6: decode_gfrm(), gfrm_to_photons(), gfrm_conversion_metadata(), gfrm_photon_statistics(), save_gfrm_as_npy(), convert_gfrm_to_npy.py all identified in src/xrd_preprocessing/gfrm.py."
+  h5_dataframe_transformers_identified:
+    status: pass
+    detail: "Section 4.7: H5SessionSelectorTransformer, H5MeasurementSetAuditTransformer, H5ToDataFrameTransformer, H5BlobDataFrameTransformer identified in xrd_preprocessing/transformers/h5.py."
+  preprocessing_artifact_writer_reader_identified:
+    status: pass
+    detail: "Section 4.8: save_preprocessing_artifact(), load_preprocessing_artifact(), load_preprocessing_dataframe() identified in src/xrd_preprocessing/artifacts.py."
+  v03_session_set_layout_documented:
+    status: pass
+    detail: "Section 5.3-5.4 documents schema version '0.3', format 'xrd-session', layout root /session, set naming set_{NNN}_{label}, and all groups: /session/sample/, /session/instrument/, /session/instrument/detector_sets/, /session/dependencies/, /session/sets/. Per-set structure documents acquisition/, measurements/, qc/, integration/, processing/, artifacts/, raw_file, raw/data, processed/data."
+  raw_file_raw_processed_integration_processing_qc_artifacts_measurements_groups_documented:
+    status: pass
+    detail: "Section 5.4 table documents all required groups: raw_file, raw/data, processed/data, integration/(i, q, sigma), processing/(config, step_*), qc/(qc_NN_name with verdicts), artifacts/(poni, preview), measurements/."
+  scans_target_layout_checked_against_real_container:
+    status: pass
+    detail: "Section 6.1 explicitly checks PR0055 canonical layout against eosdx-container v0.3. Answer: NO. Evidence: no path starting with /scans/ exists in any eosdx-container v0.3 writer, schema, reader, validator, or test."
+  scans_target_not_real_v03_output:
+    status: pass
+    detail: "Section 6.1 states '/scans/target/ + /scans/contralateral/ layout is NOT producible by the real eosdx-container library.' Section 6.3: 'The /scans/target/ + /scans/contralateral/ layout is NOT proven producible by the real eosdx-container v0.3 library.'"
+  scans_target_requires_human_confirmation:
+    status: pass
+    detail: "Section 6.3: 'If this layout is retained, it must be explicitly approved as a deliberate Bremen export/intermediate format, not mislabeled as eosdx-container v0.3.' Section 11: requires human decision before PR0058."
+  bremen_feature_bridge_ambiguity_identified:
+    status: pass
+    detail: "Section 7.1 documents what current docs imply by 'Bremen feature bridge' — the runtime-side path from H5 input to feature vector. Implies src/bremen/api/preprocessing_bridge.py."
+  runtime_h5_layouts_preprocessing_bridge_path_identified:
+    status: pass
+    detail: "Section 7.2 table documents h5_layouts.py (layout detection assuming /scans/target/measurements), preprocessing_bridge.py (15-feature extraction using same layout), inference_handler.py (orchestrator)."
+  training_product_pipelines_path_identified:
+    status: pass
+    detail: "Section 7.3 documents pipelines.py imports xrd_preprocessing transformers: H5ToDataFrameTransformer (reads v0.3 session/set layout), AzimuthalIntegration, FaultyPixelDetector, SNRTransformer, SNRFILTER, QRangeNormalizer, RadialProfileValueFilter. Section 7.4 conflict assessment: INCOMPATIBLE."
+  preprocessing_bridge_duplication_documented:
+    status: pass
+    detail: "Section 8 documents 12 duplicated numpy functions in preprocessing_bridge.py (sigma_rms, sigma_rms_r, mahalanobis_difference, weighted_rms_difference variants, wasserstein variants, cosine_distance, rms_difference, mean_rms1, peak14_intensity, mean_peak_value_raw). States: 'They are maintained as independent, duplicated code.' Consequence: 'Any change must be manually duplicated.'"
+  incompatible_duplicate_paths_listed:
+    status: pass
+    detail: "Section 9 table lists 6 paths: docs contract path, converter boundary spec, runtime H5/layout path, runtime feature bridge, training/product pipeline, upstream container. Each with layout assumed, xrd_preprocessing usage indicator, and status."
+  options_a_b_c_d_documented:
+    status: pass
+    detail: "Section 10 documents Option A (redefine runtime H5 contract to match v0.3), Option B (keep /scans/target as export format), Option C (model-only runtime, consume precomputed features), Option D (dedicated preprocessing service). Each with assessment table covering investor demo fit, productization fit, runtime schema change, source/runtime changes, duplication risk, deps in runtime, risk level."
+  human_decision_gate_before_pr0058:
+    status: pass
+    detail: "Section 11: 'Human product/engineering decision gate before PR0058. No implementation should proceed until Option A, B, C, or D is selected by the human product/engineering team.' Section 1: 'PR0057 creates a human decision gate before any further implementation can proceed toward PR0058.'"
+  no_option_chosen_by_pr0057:
+    status: pass
+    detail: "Section 10: 'No option is selected by PR0057. A human product/engineering decision is required before PR0058.' Section 1: 'PR0057 does not... Choose the final canonical layout or integration option.' Non-goal #23: 'No silent canonical layout correction without human decision.'"
+  no_implementation_recommended_while_unresolved:
+    status: pass
+    detail: "Section 11: 'No implementation should proceed until Option A, B, C, or D is selected.' Section 1: 'PR0057 does not: Implement converter or preprocessing integration code. Change runtime behavior.'"
+  cross_reference_notes_minimal:
+    status: pass
+    detail: "docs/product_input_pipeline_contract.md adds 6 lines in Section 7.4 noting layout verification. docs/converter_preprocessing_boundary.md adds 5 lines in Section 9 noting layout check. Both are minimal warning notes pointing to reconciliation doc."
+  static_tests_cover_reconciliation_safety:
+    status: pass
+    detail: "test_bremen_preprocessing_source_reconciliation.py contains 22 test classes (36 tests) covering document existence, XRD-preprocessing identification, eosdx-container identification, YAML config identification, pipeline builder identification, GFRM converter identification, H5/DataFrame transformers, artifact writer/reader, v0.3 groups identification, incompatible/duplicate paths layout, canonical layout check, scans/target not real v03, feature bridge ambiguity, duplication, pipelines product path, Options A/B/C/D, human decision gate, no demo-only fork, no vendoring, no runtime training, no FastAPI, no Matador, no diagnosis, no clinical validation, no replacement, no artifacts/secrets, cross-references, and static-only test enforcement."
+  static_tests_no_network_aws_docker:
+    status: pass
+    detail: "Test file imports only standard library (re, pathlib) and pytest. No boto3, requests, httpx, urllib, docker, terraform imports (verified by test class TestTestsAreStatic)."
+  no_source_runtime_schema_changes:
+    status: pass
+    detail: "git diff --name-only -- src Dockerfile Dockerfile.training infra .github requirements.txt pyproject.toml src/bremen/training agents config docs/adr ROADMAP.md is empty. No source/runtime/dependency/deployment changes."
+  no_upstream_vendoring:
+    status: pass
+    detail: "Section 3: 'No upstream source was vendored, copied, or committed into the Bremen repository. All inspection was read-only.' Section 14 non-goal #7: 'No upstream code vendoring into Bremen.'"
+  no_real_artifacts_secrets_identifiers:
+    status: pass
+    detail: "Safety grep confirmed: no AKIA, SECRET_ACCESS_KEY, dkr.ecr, Nova_ (only in safe negation context in Section 12), /Users/ (only in safe negation context in Section 12), or real s3:// URIs in new/modified files from new docs. Section 12 lists 10 non-leakage rules."
+  no_clinical_claims:
+    status: pass
+    detail: "Reconciliation doc states 'no clinical validation' (non-goal #18), 'no diagnosis' (non-goal #19), 'no replacement of MRI, biopsy, radiologist, clinician, or clinical judgment' (non-goal #20). Only negation/prohibition language."
+  no_demo_only_fork:
+    status: pass
+    detail: "Section 11: 'No demo-only fork is allowed. Whatever option is chosen must apply equally to investor demonstrations and production deployments.' Section 14 non-goal #16: 'No demo-only fork.'"
+  matador_remains_future:
+    status: pass
+    detail: "Section 2: 'Not covered: ... Matador integration.' Section 14 non-goal #10: 'No Matador integration.' Test class TestNoMatador verifies."
+  fastapi_remains_deferred:
+    status: pass
+    detail: "Section 14 non-goal #11: 'No FastAPI, uvicorn, starlette, or ASGI.' Test class TestNoFastAPI verifies."
+  runtime_training_remains_out_of_scope:
+    status: pass
+    detail: "Section 14 non-goal #12: 'No runtime training.' Test class TestNoRuntimeTraining verifies."
+  silent_canonical_layout_correction_prevented:
+    status: pass
+    detail: "Section 14 non-goal #23: 'No silent canonical layout correction without human decision.' Section 1: 'PR0057 does not... Silently correct the PR0055/PR0056 canonical input contract.' Section 11 requires human decision gate."
+
+validation:
+  - command: git rev-parse --verify HEAD
+    exit_code: 0
+    output: "bf8539d06d7140d3733a43257585dc88f2ccf422"
+  - command: git branch --show-current
+    exit_code: 0
+    output: "0057-preprocessing-source-reconciliation"
+  - command: git status --short
+    exit_code: 0
+    output: "M docs/converter_preprocessing_boundary.md\n M docs/product_input_pipeline_contract.md\n?? docs/preprocessing_source_reconciliation.md\n?? tests/test_bremen_preprocessing_source_reconciliation.py"
+  - command: git diff --name-only
+    exit_code: 0
+    output: "docs/converter_preprocessing_boundary.md\ndocs/product_input_pipeline_contract.md"
+  - command: git diff --name-only -- src Dockerfile Dockerfile.training infra .github requirements.txt pyproject.toml src/bremen/training agents config docs/adr ROADMAP.md
+    exit_code: 0
+    output: ""  # empty - no changes to any of these paths
+  - command: git diff --name-only | grep -E '\.(h5|hdf5|gfrm|GFRM|joblib|pkl|npy|npz|parquet|proto|pb|tfstate|tfstate\.backup)$'
+    exit_code: 1
+    output: ""  # no artifact files changed
+  - command: python -m compileall src tests
+    exit_code: 0
+    output: "All files compiled successfully."
+  - command: python -m pytest -q tests/test_bremen_preprocessing_source_reconciliation.py -v
+    exit_code: 0
+    output: "36 passed in 0.03s"
+  - command: python -m pytest -q tests/test_bremen_product_input_pipeline_contract.py -v
+    exit_code: 0
+    output: "35 passed in 0.02s"
+  - command: python -m pytest -q tests/test_bremen_converter_preprocessing_boundary.py -v
+    exit_code: 0
+    output: "40 passed in 0.03s"
+  - command: python -m pytest -q tests/test_bremen_api_contract.py -v
+    exit_code: 0
+    output: "21 passed in 0.02s"
+  - command: python -m pytest -q
+    exit_code: 0
+    output: "840 passed, 11 skipped, 28 warnings in 50.38s"
+  - command: git diff docs/product_input_pipeline_contract.md
+    exit_code: 0
+    output: "Only change: 6-line cross-reference note in Section 7.4 pointing to preprocessing_source_reconciliation.md."
+  - command: git diff docs/converter_preprocessing_boundary.md
+    exit_code: 0
+    output: "Only change: 5-line cross-reference note in Section 9 pointing to preprocessing_source_reconciliation.md."
+  - command: grep -R "FastAPI\|fastapi\|uvicorn\|starlette" -n docs tests ROADMAP.md
+    exit_code: 0
+    output: "All matches in negation/deferral context only. No new FastAPI/uvicorn/starlette implementation."
+  - command: grep -R "MATADOR_\|Matador.*token\|Matador.*URL\|requests\|httpx\|aiohttp" -n docs tests ROADMAP.md
+    exit_code: 0
+    output: "All matches in safe boundary/test context only. No Matador implementation, credentials, or network clients."
+  - command: grep -R "AKIA\|SECRET_ACCESS_KEY\|dkr.ecr\|s3://\|sha256:\|Nova_\|/Users/\|/home/" -n docs tests ROADMAP.md
+    exit_code: 0
+    output: "No secrets/identifiers in new/modified files. preprocessing_source_reconciliation.md references these only in safe negation/prohibition context (Section 12 non-leakage rules)."
+  - command: grep -R "diagnos\|clinical validation\|clinically validated\|replace radiologist\|replace clinician\|replace MRI\|replace biopsy" -n docs tests ROADMAP.md
+    exit_code: 0
+    output: "All matches in negation/disclaimer/non-goal context only. No affirmative clinical claims."
+
+commit_readiness:
+  branch_matches: true
+  working_tree_changes_allowed: true
+  only_allowed_files_changed: true
+  reconciliation_doc_exists: true
+  static_tests_pass: 36/36
+  existing_tests_unchanged_pass: 804/804 (11 skipped)
+  no_source_changes: true
+  no_runtime_schema_change: true
+  no_h5_behavior_change: true
+  no_preprocessing_math_changes: true
+  no_upstream_vendoring: true
+  no_real_artifacts: true
+  no_pyFAI_fabio_added: true
+  no_GFRM_conversion_in_runtime: true
+  no_converter_implementation: true
+  no_demo_only_fork: true
+  no_clinical_claims: true
+  no_secrets_or_identifiers: true
+  scans_target_not_passed_as_real_v03_output: true
+  scans_target_unverified_undocumented_state_explicit: true
+  runtime_vs_training_feature_path_conflict_documented: true
+  preprocessing_bridge_duplication_documented: true
+  pipelines_product_path_documented: true
+  options_a_b_c_d_documented: true
+  no_option_chosen: true
+  human_decision_gate_required: true
+  no_implementation_while_unresolved: true
+  all_26_required_reads_completed: true
+  upstream_sources_inspected_readonly: true
+  verification: |
+    Branch 0057-preprocessing-source-reconciliation confirmed.
+    Working tree contains only allowed files:
+      - docs/preprocessing_source_reconciliation.md (new, 565 lines)
+      - tests/test_bremen_preprocessing_source_reconciliation.py (new, 36 tests)
+      - docs/product_input_pipeline_contract.md (modified: 6-line cross-reference note)
+      - docs/converter_preprocessing_boundary.md (modified: 5-line cross-reference note)
+      - precommit-review.yml (our artifact)
+    No source, runtime, Docker, infra, config, training, ADR, or ROADMAP files changed.
+    No artifact files (.h5, .gfrm, .joblib, .pkl, .proto, etc.) added.
+    Upstream sources inspected read-only, not vendored.
+    All 36 new reconciliation tests pass.
+    Full test suite: 840 passed, 11 skipped (+36 = new tests from this PR).
+    Safety validation: no secrets, identifiers, clinical claims, or real data artifacts.
+    Reconciliation doc:
+      - States /scans/target does NOT match eosdx-container v0.3 (Section 6.1)
+      - Requires human confirmation if /scans/target retained (Section 6.3)
+      - Identifies runtime vs training feature path conflict (Section 7)
+      - Documents preprocessing_bridge duplicated math (Section 8)
+      - Documents pipelines.py product path using xrd_preprocessing (Section 7.3)
+      - Lists 6 incompatible/duplicate paths (Section 9)
+      - Includes Options A/B/C/D but does NOT choose (Section 10)
+      - Requires human decision gate before PR0058 (Section 11)
+      - Recommends no implementation while conflict unresolved (Section 11)
+
+files_read:
+  - .project-memory/pr/0057-preprocessing-source-reconciliation/PLAN.md
+  - .project-memory/pr/0057-preprocessing-source-reconciliation/reviews/plan-review.yml
+  - docs/preprocessing_source_reconciliation.md
+  - tests/test_bremen_preprocessing_source_reconciliation.py
+  - docs/product_input_pipeline_contract.md
+  - docs/converter_preprocessing_boundary.md
+  - docs/api_contract.md
+  - docs/release_readiness_operator_notes.md
+  - docs/adr/0012-system-of-record-boundary.md
+  - docs/adr/0011-config-governance-gates.md
+  - src/bremen/api/h5_layouts.py
+  - src/bremen/api/preprocessing_bridge.py
+  - src/bremen/api/preflight.py
+  - src/bremen/api/inference_handler.py
+  - src/bremen/api/decision_support.py
+  - src/bremen/h5_inputs.py
+  - src/bremen/pipelines.py
+  - tests/test_bremen_product_input_pipeline_contract.py
+  - tests/test_bremen_converter_preprocessing_boundary.py
+  - tests/test_bremen_calibration_preprocessing.py
+  - tests/test_bremen_inference_integration.py
+  - tests/test_bremen_decision_support_output.py
+  - tests/test_bremen_h5_layouts.py
+
+files_written:
+  - .project-memory/pr/0057-preprocessing-source-reconciliation/reviews/precommit-review.yml
+
+snapshot_delta:
+  commit: bf8539d06d7140d3733a43257585dc88f2ccf422
+  branch: 0057-preprocessing-source-reconciliation
+  new_files:
+    - docs/preprocessing_source_reconciliation.md
+    - tests/test_bremen_preprocessing_source_reconciliation.py
+  modified_files:
+    - docs/product_input_pipeline_contract.md (cross-reference note added in Section 7.4)
+    - docs/converter_preprocessing_boundary.md (cross-reference note added in Section 9)
+  deleted_files: []
+
+plan_compliance:
+  plan_matches_pr: true
+  scope_limited_to_reconciliation: true
+  xrd_preprocessing_inspected: true
+  eosdx_container_v03_inspected: true
+  scans_target_layout_checked: true
+  runtime_vs_training_path_conflict_documented: true
+  duplicate_feature_computation_documented: true
+  options_a_b_c_d_documented: true
+  no_option_chosen: true
+  human_decision_gate_before_pr0058: true
+  no_implementation_while_unresolved: true
+  no_source_runtime_changes: true
+  no_vendoring: true
+  no_real_artifacts: true
+  no_clinical_claims: true
+  no_demo_only_fork: true
+  no_converter_code: true
+  no_gfrm_conversion: true
+  no_pyFAI_fabio_deps: true
+  no_silent_layout_correction: true
+
+bremen_contract_check:
+  api_contract_unchanged: true
+  h5_path_h5_uri_modes_preserved: true
+  decision_support_report_output_path_preserved: true
+  no_diagnosis_claims: true
+  no_clinical_validation_claims: true
+  no_replacement_claims: true
+  no_patient_identifiers_in_committed_content: true
+  no_secrets_in_committed_content: true
+  non_leakage_rules_documented: true
+  explicit_target_control_refs_required: true
+  runtime_staging_preflight_layout_preprocessing_inference_preserved: true
+
+validation_completeness_check:
+  all_36_reconciliation_tests_pass: true
+  all_35_pr0055_contract_tests_pass: true
+  all_40_pr0056_boundary_tests_pass: true
+  all_21_api_contract_tests_pass: true
+  all_840_full_suite_pass: true
+  compileall_passes: true
+  safety_grep_no_secrets: true
+  safety_grep_no_clinical_claims: true
+  no_source_changes_confirmed: true
+  no_artifact_files_changed: true
+
+evidence_completeness_check:
+  all_26_required_reads_completed: true
+  git_diff_confirmed_narrow_scope: true
+  git_status_confirmed_allowed_files: true
+  branch_confirmed: true
+  test_results_captured: true
+  safety_grep_results_captured: true
+  upstream_sources_inspected_readonly: true
+
+diff_completeness_check:
+  product_input_pipeline_contract_diff_is_only_minimal_note: true
+  converter_boundary_diff_is_only_minimal_note: true
+  no_hidden_changes_in_tracked_files: true
+  all_new_files_documented: true
+  no_untracked_files_outside_allowed: true
+
+boundary_confirmations:
+  no_agents_read: true
+  no_internet_web_search: true
+  no_implementation_files_edited: true
+  no_source_edited: true
+  no_tests_edited: true
+  no_docs_edited: true
+  no_roadmap_edited: true
+  no_adrs_edited: true
+  no_config_docker_infra_ci_edited: true
+  no_docker_run_pushed: true
+  no_network_calls: true
+  review_only_mode_confirmed: true

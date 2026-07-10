@@ -246,6 +246,11 @@ logic is required.
 The converter must produce output matching one of these two layout
 categories.
 
+**Note**: The layout assumptions in this section have been checked
+against the upstream eosdx-container v0.3 schema in
+[docs/preprocessing_source_reconciliation.md](preprocessing_source_reconciliation.md).
+See that document for layout compatibility details.
+
 ---
 
 ## 10. Canonical Bremen Input Package Compatibility
