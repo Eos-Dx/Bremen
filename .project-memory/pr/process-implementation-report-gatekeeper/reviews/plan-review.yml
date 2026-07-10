@@ -1,0 +1,82 @@
+# Plan Review — Process Guardrail For Implementation Reports And Gatekeeper Review
+# Reviewer: plan-review agent
+# Reviewed: 2026-07-10T08:19:35Z
+# HEAD: 59a614be38d2d309b84b4b17620161926e1c98ab
+# Branch: process-implementation-report-gatekeeper
+
+verdict: approve
+
+blockers: []
+
+warnings:
+  - The optional cross-reference edits to AGENT_TEST_DEBUGGING_RULES.md and TEST_DESIGN_STANDARD.md (Section 7.2) are minimal but add scope beyond the core new file. Justified as one-sentence cross-references. Not a blocker.
+  - The ORCHESTRATOR_STANDARD.txt already defines the task prompt structure and references AGENT_STANDARD.txt. The new workflow document adds process detail that the orchestrator prompts for future PRs should reference. This is a documentation improvement not currently reflected in ORCHESTRATOR_STANDARD.txt but out of this plan's scope. Not a blocker.
+
+checks:
+  plan_exists: pass
+  is_process_only: pass
+  does_not_consume_pr0058: pass
+  does_not_choose_option_abcd: pass
+  does_not_change_product_runtime: pass
+  defines_per_pr_artifact_standard: pass
+  requires_implementation_report: pass
+  defines_required_report_fields: pass
+  requires_explicit_none_not_silent_omission: pass
+  requires_precommit_read_plan: pass
+  requires_precommit_read_plan_review: pass
+  requires_precommit_read_implementation_report: pass
+  requires_precommit_read_git_status_diff: pass
+  requires_precommit_compare_plan_vs_review: pass
+  requires_precommit_compare_plan_vs_report: pass
+  requires_precommit_compare_report_vs_diff: pass
+  requires_precommit_compare_boundaries_vs_changes: pass
+  requires_precommit_compare_validation: pass
+  defines_blocking_conditions_missing_report: pass
+  defines_blocking_conditions_contradictions: pass
+  defines_blocking_conditions_omitted_validation: pass
+  defines_precommit_review_as_final_gatekeeper: pass
+  defines_gatekeeper_summary_fields: pass
+  keeps_source_runtime_docs_out_of_scope: pass
+  has_narrow_project_memory_change_plan: pass
+  includes_validation_plan: pass
+  includes_safety_validation: pass
+  prohibits_real_artifacts_secrets_identifiers: pass
+  preserves_clinical_safety_boundaries: pass
+  leaves_pr0058_blocked_on_human_decision: pass
+  does_not_edit_agents_without_evidence: pass
+  no_product_runtime_changes: pass
+  no_pr0058_consumption: pass
+  no_option_abcd_decision: pass
+  no_hidden_filtered_validation_allowed: pass
+  plan_review_boundary: pass
+  safety_boundaries: pass
+  dirty_tree: pass
+
+validation:
+  - command: git rev-parse --verify HEAD
+    exit_code: 0
+    output: 59a614be38d2d309b84b4b17620161926e1c98ab
+  - command: git branch --show-current
+    exit_code: 0
+    output: process-implementation-report-gatekeeper
+  - command: git status --short
+    exit_code: 0
+    output: '?? .project-memory/pr/process-implementation-report-gatekeeper/'
+  - command: git diff --name-only
+    exit_code: 0
+    output: (empty — no modified tracked files)
+  - command: grep -c "IMPLEMENTATION_REPORT" .project-memory/ORCHESTRATOR_STANDARD.txt
+    exit_code: 1
+    output: 0
+    detail: "ORCHESTRATOR_STANDARD.txt does not yet reference IMPLEMENTATION_REPORT.md — confirms this is new workflow being added"
+
+commit_readiness:
+  branch_matches: true
+  working_tree_clean: true
+  plan_exists: true
+  process_only_confirmed: true
+  no_pr0058_consumption: true
+  no_option_abcd_decision: true
+  no_agent_file_changes_proposed: true
+  only_plan_review_artifact_new: true
+  verification: "Branch is correct (process-implementation-report-gatekeeper). Working tree is clean. PLAN.md exists and is readable. Plan is process-only — it does not consume PR0058, does not choose Option A/B/C/D, and does not propose changes to agents/ files. All required reads completed. The only new file is this plan-review.yml."
