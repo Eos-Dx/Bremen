@@ -211,6 +211,12 @@ The canonical input package must **not** contain:
 - Raw feature values (features are computed by the runtime, not
   embedded in the input).
 
+**Note**: The layout defined in Sections 7.2–7.3 has been verified
+against the real upstream eosdx-container v0.3 schema in
+[docs/preprocessing_source_reconciliation.md](preprocessing_source_reconciliation.md).
+See that document for the reconciliation result and integration
+decision options.
+
 ---
 
 ## 8. Required Metadata
