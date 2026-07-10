@@ -105,3 +105,11 @@ Tests that enforce test-design standards (e.g., AST-based checks that
 forbidden patterns do not appear in specific files) must be placed in
 `tests/test_bremen_test_policy.py`. This provides a single location for
 policy enforcement and makes the policy rules discoverable.
+
+---
+
+## Cross-Reference
+
+For the implementation report artifact required before precommit
+review, see
+`.project-memory/IMPLEMENTATION_REPORT_WORKFLOW.md`.

@@ -123,3 +123,11 @@ modifications. Add `ModelState.reset_for_tests()` in fixtures or cleanup.
 - No raw feature values.
 - No raw scan arrays.
 - No secrets, account IDs, or registry URLs.
+
+---
+
+## Cross-Reference
+
+For implementation reporting and precommit-review gatekeeper
+requirements, see
+`.project-memory/IMPLEMENTATION_REPORT_WORKFLOW.md`.
