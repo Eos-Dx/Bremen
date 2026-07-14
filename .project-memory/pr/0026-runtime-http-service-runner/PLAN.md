@@ -28,6 +28,7 @@ This is the first PR in the post-platform-foundation execution sequence defined 
 - Status constants (`STATUS_ACCEPTED`, `STATUS_NOT_FOUND`, etc.).
 - Validators: `validate_prediction_request()` raises `ValueError` on missing/invalid fields.
 - Response builders: `build_health_response()`, `build_not_configured_model_response()`, `build_accepted_response()`, `build_not_found_response()`.
+- `PredictionRequest.request_id` field exists but is not used at the HTTP layer.
 
 ### `src/bremen/__main__.py`
 - CLI entrypoint with argparse.
@@ -47,9 +48,14 @@ This is the first PR in the post-platform-foundation execution sequence defined 
 - All pass without HTTP.
 - Import safety tests use AST inspection.
 
+### `tests/test_bremen_api_server.py` (NEW — already implemented on branch)
+- 19 tests covering GET /health, GET /model/version, POST /predictions (valid + invalid), GET /predictions/{job_id} (known + unknown), unknown route 404, unsupported method 405, import safety AST checks.
+- Uses `urllib.request` bound to localhost on a free OS-assigned port.
+- **Gap**: No tests for request_id header propagation, no structured logging verification.
+
 ### `tests/test_bremen_cli_entrypoint.py`
-- Tests for the CLI entrypoint (help output, stub commands, etc.).
-- Adding a `serve` test can follow the same pattern.
+- Tests for the CLI entrypoint (help output, stub commands, serve CLI tests).
+- Already contains `test_serve_help_exits_0`, `test_serve_help_contains_host_and_port`, `test_serve_in_main_help`, `test_main_help_shows_serve`.
 
 ### `ROADMAP.md`
 - PR 0026 described as: "Runtime HTTP service runner. Expose existing API skeleton (`src/bremen/api/`) as an actual service process suitable for container/ECS smoke testing. No inference, no H5 read, no model loading."
@@ -133,6 +139,41 @@ The server is designed for dev/smoke testing only. No production readiness claim
 - No clinical report generation.
 - Standard library only.
 
+### 1b. Logging baseline
+
+Add basic structured logging using Python's standard `logging` module. No external logging dependencies.
+
+**Log format**: Each request line should emit a structured log record containing:
+
+| Field | Source |
+|-------|--------|
+| `request_id` | From `X-Request-ID` header or generated UUID |
+| `method` | `self.command` |
+| `path` | `self.path` |
+| `response_status` | The HTTP status code returned |
+| `job_id` | Available for `POST /predictions` and `GET /predictions/{job_id}` paths |
+| `error` | Error reason for controlled failures (400/404/405 responses) |
+
+**Implementation approach**:
+- Configure a `logging.Logger` at module level in `server.py`.
+- Do **not** silence `log_message` as a no-op — replace it with structured logging using `logging.Logger`.
+- Log after each request completes (after `_send_json` / response is written).
+- Use a simple delimited format (e.g., `request_id=<...> method=GET path=/health status=200`).
+- Do not add JSON-formatted log output (avoid external dependency for structured logging formatters).
+
+**Request ID behavior**:
+- Accept an `X-Request-ID` header from the incoming request.
+- If `X-Request-ID` is empty or not provided, generate a UUID request ID (`uuid.uuid4()`).
+- Include the request ID in the response as `X-Request-ID` header.
+- Also include the request ID in JSON responses where practical (e.g., prediction response, error response).
+- This provides traceability for future Model Ops work.
+
+**Non-goals for this PR**:
+- No OpenTelemetry, CloudWatch, Sentry, Datadog, or metrics exporters.
+- No JSON log output format.
+- No log aggregation or streaming.
+- No per-route log levels — all requests logged at INFO.
+
 ### 2. `src/bremen/__main__.py` — Add `serve` subcommand
 
 Add a new `serve` subcommand to the CLI:
@@ -183,11 +224,18 @@ Focused tests for the HTTP adapter. Use `http.server`'s testability or spawn the
 3. `POST /predictions` with valid body returns 202 with `job_id`.
 4. `POST /predictions` with missing `target_scan_ref` returns 400.
 5. `POST /predictions` with missing `control_scan_ref` returns 400.
-6. `GET /predictions/{job_id}` for a known job returns 200 with job status.
-7. `GET /predictions/{job_id}` for an unknown job returns 404 with `not_found`.
-8. `GET /unknown-route` returns 404.
-9. `PUT /health` returns 405 (method not allowed).
-10. Server response includes `Content-Type: application/json` header.
+6. `POST /predictions` with malformed JSON body returns 400.
+7. `POST /predictions` with empty body returns 400.
+8. `GET /predictions/{job_id}` for a known job returns 200 with job status.
+9. `GET /predictions/{job_id}` for an unknown job returns 404 with `not_found`.
+10. `GET /unknown-route` returns 404.
+11. `PUT /health` returns 405 (method not allowed).
+12. Server response includes `Content-Type: application/json` header.
+13. Request with `X-Request-ID` header returns the same request ID in response `X-Request-ID` header.
+14. Request without `X-Request-ID` gets a generated UUID request ID in response `X-Request-ID` header.
+15. Request ID is included in JSON error response body.
+16. Server logs structured information (verified by injecting a mocked logger or capturing log output).
+17. Request ID appears in logged output.
 
 ### 4. `tests/test_bremen_cli_entrypoint.py` — Add serve CLI tests
 
@@ -211,6 +259,8 @@ This PR must not:
 - Add any dependency to `requirements.txt` or `pyproject.toml`.
 - Modify Docker, Terraform, GitHub Actions, or any infrastructure.
 - Modify `config/`, `examples/`, or any data fixtures.
+- Add OpenTelemetry, CloudWatch, Sentry, Datadog, or metrics exporters.
+- Modify schemas, jobs, app.py, config.py, or model_package.py (all are out of scope).
 
 ## Validation checklist for the implementation phase (coder)
 
@@ -249,6 +299,9 @@ grep -R "boto3\|botocore\|h5py\|\.h5\|\.hdf5" src/bremen/api tests/test_bremen_a
 
 # No prohibited clinical claims
 grep -R "diagnos\|clinical validation\|replace MRI\|replace biopsy" src/bremen/api tests/test_bremen_api_server.py || true
+
+# No OpenTelemetry/CloudWatch/Sentry/Datadog
+grep -R "opentelemetry\|cloudwatch\|sentry_sdk\|datadog" src/bremen/api tests/test_bremen_api_server.py || true
 ```
 
 ## Non-goals
@@ -262,6 +315,32 @@ grep -R "diagnos\|clinical validation\|replace MRI\|replace biopsy" src/bremen/a
 - No H5 reading or preprocessing.
 - No Matador integration.
 - No API contract change (the contract already defines the 4 endpoints).
+- No OpenTelemetry, CloudWatch, Sentry, Datadog, or metrics exporters.
+- No JSON log output format.
+- No log aggregation or streaming.
+- No React frontend or Model Ops console (deferred to PR 0030-ish / PR 0031-ish).
+- No model upload endpoint (deferred).
+- No model activation/reload/restart endpoint (deferred).
+- No admin UI (deferred).
+- No Node/npm/yarn/pnpm package manager files.
+- No CORS configuration.
+
+## Frontend and Model Ops future boundary
+
+This PR explicitly does **not** include:
+
+- **No React frontend** — No frontend code, no webpack/package.json, no Node toolchain.
+- **No model upload endpoint** — No `POST /models` or similar; model package management is PR 0030-ish.
+- **No model activation/reload/restart endpoint** — No `POST /models/activate`, `POST /server/reload`.
+- **No admin UI** — No admin routes, no admin auth, no admin dashboard.
+- **No package manager files** — No `package.json`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `node_modules/`.
+- **No CORS broadening** — If tests require cross-origin access, that should be avoided. CORS can be added in a later PR when a frontend consumer exists.
+
+**Future direction (preserved, not implemented)**:
+
+- PR 0030-ish: Model package management API — upload, validate manifest/checksum/schema, stage, activate/reload.
+- PR 0031-ish: React Model Ops Console MVP — consumes JSON APIs and logs/status, does not bypass model package validation.
+- The request ID and structured logging foundation laid in this PR will support traceability across the Model Ops workflow.
 
 ## Rollback plan
 
@@ -307,10 +386,14 @@ Block if:
 | CLI exposure | `python -m bremen serve --host 127.0.0.1 --port 8000`. Lazy import. |
 | Server shutdown | Blocking `run_server()` for dev/smoke mode. No daemon/background mode in this PR. |
 | Server behavior | JSON parsing/response. 202 for valid submit, 400 for invalid, 404 for unknown job/route, 405 for wrong method. |
+| Structured logging | Python stdlib `logging` module. Key-value delimited format. No external logging deps. |
+| Request ID | From `X-Request-ID` header or generated UUID. Included in response headers and JSON bodies. |
 | Host default | `127.0.0.1` (localhost only, safe default). |
 | Port default | `8000` (matches Terraform `container_port` variable). |
-| Tests | 10 HTTP scenarios + 2 CLI checks. |
-| No changes | Docker, Terraform, CI, dependencies, config, examples, model code. |
+| Tests | 17 HTTP scenarios + 2 CLI checks + import safety AST checks. |
+| Frontend | None. PR 0030-ish and PR 0031-ish reserved for Model Ops. |
+| Model upload/activation | None. Deferred. |
+| No changes | Docker, Terraform, CI, dependencies, config, examples, model code, API schemas, app.py. |
 
 ## Exact human commit instructions
 
@@ -348,5 +431,13 @@ Block if:
 - confirm: no clinical claims planned: yes
 - confirm: no AWS/S3/Matador calls planned: yes
 - confirm: `serve` CLI subcommand planned: yes
+- confirm: structured logging with stdlib `logging` planned: yes
+- confirm: request_id propagation (X-Request-ID header) planned: yes
+- confirm: request_id in response headers and JSON planned: yes
+- confirm: no OpenTelemetry/CloudWatch/Sentry/Datadog planned: yes
+- confirm: no React/frontend planned: yes
+- confirm: no model upload endpoint planned: yes
+- confirm: no model activation/reload/restart planned: yes
+- confirm: future Model Ops direction preserved for later PRs: yes
 - confirm: implementation assigned to Agent: coder / Mode: implementation: yes
 - confirm: no git mutation commands run: yes
