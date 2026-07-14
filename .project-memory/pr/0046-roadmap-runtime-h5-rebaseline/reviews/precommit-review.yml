@@ -1,0 +1,54 @@
+review_type: precommit-review
+branch: 0046-roadmap-runtime-h5-rebaseline
+verdict: pass
+head: "8b699d53e5965d153263bdc95ee6d2da93ff982d"
+status: "M ROADMAP.md\n?? .project-memory/AGENT_TEST_DEBUGGING_RULES.md\n?? .project-memory/pr/0046-roadmap-runtime-h5-rebaseline/"
+changed_files:
+  - "ROADMAP.md"
+  - ".project-memory/AGENT_TEST_DEBUGGING_RULES.md"
+blockers: []
+warnings: []
+validation:
+  docs_sanity: pass
+  roadmap_tokens: pass
+  agent_rules_tokens: pass
+  forbidden_path_scan: pass
+  artifact_scan_reviewed: pass
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  completed_state_through_pr0045_recorded: true
+  stale_next_sequence_cleaned: true
+  duplicate_pr0039_resolved: true
+  next_sequence_pr0047_to_pr0054_defined: true
+  h5_strategy_recorded: true
+  explicit_refs_required_for_multi_patient_h5: true
+  no_auto_select_first_patient_or_sample_recorded: true
+  agent_debugging_rules_created: true
+  no_tail_on_failing_pytest_recorded: true
+  anti_loop_rule_recorded: true
+  exception_identity_rule_recorded: true
+  global_state_leakage_rule_recorded: true
+  app_runner_target_preserved: true
+  ecs_long_term_preserved: true
+  aprana_retired_preserved: true
+  model_binding_lifecycle_preserved: true
+  config_gates_open_preserved: true
+  decided_gates_preserved: true
+  no_source_or_test_changes: true
+  no_infra_docker_dependency_changes: true
+  no_real_artifacts_committed: true
+  no_secrets_or_account_ids: true
+  no_clinical_claims: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "ROADMAP.md"
+    - ".project-memory/AGENT_TEST_DEBUGGING_RULES.md"
+    - ".project-memory/pr/0046-roadmap-runtime-h5-rebaseline/reviews/precommit-review.yml"
+notes:
+  - "All 27 checks pass. Documentation/process-only PR — no runtime code changes."
+  - "ROADMAP.md: +85/-22 lines. Completed foundation PRs now lists PR0026–PR0045 (was PR-0001 through PR-0022C). Next Execution Sequence replaced with PR0047–PR0054. New H5 Layout Strategy section added. Training Pipeline Track marked completed. All stale PR0026–PR0039 removed from next sequence. PR0039 duplicate resolved (1 occurrence). All decisions/gates preserved."
+  - "AGENT_TEST_DEBUGGING_RULES.md: New file (3486 bytes). 9 rules covering no tail/head on pytest, first failure -x --tb=long -vv, single test isolation, anti-loop (3 attempts/20min then classify), exception identity/import-order issues, global state leakage, test isolation preferences, no external deps in unit tests, no sensitive data in logs."
+  - "Validation: docs_sanity passes, roadmap_tokens passes (PR0040–PR0045, PR0047, Calibration sample preprocessing bridge, H5 Layout Strategy, App Runner, ECS Fargate, APRANA all present), agent_rules_tokens passes (tail, Anti-loop, exception identity, global state leakage, pytest command), stale PRs in Next Execution Sequence = [] (clean), PR0039 = 1 occurrence (no duplicate)."
+  - "No source, test, ADR, infra, Docker, or dependency files changed. No artifacts committed. No secrets. No clinical claims."

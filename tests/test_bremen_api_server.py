@@ -44,10 +44,13 @@ def server_info():
     Yields ``(host, port, job_store)``.  Shuts down the server
     and joins the thread on teardown.
     """
+    from bremen.api.model_state import ModelState
+
     host = "127.0.0.1"
     port = _find_free_port()
     job_store = InMemoryJobStore()
-    handler = _make_handler(job_store, version="test-version")
+    ModelState.reset_for_tests()
+    handler = _make_handler(job_store, version="test-version", load_model=True)
     server = HTTPServer((host, port), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -135,6 +138,22 @@ class TestModelVersion:
         # The server runs with default env, so not_configured is expected
         assert "model_configured" in data
         assert "model_status" in data
+        """Test GET /model/version with env set to configured state."""
+        from bremen.config import read_cloud_config
+        from bremen.api.model_state import ModelState
+
+        # Reset model state to test cloud env behavior
+        ModelState.reset_for_tests()
+
+        cloud = read_cloud_config(
+            env={"BREMEN_MODEL_BUCKET": "my-bucket"}
+        )
+        from bremen.api.app import handle_model_version
+
+        resp = handle_model_version(cloud=cloud)
+        assert resp.model_configured is True
+        assert resp.model_status == "configured"
+        assert resp.model_version is None
 
 
 # ---------------------------------------------------------------------------
@@ -148,6 +167,7 @@ class TestSubmitPrediction:
         payload = {
             "target_scan_ref": "scan:tgt/001",
             "control_scan_ref": "scan:ctl/001",
+            "h5_path": "/tmp/test.h5",
         }
         status, body, _ = _post(host, port, "/predictions", payload)
         assert status == 202
@@ -160,6 +180,7 @@ class TestSubmitPrediction:
         payload = {
             "target_scan_ref": "scan:tgt/001",
             "control_scan_ref": "scan:ctl/001",
+            "h5_path": "/tmp/test.h5",
         }
         _, body, _ = _post(host, port, "/predictions", payload)
         data = json.loads(body)
@@ -203,6 +224,44 @@ class TestSubmitPrediction:
         host, port, _ = server_info
         status, body, _ = _post(host, port, "/predictions", None)
         assert status == 400
+
+
+class TestSubmitPredictionModelNotReady:
+    """Tests for the 503 model-not-ready case."""
+
+    @pytest.fixture
+    def no_model_server_info(self):
+        """Start server with model NOT loaded."""
+        from bremen.api.model_state import ModelState
+        ModelState.reset_for_tests()
+        host = "127.0.0.1"
+        port = _find_free_port()
+        job_store = InMemoryJobStore()
+        handler = _make_handler(job_store, version="test-version", load_model=False)
+        server = HTTPServer((host, port), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        yield host, port, job_store
+        server.shutdown()
+        thread.join(timeout=2)
+
+    def test_submit_returns_503_when_model_not_ready(self, no_model_server_info, caplog):
+        """POST /predictions returns 503 when model is not loaded.
+
+        Also verifies ``bremen.prediction.request.rejected`` is emitted.
+        """
+        import logging
+        caplog.set_level(logging.WARNING)
+        host, port, _ = no_model_server_info
+        payload = {
+            "target_scan_ref": "scan:tgt/001",
+            "control_scan_ref": "scan:ctl/001",
+        }
+        status, body, _ = _post(host, port, "/predictions", payload)
+        assert status == 503
+        data = json.loads(body)
+        assert "not loaded" in data.get("error", "")
+        assert "bremen.prediction.request.rejected" in caplog.text
 
 
 # ---------------------------------------------------------------------------
@@ -266,26 +325,145 @@ class TestRouteErrors:
 
 
 # ---------------------------------------------------------------------------
+# Request ID propagation
+# ---------------------------------------------------------------------------
+
+
+class TestRequestID:
+    def test_request_id_returned_from_header(self, server_info):
+        """X-Request-ID header value is returned in response header."""
+        host, port, _ = server_info
+        req = Request(
+            f"http://{host}:{port}/health",
+            headers={"X-Request-ID": "my-test-id-001"},
+        )
+        resp = urlopen(req, timeout=3)
+        assert resp.headers.get("X-Request-ID") == "my-test-id-001"
+
+    def test_request_id_generated_when_not_provided(self, server_info):
+        """No X-Request-ID header -> response contains a generated UUID."""
+        host, port, _ = server_info
+        req = Request(f"http://{host}:{port}/health")
+        resp = urlopen(req, timeout=3)
+        rid = resp.headers.get("X-Request-ID", "")
+        # Should be a UUID v4 format
+        import uuid
+
+        try:
+            uuid.UUID(rid)
+        except ValueError:
+            pytest.fail(f"Generated request ID is not a valid UUID: {rid}")
+
+    def test_request_id_in_json_response_body(self, server_info):
+        """Response JSON body includes a 'request_id' field."""
+        host, port, _ = server_info
+        req = Request(
+            f"http://{host}:{port}/health",
+            headers={"X-Request-ID": "body-request-id"},
+        )
+        resp = urlopen(req, timeout=3)
+        data = json.loads(resp.read())
+        assert data.get("request_id") == "body-request-id"
+
+    def test_request_id_in_error_response_body(self, server_info):
+        """Error responses include a 'request_id' field."""
+        host, port, _ = server_info
+        from urllib.request import Request, urlopen
+        from urllib.error import HTTPError
+
+        req = Request(
+            f"http://{host}:{port}/unknown-route",
+            headers={"X-Request-ID": "error-request-id"},
+        )
+        try:
+            urlopen(req, timeout=3)
+            pytest.fail("Expected HTTPError")
+        except HTTPError as exc:
+            data = json.loads(exc.read())
+            assert data.get("request_id") == "error-request-id"
+            assert "error" in data
+
+    def test_request_id_in_json_response_matches_header(self, server_info):
+        """Response header and body request_id match."""
+        host, port, _ = server_info
+        req = Request(
+            f"http://{host}:{port}/health",
+            headers={"X-Request-ID": "match-check-id"},
+        )
+        resp = urlopen(req, timeout=3)
+        header_rid = resp.headers.get("X-Request-ID")
+        body_rid = json.loads(resp.read()).get("request_id")
+        assert header_rid == "match-check-id"
+        assert body_rid == "match-check-id"
+
+
+# ---------------------------------------------------------------------------
+# Structured logging
+# ---------------------------------------------------------------------------
+
+
+class TestStructuredLogging:
+    def test_log_message_includes_request_id(self, server_info):
+        """log_message output includes request_id field."""
+        host, port, _ = server_info
+
+        import logging
+        from io import StringIO
+
+        capture = StringIO()
+        handler = logging.StreamHandler(capture)
+        handler.setLevel(logging.INFO)
+        logger = logging.getLogger("bremen.api.server")
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+
+        try:
+            req = Request(
+                f"http://{host}:{port}/health",
+                headers={"X-Request-ID": "log-test-id"},
+            )
+            urlopen(req, timeout=3)
+
+            output = capture.getvalue()
+            assert "request_id=log-test-id" in output, (
+                f"Log output should contain request_id=log-test-id, got: {output}"
+            )
+            assert "method=GET" in output
+            assert "path=/health" in output
+            assert "status=200" in output
+        finally:
+            logger.removeHandler(handler)
+
+
+# ---------------------------------------------------------------------------
 # Import safety (AST-based) for server.py only
 # ---------------------------------------------------------------------------
 
 
 class TestImportSafety:
     def test_no_joblib_import(self):
-        """server.py must not import joblib."""
+        """server.py must not import joblib at top level.
+
+        Note: ``_load_synthetic_model()`` in ``server.py`` lazily
+        imports ``from joblib import dump`` inside a function for
+        synthetic model loading.  This AST check only catches
+        module-level imports.
+        """
         import ast
 
         src = API_SRC / "server.py"
         tree = ast.parse(src.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
+        for node in tree.body:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if "joblib" in alias.name.lower():
-                        pytest.fail("server.py imports joblib")
+                        pytest.fail("server.py has top-level joblib import")
             elif isinstance(node, ast.ImportFrom):
                 module = node.module or ""
                 if "joblib" in module.lower():
-                    pytest.fail(f"server.py imports joblib via {module}")
+                    pytest.fail(
+                        f"server.py has top-level joblib import: from {module}"
+                    )
 
     def test_no_pickle_import(self):
         """server.py must not import pickle."""

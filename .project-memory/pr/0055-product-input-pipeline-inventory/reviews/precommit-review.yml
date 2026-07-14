@@ -1,0 +1,299 @@
+# Precommit Review — PR0055 Product Input Pipeline Inventory And Canonical Input Contract
+# Generated: 2026-07-09T22:34:10Z
+
+verdict: pass
+
+blockers: []
+
+warnings:
+  - "docs/api_contract.md modification: one cross-reference sentence added linking to product_input_pipeline_contract.md. This is the allowed minimal change per plan."
+
+checks:
+  changed_files_limited_to_allowed:
+    status: pass
+    detail: "Only docs/product_input_pipeline_contract.md (new), tests/test_bremen_product_input_pipeline_contract.py (new), and docs/api_contract.md (modified with single cross-reference) are present. Precommit-review.yml is our artifact."
+  contract_doc_exists:
+    status: pass
+    detail: "docs/product_input_pipeline_contract.md exists with 442 lines defining the full contract."
+  contract_defines_productizable_workflow:
+    status: pass
+    detail: "Section 3 documents: external input -> converter -> canonical package -> runtime -> decision_support_report."
+  contract_rejects_demo_only_fork:
+    status: pass
+    detail: "Sections 3 and 12 explicitly state 'not demo-only' and 'no separate demo-only format'. Investor walkthroughs use same contract."
+  candidate_external_inputs_as_candidates:
+    status: pass
+    detail: "Section 4 describes GeoFrame (§4.1), protobuf (§4.2), and Preprosync (§4.3) as candidates with 'requires verification' status. Section 5 inventory table confirms no evidence in repo."
+  converter_preprocessing_boundary_documented:
+    status: pass
+    detail: "Section 6 defines controlled converter boundary as separate component outside runtime. Runtime does not become converter (§3.2)."
+  runtime_stable:
+    status: pass
+    detail: "Section 3.1 states runtime remains stable. No source files modified. POST /predictions -> GET /predictions/{job_id} path unchanged."
+  runtime_not_converter_service:
+    status: pass
+    detail: "Section 3.2: 'Runtime does not become the converter service.' No converter code added."
+  runtime_does_not_train:
+    status: pass
+    detail: "Section 3.3: 'Runtime does not train.' No training code added."
+  canonical_input_package_documented:
+    status: pass
+    detail: "Section 7 defines canonical Bremen input package: HDF5 format, canonical and calibration_sample layouts, required paths, and prohibited content."
+  required_metadata_documented:
+    status: pass
+    detail: "Section 8 documents artifact identifier, layout category, target/control refs, checksum, preprocessing provenance, contract version, and no patient identifiers."
+  explicit_target_control_refs_required:
+    status: pass
+    detail: "Section 9: 'Explicit target and control scan refs are required for all prediction requests.' Table documents ref values for canonical and calibration layouts."
+  h5_path_h5_uri_controlled_modes:
+    status: pass
+    detail: "Section 10 documents h5_path and h5_uri as controlled staging/development modes. 'No request schema change in PR0055.'"
+  matador_future_work:
+    status: pass
+    detail: "Section 3.4: 'Matador remains future source-of-record integration.' Not implemented."
+  fastapi_deferred:
+    status: pass
+    detail: "Section 3.5: 'FastAPI remains deferred. No FastAPI, uvicorn, starlette, or ASGI framework is introduced.' Non-goals section repeats."
+  decision_support_report_is_output_path:
+    status: pass
+    detail: "Section 11 documents decision_support_report as the output path with schema version, intended use, limitations, and safe framing."
+  investor_presentable_no_demo_fork:
+    status: pass
+    detail: "Section 12 documents investor-presentable workflow using same canonical input package contract, no demo-only fork. Includes demo-safe guarantee and safety language."
+  non_leakage_rules_documented:
+    status: pass
+    detail: "Section 14 lists prohibited content: raw patient identifiers, full S3 URIs, raw checksums, local paths, secrets, raw feature values."
+  non_goals_complete:
+    status: pass
+    detail: "Section 16 lists 17 non-goals including no converter, no Preprosync, no protobuf, no GeoFrame parser, no runtime schema change, no Matador, no FastAPI, no training, no clinical validation, no diagnosis."
+  static_tests_cover_contract_safety:
+    status: pass
+    detail: "test_bremen_product_input_pipeline_contract.py contains 19 test classes (35 tests) covering contract existence, productizable workflow, no demo fork, candidate input forms, converter boundary, runtime stability, canonical package, explicit refs, input modes, Matador future, FastAPI deferred, decision support output, no diagnosis, no clinical validation, no replacement, no data artifacts, no secrets/identifiers, API cross-reference, and static-only test enforcement."
+  static_tests_no_network_aws_docker:
+    status: pass
+    detail: "Test file imports only standard library (re, pathlib) and pytest. No boto3, requests, httpx, urllib, docker, terraform imports."
+  no_source_runtime_schema_changes:
+    status: pass
+    detail: "git diff --name-only -- src Dockerfile Dockerfile.training infra .github requirements.txt pyproject.toml src/bremen/training agents config docs/adr is empty. No source/runtime/dependency/deployment changes."
+  no_converter_implementation:
+    status: pass
+    detail: "No converter module, interface, or implementation added. Section 16 non-goal #1: 'No converter implementation.'"
+  no_preprosync_implementation:
+    status: pass
+    detail: "No Preprosync references or implementation in changed files. Section 16 non-goal #2: 'No Preprosync implementation.'"
+  no_protobuf_parser:
+    status: pass
+    detail: "No .proto files, protobuf dependency, or protobuf parsing code. Section 5 inventory confirms none exist in repo."
+  no_geoframe_parser:
+    status: pass
+    detail: "No GeoFrame parser, reader, dependency, or tests. Section 5 inventory confirms none exist in repo."
+  no_matador_integration:
+    status: pass
+    detail: "No Matador API calls, tokens, URLs, or credentials. Section 3.4: 'Matador remains future.' Section 16 non-goal #6."
+  no_fastapi:
+    status: pass
+    detail: "No FastAPI, uvicorn, starlette, or ASGI references in changed files (only in negation/deferral context within the contract doc). Section 16 non-goal #7."
+  no_runtime_training:
+    status: pass
+    detail: "Section 16 non-goal #8: 'No runtime training.' Non-goal #9: 'No model training implementation.'"
+  no_runtime_schema_change:
+    status: pass
+    detail: "The only change to docs/api_contract.md is a single cross-reference sentence. POST /predictions request schema unchanged. Section 16 non-goal #5."
+  no_h5_path_uri_behavior_change:
+    status: pass
+    detail: "Section 10 documents h5_path and h5_uri as unchanged controlled modes. No source changes to H5 staging behavior."
+  no_geoframe_protobuf_claimed_working:
+    status: pass
+    detail: "Sections 4.1 and 4.2 explicitly state GeoFrame and protobuf are candidates not implemented. Section 5 inventory shows no evidence in repo."
+  no_demo_only_fork:
+    status: pass
+    detail: "Section 3: 'This workflow is not demo-only.' Section 12.2: 'There is no separate demo-only format.' Section 16 non-goal #12."
+  no_real_artifacts_secrets_identifiers:
+    status: pass
+    detail: "Safety grep confirmed: no AKIA, SECRET_ACCESS_KEY, dkr.ecr, Nova_ (only in safe negation context), /Users/ (only in safe negation context), or real s3:// URIs in new/modified files."
+  no_clinical_claims:
+    status: pass
+    detail: "Contract states 'not a diagnosis' (section 16 non-goal #15), 'not clinically validated' (non-goal #14), 'does not replace MRI/biopsy/radiologist/clinician/clinical judgment' (section 12.3). Only negation/prohibition language."
+
+validation:
+  - command: git rev-parse --verify HEAD
+    exit_code: 0
+    output: "f55214b7a8a51b1f0e50e7444822bf1149e95742"
+  - command: git branch --show-current
+    exit_code: 0
+    output: "0055-product-input-pipeline-inventory"
+  - command: git status --short
+    exit_code: 0
+    output: "M docs/api_contract.md\n?? .project-memory/pr/0055-product-input-pipeline-inventory/reviews/precommit-review.yml\n?? docs/product_input_pipeline_contract.md\n?? tests/test_bremen_product_input_pipeline_contract.py"
+  - command: git diff --name-only
+    exit_code: 0
+    output: "docs/api_contract.md"
+  - command: git diff --name-only -- src Dockerfile Dockerfile.training infra .github requirements.txt pyproject.toml src/bremen/training agents config docs/adr
+    exit_code: 0
+    output: ""  # empty - no changes to any of these paths
+  - command: git diff --name-only | grep -E '\.(h5|hdf5|joblib|pkl|npy|npz|parquet|proto|pb|tfstate|tfstate\.backup)$'
+    exit_code: 1
+    output: ""  # no artifact files changed
+  - command: python -m compileall src tests
+    exit_code: 0
+    output: "All files compiled successfully."
+  - command: python -m pytest -q tests/test_bremen_product_input_pipeline_contract.py -v
+    exit_code: 0
+    output: "35 passed in 0.03s"
+  - command: python -m pytest -q tests/test_bremen_release_readiness_operator_notes.py -v
+    exit_code: 0
+    output: "34 passed in 0.02s"
+  - command: python -m pytest -q tests/test_bremen_api_contract.py -v
+    exit_code: 0
+    output: "21 passed in 0.02s"
+  - command: python -m pytest -q
+    exit_code: 0
+    output: "764 passed, 11 skipped, 28 warnings in 48.79s"
+  - command: grep -R "FastAPI\|fastapi\|uvicorn\|starlette" -n docs tests ROADMAP.md
+    exit_code: 0
+    output: "All matches in negation/deferral context only. No new FastAPI/uvicorn/starlette implementation."
+  - command: grep -R "MATADOR_\|Matador.*token\|Matador.*URL\|requests\|httpx\|aiohttp" -n docs tests ROADMAP.md
+    exit_code: 0
+    output: "All matches in safe boundary/test context only. No Matador implementation, credentials, or network clients."
+  - command: grep -R "AKIA\|SECRET_ACCESS_KEY\|dkr.ecr\|s3://\|sha256:\|Nova_\|/Users/\|/home/" -n docs tests ROADMAP.md
+    exit_code: 0
+    output: "No secrets/identifiers in new/modified files. product_input_pipeline_contract.md references these only in safe negation/prohibition context (Section 7.4, Section 14)."
+  - command: grep -R "diagnos\|clinical validation\|clinically validated\|replace radiologist\|replace clinician\|replace MRI\|replace biopsy" -n docs tests ROADMAP.md
+    exit_code: 0
+    output: "All matches in negation/disclaimer/non-goal context only. No affirmative clinical claims."
+  - command: git diff docs/api_contract.md
+    exit_code: 0
+    output: "Only change: single cross-reference sentence linking to docs/product_input_pipeline_contract.md in the System-of-Record Boundary section."
+
+commit_readiness:
+  branch_matches: true
+  working_tree_changes_allowed: true
+  only_allowed_files_changed: true
+  contract_document_exists: true
+  static_tests_pass: 35/35
+  existing_tests_unchanged_pass: 729/729 (11 skipped)
+  no_converters_implemented: true
+  no_preprosync_implemented: true
+  no_protobuf_parsers: true
+  no_geoframe_parsers: true
+  no_matador: true
+  no_fastapi: true
+  no_runtime_schema_change: true
+  no_h5_behavior_change: true
+  no_source_changes: true
+  no_real_data: true
+  no_clinical_claims: true
+  no_secrets_or_identifiers: true
+  all_19_required_reads_completed: true
+  verification: |
+    Branch 0055-product-input-pipeline-inventory confirmed.
+    Working tree contains only allowed files:
+      - docs/product_input_pipeline_contract.md (new)
+      - tests/test_bremen_product_input_pipeline_contract.py (new)
+      - docs/api_contract.md (modified: one cross-reference sentence)
+      - precommit-review.yml (our artifact)
+    No source, runtime, Docker, infra, config, training, or ADR files changed.
+    No artifact files (.h5, .joblib, .pkl, .proto, etc.) added.
+    All 35 new product input pipeline contract tests pass.
+    Full test suite: 764 passed, 11 skipped.
+    Safety validation: no secrets, identifiers, clinical claims, or real data artifacts.
+    Contract is docs/static-tests only, inventory/contract first, productizable not demo-only.
+    No converter, Preprosync, protobuf, GeoFrame, Matador, FastAPI, runtime training, or source changes.
+
+files_read:
+  - .project-memory/pr/0055-product-input-pipeline-inventory/PLAN.md
+  - .project-memory/pr/0055-product-input-pipeline-inventory/reviews/plan-review.yml
+  - docs/product_input_pipeline_contract.md
+  - tests/test_bremen_product_input_pipeline_contract.py
+  - docs/api_contract.md
+  - docs/release_readiness_operator_notes.md
+  - docs/production_e2e_smoke.md
+  - docs/adr/0012-system-of-record-boundary.md
+  - src/bremen/h5_inputs.py
+  - src/bremen/api/preflight.py
+  - src/bremen/api/h5_layouts.py
+  - src/bremen/api/preprocessing_bridge.py
+  - src/bremen/api/inference_handler.py
+  - src/bremen/api/decision_support.py
+  - src/bremen/system_of_record.py
+  - tests/test_bremen_release_readiness_operator_notes.py
+  - tests/test_bremen_api_contract.py
+
+files_written:
+  - .project-memory/pr/0055-product-input-pipeline-inventory/reviews/precommit-review.yml
+
+snapshot_delta:
+  commit: f55214b7a8a51b1f0e50e7444822bf1149e95742
+  branch: 0055-product-input-pipeline-inventory
+  new_files:
+    - docs/product_input_pipeline_contract.md
+    - tests/test_bremen_product_input_pipeline_contract.py
+  modified_files:
+    - docs/api_contract.md (single cross-reference sentence added)
+  deleted_files: []
+
+plan_compliance:
+  plan_matches_pr: true
+  scope_limited_to_inventory_contract: true
+  no_converter_implementation: true
+  no_preprosync_implementation: true
+  no_protobuf_geoframe_parsers: true
+  no_matador: true
+  no_fastapi: true
+  no_runtime_training: true
+  no_source_changes: true
+  no_runtime_schema_changes: true
+  tests_are_static_text_only: true
+  contract_defined: true
+  plan_approved_on_0055: true
+
+bremen_contract_check:
+  api_contract_unchanged_except_crossref: true
+  h5_path_h5_uri_modes_preserved: true
+  decision_support_report_output_path: true
+  no_diagnosis_claims: true
+  no_clinical_validation_claims: true
+  no_replacement_claims: true
+  no_patient_identifiers_in_committed_content: true
+  no_secrets_in_committed_content: true
+  non_leakage_rules_documented: true
+  explicit_target_control_refs_required: true
+
+validation_completeness_check:
+  all_35_contract_tests_pass: true
+  all_34_operator_notes_tests_pass: true
+  all_21_api_contract_tests_pass: true
+  all_764_full_suite_pass: true
+  compileall_passes: true
+  safety_grep_no_secrets: true
+  safety_grep_no_clinical_claims: true
+  no_source_changes_confirmed: true
+  no_artifact_files_changed: true
+
+evidence_completeness_check:
+  all_19_required_reads_completed: true
+  git_diff_confirmed_narrow_scope: true
+  git_status_confirmed_allowed_files: true
+  branch_confirmed: true
+  test_results_captured: true
+  safety_grep_results_captured: true
+
+diff_completeness_check:
+  docs/api_contract.md_diff_is_only_crossref: true
+  no_hidden_changes_in_tracked_files: true
+  all_new_files_documented: true
+  no_untracked_files_outside_allowed: true
+
+boundary_confirmations:
+  no_agents_read: true
+  no_internet_web_search: true
+  no_implementation_files_edited: true
+  no_source_edited: true
+  no_tests_edited: true
+  no_docs_edited: true
+  no_roadmap_edited: true
+  no_adrs_edited: true
+  no_config_docker_infra_ci_edited: true
+  no_docker_run_pushed: true
+  no_network_calls: true
+  review_only_mode_confirmed: true

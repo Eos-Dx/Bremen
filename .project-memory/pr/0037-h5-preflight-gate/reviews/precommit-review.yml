@@ -1,0 +1,71 @@
+review_type: precommit-review
+branch: 0037-h5-preflight-gate
+verdict: pass
+head: "6d40f2f733352ee85a5c1a71163092dc64e8130e"
+status: "M .gitignore; M tests/test_bremen_api_skeleton.py; M tests/test_bremen_real_h5_subset_reader.py; ?? src/bremen/api/preflight.py; ?? tests/test_bremen_h5_preflight.py"
+changed_files:
+  - "src/bremen/api/preflight.py"
+  - "tests/test_bremen_h5_preflight.py"
+  - "tests/test_bremen_real_h5_subset_reader.py"
+  - ".gitignore"
+  - "tests/test_bremen_api_skeleton.py"
+blockers: []
+warnings:
+  - id: "WARNING-1"
+    description: "The previous plan-review at HEAD 262e1f558b2a8dee820c620cc3a202acd9147088 noted a duplicate .gitignore artifact guard block. The current HEAD 6d40f2f733352ee85a5c1a71163092dc64e8130e shows a single artifact guard block (added to .gitignore in this PR, not duplicated). The plan-review warning is stale and the current state is clean."
+validation:
+  git_rev_parse_head: "6d40f2f733352ee85a5c1a71163092dc64e8130e"
+  branch_confirmed: "0037-h5-preflight-gate"
+  compileall: "pass — exit 0"
+  h5_preflight_tests: "pass — 19 passed, 1 skipped in 1.55s"
+  real_h5_subset_reader_tests: "pass — 1 skipped (correct)"
+  import_identity_tests: "pass — 10 passed"
+  api_skeleton_tests: "pass — 39 passed"
+  full_pytest: "pass — 385 passed, 3 skipped, 28 warnings in 47.70s"
+  h5_artifact_git_ls_files: "pass — empty (no H5/joblib files tracked)"
+  external_h5_hash: "pass — sha256 matches expected 0bda036f08b057d992b329f6bd6834b3bb52cb74b1f3fca3efb08dda5edf655a"
+  old_h5_reference_grep: "pass — no source/test code references to tests/data/aramis_real_h5_subset_20260128_5_patients.h5 (only historical docs/project-memory references, permitted)"
+  runtime_boundary_grep: "pass — preflight.py AST test explicitly checks prohibited imports; grep shows prohibited names only in test assertion strings, not in source imports"
+  gitignore_guards: "pass — single artifact guard block present (*.h5, *.hdf5, *.joblib, *.pkl, *.npy, *.npz)"
+  skipif_smoke: "pass — both test files have pytest.mark.skipif with BREMEN_H5_PREFLIGHT_SMOKE_PATH"
+  forbidden_diff: "pass — no forbidden files modified"
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  historical_h5_untracked_or_deleted: true
+  no_new_real_artifacts_added: true
+  gitignore_guards_present: true
+  orphaned_test_fixed: true
+  external_h5_optional_only: true
+  smoke_skips_without_env: true
+  preflight_api_complete: true
+  validation_scope_complete: true
+  result_contract_complete: true
+  result_excludes_raw_arrays: true
+  no_preprocessing_or_inference: true
+  no_model_loading_or_training: true
+  no_api_route_behavior_change: true
+  no_clinical_claims: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "src/bremen/api/preflight.py"
+    - "tests/test_bremen_h5_preflight.py"
+    - "tests/test_bremen_real_h5_subset_reader.py"
+    - ".gitignore"
+    - "tests/test_bremen_api_skeleton.py"
+    - ".project-memory/pr/0037-h5-preflight-gate/reviews/precommit-review.yml"
+notes:
+  - "HEAD 6d40f2f733352ee85a5c1a71163092dc64e8130e on branch 0037-h5-preflight-gate. Branch confirmed before content review."
+  - "Five changed files match allowed set exactly. No forbidden files touched."
+  - "Historical H5 cleanup: git ls-files for *.h5/ *.hdf5/ *.joblib/ *.pkl/ *.npy/ *.npz returns empty (no tracked artifacts). The historically tracked tests/data/aramis_real_h5_subset_20260128_5_patients.h5 is no longer tracked. External copy confirmed at ../bremen-private-artifacts/h5/aramis_real_h5_subset_20260128_5_patients.h5 with expected SHA-256 0bda036f08b057d992b329f6bd6834b3bb52cb74b1f3fca3efb08dda5edf655a."
+  - "test_bremen_real_h5_subset_reader.py: substantially rewritten from 92 lines to 64 lines. Old tests that required real H5 (test_real_h5_subset_uses_gfrm_reader_and_xrd_transformers, DATA_DIR/REAL_H5_SUBSET imports, xrd_preprocessing imports) are completely removed. Now uses pytestmark skipif on BREMEN_H5_PREFLIGHT_SMOKE_PATH. Synthetic-only structural inspection."
+  - "test_bremen_api_skeleton.py: modified to include preflight in API module import check (preflight added to 'modules that should be importable without side effects')."
+  - "src/bremen/api/preflight.py (new ~330 lines): complete H5 preflight gate. Exception hierarchy: H5PreflightError base + H5ContainerError, H5MetadataError, H5PatientMismatchError, H5SideMismatchError, H5MeasurementError, H5QualityError. PreflightResult/PreflightReason/PreflightStatus dataclasses. Public functions: run_h5_preflight, inspect_h5_container, validate_same_patient, validate_opposite_sides, validate_required_metadata, validate_measurement_counts, validate_snr_thresholds. All raise appropriate H5PreflightError subclasses. Result dataclass excludes raw scan data."
+  - "tests/test_bremen_h5_preflight.py (20 tests: 19 synthetic + 1 opt-in smoke): TestValidSynthetic (2), TestSamePatient (2), TestOppositeSides (3), TestMissingContralateral (1), TestMissingMetadata (2), TestMeasurementCount (1), TestSNR (1), TestMalformedContainer (2), TestResultNoRawData (1), TestImportSafety (2 — AST inspection confirming no training/inference/model imports), TestExceptionHierarchy (2), TestInspectContainer (1), test_real_subset_schema_inspection (opt-in @pytest.mark.skipif with BREMEN_H5_PREFLIGHT_SMOKE_PATH)."
+  - ".gitignore: artifact guard block added (*.h5, *.hdf5, *.joblib, *.pkl, *.npy, *.npz). Single block, no duplicates. git diff confirms only addition of this block."
+  - "Preflight validation: validates container structure, same patient, opposite sides, required metadata, measurement counts >=1, SNR thresholds (warning only). Malformed/corrupt H5 raises H5ContainerError. Missing contralateral raises H5ContainerError. Empty measurements raises H5MeasurementError. Result excludes raw measurement arrays."
+  - "Full pytest suite: 385 passed, 3 skipped (2 opt-in real-artifact/h5 smoke tests + 1 opt-in training smoke). No failures. All warnings are pre-existing numpy/joblib deprecation, unrelated to PR 0037."
+  - "No forbidden file changes: git diff --name-only for docs/adr, ROADMAP, docs/architecture, model_loader.py, model_package.py, training/, infra, .github, Dockerfile, requirements.txt, pyproject.toml returned empty."
+  - "No clinical claims in any changed file. No inference, no preprocessing, no model loading, no training, no Matador integration."
+  - "WARNING-1: plan-review noted duplicate .gitignore block at a previous HEAD. Current HEAD shows single block — state is clean."

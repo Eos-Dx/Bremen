@@ -1,0 +1,57 @@
+review_type: plan-review
+branch: 0034-bremen-training-pipeline-implementation
+verdict: approve
+head: "ef936acfc0add1fe9e402ff65452e427b6f274cf"
+status: "?? .project-memory/pr/0034-bremen-training-pipeline-implementation/"
+plan_path: ".project-memory/pr/0034-bremen-training-pipeline-implementation/PLAN.md"
+blockers: []
+warnings: []
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  project_memory_used_as_primary_context: true
+  adr0008_prerequisite_confirmed: true
+  implementation_scope_complete: true
+  required_source_api_planned: true
+  artifact_dict_complete: true
+  training_config_complete: true
+  seven_feature_families_required: true
+  feature_computation_semantics_required: true
+  patient_safe_split_required: true
+  runtime_training_separation_required: true
+  dockerfile_training_decision_present: true
+  ci_two_image_decision_present: true
+  terraform_training_ecr_decision_present: true
+  dependency_decision_present: true
+  focused_test_plan_complete: true
+  synthetic_data_only: true
+  no_real_h5_or_artifacts: true
+  allowed_files_clear: true
+  forbidden_files_clear: true
+  validation_commands_present: true
+  block_conditions_present: true
+  no_clinical_or_inference_claims: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0034-bremen-training-pipeline-implementation/PLAN.md"
+    - ".project-memory/pr/0034-bremen-training-pipeline-implementation/reviews/plan-review.yml"
+notes:
+  - "Branch confirmed as 0034-bremen-training-pipeline-implementation. HEAD ef936acfc0add1fe9e402ff65452e427b6f274cf. Only planning directory untracked; no implementation files edited."
+  - "ADR-0008 prerequisite confirmed: 6 binding decisions present (training/runtime separation, two images, artifact dict with 21 fields, config YAML, K8s Job trigger, PR 0034 scope), all 7 feature families named, per-patient symmetry semantics confirmed, EXPECTED_ARTIFACT_TYPE='bremen.joblib.model_package' preserved."
+  - "Implementation scope: 15 allowed files exactly enumerated (3 source, 1 config, 1 Dockerfile, 1 CI, 3 Terraform, 5 tests). Forbidden files exactly enumerated. No overlap between allowed and forbidden sets."
+  - "All 33 required source API names confirmed: REQUIRED_TRAINING_ARTIFACT_FIELDS, REQUIRED_TRAINING_CONFIG_SECTIONS, REQUIRED_TRAINING_CONFIG_FIELDS, BREMEN_FEATURE_FAMILIES, PatientModelInputBuilder, BremenPatientTrainingPipeline, PatientModelSetTrainer, PatientModelSetEvaluator, build_patient_training_pipeline, run_training_from_config, train_patient_m0_m1_m2_model_artifact, _patient_training_artifact, _validate_training_config, _patient_feature_table, _sk_target_contralateral_symmetry_features, _sk_side_mean_metrics, _mahalanobis_difference, _profile_wasserstein, _rms_difference, _weighted_rms_difference, _sigma_rms, _file_sha256, _config_path, _optional_config_path — all match ADR-0008 Decision 6 table."
+  - "Artifact dict: all 21 fields confirmed (kind, version, created_at, model_type, models, thresholds, model_descriptions, feature_schema, warnings, training_config, training_config_yaml, training_config_text, training_config_sha256, input_dataframe_joblib_sha256, dataset_summary, feature_table, metric_summary, split_metrics, split_predictions, preprocessing_lineage, metadata). kind=='bremen_training_artifact' constant. ADR-0007 fields not renamed. artifact_type constant unchanged."
+  - "Training config: all 4 sections (training, io, model, evaluation) and all 26 key fields present. Bremen-specific: lr1_row_policy='mri_referred_only', target_sensitivity=0.85 as QC target, NORMAL vs BENIGN+CANCER classification."
+  - "Feature computation: all 7 families (sigma_l1, sigma_l2, Mahalanobis1, Mahalanobis2, wasserstein_distance_full_q2, meanrms2, weightedrms1), per-patient target-vs-contralateral symmetry, NOT population-fitted, no separate fitted feature-extractor artifact, missing contralateral safe fallback described."
+  - "Patient-safe split: GroupKFold/GroupShuffleSplit planned, direct disjointness test named, synthetic data only, no real H5."
+  - "Runtime separation: directory boundary + import test + Docker separation + CLI separation + CI separation + Terraform separation. joblib.dump only in training/. No inference integration."
+  - "Dockerfile.training: exact content specified, installs via pip install -e . && pip install -r requirements.txt, no secrets/H5/artifacts baked in, ENTRYPOINT python -m bremen.training.train_classifier. Runtime Dockerfile unchanged."
+  - "CI two-image build: second 'publish-training' job uses -f Dockerfile.training, pushes to bremen-training repo with github.sha and latest tags only (no app-runner). Existing publish job preserved."
+  - "Terraform: training_ecr_repository_name variable, aws_ecr_repository.bremen_training resource, training_ecr_repository_url and training_ecr_repository_arn outputs — all additive to existing runtime ECR."
+  - "Dependency decision: no change to pyproject.toml or requirements.txt. scipy already in requirements.txt, all training deps covered."
+  - "Tests: 15+ scenarios across 5 files (test_bremen_training_config.py, test_bremen_training_features.py, test_bremen_training_artifact.py, test_bremen_training_runtime_separation.py, modified test_bremen_ecr_publish_workflow.py). All synthetic data only."
+  - "Validation commands: all static/read-only (git, grep, compileall). pytest deferred to implementation phase. No Docker run, no pytest run, no Terraform apply, no AWS commands by agents at plan-review stage."
+  - "Non-goals: no clinical validation, no achieved performance metrics, no inference implementation, no real H5/data, no model artifacts committed, no secrets/account IDs, no ROADMAP/docs changes, no runtime Dockerfile changes."
+  - "Validation checklist in PLAN.md has 17 numbered checks; all are static or deferred to implementation phase. No blocking conditions found."
+  - "All 11 stop conditions match block conditions from task prompt. All 12 scope-control checks pass."

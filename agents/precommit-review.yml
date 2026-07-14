@@ -8,7 +8,7 @@ metadata:
 models:
   precommit_review_model:
     provider: anthropic
-    model: MiniMax-M3
+    model: deepseek-v4-flash
     base_url: https://api.openmodel.ai
     max_tokens: 8000
     temperature: 0
@@ -83,7 +83,7 @@ agents:
     add_date: true
     add_environment_info: true
     redact_secrets: true
-    max_iterations: 10
+    max_iterations: 50
 
     toolsets:
       - type: filesystem

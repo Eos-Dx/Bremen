@@ -1,0 +1,110 @@
+# Plan Review — PR0058 Feature Artifact Ingestion Boundary
+# Reviewer: plan-review agent
+# Reviewed: 2026-07-10T10:05:23Z
+# HEAD: a4018ea30daf302ed5e6b56b04671df1eee35401
+# Branch: 0058-feature-artifact-ingestion-boundary
+
+verdict: approve
+
+blockers: []
+
+warnings:
+  - The optional cross-reference edit to docs/preprocessing_source_reconciliation.md (Section 4.2) adds scope beyond the 4 core files. Justified as a one-paragraph note confirming Option C was selected. Not a blocker.
+  - The duplication of REQUIRED_FEATURE_COLUMNS in feature_artifacts.py (separate from BREMEN_V01_FEATURE_COLUMNS in preprocessing_bridge.py) is documented and intentional, but creates a maintenance risk if columns change. Section 5.5 acknowledges this with a docstring warning. Not a blocker.
+
+checks:
+  plan_exists: pass
+  follows_pr0057_reconciliation: pass
+  follows_implementation_report_workflow: pass
+  selects_option_c_explicitly: pass
+  does_not_select_option_a_b_d: pass
+  does_not_claim_scans_target_is_eosdx_v03: pass
+  defines_precomputed_feature_artifact_boundary: pass
+  keeps_runtime_model_only: pass
+  keeps_heavy_preprocessing_outside_runtime: pass
+  preserves_public_prediction_request_schema: pass
+  preserves_h5_path_uri_behavior: pass
+  preserves_h5_staging_behavior: pass
+  preserves_preprocessing_bridge_math: pass
+  preserves_inference_model_loading_ds_behavior: pass
+  defines_exact_15_feature_columns: pass
+  validates_missing_extra_non_numeric_nan_inf: pass
+  validates_unsafe_metadata_leakage: pass
+  avoids_real_feature_values_in_committed_examples: pass
+  no_xrd_preprocessing_eosdx_import_in_new_module: pass
+  no_dependency_changes: pass
+  no_upstream_vendoring: pass
+  no_gfrm_conversion_or_h5_parsing: pass
+  defines_docs_source_tests_implementation_files: pass
+  includes_investor_path_rationale: pass
+  hands_off_pr0059_for_api_wiring_or_smoke: pass
+  requires_implementation_report: pass
+  requires_precommit_review_gatekeeper: pass
+  includes_validation_plan: pass
+  includes_safety_validation: pass
+  rejects_demo_only_fork: pass
+  preserves_clinical_safety_boundaries: pass
+  no_public_api_schema_change: pass
+  no_feature_artifact_public_field: pass
+  no_h5_path_uri_change: pass
+  no_h5_staging_change: pass
+  no_preprocessing_bridge_math_change: pass
+  no_inference_math_change: pass
+  no_model_loading_change: pass
+  no_ds_report_semantics_change: pass
+  no_xrd_preprocessing_import_in_runtime: pass
+  no_pyfai_fabio_dependency: pass
+  no_gfrm_conversion_in_runtime: pass
+  no_converter_implementation: pass
+  no_matador: pass
+  no_fastapi: pass
+  no_runtime_training: pass
+  no_demo_only_fork: pass
+  no_real_artifacts_secrets_local_paths: pass
+  no_clinical_diagnosis_replacement_claims: pass
+  requires_implementation_report_for_coder: pass
+  requires_precommit_read_report_and_diff: pass
+  plan_review_boundary: pass
+  safety_boundaries: pass
+  dirty_tree: pass
+
+validation:
+  - command: git rev-parse --verify HEAD
+    exit_code: 0
+    output: a4018ea30daf302ed5e6b56b04671df1eee35401
+  - command: git branch --show-current
+    exit_code: 0
+    output: 0058-feature-artifact-ingestion-boundary
+  - command: git status --short
+    exit_code: 0
+    output: '?? .project-memory/pr/0058-feature-artifact-ingestion-boundary/'
+  - command: git diff --name-only
+    exit_code: 0
+    output: (empty — no modified tracked files)
+  - command: grep -c "BREMEN_V01_FEATURE_COLUMNS" src/bremen/api/preprocessing_bridge.py
+    exit_code: 0
+    output: '25'
+    detail: "Confirmed 15-column tuple defined in preprocessing_bridge.py"
+  - command: grep "feature_artifact\|FeatureArtifact" src/bremen/api/schemas.py
+    exit_code: 1
+    output: 0
+    detail: "Confirmed: no feature artifact references in public schema — public API unchanged"
+  - command: grep -r "xrd_preprocessing\|eosdx" src/bremen/ --include="*.py" | grep -vc "pipelines.py"
+    exit_code: 0
+    output: '0'
+    detail: "Confirmed: xrd_preprocessing/eosdx only imported in pipelines.py, not in runtime API modules"
+  - command: grep -c "feature_columns" src/bremen/api/inference_handler.py
+    exit_code: 0
+    output: '3'
+    detail: "Confirmed inference_handler validates feature_columns against model"
+
+commit_readiness:
+  branch_matches: true
+  working_tree_clean: true
+  plan_exists: true
+  option_c_selected: true
+  public_schema_unchanged_confirmed: true
+  no_xrd_preprocessing_import_in_runtime_confirmed: true
+  requires_implementation_report: true
+  only_plan_review_artifact_new: true
+  verification: "Branch is correct (0058-feature-artifact-ingestion-boundary). Working tree is clean. PLAN.md exists, explicitly selects Option C, does not change public API schema, does not claim /scans/target/ is eosdx-container v0.3, and does not import xrd_preprocessing/eosdx in the new module. Public API schema (schemas.py) contains no feature artifact references. Feature columns verified: BREMEN_V01_FEATURE_COLUMNS has exact 15 columns. All 37 hard rules checked — no blockers."

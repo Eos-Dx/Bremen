@@ -1,0 +1,83 @@
+review_type: precommit-review
+branch: 0048-http-explicit-ref-wiring
+verdict: pass
+head: "326cea7c679eea29f9daa70f5b3f6e2091d80e0f"
+status: "M src/bremen/api/app.py\n M src/bremen/api/inference_handler.py\n M tests/test_bremen_api_skeleton.py\n M tests/test_bremen_predictions.py"
+changed_files:
+  - "src/bremen/api/inference_handler.py"
+  - "src/bremen/api/app.py"
+  - "tests/test_bremen_api_skeleton.py"
+  - "tests/test_bremen_predictions.py"
+blockers: []
+warnings: []
+validation:
+  compileall: pass
+  inference_integration_tests: pass
+  prediction_tests: pass
+  api_skeleton_tests: pass
+  api_server_tests: pass
+  calibration_preprocessing_tests: pass
+  h5_layout_tests: pass
+  h5_preflight_tests: pass
+  logging_tests: pass
+  full_pytest: pass
+  fastapi_scan: pass
+  forbidden_path_scan: pass
+  artifact_scan_reviewed: pass
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  fastapi_deferred: true
+  no_fastapi_dependency_or_import: true
+  run_inference_accepts_refs: true
+  existing_callers_without_refs_preserved: true
+  refs_forwarded_to_preflight: true
+  refs_not_used_as_filesystem_paths: true
+  preflight_context_reaches_preprocessing: true
+  model_loading_unchanged: true
+  inference_math_unchanged: true
+  app_passes_refs_to_run_inference: true
+  h5_path_mode_preserved: true
+  h5_uri_staging_mode_preserved: true
+  completed_jobs_non_null_result: true
+  failed_jobs_safe_error: true
+  server_parity_confirmed: true
+  schema_compatibility_preserved: true
+  h5_path_explicit_refs_complete: true
+  h5_uri_explicit_refs_stage_then_run: true
+  generic_refs_safe_failure: true
+  missing_refs_safe_failure: true
+  no_auto_select_first_patient_or_sample: true
+  canonical_prediction_preserved: true
+  run_inference_without_refs_preserved: true
+  raw_patient_not_logged: true
+  raw_refs_not_logged: true
+  raw_features_not_logged: true
+  full_s3_uri_not_logged: true
+  no_clinical_claims: true
+  no_model_s3_preprocessing_math_changes: true
+  no_training_docker_infra_dependency_changes: true
+  tests_cover_ref_forwarding: true
+  tests_cover_context_to_preprocessing: true
+  tests_cover_h5_path_explicit_refs: true
+  tests_cover_h5_uri_explicit_refs: true
+  tests_cover_safe_ref_failures: true
+  tests_cover_canonical_preserved: true
+  tests_cover_no_log_leakage: true
+  real_h5_smoke_skipped_by_default: true
+  agent_debugging_rules_followed: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "src/bremen/api/inference_handler.py"
+    - "src/bremen/api/app.py"
+    - "tests/test_bremen_api_skeleton.py"
+    - "tests/test_bremen_predictions.py"
+    - ".project-memory/pr/0048-http-explicit-ref-wiring/reviews/precommit-review.yml"
+notes:
+  - "All 43 checks pass. 544 tests pass, 10 skipped."
+  - "Exactly 4 files changed: inference_handler.py (+23/-4 lines), app.py (+2 lines), test_bremen_api_skeleton.py (+8/-2 lines), test_bremen_predictions.py (+28/-7 lines). Minimal, targeted, correct."
+  - "Wire path confirmed: app.py:157-158 passes request.target_scan_ref and request.control_scan_ref to run_inference(). inference_handler.py:87-88 forwards to run_h5_preflight() with explicit params. PreflightResult.metadata already populated by PR0045. run_preprocessing_bridge() already reconstructs context from metadata (PR0047). Full pipeline works."
+  - "Safe logging: explicit_refs=true/false boolean in 3 log events (h5.received, preflight.start, preflight.completed). No raw ref values, no patient identifiers, no S3 URIs."
+  - "Backward compat: run_inference() default None params preserve all existing callers. test_bremen_api_skeleton.py and test_bremen_predictions.py updated to accept new signature. API skeleton tests: 43 passed. All prediction tests pass."
+  - "No FastAPI/uvicorn/starlette found anywhere. No forbidden files changed. No artifacts committed. Agent debugging rules followed (no tail/head on pytest output)."

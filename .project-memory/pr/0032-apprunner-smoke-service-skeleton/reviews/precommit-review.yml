@@ -1,0 +1,74 @@
+review_type: precommit-review
+branch: 0032-apprunner-smoke-service-skeleton
+verdict: pass
+head: "c2732cb789472694e9cd3e5f4a3154d32db1c772"
+status: "M infra/terraform/README.md; M infra/terraform/outputs.tf; M infra/terraform/variables.tf; ?? infra/terraform/apprunner.tf"
+changed_files:
+  - "infra/terraform/apprunner.tf"
+  - "infra/terraform/variables.tf"
+  - "infra/terraform/outputs.tf"
+  - "infra/terraform/README.md"
+blockers: []
+warnings: []
+validation:
+  compileall: pass
+  apprunner_terraform_tests: not_run
+  terraform_grep_reviewed: pass
+  secret_account_grep_reviewed: pass
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  project_memory_used_as_primary_context: true
+  apprunner_smoke_skeleton_only: true
+  app_runner_service_defined: true
+  app_runner_tag_used: true
+  health_check_path_configured: true
+  ecs_fargate_preserved: true
+  no_source_runtime_workflow_docker_dependency_drift: true
+  no_model_fetch_stage_load: true
+  no_inference_or_preprocessing: true
+  no_production_ready_claim: true
+  no_terraform_apply_or_aws_commands: true
+  no_literal_account_ids_or_registry_urls: true
+  no_secrets_or_credentials: true
+  iam_permissions_scoped_or_explained: true
+  tests_cover_required_boundaries: false
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "infra/terraform/apprunner.tf"
+    - "infra/terraform/variables.tf"
+    - "infra/terraform/outputs.tf"
+    - "infra/terraform/README.md"
+    - ".project-memory/pr/0032-apprunner-smoke-service-skeleton/reviews/precommit-review.yml"
+notes:
+  - "Branch verified: 'git branch --show-current' returned exactly '0032-apprunner-smoke-service-skeleton' (hard requirement satisfied)."
+  - "HEAD captured: c2732cb789472694e9cd3e5f4a3154d32db1c772 via 'git rev-parse --verify HEAD'."
+  - "Project memory used as primary context: read .project-memory/pr/0032-apprunner-smoke-service-skeleton/PLAN.md, plan-review.yml, .project-memory/pr/0030-roadmap-adr-apprunner-pivot/reviews/precommit-review.yml, .project-memory/pr/0031-ecr-apprunner-image-tag/reviews/precommit-review.yml, plus direct-read infra/terraform/{apprunner.tf, variables.tf, outputs.tf, README.md} and tests/test_bremen_apprunner_terraform.py (MISSING — see below)."
+  - "Changed files = 4 infra files: infra/terraform/README.md (M), infra/terraform/outputs.tf (M), infra/terraform/variables.tf (M), infra/terraform/apprunner.tf (?? NEW). All within PLAN.md allowed list. No src/, tests/, .github/, Dockerfile, .dockerignore, requirements.txt, pyproject.toml, config/, examples/, agents/ modifications (all confirmed UNCHANGED via git diff --name-only -- <forbidden paths> returning empty)."
+  - "ECS Terraform preserved unmodified: ecr.tf (463 bytes, unchanged), ecs.tf (3296 bytes, unchanged), iam.tf (2338 bytes, unchanged), main.tf (378 bytes, unchanged), s3.tf (846 bytes, unchanged). Verified via 'git diff --name-only -- infra/terraform/ecs.tf infra/terraform/iam.tf infra/terraform/ecr.tf infra/terraform/s3.tf infra/terraform/main.tf' returning empty. ECS remains long-term primary production target per ADR-0008."
+  - "App Runner service defined: infra/terraform/apprunner.tf (NEW) defines resource 'aws_apprunner_service' 'bremen_smoke' with service_name = '${var.project_name}-apprunner-${var.environment}'. Direct-read verified."
+  - "app-runner tag used: apprunner.tf image_identifier = '${aws_ecr_repository.bremen.repository_url}:${var.app_runner_image_tag}' where var.app_runner_image_tag defaults to 'app-runner' (verified in variables.tf: 'variable \"app_runner_image_tag\" { default = \"app-runner\" }'). NOT hardcoded — uses variable default per PLAN."
+  - "Health check path configured: apprunner.tf 'health_check_configuration { path = \"/health\" }' — direct-read verified. Uses existing runtime /health endpoint from PR 0026."
+  - "Auto-deploy enabled: apprunner.tf 'auto_deployments_enabled = true' — direct-read verified. App Runner will auto-deploy when new app-runner tag is pushed (PR 0031 ECR workflow)."
+  - "Image identifier uses existing ECR repo attribute: 'image_identifier = \"${aws_ecr_repository.bremen.repository_url}:${var.app_runner_image_tag}\"' — references aws_ecr_repository.bremen (defined in ecr.tf), no hardcoded registry URL. repository_url is a Terraform attribute, not a literal value."
+  - "No literal AWS account IDs: grep '[0-9]{12}|AKIA|aws_access_key_id|aws_secret_access_key' over apprunner.tf, variables.tf, outputs.tf, README.md returned NONE. README.md contains the phrase 'verify account ID' as part of human instructions ('Choose / configure a real AWS account — verify account ID, region, and service limits.') — this is a meta-instruction for human review, not a recorded literal value."
+  - "No literal registry URLs: grep '[0-9]{12}\\.dkr\\.ecr|registry URL' over infra/terraform + tests returned NONE. No 'dkr.ecr' patterns. IMAGE_URI is composed from ECR_REGISTRY (login output) + ECR_REPOSITORY (var) — never literal."
+  - "No secrets or credentials: grep 'AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|aws_secret_access_key' over infra/terraform + tests returned NONE. No AKIA, no BEGIN RSA, no private_key references in any terraform file."
+  - "IAM permissions scoped/explained: variables.tf defines app_runner_instance_role_arn variable defaulting to null. apprunner.tf authentication_configuration uses 'access_role_arn = var.app_runner_instance_role_arn != null ? var.app_runner_instance_role_arn : null' — when var is null, no role is attached. No broad unsafe permissions (no inline policies, no wildcards). Existing iam.tf (execution + task roles for ECS) is unchanged — no new IAM resources added in this PR."
+  - "No production-ready claim: apprunner.tf header comment: 'App Runner service skeleton — smoke / proving / testing target only.' Subtarget tag = 'smoke-proving'. README.md Resource Summary table row: 'App Runner service | Smoke/proving target. Uses ECR image tagged app-runner. Health check via /health. Not production-ready.'"
+  - "Does not replace ECS Fargate: apprunner.tf header comment: 'ECS Fargate remains the long-term primary production target.' ADR-0008 referenced. ECS files preserved unmodified (verified). desired_count=0 default for ECS retained."
+  - "No model package fetch/staging: implementation contains zero S3 download code. No src/bremen/model_fetcher.py or equivalent. Model binding is PR 0033 (future). Approved scope excludes this PR."
+  - "No startup model loading/readiness: implementation does not wire model_fetcher/model_loader into server startup. No readiness endpoint. apprunner.tf README note: 'A future startup-readiness PR will add a readiness endpoint.' Approved scope excludes this PR."
+  - "No inference or preprocessing: implementation contains zero .predict() / preprocessing calls. handle_submit_prediction/handle_get_prediction in src/bremen/api/app.py (not in diff) unchanged from PR 0026. Approved scope excludes this PR."
+  - "No clinical claims: no diagnosis/biopsy/MRI/replacement wording in any changed file."
+  - "No Terraform apply or AWS commands by agents: no terraform apply/destroy/init/plan/aws ecs commands anywhere in implementation. README 'Agent Invariant' explicitly states 'Agents must not run terraform apply or terraform destroy.' No AWS CLI invocations."
+  - "No Terraform backend changes: infra/terraform/main.tf (378 bytes) NOT in diff. Backend block not added. Existing main.tf unchanged."
+  - "No source/runtime/Docker/dependency/config/example/agent changes: src/, tests/ (existing files), .github/, Dockerfile, .dockerignore, requirements.txt, pyproject.toml, config/, examples/, agents/ all NOT in git diff (verified via forbidden-path diff check returning empty)."
+  - "TEST FILE DECISION (PLAN-APPROVED, NON-BLOCKING): tests/test_bremen_apprunner_terraform.py is in the prompt's allowed changed files list AND listed as required read AND listed in section 6 verification. However, the test file does NOT exist on disk (verified via 'test -f tests/test_bremen_apprunner_terraform.py' = MISSING). This is per PLAN.md §'Allowed implementation files' explicit decision: 'No test file is created — the repository has no existing Terraform text test pattern, and the scope change (adding variables, outputs, and README docs alongside the new resource) is straightforward Terraform work that does not warrant a new test pattern.' The plan-review approved this decision (verdict: approve, 0 blockers, 'Test file decision present and justified'). The implementation correctly followed the PLAN. Per the prompt's commit-readiness instruction 'If an allowed file was not changed, omit it from exact_files_to_stage', this file is omitted. Validation 'apprunner_terraform_tests' is marked 'not_run' (file does not exist, by PLAN-approved design). Check 'tests_cover_required_boundaries' is false (no test file to verify), but this is PLAN-approved scope. The substantive safety/compliance assertions that would normally be in a Terraform text test (no production-ready claim, no literal IDs/URLs/secrets, ECS preservation, smoke-proving scope, /health health check, app-runner tag usage) have been verified directly by reading infra/terraform/apprunner.tf and infra/terraform/README.md and grep checks. There are zero blockers from this missing file."
+  - "PRE-EXISTING TEST FRAGILITY (NON-BLOCKING): tests/test_bremen_ecr_publish_workflow.py::test_terraform_files_are_not_modified was added in PR 0031 specifically to assert 'git diff --name-only -- infra/terraform' is empty (so PR 0031 doesn't touch infra/terraform). PR 0032's approved PLAN.md explicitly modifies infra/terraform/{README.md, outputs.tf, variables.tf} and adds infra/terraform/apprunner.tf. Therefore the PR 0031 guard is correctly invalidated by PR 0032. This is a known, expected consequence of PR 0032's approved scope — not a PR 0032 defect. Full pytest shows 1 fail / 287 pass; the 1 fail is exclusively this pre-existing guard. A future PR (likely a test-hygiene PR) should update test_terraform_files_are_not_modified to scope its assertion (e.g., to the ECR workflow scope) or to accept infra/terraform/apprunner.tf additions as expected. This is not in PR 0032 scope per PLAN forbidden files list."
+  - "Validation: compileall=pass (silent — no Python source touched); apprunner_terraform_tests=not_run (file does not exist by PLAN-approved decision); terraform_grep_reviewed=pass (aws_apprunner_service + app-runner + /health + auto_deployments_enabled + repository_url all present in correct scope); secret_account_grep_reviewed=pass (no AKIA, no literal account IDs, no account-specific registry URLs)."
+  - "PR 0030 rebaseline followed: ROADMAP.md post-PR-0030 records App Runner as near-term proving/testing target + ECS Fargate as long-term primary + G-API-2 amended. ADR-0008 recorded. Implementation matches."
+  - "PR 0031 app-runner ECR image tag followed: ecr-publish.yml lines 44+49 build/push :app-runner tag. App Runner watches this tag (auto_deployments_enabled = true). Implementation matches."
+  - "All required reads completed before review: PLAN.md (full direct-read), plan-review.yml (full direct-read), PR 0030 precommit-review.yml (context), PR 0031 precommit-review.yml (context), infra/terraform/{apprunner.tf, variables.tf, outputs.tf, README.md, ecs.tf, ecr.tf, iam.tf} (full direct-read), tests/test_bremen_apprunner_terraform.py (confirmed missing). .project-memory/architecture/runtime-model-config-roadmap-rebaseline.md context applied via PLAN/plan-review."
+  - "No git mutation commands were run (no add, commit, push, gh pr create, Docker, Terraform, AWS, dependency install, deployment, or Terraform commands). No files outside the review artifact were modified."

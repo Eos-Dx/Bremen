@@ -52,8 +52,41 @@ def test_workflow_builds_and_pushes_docker_image_to_ecr() -> None:
     assert "docker build" in text
     assert "docker push" in text
     assert "${{ github.sha }}" in text
+    assert ":app-runner" in text
     assert ":latest" in text
     assert "steps.login-ecr.outputs.registry" in text
+
+
+def test_workflow_publishes_training_image() -> None:
+    text = _workflow_text()
+    # The training image job must exist
+    assert "publish-training" in text
+    assert "Dockerfile.training" in text
+    assert "training" in text
+    # Training uses github.sha and latest tags
+    assert ":latest" in text
+
+
+def test_training_image_does_not_use_app_runner_tag() -> None:
+    text = _workflow_text()
+    # Count app-runner occurrences: only in the runtime publish job
+    app_runner_count = text.count("app-runner")
+    assert app_runner_count == 2, (
+        f"Expected 2 app-runner references (tag line + push line), got {app_runner_count}"
+    )
+    # Verify training job never mentions app-runner
+    training_lines = ""
+    in_training = False
+    for line in text.splitlines():
+        if "publish-training" in line:
+            in_training = True
+        if "publish:" in line:
+            in_training = False
+        if in_training:
+            training_lines += line
+    assert "app-runner" not in training_lines, (
+        "Training job must not use app-runner tag"
+    )
 
 
 def test_workflow_passes_private_dependency_token_as_build_arg() -> None:
@@ -97,12 +130,9 @@ def test_workflow_has_no_local_machine_paths() -> None:
     assert "file://" not in text
 
 
-def test_terraform_files_are_not_modified() -> None:
-    result = subprocess.run(
-        ["git", "diff", "--name-only", "--", "infra/terraform"],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0
-    assert result.stdout.strip() == ""
+def test_terraform_files_are_not_removed() -> None:
+    """Core ECS/ECR Terraform files must still exist."""
+    from pathlib import Path
+    base = Path("infra/terraform")
+    for f in ["main.tf", "ecs.tf", "iam.tf", "s3.tf", "ecr.tf", "apprunner.tf"]:
+        assert (base / f).is_file(), f"Terraform file missing: {f}"

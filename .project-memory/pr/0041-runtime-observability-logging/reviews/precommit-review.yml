@@ -1,0 +1,73 @@
+review_type: precommit-review
+branch: 0041-runtime-observability-logging
+verdict: pass
+head: "f143c2c232104bb0ca3f43aa70d9f699b69e25d7"
+status: " M src/bremen/api/inference_handler.py\n M src/bremen/api/jobs.py\n M src/bremen/api/server.py\n M tests/test_bremen_logging.py"
+changed_files:
+  - src/bremen/api/server.py
+  - src/bremen/api/jobs.py
+  - src/bremen/api/inference_handler.py
+  - tests/test_bremen_logging.py
+blockers: []
+warnings: []
+validation:
+  compileall: pass
+  logging_tests: pass
+  api_server_tests: pass
+  model_startup_staging_tests: pass
+  inference_integration_tests: pass
+  h5_preflight_tests: pass
+  preprocessing_bridge_tests: pass
+  full_pytest: pass
+  artifact_scan_reviewed: pass
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  startup_visibility_complete: true
+  runtime_config_summary_logged: true
+  model_config_read_logged_at_startup: true
+  model_ready_or_not_ready_logged_at_startup: true
+  configured_model_load_stage_visible: true
+  s3_checksum_joblib_validation_visible: true
+  prediction_request_received_logged: true
+  prediction_rejected_exactly_once: true
+  h5_input_marker_logged_safely: true
+  preflight_stage_visible: true
+  preprocessing_stage_visible: true
+  inference_stage_visible: true
+  job_outcome_visible: true
+  health_version_log_spam_avoided: true
+  no_broad_function_entry_exit_logging: true
+  no_patient_data_logging: true
+  no_secret_logging: true
+  no_raw_paths_or_request_bodies: true
+  no_feature_values_logged: true
+  server_starts_when_model_load_fails: true
+  model_not_loaded_per_request: true
+  api_schema_preserved: true
+  checksum_before_joblib_preserved: true
+  no_inference_or_schema_drift: true
+  no_training_or_clinical_scope: true
+  no_real_artifacts_committed: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - src/bremen/api/server.py
+    - src/bremen/api/jobs.py
+    - src/bremen/api/inference_handler.py
+    - tests/test_bremen_logging.py
+    - .project-memory/pr/0041-runtime-observability-logging/reviews/precommit-review.yml
+notes:
+  - "Runtime visibility is now complete end-to-end: startup (9 events), prediction request (received+accepted/rejected), H5 stage, preflight, preprocessing, inference, job lifecycle (created/completed/failed)."
+  - "bremen.runtime.config.summary added to server startup: model_env_present, model_ready, log_level, server_host, server_port — all safe booleans/strings."
+  - "bremen.prediction.request.received added: route, method, content_length (HTTP header number only, not body), model_ready — all safe."
+  - "bremen.prediction.h5.received added: h5_input_present, h5_basename (basename only, not full path) — safe, confirms H5 was received."
+  - "bremen.job.created/completed/failed added to InMemoryJobStore: job_id (UUID), safe_reason (truncated to 200 chars) — safe."
+  - "bremen.api.routes.ready added to server startup: confirms which routes are registered — safe booleans."
+  - "bremen.prediction.request.rejected logged exactly once per not-ready request (runtime proven: count=1)."
+  - "19/19 logging tests pass. 462/462 total tests pass."
+  - "No health/version route logging — no App Runner log spam."
+  - "No patient_id, no AWS credentials, no raw feature values, no model coefficients, no request bodies in any logs."
+  - "bremen.model.ready/not_ready logged at startup end — visible in both configured and unconfigured paths."
+  - "checksum_present as boolean, uri_scheme only, model_file as basename only."
+  - "Exception messages truncated to 200 chars."

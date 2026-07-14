@@ -123,3 +123,24 @@ The async job creation is a consequence of the closed G-API-1 decision (async su
 - Feature schema must match model expectations.
 - Prediction result must include required model/version/checksum/QC fields.
 - Platform API must not depend on local machine paths.
+
+## Training Pipeline Architecture
+
+- **Offline only**; never part of runtime service.
+- **Input**: approved training data + training config YAML.
+- **Pipeline**: preprocessing → feature extraction for 7 Bremen feature families → LR1 → M0/M1/M2 training → threshold calibration → artifact assembly.
+- **Output**: joblib dict training artifact, QC summary YAML, metrics JSON.
+- **Artifact publication**: S3 model store, manifest, checksum.
+- **Trigger**: Kubernetes Job. Lambda container image may be supported later for simple cases.
+- Runtime (`src/bremen/api/`) never imports from training (`src/bremen/training/`).
+
+## Bremen Feature Computation Confirmation
+
+- Mahalanobis and Wasserstein features are **per-patient symmetry measures**: target breast vs contralateral breast of the same patient.
+- They are NOT population-fitted reference statistics.
+- `_mahalanobis_difference` computes target-vs-contralateral profile difference normalized by per-patient target/contralateral measurement variance.
+- `_profile_wasserstein` computes a distance between normalized target and contralateral profile distributions for the same patient.
+- No separate fitted feature-extractor artifact is needed for these features.
+- A single joblib training artifact is sufficient for this design.
+- ADR-0007 runtime model package manifest remains the checksum and runtime trust boundary.
+- A composite artifact may be needed only if future feature computation adds fitted reference statistics.

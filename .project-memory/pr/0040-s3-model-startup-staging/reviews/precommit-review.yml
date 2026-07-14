@@ -1,0 +1,41 @@
+review_type: precommit-review
+branch: 0040-s3-model-startup-staging
+verdict: pass
+head: "5cff4012a39a51125027e13f54c6a8683346c893"
+status: " M src/bremen/__main__.py"
+changed_files:
+  - src/bremen/__main__.py
+blockers: []
+warnings: []
+validation:
+  compileall: pass
+  cli_top_level_help: pass
+  cli_serve_help: pass
+  cli_preprocess_help: pass
+  cli_serve_starts_server: pass
+  health_responds: pass
+  import_identity_tests: pass
+  full_pytest: pass
+checks:
+  branch_confirmed: true
+  only_allowed_fix_file_changed: true
+  serve_dispatches_to_handler: true
+  top_level_help_not_printed_for_serve: true
+  help_commands_preserved: true
+  no_api_route_change: true
+  no_model_loading_or_s3_staging_change: true
+  no_feature_schema_or_inference_change: true
+  no_training_or_dependency_change: true
+  no_real_artifacts_committed: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - src/bremen/__main__.py
+    - .project-memory/pr/0040-s3-model-startup-staging/reviews/precommit-review.yml
+notes:
+  - Root cause: missing `if handler == "serve"` dispatch case in main()
+  - Fix: add `if handler == "serve": return _handle_serve(args)` (2 lines)
+  - `python -m bremen serve --host 127.0.0.1 --port 8080` starts server and /health returns 200
+  - All 443 tests pass, no other files changed
+  - No API routes, model loading, S3 staging, inference, or dependency changes
+  - No artifacts committed

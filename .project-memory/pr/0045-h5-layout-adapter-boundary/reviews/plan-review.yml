@@ -1,0 +1,58 @@
+review_type: plan-review
+branch: 0045-h5-layout-adapter-boundary
+verdict: approve
+head: "af447e65592d32946ce6d7672d7f9f79cd0e513f"
+status: "?? .project-memory/pr/0045-h5-layout-adapter-boundary/"
+plan_path: ".project-memory/pr/0045-h5-layout-adapter-boundary/PLAN.md"
+blockers: []
+warnings: []
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  real_h5_layout_evidence_recorded: true
+  adapter_boundary_defined: true
+  canonical_layout_preserved: true
+  calibration_sample_adapter_defined: true
+  explicit_target_control_refs_required: true
+  refs_validated_as_h5_group_paths: true
+  patient_name_match_required: true
+  opposite_sides_required: true
+  same_side_rejected: true
+  missing_metadata_rejected: true
+  no_auto_select_first_patient_or_sample: true
+  ambiguity_handled_safely: true
+  raw_patient_name_not_logged: true
+  raw_patient_name_not_in_errors: true
+  no_s3_uri_or_request_body_logged: true
+  no_inference_or_preprocessing_math_changes: true
+  no_s3_staging_changes: true
+  no_model_training_docker_terraform_dependency_changes: true
+  pr0046_boundary_clear: true
+  tests_cover_canonical_detection: true
+  tests_cover_calibration_detection: true
+  tests_cover_explicit_context_resolution: true
+  tests_cover_missing_refs_and_metadata: true
+  tests_cover_mismatched_patient_names: true
+  tests_cover_same_side_rejection: true
+  tests_cover_no_auto_selection: true
+  tests_cover_no_raw_patient_name_logging: true
+  real_h5_smoke_skipped_by_default: true
+  validation_commands_present: true
+  implementation_agent_coder: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0045-h5-layout-adapter-boundary/PLAN.md"
+    - ".project-memory/pr/0045-h5-layout-adapter-boundary/reviews/plan-review.yml"
+notes:
+  - "All 34 checks pass. No blockers."
+  - "Real H5 layout: Section 3 documents /calib_20260128_132622 top-level with sample groups (sample/name, sample/patient_name=Nova_376, sample/sample_type=RIGHT BREAST), sets/set_001_sample_main/integration/i and /q, measurements/det_1_ash512x768/data, raw/data, multiple set_00*_sample_main groups. Production evidence: Ambiguous sample patient_name metadata error from 5-patient smoke H5. PR0043 confirmed merged."
+  - "Adapter boundary: H5LayoutAdapter ABC (detect() + resolve_prediction_context()), H5PredictionContext dataclass (layout_name, target_group_path, control_group_path, target_side, control_side, patient_identifier, patient_identifier_source, metadata_fallback_used, measurement counts, adapter_metadata), CanonicalH5LayoutAdapter + CalibrationSampleH5LayoutAdapter, detect_layout() registry. Clean plugin architecture — NOT ad hoc layout code in preflight."
+  - "Canonical preserved: Option A — when target_scan_ref is None, preflight uses legacy canonical path unchanged. Existing _create_synthetic_h5 uses canonical layout. All existing tests pass without modification. Canonical adapter validate() returns True only if /scans/target/measurements exists."
+  - "Calibration adapter: explicit refs required as relative group paths, validated (no .., no leading /, must exist), sample/patient_name read and validated, sample/sample_type read and validated, patient_name match enforced (H5PatientMismatchError, no raw values in message), opposite breast types enforced via _breast_type_to_side (defensive variants), same-side rejected (H5SideMismatchError), missing metadata rejected (H5MetadataError)."
+  - "Ambiguity: multi-patient H5 without explicit refs → H5ContainerError('Target scan group not found'). No auto-selection ever. PR0044 ambiguity safety preserved. Calibration detect() returns False when /scans/target/measurements exists (mutual exclusivity prevents false detection)."
+  - "Safety: forbidden changes 15-16 ban raw patient_name logging and raw patient_name in exception messages. Test L: caplog + exception message assertions for no raw patient_name in logs or errors. Test E: H5PatientMismatchError asserts no raw patient names in message."
+  - "Scope: only h5_layouts.py (new), preflight.py (modified), tests. Forbidden: preprocessing_bridge.py (not changed per Section 12 + Forbidden #1), inference_handler.py, app.py, schemas.py, h5_inputs.py, model_artifacts.py, training, Docker/Terraform, docs."
+  - "PR0046 boundary: Section 12 explicitly states PR0045 does NOT change preprocessing_bridge.py. Calibration adapter detect() mutual exclusivity with canonical. Real H5 smoke test documents that preflight may pass but preprocessing will fail — expected, deferred to PR0046. Calibration layout measurement extraction (integration/i+q from sets/set_*) is explicitly PR0046."
+  - "Tests: 13 tests (A-M) in new tests/test_bremen_h5_layouts.py: canonical detection, calibration detection, explicit context resolution, missing refs, mismatched patient names (safe error), same-side rejection, missing sample_type, missing patient_name, no auto-select, preflight with refs, canonical without refs preserved, no raw patient_name in logs/errors, opt-in real H5 smoke."
+  - "Implementation agent: coder (correctly assigned)."

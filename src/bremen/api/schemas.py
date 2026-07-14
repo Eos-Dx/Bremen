@@ -31,12 +31,16 @@ ALL_STATUSES = frozenset({
 
 MODEL_STATUS_NOT_CONFIGURED = "not_configured"
 MODEL_STATUS_CONFIGURED = "configured"
-MODEL_STATUS_INVALID = "invalid"
-MODEL_STATUS_UNAVAILABLE = "unavailable"
+MODEL_STATUS_READY = "ready"
+MODEL_STATUS_ERROR = "error"
+MODEL_STATUS_INVALID = "invalid"  # kept for backward compatibility
+MODEL_STATUS_UNAVAILABLE = "unavailable"  # kept for backward compatibility
 
 ALL_MODEL_STATUSES = frozenset({
     MODEL_STATUS_NOT_CONFIGURED,
     MODEL_STATUS_CONFIGURED,
+    MODEL_STATUS_READY,
+    MODEL_STATUS_ERROR,
     MODEL_STATUS_INVALID,
     MODEL_STATUS_UNAVAILABLE,
 })
@@ -69,6 +73,7 @@ class HealthResponse:
     service: str
     version: str | None
     timestamp: str
+    model_ready: bool = False
 
 
 @dataclass
@@ -82,15 +87,26 @@ class ModelVersionResponse:
     threshold_version: str | None
     threshold_value: float | None
     qc_criteria_version: str | None
-    model_status: str  # "not_configured" | "configured" | "invalid" | "unavailable"
+    model_status: str  # "not_configured" | "configured" | "ready" | "error"
+    model_uri_configured: bool = False
+    checksum_configured: bool = False
+    error_category: str | None = None
 
 
 @dataclass
 class PredictionRequest:
-    """Request body for ``POST /predictions``."""
+    """Request body for ``POST /predictions``.
+
+    Exactly one of ``h5_path`` or ``h5_uri`` must be provided.
+    ``h5_checksum`` is optional and must match ``sha256:<64hex>``
+    if provided.
+    """
 
     target_scan_ref: str
     control_scan_ref: str
+    h5_path: str | None = None
+    h5_uri: str | None = None
+    h5_checksum: str | None = None
     request_id: str | None = None
 
 
@@ -128,6 +144,7 @@ class CompletedResult:
     threshold_value: float
     qc_status: str
     qc_flags: list[str] | dict[str, Any]
+    decision_support_report: dict[str, Any] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +168,13 @@ def validate_prediction_request(data: dict[str, Any]) -> PredictionRequest:
     ValueError
         If ``target_scan_ref`` or ``control_scan_ref`` is missing, empty,
         or not a string.
+        If both ``h5_path`` and ``h5_uri`` are provided (mutual exclusivity).
+        If neither ``h5_path`` nor ``h5_uri`` is provided.
+        If ``h5_uri`` is present but does not start with ``s3://``.
+        If ``h5_checksum`` is present but does not match ``sha256:<64hex>``.
     """
+    import re
+
     target = data.get("target_scan_ref")
     if not target or not isinstance(target, str):
         raise ValueError(
@@ -168,9 +191,49 @@ def validate_prediction_request(data: dict[str, Any]) -> PredictionRequest:
     if request_id is not None and not isinstance(request_id, str):
         raise ValueError("request_id must be a string if provided")
 
+    h5_path = data.get("h5_path")
+    h5_uri = data.get("h5_uri")
+    h5_checksum = data.get("h5_checksum")
+
+    # Validate h5_path / h5_uri mutual exclusivity
+    if h5_path is not None and h5_uri is not None:
+        raise ValueError(
+            "Exactly one of h5_path or h5_uri must be provided, not both"
+        )
+
+    if h5_path is None and h5_uri is None:
+        raise ValueError(
+            "Either h5_path or h5_uri must be provided"
+        )
+
+    # Validate h5_uri format if present
+    if h5_uri is not None:
+        if not isinstance(h5_uri, str) or not h5_uri.startswith("s3://"):
+            raise ValueError(
+                "h5_uri must start with 's3://'"
+            )
+
+    # Validate h5_checksum format if present
+    if h5_checksum is not None:
+        if not isinstance(h5_checksum, str):
+            raise ValueError("h5_checksum must be a string if provided")
+        # Accept sha256:<64 hex chars> (case-insensitive hex)
+        if not re.match(r"^sha256:[0-9a-fA-F]{64}$", h5_checksum):
+            raise ValueError(
+                "h5_checksum must match 'sha256:<64 hex chars>' pattern"
+            )
+
+    # Normalize h5_path: ensure it's a non-empty string if provided
+    if h5_path is not None:
+        if not isinstance(h5_path, str) or not h5_path:
+            raise ValueError("h5_path must be a non-empty string if provided")
+
     return PredictionRequest(
         target_scan_ref=target,
         control_scan_ref=control,
+        h5_path=h5_path,
+        h5_uri=h5_uri,
+        h5_checksum=h5_checksum,
         request_id=request_id,
     )
 
@@ -223,6 +286,9 @@ def build_not_configured_model_response() -> ModelVersionResponse:
         threshold_value=None,
         qc_criteria_version=None,
         model_status=MODEL_STATUS_NOT_CONFIGURED,
+        model_uri_configured=False,
+        checksum_configured=False,
+        error_category=None,
     )
 
 

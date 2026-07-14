@@ -1,0 +1,245 @@
+review_type: plan-review
+branch: 0033-adr-training-pipeline-separation
+verdict: approve
+head: "23236bfcd58d55f98078d88418cb56589dbcf647"
+status: "untracked: .project-memory/pr/0033-adr-training-pipeline-separation/ (PLAN.md present, no review file yet); no tracked modifications"
+plan_path: ".project-memory/pr/0033-adr-training-pipeline-separation/PLAN.md"
+blockers: []
+warnings: []
+plan_scope_check:
+  scope: "pass — PLAN.md lines 7-9: 'Create ADR-0008 recording the human-decided architecture for separating Bremen's offline training pipeline from the runtime service, and append training-pipeline sections to ROADMAP.md and docs/architecture.md. This is architect-only docs work — no source code, Dockerfiles, CI, Terraform, configs, model artifacts, or training runs.'"
+precondition_check:
+  adr_0007_exists: "pass — test -f docs/adr/0007-model-artifact-lifecycle.md returned exit 0"
+  adr_0007_runtime_must_not_train: "pass — line 10: 'Runtime service must not train models.'"
+  roadmap_platform_readiness_track: "pass — lines 3, 45, 129, 131"
+  model_package_py_exists: "pass"
+  expected_artifact_type_constant: "pass — line 34: EXPECTED_ARTIFACT_TYPE = 'bremen.joblib.model_package'; validated at lines 224, 227"
+  manifest_field_names_present: "pass — model_version line 38, model_checksum line 39, feature_schema_version line 41"
+consistency_with_adr_0007_check:
+  training_artifact_separate_from_runtime_manifest: "pass — line 109: 'The training joblib artifact is a Python dict and is the offline training audit payload.' line 139: 'This artifact dict is separate from the ADR-0007 runtime model package manifest.'"
+  artifact_type_preserved: "pass — line 141: '`artifact_type` (must remain `\"bremen.joblib.model_package\"`)'"
+  manifest_field_names_preserved: "pass — lines 141-148 preserve artifact_type, model_version, model_checksum, model_filename, feature_schema_version, threshold_version, threshold_value, qc_criteria_version"
+  no_field_renames: "pass — line 150: 'must not rename or conflict with ADR-0007 concepts: `model_version`, `model_checksum`, `feature_schema_version`.'"
+bremen_training_implementation_notes_check:
+  PatientModelInputBuilder: "present — line 215 (bullet list), line 269 (table)"
+  BremenPatientTrainingPipeline: "present — line 216, line 270"
+  PatientModelSetTrainer: "present — line 217, line 271"
+  PatientModelSetEvaluator: "present — line 218, line 272"
+  build_patient_training_pipeline: "present — line 219, line 273"
+  run_training_from_config: "present — line 220, line 274"
+  train_patient_m0_m1_m2_model_artifact: "present — line 221, line 275"
+  _patient_training_artifact: "present — line 222, line 276"
+  _sk_target_contralateral_symmetry_features: "present — line 223, line 277"
+  _sk_side_mean_metrics: "present — line 224, line 278"
+  _mahalanobis_difference: "present — line 225, line 279"
+  _profile_wasserstein: "present — line 226, line 280"
+  _rms_difference_or_weighted_rms_difference_or_sigma_rms: "present — lines 227, 281-283"
+  _file_sha256: "present — line 228, line 284"
+  _config_path_or_optional_config_path: "present — line 229, lines 285-286"
+  training_config_yaml_structure: "present — line 230 ('training config YAML under `config/training/`'), full YAML spec lines 156-192"
+  cli_entrypoint: "present — line 231: '`python -m bremen.training.train_classifier --config <training.yaml>`'; also line 97"
+feature_family_check:
+  sigma_l1: "present — line 197 (and lines 227, 237, 312, 324, 453)"
+  sigma_l2: "present — line 197 (and lines 227, 237, 312, 324, 453)"
+  Mahalanobis1: "present — line 197 (and lines 225, 237, 312, 324, 454)"
+  Mahalanobis2: "present — line 197 (and lines 225, 237, 312, 324, 454)"
+  wasserstein_distance_full_q2: "present — line 197 (and lines 226, 237, 280, 312, 324, 455)"
+  meanrms2: "present — line 197 (and lines 227, 237, 281, 312, 324, 456)"
+  weightedrms1: "present — line 197 (and lines 227, 237, 282, 312, 324, 457)"
+feature_computation_confirmation_check:
+  per_patient_symmetry_defined: "pass — line 342: 'Mahalanobis and Wasserstein features are **per-patient symmetry measures**: target breast vs contralateral breast of the same patient.'"
+  not_population_fitted: "pass — line 343: 'They are NOT population-fitted reference statistics.'"
+  no_separate_feature_extractor_artifact_needed: "pass — line 346: 'No separate fitted feature-extractor artifact is needed for these features.'"
+  single_joblib_training_artifact_sufficient: "pass — line 347: 'Single joblib training artifact is sufficient for this design.'"
+  composite_only_if_future_fitted_statistics: "implied by lines 342-348; composite artifact is implicitly future-only (ADR-0007 manifest remains checksum/trust boundary at line 348)"
+  adr_0007_trust_boundary_preserved: "pass — line 348: 'ADR-0007 runtime model package manifest remains the checksum and runtime trust boundary.'"
+artifact_dict_structure_check:
+  kind: "present — line 114: 'kind: \"bremen_training_artifact\"'"
+  version: "present — line 115"
+  created_at: "present — line 116"
+  model_type: "present — line 117"
+  models: "present — line 118"
+  thresholds: "present — line 119"
+  model_descriptions: "present — line 120"
+  feature_schema: "present — line 121"
+  warnings: "present — line 122"
+  training_config: "present — line 123"
+  training_config_yaml: "present — line 124"
+  training_config_text: "present — line 125"
+  training_config_sha256: "present — line 126"
+  input_dataframe_joblib_sha256: "present — line 127"
+  dataset_summary: "present — line 128"
+  feature_table: "present — line 129"
+  metric_summary: "present — line 130"
+  split_metrics: "present — line 132"
+  split_predictions: "present — line 133"
+  preprocessing_lineage: "present — line 134"
+  metadata: "present — line 136"
+training_config_structure_check:
+  sections:
+    training: "present — line 157"
+    io: "present — line 165"
+    model: "present — line 172"
+    evaluation: "present — line 186"
+  fields:
+    training_name: "present — line 158"
+    training_version: "present — line 159"
+    training_branch: "present — line 160"
+    training_clinical_stage: "present — line 161"
+    training_intended_use: "present — line 162"
+    training_role: "present — line 163"
+    io_input_dataframe_joblib_path: "present — line 166"
+    io_output_model_joblib_path: "present — line 167"
+    io_output_json_path: "present — line 168"
+    io_output_yaml_path: "present — line 169"
+    model_type: "present — line 173"
+    model_profile_column: "present — line 174"
+    model_label_column: "present — line 175"
+    model_group_column: "present — line 176"
+    model_specimen_column: "present — line 177"
+    model_side_column: "present — line 178"
+    model_q_column: "present — line 179"
+    model_age_column: "present — line 180"
+    model_lr1_row_policy: "present — line 182"
+    model_selected_models: "present — line 183"
+    model_logreg_c: "present — line 184"
+    evaluation_mode: "present — line 187"
+    evaluation_n_splits: "present — line 188"
+    evaluation_test_size: "present — line 189"
+    evaluation_random_state: "present — line 190"
+    evaluation_target_sensitivity: "present — line 191"
+two_image_strategy_check:
+  bremen_runtime_image_lightweight_inference_only: "pass — line 89: 'Lightweight inference-only service image.'"
+  bremen_training_image_separate_training_only: "pass — line 93 'Image 2: Bremen Training image' and line 95: 'Training-only image.'"
+  runtime_image_must_not_include_offline_training_entrypoints: "pass — line 91: 'Does NOT contain offline training entrypoints, training config readers, MLflow training flow, heavy training-only dependencies, or training orchestration.'"
+  runtime_image_must_not_import_src_bremen_training: "pass — line 80: 'Runtime NEVER imports from `src/bremen/training/`.'"
+  training_image_may_include_training_only_dependencies: "pass — line 96: 'scipy/pandas and other offline dependencies required by training.'"
+  separate_ecr_repositories_bremen_runtime_bremen_training: "pass — lines 99-101: 'Two separate ECR repositories: `bremen-runtime` `bremen-training`'"
+  dockerfile_training_belongs_to_next_implementation_pr: "pass — line 94: 'New `Dockerfile.training` in the implementation PR, not this PR.'"
+training_trigger_check:
+  training_runs_as_offline_batch_job: "pass — line 203: 'designed to run as an offline batch job'"
+  kubernetes_job_primary_training_trigger: "pass — line 204: 'Primary target: Kubernetes Job.'"
+  lambda_container_image_may_be_later: "pass — line 206: 'AWS Lambda container image may be supported later for simpler cases.'"
+  ecs_app_runner_are_runtime_not_training_targets: "pass — line 207: 'ECS/App Runner are runtime targets only, not training targets.'"
+  no_training_run_in_pr_0033: "pass — line 209: 'No training job is run in PR 0033.'"
+scope_separation_check:
+  allowed_files_architect_only: "pass — lines 33-39: ADR-0008 NEW, ROADMAP.md MODIFY (append), docs/architecture.md MODIFY (append)"
+  forbidden_files_listed: "pass — lines 41-50: src/**, tests/**, Dockerfile/Dockerfile.training, .github/**, infra/**, requirements.txt/pyproject.toml/environment.yml/Makefile, config/**, agents/**, ADR 0001-0007 read-only, README.md and other docs, any H5/joblib artifacts, .project-memory outside this PR"
+  non_goals_explicit: "pass — lines 350-361: no source code, no Dockerfile.training, no CI changes, no ECR second repository Terraform, no actual training run, no inference integration, no H5 reads, no model package publication, no dependency changes, no runtime import of training code"
+additive_only_check:
+  roadmap_append_only: "pass — line 299: 'Append a new `## Training Pipeline Track` section **after** the existing `## Next Execution Sequence (post-platform-foundation)` content. Do not remove or rewrite existing content.'"
+  architecture_append_only: "pass — line 328: 'Append two new sections **after** the existing `## Safety` section. Do not remove or rewrite existing content.'"
+  platform_readiness_track_preserved: "pass — ROADMAP.md Platform Readiness Track remains in its current location; PLAN.md does not modify or remove it"
+  project_contract_invariant_inventory_preserved: "pass — docs/architecture.md 'Project Contract Invariant Inventory' section remains in its current location; PLAN.md appends after, does not remove"
+roadmap_extension_check:
+  training_pipeline_track_section_present: "pass — line 302: '## Training Pipeline Track'"
+  pr_0033_entry: "pass — line 304: '**PR 0033** — ADR-0008: two-image build strategy and training/runtime separation (this PR).'"
+  pr_0034_entry: "pass — line 305: '**PR 0034** — Bremen training pipeline implementation:' with full component breakdown lines 306-313"
+  pr_0035_tentative_entry: "pass — line 314: '**PR 0035 (tentative)** — First controlled training run and model package publication:'"
+  feature_family_clarification: "pass — line 322-324: additive note on Product Track item 4: 'Feature family implementation ... is covered by PR 0034's Bremen training pipeline, not by a separate unscoped PR.'"
+architecture_extension_check:
+  training_pipeline_architecture_section: "pass — line 330-338"
+  bremen_feature_computation_confirmation_section: "pass — line 340-348"
+  training_pipeline_architecture_required_content:
+    offline_only: "pass — line 332"
+    never_runtime: "pass — line 332"
+    input_approved_training_data_plus_yaml: "pass — line 333"
+    pipeline_preprocessing_feature_extraction_lr1_m0_m1_m2_threshold_artifact_assembly: "pass — line 334"
+    output_joblib_qc_yaml_metrics_json: "pass — line 335"
+    artifact_publication_s3_manifest_checksum: "pass — line 336"
+    trigger_kubernetes_job_lambda_later: "pass — line 337"
+  bremen_feature_computation_required_content:
+    per_patient_symmetry: "pass — line 342"
+    target_vs_contralateral_same_patient: "pass — line 342"
+    not_population_fitted: "pass — line 343"
+    no_separate_feature_extractor_artifact: "pass — line 346"
+    single_joblib_training_artifact_sufficient: "pass — line 347"
+    adr_0007_trust_boundary_preserved: "pass — line 348"
+implementation_agent_check:
+  agent_architect: "pass — lines 65, 469: '**Agent**: architect'"
+  mode_write: "pass — lines 66, 470: '**Mode**: WRITE'"
+clinical_claims_check:
+  no_clinical_validation_claim: "pass — line 290: 'No clinical validation.'"
+  no_achieved_performance_metric_claim: "pass — line 291: 'No achieved performance metrics.'"
+  no_inference_implemented_claim: "pass — line 292: 'No claim that inference is implemented.'"
+  no_training_already_run_claim: "pass — line 293: 'No claim that training has been run.'"
+  no_bremen_diagnoses_disease_claim: "pass — line 294: 'No claim that Bremen diagnoses disease.'"
+  no_replacement_claim: "pass — line 295: 'No claim that Bremen replaces MRI, biopsy, radiologist, or clinician.'"
+  grep_no_prohibited_phrases: "pass — grep for 'clinically validated', 'clinically proven', 'FDA-cleared', 'FDA-ready', 'FDA approved', 'replacement for biopsy/MRI/radiologist', 'diagnoses cancer', 'rules out cancer' over PLAN.md returned no matches"
+no_implementation_check:
+  working_tree_clean_except_pr_dir: "pass — git status --short shows only the untracked PR directory"
+  no_tracked_modifications: "pass — git diff --name-only is empty"
+  no_source_dockerfile_ci_terraform_config_dependency_changes_planned: "pass — non-goals and forbidden files cover all of these categories"
+validation_check:
+  - command: "git rev-parse --verify HEAD"
+    exit_code: 0
+    output: "23236bfcd58d55f98078d88418cb56589dbcf647"
+  - command: "git branch --show-current"
+    exit_code: 0
+    output: "0033-adr-training-pipeline-separation"
+  - command: "git status --short"
+    exit_code: 0
+    output: "?? .project-memory/pr/0033-adr-training-pipeline-separation/"
+  - command: "git diff --name-only"
+    exit_code: 0
+    output: "(empty — no tracked modifications)"
+  - command: "test -f docs/adr/0007-model-artifact-lifecycle.md"
+    exit_code: 0
+    output: "yes"
+  - command: "test -f .project-memory/pr/0033-adr-training-pipeline-separation/PLAN.md"
+    exit_code: 0
+    output: "yes (25665 bytes, 513 lines)"
+  - command: "grep -n 'must not train' docs/adr/0007-model-artifact-lifecycle.md"
+    exit_code: 0
+    output: "line 10: 'Runtime service must not train models.'"
+  - command: "grep -n 'Platform Readiness Track' ROADMAP.md"
+    exit_code: 0
+    output: "lines 3, 45, 129, 131"
+  - command: "grep -n 'EXPECTED_ARTIFACT_TYPE' src/bremen/model_package.py"
+    exit_code: 0
+    output: "lines 34, 224, 227"
+  - command: "grep -n 'model_version\\|model_checksum\\|feature_schema_version' src/bremen/model_package.py"
+    exit_code: 0
+    output: "lines 38, 39, 41, 70, 89-91, 230, 231, 233"
+  - command: "date -u +%Y-%m-%dT%H:%M:%SZ"
+    exit_code: 0
+    output: "2026-07-05T20:25:06Z"
+rollback_check:
+  status: "pass — PLAN.md lines 399-405: three-step rollback plan for ADR-0008 (delete), ROADMAP.md (revert appended Training Pipeline Track and item 4 note), docs/architecture.md (revert appended sections). No other files affected."
+commit_readiness:
+  ready_to_commit: true
+  required_files_to_stage:
+    - ".project-memory/pr/0033-adr-training-pipeline-separation/PLAN.md"
+    - ".project-memory/pr/0033-adr-training-pipeline-separation/reviews/plan-review.yml"
+  notes: "Both files exist at the required paths. PLAN.md is 25665 bytes (513 lines). Review artifact will be written immediately after this file. Mandatory pairing confirmed."
+files_read:
+  - .project-memory/pr/0033-adr-training-pipeline-separation/PLAN.md
+  - docs/adr/0007-model-artifact-lifecycle.md
+  - docs/adr/0003-bremen-microservice-api-architecture.md
+  - ROADMAP.md
+  - docs/architecture.md
+  - .project-memory/project_contract.yml
+  - src/bremen/model_package.py
+  - AGENTS.md
+files_written:
+  - .project-memory/pr/0033-adr-training-pipeline-separation/reviews/plan-review.yml
+boundary_confirmations:
+  - no Docker run
+  - no pytest run
+  - no dependency install
+  - no implementation files edited
+  - no git mutation commands
+notes:
+  - "Branch verified as 0033-adr-training-pipeline-separation (matches hard requirement). HEAD 23236bfcd58d55f98078d88418cb56589dbcf647 descends from PR 0012/0028/0030 foundation; ADR-0007, ADR-0008 (App Runner pivot), ADR-0009 (config governance), and model_package.py / model_loader.py / model_source.py are all present on this branch."
+  - "PLAN.md acknowledges PR-numbering drift in a 'Branch name note' (line 27): ROADMAP.md currently sequences PR 0033 as 'Startup model loading and readiness probe'; this PR claims PR 0033 for the training-pipeline ADR with a Training Pipeline Track section appended at the end. ROADMAP.md is in the allowed MODIFY list, so the renumbering can be recorded in the same file."
+  - "PLAN.md is architect-only docs work. Allowed files are exactly the three required: docs/adr/0008-two-image-build-training-pipeline-separation.md (NEW), ROADMAP.md (MODIFY append), docs/architecture.md (MODIFY append). No source, tests, Dockerfile, CI, Terraform, config, or dependency change is planned."
+  - "All 18 required implementation targets (PatientModelInputBuilder through CLI entrypoint) are present at lines 215-231 (bullet list) and lines 269-286 (implementation table) with intended Bremen location in src/bremen/training/pipeline.py or train_classifier.py and required Bremen adaptation."
+  - "All 21 required artifact dict fields (kind, version, created_at, model_type, models, thresholds, model_descriptions, feature_schema, warnings, training_config, training_config_yaml, training_config_text, training_config_sha256, input_dataframe_joblib_sha256, dataset_summary, feature_table, metric_summary, split_metrics, split_predictions, preprocessing_lineage, metadata) are explicitly enumerated at lines 114-136."
+  - "All 7 feature families are listed at lines 197, 237, 312, 324, 453-457, with function-level mapping: sigma_l1/sigma_l2 → _sigma_rms, Mahalanobis1/Mahalanobis2 → _mahalanobis_difference, wasserstein_distance_full_q2 → _profile_wasserstein, meanrms2 → _rms_difference, weightedrms1 → _weighted_rms_difference."
+  - "Training config YAML has all 4 required sections (training, io, model, evaluation) with all 26 required field names listed (training.name, training.version, training.branch, training.clinical_stage, training.intended_use, training.role, io.input_dataframe_joblib_path, io.output_model_joblib_path, io.output_json_path, io.output_yaml_path, model.type, model.profile_column, model.label_column, model.group_column, model.specimen_column, model.side_column, model.q_column, model.age_column, model.lr1_row_policy, model.selected_models, model.logreg_c, evaluation.mode, evaluation.n_splits, evaluation.test_size, evaluation.random_state, evaluation.target_sensitivity) at lines 157-191."
+  - "ADR-0008 artifact_type remains 'bremen.joblib.model_package' (line 141). Training artifact is a separate dict (line 109) with 21 audit fields (lines 114-136). No ADR-0007 manifest field is renamed."
+  - "Feature computation confirmation (lines 342-348) explicitly records: Mahalanobis and Wasserstein are per-patient symmetry measures (target vs contralateral breast of same patient), they are NOT population-fitted reference statistics, no separate fitted feature-extractor artifact is needed, single joblib training artifact is sufficient, ADR-0007 runtime manifest remains the checksum/trust boundary."
+  - "Implementation agent is explicitly architect with Mode WRITE (lines 65-66 and 469-470). This is consistent with the agents/architect.yml write permission for docs/adr/**, ROADMAP.md, and docs/architecture.md as cited in line 61 and line 68."
+  - "Clinical claim prohibitions are explicitly enumerated at lines 290-295 (no clinical validation, no achieved performance metrics, no inference implementation claim, no training-has-run claim, no Bremen-diagnoses-disease claim, no replacement claim). Grep for prohibited phrases over PLAN.md returned no matches."
+  - "ROADMAP.md and docs/architecture.md changes are explicitly append-only (lines 299 and 328). Existing Platform Readiness Track and Project Contract Invariant Inventory are preserved."
+  - "PLAN.md Total line count: 513. PLAN.md is 25665 bytes. Both files exist and are ready for paired commit."

@@ -1,0 +1,57 @@
+review_type: plan-review
+branch: 0043-s3-h5-input-staging
+verdict: approve
+head: "fbf64850876b2fe09d356764d304a3d213f618ec"
+status: "?? .project-memory/pr/0043-s3-h5-input-staging/"
+plan_path: ".project-memory/pr/0043-s3-h5-input-staging/PLAN.md"
+blockers: []
+warnings:
+  - "test_bremen_api_skeleton.py has tests that submit without h5_path/h5_uri — they will now get ValueError for missing input. Same pattern as PR 0042 warning; implementation agent must update these tests."
+  - "server.py test helper _make_handler(load_model=True) creates POST test payloads without h5_path — tests like test_valid_submit_returns_202 will now get HTTP 400 instead of 202. Implementation agent must add h5_path to test payloads."
+  - "h5_checksum validation regex should explicitly handle both uppercase and lowercase hex (the production smoke checksum uses lowercase)."
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  request_contract_safe: true
+  existing_h5_path_preserved: true
+  new_h5_uri_supported: true
+  exactly_one_input_enforced: true
+  h5_checksum_optional_but_enforced_if_present: true
+  h5_uri_not_passed_to_run_inference: true
+  s3_staging_design_safe: true
+  staging_under_tmp_only: true
+  checksum_mismatch_blocks_inference: true
+  request_validation_before_job_creation: true
+  completed_requires_non_null_result: true
+  failed_requires_non_empty_error: true
+  logging_safe: true
+  no_full_s3_uri_logged: true
+  no_patient_id_logged: true
+  tests_cover_s3_staging_before_inference: true
+  tests_cover_staged_path_to_run_inference: true
+  tests_cover_input_validation_edges: true
+  tests_cover_checksum_success_and_failure: true
+  tests_cover_safe_logging: true
+  optional_real_s3_smoke_skipped_by_default: true
+  no_inference_handler_preflight_bridge_changes: true
+  no_training_docker_terraform_dependency_changes: true
+  production_smoke_uri_recorded: true
+  validation_commands_present: true
+  implementation_agent_coder: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0043-s3-h5-input-staging/PLAN.md"
+    - ".project-memory/pr/0043-s3-h5-input-staging/reviews/plan-review.yml"
+notes:
+  - "Branch confirmed exactly 0043-s3-h5-input-staging."
+  - "Request contract (Section 5): two mutually exclusive modes — h5_path (filesystem) and h5_uri (s3://), enforced via updated validate_prediction_request(). h5_checksum is optional but enforced when present. Both present or neither present → HTTP 400 before job creation. h5_uri must start with s3://."
+  - "model_artifacts.py is reused via import only (parse_s3_uri and verify_file_sha256), not modified. New module src/bremen/h5_inputs.py provides stage_h5_input() with separate bremen.h5_input.* namespace. No model artifact semantics are changed."
+  - "Staging design (Section 6): /tmp/bremen-inputs default staging dir, safe basename from S3 key, tempfile.mkstemp(dir=staging_dir) to prevent traversal, download to temp then atomic move, checksum mismatch deletes temp file. S3 client injectable for tests. Non-s3 URI rejected early with ValueError."
+  - "App integration (Section 7): validate_prediction_request() before job creation (HTTP 400 if invalid, no job created). After job creation: if h5_uri → stage_h5_input() → staged local path; if h5_path → use directly. run_inference receives resolved local path, never h5_uri. Staging exceptions caught by except Exception → job failed. h5_path mode unchanged."
+  - "Logging safety (Section 8): 5 new events (bremen.h5_input.stage.start, bremen.h5_input.stage.success, bremen.h5_input.stage.failure, bremen.h5_input.checksum.verify.success, bremen.h5_input.checksum.verify.failure). Safe fields: uri_scheme, h5_basename, size_bytes, checksum_present, checksum_algorithm. Forbidden: full S3 URI, patient_id, raw request body, raw checksum hex, AWS account IDs, secrets, /Users/ paths."
+  - "Job invariant preserved (Section 9): validation errors → no job created; staging failure → failed with non-empty error; checksum mismatch → failed; runtime failures → failed; success → completed with non-null result. Never completed with both null."
+  - "Test coverage (Section 10): 9 tests total — 5 in new tests/test_bremen_h5_input_staging.py (download, checksum success, checksum failure+cleanup, safe logging, non-s3 rejection), 4 in tests/test_bremen_predictions.py (S3 URI + staged path to run_inference, both rejected, missing rejected, non-s3 rejected) + 1 opt-in real S3 smoke. store.job_count assertion in missing-rejected test verifies no job created for validation errors."
+  - "Production smoke readiness (Section 4): s3://matur-misc-uk/bremen/prediction-inputs/smoke/v0.1/aramis_real_h5_subset_20260128_5_patients.h5 and sha256:0bda036f08b057d992b329f6bd6834b3bb52cb74b1f3fca3efb08dda5edf655a recorded. Real S3 smoke is opt-in only (BREMEN_SMOKE_H5_URI + BREMEN_SMOKE_H5_SHA), not required for CI."
+  - "Scope safe (Section 11, 13): no changes to inference_handler.py, preflight.py, preprocessing_bridge.py, model_artifacts.py (import only), model_state.py, jobs.py, training, docs, CI/CD, Docker, Terraform, or dependencies."
+  - "Approve: all review checks pass, request contract safe, staging design secure, app integration correct, logging safe, test coverage comprehensive, scope tightly bounded, production smoke URI recorded."

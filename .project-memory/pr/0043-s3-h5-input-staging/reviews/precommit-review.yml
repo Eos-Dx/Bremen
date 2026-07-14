@@ -1,0 +1,87 @@
+review_type: precommit-review
+branch: 0043-s3-h5-input-staging
+verdict: pass
+head: "a18a571e816bbc2b9bd48ba8ba48bd390bf427bf"
+status: " M src/bremen/api/app.py"
+  " M src/bremen/api/schemas.py"
+  " M tests/test_bremen_api_skeleton.py"
+  " M tests/test_bremen_predictions.py"
+  "?? src/bremen/h5_inputs.py"
+  "?? tests/test_bremen_h5_input_staging.py"
+changed_files:
+  - "src/bremen/api/app.py"
+  - "src/bremen/api/schemas.py"
+  - "src/bremen/h5_inputs.py"
+  - "tests/test_bremen_api_skeleton.py"
+  - "tests/test_bremen_predictions.py"
+  - "tests/test_bremen_h5_input_staging.py"
+blockers: []
+warnings:
+  - id: "WARNING-001"
+    severity: info
+    description: "test_bremen_api_skeleton.py grew from 35 to 43 tests (8 new schema validation tests) — all narrowly scoped to the new h5_path/h5_uri/h5_checksum fields. Approved per allowed-list qualifier 'only for narrow contract adaptation'."
+  - id: "WARNING-002"
+    severity: info
+    description: "test_bremen_logging.py was not modified. Safe logging assertions for bremen.h5_input.* events are in test_bremen_h5_input_staging.py. Per plan, logging tests modified only if needed — confirmed not needed."
+validation:
+  compileall: pass
+  h5_input_staging_tests: pass
+  prediction_tests: pass
+  api_skeleton_tests: pass
+  api_server_tests: pass
+  logging_tests: pass
+  inference_integration_tests: pass
+  full_pytest: pass
+  artifact_scan_reviewed: pass
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  existing_h5_path_preserved: true
+  h5_uri_supported: true
+  exactly_one_h5_input_enforced: true
+  h5_checksum_optional_but_enforced_if_present: true
+  h5_checksum_accepts_upper_and_lower_hex: true
+  validation_errors_do_not_create_jobs: true
+  staging_under_tmp_only: true
+  staging_uses_safe_filename: true
+  path_traversal_prevented: true
+  fake_boto3_tests_no_real_s3_required: true
+  checksum_success_verified: true
+  checksum_mismatch_blocks_inference: true
+  checksum_mismatch_cleans_up: true
+  h5_uri_not_passed_to_run_inference: true
+  staged_path_passed_to_run_inference: true
+  completed_jobs_require_result: true
+  failed_jobs_require_error: true
+  no_completed_null_error_null_state: true
+  safe_logging_events_present: true
+  no_full_s3_uri_logged: true
+  no_patient_id_logged: true
+  no_raw_checksum_logged: true
+  no_raw_request_or_feature_values_logged: true
+  tests_cover_s3_staging_before_inference: true
+  tests_cover_input_validation_edges: true
+  tests_cover_checksum_success_and_failure: true
+  optional_real_s3_smoke_skipped_by_default: true
+  no_inference_handler_preflight_bridge_changes: true
+  no_training_docker_terraform_dependency_changes: true
+  no_real_artifacts_committed: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "src/bremen/api/app.py"
+    - "src/bremen/api/schemas.py"
+    - "src/bremen/h5_inputs.py"
+    - "tests/test_bremen_api_skeleton.py"
+    - "tests/test_bremen_predictions.py"
+    - "tests/test_bremen_h5_input_staging.py"
+    - ".project-memory/pr/0043-s3-h5-input-staging/reviews/precommit-review.yml"
+notes:
+  - "All checks pass. Implementation is clean, scoped, and safe."
+  - "Request contract: schemas.py validates exactly one h5_path or h5_uri, s3:// required, sha256:<64hex> optional but enforced if present (case-insensitive). Validation errors raised before job creation."
+  - "Staging: h5_inputs.py downloads s3:// to /tmp/bremen-inputs with safe filename, path-traversal guard, injectable boto3 client, checksum verification, temp-file cleanup on mismatch. verify_file_sha256 handles file deletion on checksum mismatch."
+  - "App integration: app.py resolves input after job creation, stages if h5_uri present, passes resolved local path to run_inference. S3 URI never passed to inference."
+  - "Logging: 5 bremen.h5_input.* events with safe fields only (uri_scheme, h5_basename, checksum_present, checksum_algorithm, size_bytes). Full S3 URI, raw checksum hex, patient_id, /Users/ paths all excluded."
+  - "Test coverage: 5 tests in test_bremen_h5_input_staging.py, 12 tests in test_bremen_predictions.py (10 passed, 2 skipped), 43 tests in test_bremen_api_skeleton.py, full suite 485 passed, 7 skipped."
+  - "Boundary: model_artifacts.py imported only, inference_handler.py unchanged, no preflight/preprocessing_bridge/model_state changes."
+  - "No forbidden changes. No artifacts committed."

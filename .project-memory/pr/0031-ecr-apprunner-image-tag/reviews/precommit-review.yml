@@ -1,0 +1,61 @@
+review_type: precommit-review
+branch: 0031-ecr-apprunner-image-tag
+verdict: pass
+head: "b50e56946faa2315b8c0aa3f6d9c59c1fe8d3172"
+status: "M .github/workflows/ecr-publish.yml; M tests/test_bremen_ecr_publish_workflow.py"
+changed_files:
+  - ".github/workflows/ecr-publish.yml"
+  - "tests/test_bremen_ecr_publish_workflow.py"
+blockers: []
+warnings: []
+validation:
+  compileall: pass
+  workflow_tests: pass
+  tag_grep_reviewed: pass
+  secret_identifier_grep_reviewed: pass
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  project_memory_used_as_primary_context: true
+  ecr_workflow_only: true
+  sha_tag_preserved: true
+  app_runner_tag_added: true
+  latest_preserved_as_convenience: true
+  same_image_pushed_with_all_tags: true
+  existing_triggers_preserved: true
+  scoped_credentials_preserved: true
+  no_apprunner_service_deploy: true
+  no_terraform_commands: true
+  no_ghcr_quality_workflow_drift: true
+  no_source_runtime_docker_dependency_drift: true
+  workflow_tests_updated: true
+  no_secrets_or_account_identifiers: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - ".github/workflows/ecr-publish.yml"
+    - "tests/test_bremen_ecr_publish_workflow.py"
+    - ".project-memory/pr/0031-ecr-apprunner-image-tag/reviews/precommit-review.yml"
+notes:
+  - "Branch verified: 'git branch --show-current' returned exactly '0031-ecr-apprunner-image-tag' (hard requirement satisfied)."
+  - "HEAD captured: b50e56946faa2315b8c0aa3f6d9c59c1fe8d3172 via 'git rev-parse --verify HEAD'."
+  - "Project memory used as primary context: read .project-memory/pr/0031-ecr-apprunner-image-tag/PLAN.md, plan-review.yml, .project-memory/pr/0030-roadmap-adr-apprunner-pivot/reviews/precommit-review.yml, and .project-memory/architecture/runtime-model-config-roadmap-rebaseline.md before reviewing changed files."
+  - "Changed files = exactly 2: .github/workflows/ecr-publish.yml (M), tests/test_bremen_ecr_publish_workflow.py (M). Both within PLAN.md allowed list. No untracked new files. git diff --name-only returns only these two paths."
+  - "Forbidden path diff check: 'git diff --name-only -- ROADMAP.md docs src infra Dockerfile .dockerignore requirements.txt pyproject.toml config examples .github/workflows/quality.yml' returned EMPTY — no modifications to any forbidden path. .github/workflows/quality.yml explicitly verified UNCHANGED via separate check."
+  - "Tag policy grep reviewed line-by-line: ecr-publish.yml:13 ECR_REPOSITORY=${{ vars.ECR_REPOSITORY }} (env var, no literal); :36 IMAGE_TAG=${{ github.sha }} (immutable SHA, preserved); :39 IMAGE_URI composed from ECR_REGISTRY+ECR_REPOSITORY env vars; :43-45 single 'docker build' emits three tags from same image: ${IMAGE_TAG} (github.sha), app-runner, latest; :48-50 'docker push' for all three tags in matching sequence. SAME image is built once and tagged/pushed with all three tags."
+  - "Immutable SHA tag preserved: line 36 IMAGE_TAG=${{ github.sha }} unchanged; line 43 docker build -t ${IMAGE_URI}:${IMAGE_TAG} unchanged; line 48 docker push ${IMAGE_URI}:${IMAGE_TAG} unchanged. SHA remains immutable audit anchor."
+  - "app-runner tag added: line 44 docker build -t ${IMAGE_URI}:app-runner (NEW); line 49 docker push ${IMAGE_URI}:app-runner (NEW). Stable mutable tag for App Runner auto-deploy."
+  - "latest preserved as convenience: line 45 docker build -t ${IMAGE_URI}:latest (UNCHANGED); line 50 docker push ${IMAGE_URI}:latest (UNCHANGED). The workflow does NOT configure App Runner deploy triggers; App Runner service creation is explicitly deferred to PR 0034 per ADR-0008. latest is NOT promoted as deploy trigger."
+  - "Same image pushed with all tags: lines 43-45 use a single docker build invocation with three -t flags; lines 48-50 push the resulting IMAGE_URI with all three tags. Single image → 3 tags → 3 pushes. Correct semantics."
+  - "Existing triggers preserved: lines 3-6 show workflow_dispatch: + push: branches: [main]. NO pull_request trigger. Verified by sed -n '3,7p' and test_workflow_triggers_are_main_and_manual_only which asserts 'pull_request' not in text (passes)."
+  - "Scoped IAM credentials preserved: aws-actions/configure-aws-credentials@v4 still uses aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }} and aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}. No role-to-assume / OIDC migration introduced. Test test_workflow_uses_static_aws_credentials_from_github_secrets asserts this pattern and that 'role-to-assume' and 'AWS_ROLE_TO_ASSUME' are NOT in text (passes)."
+  - "No App Runner service deploy: grep -i 'apprunner|app runner|deploy|update-service|terraform' .github/workflows/ecr-publish.yml returned NONE. No AWS App Runner service, no AWS::AppRunner::* CloudFormation/Terraform, no deploy action. The change is tag-only."
+  - "No Terraform commands: ecr-publish.yml has zero terraform/CloudFormation/CDK calls. Test test_workflow_does_not_run_terraform_or_deploy_ecs asserts absence of 'terraform apply', 'terraform destroy', 'terraform init', 'aws ecs update-service', 'kubectl', 'helm' — all pass. test_terraform_files_are_not_modified runs git diff --name-only -- infra/terraform and asserts empty — passes."
+  - "No GHCR/quality workflow drift: .github/workflows/quality.yml is NOT in git diff. Test test_workflow_does_not_publish_to_ghcr asserts 'ghcr.io' NOT in ecr-publish.yml text — passes. ECR-only workflow scope preserved."
+  - "No source/runtime/Docker/dependency drift: src/, Dockerfile, .dockerignore, requirements.txt, pyproject.toml, config/, examples/ all NOT in git diff (verified via forbidden-path diff check returning empty). compileall silent — no Python source touched. No infrastructure, Docker, or dependency file changes."
+  - "Workflow tests updated: tests/test_bremen_ecr_publish_workflow.py contains 12 tests, all pass (verified via pytest -q = 12 passed in 0.01s). Coverage includes: workflow_exists, triggers (main+manual only, no pull_request), permissions (contents: read, no id-token: write, no packages: write), static credentials from secrets, ECR login + repo vars, build/push with ${{ github.sha }} + :app-runner + :latest, build arg BREMEN_CI_GITHUB_TOKEN, no terraform/ECS/kubectl/helm, no ghcr.io publish, no hardcoded AWS key material (no AKIA/aws_access_key_id/aws_secret_access_key/BEGIN RSA/private_key), no local machine paths, terraform/ not modified."
+  - "No secrets or account identifiers: grep 'AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|aws_secret_access_key|account ID|registry URL' over ecr-publish.yml + test file returned 6 hits — all are env var NAME references (e.g., '${{ secrets.AWS_ACCESS_KEY_ID }}') which are standard GitHub Actions secret interpolation syntax (no literal values). Test assertions are also string-pattern presence checks (e.g., assert '${{ secrets.AWS_ACCESS_KEY_ID }}' in text). NO AKIA values, NO actual secret keys, NO AWS account ID numbers (like 123456789012), NO account-specific registry URLs (like 123456789012.dkr.ecr.us-east-1.amazonaws.com). IMAGE_URI is composed at runtime from ECR_REGISTRY (login-ecr output) + ECR_REPOSITORY (vars) — never a literal value."
+  - "PR 0030 rebaseline followed: PR 0030 precommit-review shows docs/ADR/roadmap-only changes (ROADMAP.md, ADR-0006 amend, ADR-0008 new, ADR-0009 new). ROADMAP.md post-PR-0030 explicitly lists PR 0031 as 'ECR workflow: add stable App Runner image tag'. ADR-0008 records 'A CI/CD PR is required to add the app-runner stable mutable tag to the ECR publish workflow (PR 0031)' as a documented consequence. Rebaseline artifact prescribes tag policy: immutable SHA for audit + stable mutable app-runner for App Runner auto-deploy + latest as human convenience but NOT App Runner deploy trigger. This PR implements exactly that policy."
+  - "Validation: compileall=pass (silent, no source touched); workflow_tests=pass (12/12 tests passed in 0.01s); tag_grep_reviewed=pass (3-tag policy correctly applied to single image); secret_identifier_grep_reviewed=pass (only env var name references, no literal secrets/IDs/URLs)."
+  - "All required reads completed before review: PLAN.md, plan-review.yml, PR 0030 precommit-review.yml, .github/workflows/ecr-publish.yml (full direct-read), tests/test_bremen_ecr_publish_workflow.py (full direct-read), .project-memory/architecture/runtime-model-config-roadmap-rebaseline.md (via plan-review context)."
+  - "No git mutation commands were run (no add, commit, push, gh pr create, Docker, Terraform, AWS, dependency install, or deployment). No files outside the review artifact were modified."

@@ -344,7 +344,33 @@ H5 set name
 Use this file to decide which mismatches are harmless normalization differences
 and which require H5 backfill or product-filter changes.
 
-## Product Rules
+## Config Governance
+
+Config governance decisions are recorded in:
+
+- **ADR-0011** (`docs/adr/0011-config-governance-gates.md`) — Current implementation decisions
+  for G-CFG-1 (in-repo governance), G-CFG-2 (deferred persistence), and
+  G-CFG-3 (pytest static gates).
+- **ADR-0009** (`docs/adr/0009-config-governance.md`) — Original config change
+  classification (Classes A–D) and audit requirements.
+
+### Config surfaces
+
+| Surface | Location | Lifecycle |
+|---------|----------|-----------|
+| Runtime config | Environment vars (`BREMEN_*`) | Per-deployment |
+| Training config | `config/training/*.yaml` | Offline only |
+| Preprocessing config | `config/preprocessing/*.yaml` | Offline only |
+| Deployment config | `infra/terraform/`, env vars | Ops-owned |
+
+### Safety rules
+
+- No account IDs, registry URLs, full S3 URIs, raw patient identifiers, raw
+  scan refs, or local-machine absolute paths in config files.
+- All training and preprocessing configs are offline-only — the runtime never
+  reads them.
+- Static governance gates in `tests/test_bremen_config_governance.py` enforce
+  these rules in CI.
 
 Canonical metadata flow:
 

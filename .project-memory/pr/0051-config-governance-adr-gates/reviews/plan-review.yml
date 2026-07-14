@@ -1,0 +1,121 @@
+# Plan Review — PR 0051: Config Governance ADR/Gates
+
+review_type: plan-review
+pr: "0051-config-governance-adr-gates"
+branch: "0051-config-governance-adr-gates"
+head_verified: "baa1e4f4d0b53296ee975373d0576458db55322a"
+date: "2026-07-09T07:57:40Z"
+
+verdict: approve
+head_verified: true
+branch_confirmed: true
+
+blockers: []
+warnings: []
+
+checks:
+  # Roadmap check
+  plan_confirms_pr0051_follows_pr0050: true
+  plan_confirms_pr0051_is_config_governance_adr_gates: true
+  plan_confirms_pr0052_remains_matador_boundary_not_implemented: true
+  plan_keeps_fastapi_deferred: true
+
+  # Config inventory check
+  plan_inventories_runtime_env_vars: true
+  plan_inventories_model_source_config: true
+  plan_inventories_model_package_metadata: true
+  plan_inventories_preprocessing_config: true
+  plan_inventories_training_config: true
+  plan_inventories_deployment_env_var_references: true
+  plan_inventories_api_contract_fields: true
+  plan_classifies_config_surfaces: true
+
+  # Governance decision check
+  plan_addresses_g_cfg1: true
+  plan_addresses_g_cfg2: true
+  plan_addresses_g_cfg3: true
+  plan_does_not_implement_external_config_platform: true
+  plan_does_not_implement_dynamodb_backend: true
+  plan_defers_persistence_backend_until_matador: true
+  plan_proposes_static_synthetic_gates: true
+
+  # ADR check
+  plan_plans_new_adr: true
+  plan_does_not_broadly_rewrite_existing_adrs: true
+  plan_records_lightweight_in_repo_config_governance: true
+  plan_records_no_external_config_platform: true
+  plan_records_no_dynamodb_until_matador_boundary: true
+  plan_records_validation_gates_as_repository_tests: true
+  plan_preserves_matador_as_future_source_of_record_boundary: true
+
+  # Gate check
+  plan_includes_static_synthetic_gates: true
+  plan_includes_no_secrets_artifacts_gates: true
+  plan_includes_runtime_config_docs_testability_gate: true
+  plan_includes_model_package_metadata_gate: true
+  plan_includes_training_offline_runtime_separation_gate: true
+  plan_includes_preprocessing_config_separation_gate: true
+  plan_includes_no_local_machine_path_dependency_gate: true
+  plan_includes_safe_model_source_api_leakage_gate: true
+  plan_avoids_aws_docker_terraform_app_runner_network: true
+  plan_avoids_real_h5_real_model_artifacts: true
+
+  # File change check
+  plan_keeps_implementation_prefs_docs_tests_only: true
+  plan_allows_new_adr: true
+  plan_allows_config_readme_update_if_needed: true
+  plan_allows_new_config_governance_test_file: true
+  plan_avoids_source_changes_unless_strongly_justified: true
+  plan_avoids_dependencies_docker_infra_ci_training_roadmap: true
+  plan_avoids_broad_docs_changes: true
+
+  # Boundary check
+  no_fastapi: true
+  no_matador_integration: true
+  no_dynamodb_backend_implementation: true
+  no_deployment_target_change: true
+  no_docker_terraform_ci_dependency_changes: true
+  no_training_behavior_change: true
+  no_runtime_model_lifecycle_change: true
+  no_s3_staging_change: true
+  no_h5_staging_change: true
+  no_preprocessing_change: true
+  no_inference_math_change: true
+  no_production_smoke_execution: true
+  no_clinical_validation_claims: true
+  g_cfg1_closed_with_rationale: true
+  g_cfg2_deferred_until_matador: true
+  g_cfg3_closed_with_rationale: true
+
+validation:
+  git_diff_name_only: "only .project-memory/pr/0051-config-governance-adr-gates/ untracked directory"
+  forbidden_content_scan: pass
+  fastapi_not_introduced: pass
+  matador_not_implemented: pass
+  dynamodb_not_implemented: pass
+
+commit_readiness:
+  ready_to_commit: true
+  files_in_scope:
+    - ".project-memory/pr/0051-config-governance-adr-gates/reviews/plan-review.yml"
+  files_explicitly_excluded:
+    - "src/** (implementation — coded by implementation agent)"
+    - "tests/** (implementation — coded by implementation agent)"
+    - "docs/** (implementation — coded by implementation agent)"
+    - "config/** (implementation — coded by implementation agent)"
+    - "Dockerfile"
+    - "Dockerfile.training"
+    - "infra/**"
+    - ".github/**"
+    - "requirements.txt"
+    - "pyproject.toml"
+    - "src/bremen/training/**"
+    - ".project-memory/pr/0051-config-governance-adr-gates/PLAN.md"
+  notes:
+    - "Plan is narrow and correct. Three governance decisions: G-CFG-1 DECIDED (lightweight in-repo), G-CFG-2 DEFERRED (no backend until Matador), G-CFG-3 DECIDED (existing Python infra). All preserve no-network/no-new-dependency boundaries with documented escape clauses."
+    - "Config surface taxonomy: 9 surfaces classified as runtime config, model artifact metadata, preprocessing config, training config, deployment config, or test-only synthetic. Highest governance priority on surfaces 1-4 (runtime model env vars + model package metadata)."
+    - "ADR-0011: 8-section new ADR documenting all three gate decisions, escape clauses, config surface taxonomy, and non-goals. Existing ADR-0009 gets one-sentence cross-reference addition only."
+    - "Gate plan: ~15 test methods across 7 classes in a new governance test file (test_bremen_config_governance.py). All tests static/AST-based or synthetic/mocked. No AWS, Docker, Terraform, App Runner, network, real H5, or real model artifacts."
+    - "File changes: 2 new files (ADR-0011, governance test file) + 1 existing doc modified (ADR-0009, one cross-reference) + 1 existing test modified (cloud_config, one class) + 1 optional config/README.md section."
+    - "model_state.py already has PR0050 observability fields (_load_attempted, _load_error) confirmed by reading model_state.py source. api_contract.md reflects PR0050 ready/error states. Branch is post-PR0050 state."
+    - "All 20 boundary checks pass. 14 hard rules pass. No FastAPI, no Matador implementation, no DynamoDB, no runtime lifecycle changes."

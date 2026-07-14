@@ -1,0 +1,51 @@
+review_type: plan-review
+branch: 0044-h5-sample-metadata-fallback
+verdict: approve
+head: "9ca03d88252a5384c91f525851902f7c11b406ae"
+status: "?? .project-memory/pr/0044-h5-sample-metadata-fallback/"
+plan_path: ".project-memory/pr/0044-h5-sample-metadata-fallback/PLAN.md"
+blockers: []
+warnings: []
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  real_h5_evidence_recorded: true
+  production_error_recorded: true
+  patient_id_primary_preserved: true
+  patient_name_fallback_only_when_patient_id_missing: true
+  fallback_source_recorded: true
+  patient_name_not_treated_as_true_id_silently: true
+  ambiguity_handled_conservatively: true
+  raw_patient_name_not_logged: true
+  patient_id_not_logged: true
+  no_s3_uri_or_request_body_logged: true
+  target_control_gates_not_weakened: true
+  no_inference_or_preprocessing_changes: true
+  no_s3_staging_changes: true
+  no_model_training_docker_terraform_dependency_changes: true
+  tests_cover_primary_patient_id: true
+  tests_cover_patient_name_fallback: true
+  tests_cover_missing_identifier_failure: true
+  tests_cover_empty_patient_name_failure: true
+  tests_cover_ambiguity_handling: true
+  tests_cover_no_raw_patient_name_logging: true
+  real_h5_smoke_skipped_by_default: true
+  validation_commands_present: true
+  implementation_agent_coder: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0044-h5-sample-metadata-fallback/PLAN.md"
+    - ".project-memory/pr/0044-h5-sample-metadata-fallback/reviews/plan-review.yml"
+notes:
+  - "All 24 checks pass. No blockers."
+  - "Real H5 evidence: PLAN.md Section 18 documents calibration-group layout (/calib_20260128_132622), sample-level patient_name (Nova_376, Nova_378, Nova_379, Nova_383, Nova_384), RIGHT/LEFT BREAST sample_type values, absence of /patient/id, and absence of /scans/ structure. PR0043 precommit-review confirms smoke H5 and the 'Missing /patient/id' production error."
+  - "Fallback contract: resolve_patient_metadata() in preflight.py — /patient/id primary, patient_name fallback only when primary missing, source recorded via patient_identifier_source and metadata_fallback_used. Silent fallback impossible by design."
+  - "Ambiguity: >1 distinct patient_name values always rejected. Plan is conservative and correct — no target/control selection context exists yet in calibration-group layout, so deferring is the only safe option."
+  - "Safety: forbidden changes (items 15-16) explicitly ban raw patient_name and raw patient_id logging from preflight.py. Caplog test (Test F) verifies no raw identifier in preflight logs. inference_handler.py existing structured patient_id logging is pre-existing and outside preflight scope."
+  - "Scope: only preflight.py + test files. All forbidden-module confirmations in Section 24 match forbidden-changes list. No inference_handler.py, preprocessing_bridge.py, app.py, h5_inputs.py, model_artifacts.py, training, Docker, Terraform, or dependency changes."
+  - "Tests: 8 new tests (A–I) cover primary path, fallback, missing/both-fail, empty-name fail, ambiguous fail, no-raw-name logging, resolver unit tests, and opt-in real H5 smoke. All 6 required test categories from task prompt are covered."
+  - "Non-goals confirmed: no Matador, no H5 migration, no S3 staging changes, no inference/preprocessing formula changes, no clinical claims."
+  - "Plan's own warnings are pre-documented and acceptable: (1) real H5 still fails preflight due to missing /scans/ structure — deferred to future PR; (2) validate_required_metadata() still requires /patient/id structurally — correct behavior, resolver handles patient identifier only; (3) existing smoke test assertions may need updating — plan covers this."
+  - "Minor: no explicit grep validation command for raw patient_name logging, but caplog Test F covers this functionally."
+  - "Implementation agent: coder (correctly assigned per plan)."

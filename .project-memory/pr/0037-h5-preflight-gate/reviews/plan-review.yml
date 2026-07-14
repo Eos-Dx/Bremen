@@ -1,0 +1,63 @@
+review_type: plan-review
+branch: 0037-h5-preflight-gate
+verdict: warning
+head: "262e1f558b2a8dee820c620cc3a202acd9147088"
+status: "M .gitignore; D tests/data/aramis_real_h5_subset_20260128_5_patients.h5; ?? .project-memory/pr/0037-h5-preflight-gate/"
+plan_path: ".project-memory/pr/0037-h5-preflight-gate/PLAN.md"
+blockers: []
+warnings:
+  - id: "WARNING-1"
+    description: ".gitignore has a duplicate artifact guard block. The same 6-line block (# Bremen external data/model artifact guard with *.h5, *.hdf5, *.joblib, *.pkl, *.npy, *.npz) appears twice: lines 14-21 and lines 23-29. This is a pre-existing issue on this branch, not created by the planner during planning. The guards are present and functional. Recommend deduplication as a trivial cleanup."
+  - id: "WARNING-2"
+    description: "tests/test_bremen_real_h5_subset_reader.py references the deleted H5 file at DATA_DIR / 'aramis_real_h5_subset_20260128_5_patients.h5' (tests/data/). This existing test will fail (FileNotFoundError) when the full test suite is run in validation check 14. The plan does not address this orphaned test — it is outside the PR 0037 implementation scope. Precommit review should flag this and recommend disabling or removing the test, or explicitly deferring it."
+checks:
+  branch_confirmed: true
+  plan_artifact_only_or_allowed_h5_cleanup_delta: true
+  historical_h5_cleanup_recorded: true
+  historical_h5_external_copy_recorded: true
+  historical_h5_sha_recorded: true
+  artifact_guard_planned: true
+  external_h5_policy_recorded: true
+  external_h5_outside_repo: true
+  external_h5_smoke_skipif_required: true
+  critical_path_recorded: true
+  h5_preflight_only: true
+  validation_scope_complete: true
+  public_api_complete: true
+  h5_schema_assumptions_explicit: true
+  synthetic_h5_only_for_ci: true
+  result_contract_complete: true
+  typed_exceptions_planned: true
+  dependency_strategy_complete: true
+  tests_complete: true
+  no_preprocessing_or_inference: true
+  no_model_loading_or_training: true
+  no_api_route_behavior_change: true
+  allowed_files_clear: true
+  forbidden_files_clear: true
+  validation_commands_present: true
+  block_conditions_present: true
+  no_clinical_claims: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0037-h5-preflight-gate/PLAN.md"
+    - ".project-memory/pr/0037-h5-preflight-gate/reviews/plan-review.yml"
+notes:
+  - "Branch confirmed as 0037-h5-preflight-gate. HEAD 262e1f558b2a8dee820c620cc3a202acd9147088."
+  - "Pre-existing dirty-tree delta on this branch (NOT created by planner): (M) .gitignore — artifact guard block added; (D) tests/data/aramis_real_h5_subset_20260128_5_patients.h5 — removed from git tracking. Both are allowed exceptions per task prompt policy."
+  - "Historical H5 cleanup: tests/data/aramis_real_h5_subset_20260128_5_patients.h5 was historically tracked from Aramis fork. Confirmed deleted from git tracking on this branch. External copy verified at ../bremen-private-artifacts/h5/aramis_real_h5_subset_20260128_5_patients.h5 with SHA-256 0bda036f08b057d992b329f6bd6834b3bb52cb74b1f3fca3efb08dda5edf655a (human verified). Plan explicitly records all three facts."
+  - "External H5 policy: local opt-in smoke/schema reference only, synthetic tmp_path tests default, CI must not require external H5, not copied to tests/data, not committed, not clinical validation evidence, BREMEN_H5_PREFLIGHT_SMOKE_PATH opt-in, no raw arrays extracted to repo. All 8 conditions satisfied."
+  - "Artifact guard: .gitignore already has *.h5, *.hdf5, *.joblib, *.pkl, *.npy, *.npz guards (present on lines 16-21 and 23-29 — duplicate block, cosmetic only). Plan correctly states no .gitignore changes needed. WARNING-1: duplicate block is pre-existing on this branch."
+  - "h5py dependency already present: requirements.txt has h5py>=3.12, pyproject.toml has h5py>=3.10. No dependency changes needed. Plan confirmed this."
+  - "Critical path: PR 0036 completed, PR 0037 (H5 preflight), PR 0038 (preprocessing bridge), PR 0039 (inference) all recorded."
+  - "H5 schema assumption: minimal synthetic schema defined (patient/id, scans/target/side/measurements/metadata/snr, scans/contralateral/*), tmp_path tests, no real H5 layout assumption, external H5 opt-in smoke only."
+  - "Validation scope: all 11 required checks present (same patient, opposite sides, required metadata, measurement counts, SNR/QC warning, malformed container fail-closed, empty arrays fail-closed, patient mismatch fail-closed, same-side fail-closed, missing contralateral fail-closed, no preprocessing/feature computation)."
+  - "Public API: src/bremen/api/preflight.py specified. PreflightResult/PreflightReason/PreflightStatus. 5 typed exceptions (H5PreflightError base + H5ContainerError, H5MetadataError, H5PatientMismatchError, H5SideMismatchError, H5MeasurementError, H5QualityError). 7 public functions (run_h5_preflight, inspect_h5_container, validate_same_patient, validate_opposite_sides, validate_required_metadata, validate_measurement_counts, validate_snr_thresholds)."
+  - "Result contract: all required fields (status, passed, reasons, warnings, patient_id, target_side, contralateral_side, target_measurement_count, contralateral_measurement_count, metadata, qc_flags) plus PreflightReason fields. Result must NOT include raw scan data explicitly stated."
+  - "Tests: 12 total (11 default synthetic + 1 optional real-subset smoke). Default: valid synthetic passes, patient mismatch fails, same side fails, missing contralateral fails, missing metadata fails, low measurement count fails, low SNR adds warning, malformed container fails, result excludes raw measurements, no preprocessing/inference/model loading, exception hierarchy. Optional: real subset smoke with skipif on BREMEN_H5_PREFLIGHT_SMOKE_PATH."
+  - "Runtime boundary: NOT wired into POST /predictions, no prediction route changes, no model loading, no inference, no preprocessing, no Matador, no clinical report, no runtime config changes."
+  - "Scope: 3 allowed files (preflight.py NEW, test_bremen_h5_preflight.py NEW, H5 deletion). Forbidden files all listed, no overlap."
+  - "Safety: structural acceptance only, not clinical validity, no clinical/diagnostic claims, no inference, no model prediction."
+  - "WARNING-2: tests/test_bremen_real_h5_subset_reader.py references deleted H5 at tests/data/aramis_real_h5_subset_20260128_5_patients.h5. This existing test will FileNotFoundError in validation check 14 (full pytest suite). Plan does not address this orphaned test. Recommend precommit review flag this."
+  - "All 23 checks pass. 2 warnings noted (cosmetic duplicate .gitignore block, orphaned real-H5 test). No blockers."

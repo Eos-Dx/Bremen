@@ -22,7 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
             "Not a diagnostic replacement."
         ),
     )
-    subparsers = parser.add_subparsers(dest="command")
+    subparsers = parser.add_subparsers(dest="command", required=True)
 
     # --- Real command: preprocess ---
     _add_preprocess_subcommand(subparsers)
@@ -104,7 +104,17 @@ def _handle_stub(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from .logging_config import configure_logging, get_logger  # noqa: PLC0415
+
+    configure_logging()
+    _log = get_logger(__name__)
+    _log.info("bremen.startup.begin\tstage=startup\tstatus=started")
+
+    import sys
     parser = build_parser()
+    if argv is None and len(sys.argv) == 1:
+        parser.print_help()
+        return 0
     args = parser.parse_args(argv)
 
     if args.command is None:
@@ -114,6 +124,8 @@ def main(argv: list[str] | None = None) -> int:
     handler = getattr(args, "_cmd_handler", None)
     if handler == "preprocess":
         return _handle_preprocess(args)
+    if handler == "serve":
+        return _handle_serve(args)
     if handler == "stub":
         return _handle_stub(args)
 
@@ -147,6 +159,15 @@ def _add_serve_subcommand(
 def _handle_serve(args: argparse.Namespace) -> int:
     """Start the Bremen HTTP API server (blocking, dev/smoke mode)."""
     from .api.server import run_server  # noqa: PLC0415
+    from .logging_config import get_logger  # noqa: PLC0415
+
+    _log = get_logger(__name__)
+    _log.info(
+        "bremen.cli.serve.dispatch\t"
+        "stage=startup\tstatus=started\t"
+        "host=%s\tport=%s",
+        args.host, args.port,
+    )
 
     print(f"Starting Bremen API server at http://{args.host}:{args.port}")
     print("Dev/smoke mode only. Not for production use.")

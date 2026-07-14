@@ -1,0 +1,60 @@
+# Bremen Training Image — offline ML model training only.
+# NOT part of the runtime inference service.
+# See ADR-0008 for the two-image build strategy.
+#
+# Unlike the runtime smoke Dockerfile, this image installs ALL dependencies
+# including private (xrd-preprocessing) because it runs as a standalone
+# Kubernetes Job without a CI wrapper.
+#
+# Required CI build arg:
+#   --build-arg BREMEN_CI_GITHUB_TOKEN=${{ secrets.BREMEN_CI_GITHUB_TOKEN }}
+#
+# Local build without token (public repos only):
+#   docker build -f Dockerfile.training .
+
+FROM python:3.13-slim
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+WORKDIR /app
+
+# git required for xrd-preprocessing (installed from GitHub source)
+# build-essential required for scipy/numpy/scikit-learn C extensions
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy dependency manifests and readme (readme required by hatchling metadata)
+COPY pyproject.toml README.md ./
+
+# Copy source
+COPY src/ /app/src/
+
+# Copy training configs
+COPY config/training/ config/training/
+
+# Build arg for private GitHub dependency — never hardcoded, always from CI secret.
+# Declared as ARG (not ENV) so it does not persist into the final image layer.
+ARG BREMEN_CI_GITHUB_TOKEN
+
+# Install all dependencies including private xrd-preprocessing.
+# Token is configured, used for pip install, then immediately removed —
+# all in one RUN layer so the token never appears in any image layer cache.
+RUN if [ -n "$BREMEN_CI_GITHUB_TOKEN" ]; then \
+        git config --global \
+            url."https://${BREMEN_CI_GITHUB_TOKEN}@github.com/".insteadOf \
+            "https://github.com/"; \
+    fi && \
+    pip install --no-cache-dir ".[training]" && \
+    if [ -n "$BREMEN_CI_GITHUB_TOKEN" ]; then \
+        git config --global --unset \
+            url."https://${BREMEN_CI_GITHUB_TOKEN}@github.com/".insteadOf \
+            || true; \
+    fi
+
+# Verify all installed source compiles cleanly
+RUN python -m compileall src
+
+# Entrypoint: python -m bremen.training.train_classifier --config <path>
+ENTRYPOINT ["python", "-m", "bremen.training.train_classifier"]

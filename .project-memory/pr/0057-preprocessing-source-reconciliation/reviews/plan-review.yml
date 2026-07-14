@@ -1,0 +1,105 @@
+# Plan Review — PR0057 Preprocessing Source Reconciliation And Integration Decision
+# Reviewer: plan-review agent
+# Reviewed: 2026-07-10T07:20:11Z
+# HEAD: 84e9891f41adfc701170f7fc403386c8acedc675
+# Branch: 0057-preprocessing-source-reconciliation
+
+verdict: approve
+
+blockers: []
+
+warnings:
+  - The reconciliation document's Section 7.2 cross-reference edits to PR0055/PR0056 docs are recommended but add scope beyond the 2 new core files. Justified as minimal one-paragraph notes to warn readers of the layout conflict. Not a blocker.
+  - The static test file with 22 test classes is extensive, but all tests are static/text-only and each verifies a distinct architectural invariant. Not a blocker.
+
+checks:
+  plan_exists: pass
+  aligns_with_pr0055_pr0056_pipeline_readiness: pass
+  identifies_xrd_preprocessing_as_upstream_source: pass
+  identifies_eosdx_container_v0_3_as_upstream: pass
+  identifies_yaml_templates_config_loader_validator: pass
+  identifies_pipeline_builder_transformer_registry: pass
+  identifies_gfrm_conversion_api: pass
+  identifies_real_eosdx_container_v0_3_layout: pass
+  directly_checks_scans_target_against_real_container: pass
+  states_scans_target_is_not_real_v0_3_format: pass
+  identifies_bremen_feature_bridge_ambiguity: pass
+  addresses_preprocessing_bridge_duplication: pass
+  addresses_pipelines_py_product_training_path: pass
+  lists_incompatible_duplicate_paths: pass
+  includes_human_decision_gate: pass
+  compares_options_a_b_c_d: pass
+  recommends_no_implementation_if_unresolved: pass
+  keeps_runtime_stable: pass
+  prohibits_source_runtime_schema_dependency_changes: pass
+  prohibits_vendoring_upstream_code: pass
+  prohibits_real_gfrm_h5_joblib_parquet_artifacts: pass
+  keeps_matador_future: pass
+  keeps_fastapi_deferred: pass
+  keeps_runtime_training_out_of_scope: pass
+  rejects_demo_only_fork: pass
+  preserves_clinical_safety_boundaries: pass
+  prevents_silent_canonical_layout_correction: pass
+  upstream_archives_available_and_inspected: pass
+  explicitly_answers_layout_match_question: pass
+  explicitly_addresses_scans_target_and_contralateral: pass
+  does_not_assume_scans_target_is_real_without_evidence: pass
+  identifies_whether_feature_bridge_is_preprocessing_bridge_or_pipelines: pass
+  addresses_duplicated_runtime_feature_math: pass
+  addresses_src_bremen_pipelines_py_path: pass
+  includes_human_decision_gate_when_conflict_unresolved: pass
+  does_not_propose_vendoring_xrd_preprocessing: pass
+  does_not_propose_vendoring_eosdx_container: pass
+  does_not_propose_pyfai_fabio_dependency: pass
+  does_not_propose_real_gfrm_conversion_in_runtime: pass
+  no_converter_implementation: pass
+  no_protobuf_geoframe_parser: pass
+  no_matador_integration: pass
+  no_fastapi: pass
+  no_runtime_training: pass
+  no_runtime_request_schema_change: pass
+  no_h5_path_uri_behavior_change: pass
+  no_source_runtime_changes: pass
+  no_demo_only_fork: pass
+  no_real_artifacts_secrets_local_paths: pass
+  no_clinical_diagnosis_replacement_claims: pass
+  plan_review_boundary: pass
+  safety_boundaries: pass
+  dirty_tree: pass
+
+validation:
+  - command: git rev-parse --verify HEAD
+    exit_code: 0
+    output: 84e9891f41adfc701170f7fc403386c8acedc675
+  - command: git branch --show-current
+    exit_code: 0
+    output: 0057-preprocessing-source-reconciliation
+  - command: git status --short
+    exit_code: 0
+    output: '?? .project-memory/pr/0057-preprocessing-source-reconciliation/'
+  - command: git diff --name-only
+    exit_code: 0
+    output: (empty — no modified tracked files)
+  - command: find /tmp/bremen-upstream-inspection -type d
+    exit_code: 0
+    output: (upstream sources exist: XRD-preprocessing-main and container-feat-v0_3-eoscan-session-container)
+  - command: python3 -c "import ast; ast.parse(open('src/bremen/api/preprocessing_bridge.py').read()); print('preprocessing_bridge: parses OK')"
+    exit_code: 0
+    output: preprocessing_bridge: parses OK
+  - command: python3 -c "import ast; ast.parse(open('src/bremen/pipelines.py').read()); print('pipelines.py: parses OK')"
+    exit_code: 0
+    output: 'pipelines.py: parses OK'
+  - command: grep -c 'def _sigma_rms\|def _mahalanobis\|def _profile_wasserstein\|def _cosine_distance\|def _rms_difference\|def _mean_rms1\|def _peak14_intensity\|def _mean_peak_value_raw' src/bremen/api/preprocessing_bridge.py
+    exit_code: 0
+    output: '12'
+    detail: "Confirmed 12 duplicated feature computation functions in preprocessing_bridge.py"
+
+commit_readiness:
+  branch_matches: true
+  working_tree_clean: true
+  plan_exists: true
+  upstream_archives_available: true
+  layout_conflict_directly_answered: true
+  human_decision_gate_present: true
+  only_plan_review_artifact_new: true
+  verification: "Branch is correct (0057-preprocessing-source-reconciliation). Working tree is clean. PLAN.md exists and is readable. Upstream source archives available under /tmp/bremen-upstream-inspection/. Layout conflict directly answered: /scans/target/ does NOT match eosdx-container v0.3. Human decision gate (Options A/B/C/D) included. No silent correction allowed. All required reads completed."

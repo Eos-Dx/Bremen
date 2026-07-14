@@ -1,0 +1,67 @@
+review_type: precommit-review
+branch: 0035-model-package-publication-path
+verdict: pass
+head: "62393d72cb864a0c32e0d078bbd032642f2ddf66"
+status: "?? src/bremen/training/model_release.py; ?? src/bremen/training/publish_model_package.py; ?? tests/test_bremen_model_release.py; ?? tests/test_bremen_publish_model_package_cli.py"
+changed_files:
+  - "src/bremen/training/model_release.py"
+  - "src/bremen/training/publish_model_package.py"
+  - "tests/test_bremen_model_release.py"
+  - "tests/test_bremen_publish_model_package_cli.py"
+blockers: []
+warnings: []
+validation:
+  compileall: pass
+  model_release_tests: pass
+  cli_help: pass
+  manifest_fields_grep_reviewed: pass
+  training_artifact_grep_reviewed: pass
+  no_network_aws_grep_reviewed: pass
+  runtime_import_grep_reviewed: pass
+  secret_account_grep_reviewed: pass
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  plan_followed: true
+  dry_run_publication_only: true
+  no_real_s3_aws_network: true
+  no_real_h5_data_access: true
+  no_model_artifacts_committed: true
+  no_runtime_loader_api_changes: true
+  no_inference_integration: true
+  training_artifact_validation_complete: true
+  runtime_manifest_fields_complete: true
+  checksum_strategy_correct: true
+  relative_model_filename: true
+  version_fields_explicit: true
+  threshold_selection_deterministic: true
+  local_staging_confined_to_output_dir: true
+  cli_contract_complete: true
+  tests_complete: true
+  validate_model_package_used_if_feasible: true
+  no_secrets_or_account_identifiers: true
+  no_clinical_or_performance_claims: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "src/bremen/training/model_release.py"
+    - "src/bremen/training/publish_model_package.py"
+    - "tests/test_bremen_model_release.py"
+    - "tests/test_bremen_publish_model_package_cli.py"
+    - ".project-memory/pr/0035-model-package-publication-path/reviews/precommit-review.yml"
+notes:
+  - "Branch confirmed as 0035-model-package-publication-path. HEAD 62393d72cb864a0c32e0d078bbd032642f2ddf66. Only 4 new untracked files; no modified files."
+  - "Scope: dry-run publication path only. No real S3/AWS, no real H5/data, no model artifacts committed, no runtime changes. Confirmed by: (a) no boto3/requests/urllib imports in model_release.py or publish_model_package.py, (b) dry_run=True default in stage_model_package, (c) dry_run_publication_summary generates S3 URIs without network calls."
+  - "Training artifact validation: load_training_artifact(path) (line 33) validates file exists, joblib dict, kind=='bremen_training_artifact', all REQUIRED_TRAINING_ARTIFACT_FIELDS. validate_training_artifact(artifact) (line 62) validates in memory. Both fail closed (raise ValueError). Does NOT load arbitrary joblib — only validated training artifacts."
+  - "Runtime manifest: REQUIRED_RUNTIME_MANIFEST_FIELDS (line 23) = tuple of 8 ADR-0007 fields. build_runtime_manifest() (line 99) assembles manifest with: artifact_type=EXPECTED_ARTIFACT_TYPE (constant 'bremen.joblib.model_package'), model_version=explicit CLI arg, model_checksum=SHA-256 of staged joblib (computed via _compute_file_sha256, line 383), model_filename=relative (raises ValueError if starts with '/', line 149), feature_schema_version=explicit arg, threshold_version=explicit arg, threshold_value=from artifact['thresholds'][key] (deterministic, lines 163-172), qc_criteria_version=explicit arg."
+  - "Checksum strategy: model_checksum = _compute_file_sha256(artifact_path) at line 255. Validated as 64-char hex string (len check at line 154). Test test_checksum_equals_sha256_of_staged_file confirms this."
+  - "Local staging: _write_staged_package (line 303) writes manifest.json and copies artifact to output_dir/model_filename. output_dir.mkdir(parents=True, exist_ok=True). model_filename validated: raises if starts with '/' (line 149), raises if contains '..'. _build_dry_run_summary returns resolved paths, no credentials."
+  - "Dry-run S3 summary: dry_run_publication_summary (line 336) takes optional bucket/prefix, returns intended_s3_uri='s3://{bucket}/{prefix}/{model_version}/' only when bucket provided, else None. No boto3/requests/urllib. AST test test_dry_run_does_not_make_network_calls confirms prohibited imports absent."
+  - "CLI contract: python -m bremen.training.publish_model_package --help exits 0. Required flags: --training-artifact --output-dir --model-version --feature-schema-version --threshold-version --qc-criteria-version. Optional: --threshold-key (default: first available), --no-dry-run (default: dry-run). Returns JSON summary. Exact command shape matches task prompt."
+  - "Tests: 26 tests pass (pytest -q, 6.37s). test_bremen_model_release.py (18 tests): artifact validation (4), manifest construction (8), staging (4), dry-run S3 (3). test_bremen_publish_model_package_cli.py (8 tests): CLI help, missing flags, dry-run, no-write default, staged files, validate_model_package compatibility."
+  - "validate_model_package used: test_staged_package_passes_validate_model_package (line 367) calls bremen.model_package.validate_model_package on the staged output directory. Confirms staged package is accepted by the runtime model package validator. This validates the full manifest + artifact chain."
+  - "Runtime boundary: git diff --name-only is empty (all 4 files new/untracked). model_loader.py unchanged. api/ unchanged. __main__.py unchanged. No bremen.training imports in runtime modules (grep confirmed empty). model_release.py imports only EXPECTED_ARTIFACT_TYPE constant from bremen.model_package (line 15) — not model_loader, not api."
+  - "No secrets: grep for AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/aws_secret_access_key/account ID/registry URL returned hits only in existing test files (negative assertions) and infra/terraform/README.md (human operator guidance). None in changed files."
+  - "Changed files exactly match allowed set: model_release.py NEW, publish_model_package.py NEW, test_bremen_model_release.py NEW, test_bremen_publish_model_package_cli.py NEW. No __init__.py update (PLAN decision: no export update needed). No release config file (PLAN decision: deferred to PR 0036+)."
+  - "No clinical claims, no performance claims, no inference integration, no training run."
+  - "compileall exit 0. All 26 tests pass."

@@ -1,0 +1,69 @@
+review_type: precommit-review
+branch: 0030-roadmap-adr-apprunner-pivot
+verdict: pass
+head: "536122bd6074cb4072fdffb50f8cfb01c9c81ff9"
+status: "M ROADMAP.md; M docs/adr/0006-multi-target-deployment-and-iac.md; ?? docs/adr/0008-runtime-target-apprunner-proving.md; ?? docs/adr/0009-config-governance.md"
+changed_files:
+  - "ROADMAP.md"
+  - "docs/adr/0006-multi-target-deployment-and-iac.md"
+  - "docs/adr/0008-runtime-target-apprunner-proving.md"
+  - "docs/adr/0009-config-governance.md"
+blockers: []
+warnings: []
+validation:
+  compileall: pass
+  aprana_grep_reviewed: pass
+  architecture_terms_grep_reviewed: pass
+  secret_identifier_grep_reviewed: pass
+checks:
+  branch_confirmed: true
+  allowed_files_only: true
+  docs_adr_roadmap_only: true
+  project_memory_used_as_primary_context: true
+  rebaseline_artifact_followed: true
+  app_runner_proving_target_recorded: true
+  ecs_primary_later_preserved: true
+  app_runner_does_not_replace_ecs: true
+  aprana_retired_not_carried_forward: true
+  model_binding_lifecycle_recorded: true
+  no_model_in_image_hot_swap_or_request_load: true
+  cicd_tag_followup_recorded: true
+  config_governance_recorded: true
+  config_model_binding_requires_redeploy: true
+  ds_composite_package_question_recorded: true
+  no_model_package_format_change: true
+  no_inference_or_clinical_claims: true
+  no_source_test_workflow_terraform_docker_dependency_changes: true
+  no_secrets_or_account_identifiers: true
+commit_readiness:
+  ready_to_commit: true
+  exact_files_to_stage:
+    - "ROADMAP.md"
+    - "docs/adr/0006-multi-target-deployment-and-iac.md"
+    - "docs/adr/0008-runtime-target-apprunner-proving.md"
+    - "docs/adr/0009-config-governance.md"
+    - ".project-memory/pr/0030-roadmap-adr-apprunner-pivot/reviews/precommit-review.yml"
+notes:
+  - "Branch verified: 'git branch --show-current' returned exactly '0030-roadmap-adr-apprunner-pivot' (hard requirement satisfied)."
+  - "HEAD captured: 536122bd6074cb4072fdffb50f8cfb01c9c81ff9 via 'git rev-parse --verify HEAD'."
+  - "Project memory used as primary context: read .project-memory/pr/0030-roadmap-adr-apprunner-pivot/PLAN.md, plan-review.yml, .project-memory/architecture/runtime-model-config-roadmap-rebaseline.md, and .project-memory/project_contract.yml before reviewing changed docs."
+  - "Changed files = 4 docs: ROADMAP.md (M), docs/adr/0006-multi-target-deployment-and-iac.md (M), docs/adr/0008-runtime-target-apprunner-proving.md (?? new), docs/adr/0009-config-governance.md (?? new). All within PLAN.md allowed list. NO src/, tests/, .github/, infra/, Dockerfile, .dockerignore, requirements.txt, pyproject.toml, config/, examples/, agents/, .project-memory/project_contract.yml, or .project-memory/architecture/ modifications (all confirmed UNCHANGED via git diff --name-only -- <forbidden paths> returning empty)."
+  - "Forbidden source/test/CI/Terraform/Docker/dependency path check: 'git diff --name-only -- src tests .github infra Dockerfile .dockerignore requirements.txt pyproject.toml config examples agents' returned EMPTY (no modifications). .project-memory/project_contract.yml NOT modified per PLAN.md explicit decision."
+  - "compileall silent (success — no source changes, no syntax impact)."
+  - "APRANA grep reviewed: 4 hits across ROADMAP.md, ADR-0006, ADR-0008 — ALL are explicit RETIREMENT statements. ROADMAP.md: '**APRANA is retired.** ... It must not be carried forward as a target, alias, shorthand, PR, gate, or option in any future work.' ADR-0008: '**APRANA is retired.** It is not a synonym for App Runner. It must not be used as a target, alias, shorthand, PR, gate, or option.' ADR-0006: '**APRANA is retired.** The unverified placeholder name from earlier ADR drafts must not be used as a target, alias, shorthand, PR, gate, or option.' ROADMAP.md PR 0030 row: 'APRANA retirement' (refers to retirement as scope, not future target). ZERO APRANA-as-future-target language."
+  - "App Runner / ECS / model binding / config governance grep reviewed: All expected terms appear with correct semantics. App Runner described as near-term proving/testing target. ECS Fargate retained as long-term primary production target. G-API-2 amended to 'ECS Fargate (primary/long-term), App Runner (near-term proving)'. Model binding lifecycle section present in ROADMAP.md. Config change classes A/B/C/D defined in ADR-0009. G-CFG-2 and G-CFG-3 added to gate register."
+  - "App Runner does NOT replace ECS: ADR-0008 explicitly states 'ECS Fargate remains the long-term primary production target' and 'This is an operational addition, not a replacement. ECS is not abandoned.' ROADMAP.md: 'ECS Fargate remains the long-term primary production target. The existing Terraform skeleton (infra/terraform/ecs.tf) is retained but not currently prioritized. ECS work moves later in the roadmap sequence.' PR 0022A (Terraform skeleton) still listed as completed foundation. ADR-0006 still references the existing infra skeleton as retained scaffolding."
+  - "APRANA fully retired: removed from active decision-making. ADR-0006 amended to remove 'APRANA (UNVERIFIED)' section and replace with ADR-0008 reference. No 'APRANA evaluation', 'APRANA candidate', 'APRANA target', or 'APRANA option' language. ROADMAP.md 'App Runner / APRANA clarification' section replaced with 'Runtime target decision' section referencing ADR-0008."
+  - "Model binding lifecycle recorded: ROADMAP.md 'Model binding lifecycle' subsection enumerates: (1) CI/CD builds runtime image — no model artifacts inside image; (2) Deployment selects model identity via BREMEN_MODEL_VERSION; (3) Container starts → reads cloud config → fetches/stages model package → validates manifest + checksum → calls joblib.load() exactly once at startup; (4) In-memory model serves all subsequent requests; (5) No hot-swap; (6) No per-request model loading; (7) New model version → new deployment → restart/rolling replacement. ADR-0007 referenced as authority. All 8 required properties (image does not contain model; deployment selects identity; startup fetch/stage/validate/load; joblib.load behind controlled post-validation boundary; in-memory serves requests; updates require redeploy/restart/rolling; no hot-swap; no per-request loading) are documented."
+  - "No model-in-image / hot-swap / per-request load: ROADMAP.md explicitly says 'no model artifacts inside image', 'No hot-swap. No per-request model loading.' Verified by grep -q for both phrases."
+  - "CI/CD image tag policy follow-up recorded: ROADMAP.md 'CI/CD image tag policy' subsection says: immutable SHA tags kept for audit; stable mutable tag 'app-runner' added for App Runner auto-deploy (planned PR 0031); 'latest' preserved as human convenience but NOT App Runner deploy trigger. PR 0031 explicitly listed as next-immediate in 'Next Execution Sequence' with scope 'ECR workflow: add stable App Runner image tag'. NO workflow file (.github/workflows/*.yml) modified in this PR — image tag change correctly deferred to PR 0031."
+  - "Config governance recorded: ADR-0009 (NEW) defines config change classes A/B/C/D with runtime-vs-restart classification. Class C (Model-binding) explicitly requires restart/redeploy — no runtime apply. Config state requirements (versioned, timestamped, auditable, reproducible) recorded. Future state history store (DynamoDB or equivalent) recorded as gate G-CFG-2. G-CFG-3 (config validation schema) added. ROADMAP.md gate register includes both new gates as OPEN. NO config UI/API/database implementation in this PR (per ADR-0009 Non-goals and ROADMAP.md Config governance section: 'No config UI/API/database implementation in PR 0030.')."
+  - "Config model-binding requires redeploy: ADR-0009 Class C row 'Runtime apply without restart? No' and 'Requires redeploy? Yes — restart/redeploy required'. Class C examples explicitly list 'Model version, model bucket, feature schema version'. This is correctly the most restrictive class."
+  - "DS / model package composition question recorded: ROADMAP.md 'Model package composition / DS inventory' subsection states current manifest contract supports single artifact (model_filename), loader is object-level composite-compatible (model: Any), open question whether Mahalanobis/Wasserstein features require fitted reference statistics. Resolution deferred to PR 0035 'DS feature inventory and model package composition decision'. NO model package format change in PR 0030 — model_package.py NOT modified."
+  - "No inference or clinical claims: grep ROADMAP.md docs/adr for 'diagnos|clinical validation|replace MRI|replace biopsy' returned NONE. ADR-0009 Non-goals explicitly excludes config UI/API/runtime apply/state database. ADR-0008 Non-goals explicitly excludes 'App Runner Terraform in this ADR (deferred to PR 0034)' and 'No abandonment of ECS'. No 'production target replacing ECS' language — ROADMAP.md explicitly says 'This is an operational pivot, not an abandonment of ECS.' No 'runtime hot-swaps model' language."
+  - "No source/test/workflow/Terraform/Docker/dependency changes: git diff --name-only -- src tests .github infra Dockerfile .dockerignore requirements.txt pyproject.toml config examples agents = EMPTY. .project-memory/project_contract.yml NOT modified (per PLAN.md explicit decision to defer config-governance prediction invariant change to PR 0039). Rebaseline artifact (.project-memory/architecture/runtime-model-config-roadmap-rebaseline.md) NOT modified."
+  - "No secrets or account identifiers: grep 'AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|aws_secret_access_key|account ID|registry URL' returned only meta-statements in ROADMAP.md: (1) 'ECR publish currently uses scoped IAM user credentials via GitHub Secrets (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) as an interim operational path' — describes the existing workflow mechanism (not recorded secret values), env var names only. (2) 'No secrets, account IDs, or registry URLs are recorded in this roadmap.' — self-declarative. NO AKIA values, NO actual secret access keys, NO AWS account ID numbers (like 123456789012), NO account-specific registry URLs (like XXXXXXXXX.dkr.ecr.us-east-1.amazonaws.com)."
+  - "Rebaseline artifact followed: .project-memory/architecture/runtime-model-config-roadmap-rebaseline.md was read as primary context. All 7 Executive Decisions from the rebaseline are reflected in the changed docs: (1) App Runner near-term + ECS later → ROADMAP + ADR-0008; (2) APRANA retired → ROADMAP + ADR-0006 amendment; (3) Model binding lifecycle confirmed → ROADMAP 'Model binding lifecycle' section; (4) DS/inventory question open → ROADMAP 'Model package composition' section + PR 0035 in sequence; (5) Config governance ADR + gates → ADR-0009 + G-CFG-2/G-CFG-3; (6) CI/CD tag follow-up → ROADMAP + PR 0031 in sequence; (7) Roadmap/ADR amendment first → PR 0030 itself."
+  - "Validation: compileall=pass; aprana_grep_reviewed=pass (4 explicit retirement statements, 0 future-target); architecture_terms_grep_reviewed=pass (App Runner near-term, ECS primary/later, model binding lifecycle, config governance all correctly recorded); secret_identifier_grep_reviewed=pass (only env var name references in meta-statements, no actual secrets/IDs/URLs)."
+  - "All required reads completed: PLAN.md, plan-review.yml, .project-memory/architecture/runtime-model-config-roadmap-rebaseline.md, .project-memory/project_contract.yml, ROADMAP.md, docs/adr/0006-multi-target-deployment-and-iac.md, docs/adr/0008-runtime-target-apprunner-proving.md, docs/adr/0009-config-governance.md."
+  - "No git mutation commands were run (no add, commit, push, gh pr create, Docker, Terraform, AWS, dependency install, or deployment). No files outside the review artifact were modified."

@@ -1,0 +1,131 @@
+# Plan Review — PR 0050: Model/Version Readiness Endpoint Cleanup
+
+review_type: plan-review
+pr: "0050-model-version-readiness-cleanup"
+branch: "0050-model-version-readiness-cleanup"
+head_verified: "37699cbc5f8198f279aff9c571a8875c7f96d3fe"
+date: "2026-07-09T07:13:51Z"
+
+verdict: approve
+head_verified: true
+branch_confirmed: true
+
+blockers: []
+warnings:
+  - "model_state.py additions (_load_attempted, _load_error) are observability-only — they do not change loading timing, retry logic, hot-swap, or checksum boundary. This is compliant with the hard rule against model loading lifecycle changes, but implementation must verify."
+  - "test_bremen_api_server.py line ~126 asserts model_status=='configured' after load — must change to 'ready'. The plan identifies this explicitly. If the implementation agent misses this, tests will fail."
+  - "test_bremen_api_skeleton.py has a test that loads a model THEN calls handle_model_version — this test must change from 'configured' to 'ready'. The plan identifies this at line ~173. A separate test that tests the cloud-config path WITHOUT loading must remain 'configured'."
+  - "docs/api_contract.md will need model_status documented as accepting 'ready' and 'error' in addition to existing values."
+
+checks:
+  # Plan existence and structure
+  plan_md_exists: true
+  plan_names_pr0050_model_version_readiness: true
+  plan_keeps_scope_to_runtime_readiness_status: true
+  plan_does_not_authorize_broad_rewrites: true
+
+  # Status semantics check
+  plan_defines_unconfigured: true
+  plan_defines_configured: true
+  plan_defines_ready: true
+  plan_defines_error: true
+  plan_makes_ready_dependent_on_successful_load: true
+  plan_keeps_model_ready_false_for_unconfigured: true
+  plan_keeps_model_ready_false_for_configured: true
+  plan_keeps_model_ready_false_for_error: true
+  plan_keeps_model_ready_true_only_for_ready: true
+  gap_analysis_correct_loaded_returns_configured: true
+  gap_analysis_correct_no_error_state_exists: true
+  model_source_derive_config_only_unchanged: true
+
+  # Endpoint contract check
+  plan_requires_model_version_to_expose_configured: true
+  plan_requires_model_version_to_expose_ready: true
+  plan_requires_model_version_to_expose_model_status: true
+  plan_requires_safe_model_version_when_configured: true
+  plan_keeps_model_uri_configured_bool_no_raw_uri_leak: true
+  plan_keeps_checksum_configured_bool_no_raw_checksum_leak: true
+  plan_uses_safe_enum_error_category: true
+  plan_avoids_raw_full_uri_leakage: true
+  plan_avoids_raw_checksum_leakage: true
+  plan_avoids_secrets_account_ids_registry_urls: true
+  plan_avoids_raw_patient_identifiers: true
+  plan_avoids_raw_scan_refs: true
+  plan_avoids_raw_feature_values: true
+  plan_keeps_compatibility_where_possible: true
+  model_source_unchanged: true
+  existing_schema_fields_preserved: true
+  new_fields_are_additive: true
+
+  # Health consistency check
+  plan_requires_health_model_ready_matches_version_ready: true
+  plan_keeps_health_lightweight: true
+  plan_keeps_app_runner_health_compatible: true
+  plan_does_not_add_heavy_model_checks_to_health: true
+  handle_health_signature_unchanged: true
+
+  # Test plan check
+  plan_includes_unconfigured_state_tests: true
+  plan_includes_configured_not_loaded_tests: true
+  plan_includes_ready_state_tests: true
+  plan_includes_error_state_tests: true
+  plan_includes_health_version_consistency_tests: true
+  plan_includes_no_raw_uri_checksum_leakage_tests: true
+  plan_includes_prediction_not_ready_behavior_tests: true
+  plan_uses_synthetic_mocked_tests_only: true
+  plan_avoids_network_aws_docker_terraform_app_runner: true
+  plan_avoids_real_h5_real_model_artifacts: true
+  existing_assertion_changes_identified_skeleton: true
+  existing_assertion_changes_identified_server: true
+  review_only_files_identified: true
+
+  # Boundary check
+  no_fastapi: true
+  no_docker_changes: true
+  no_terraform_infra_changes: true
+  no_dependency_changes: true
+  no_training_changes: true
+  no_model_artifact_changes: true
+  no_h5_layout_changes: true
+  no_preprocessing_changes: true
+  no_inference_math_changes: true
+  no_production_smoke_execution: true
+  config_governance_not_moved_before_pr0050: true
+  checksum_before_joblib_load_preserved: true
+  no_model_in_image_preserved: true
+  no_hot_swap_preserved: true
+  no_per_request_model_loading_preserved: true
+  model_loading_timing_unchanged: true
+  model_retry_logic_unchanged: true
+  observable_fields_added_to_model_state_not_behavior_changes: true
+
+validation:
+  git_diff_name_only: "only .project-memory/pr/0050-model-version-readiness-cleanup/ untracked directory"
+  forbidden_content_scan: pass
+  fastapi_not_introduced: pass
+  no_real_refs_in_plan: pass
+
+commit_readiness:
+  ready_to_commit: true
+  files_in_scope:
+    - ".project-memory/pr/0050-model-version-readiness-cleanup/reviews/plan-review.yml"
+  files_explicitly_excluded:
+    - "src/** (implementation — coded by implementation agent)"
+    - "tests/** (implementation — coded by implementation agent)"
+    - "docs/** (implementation — coded by implementation agent)"
+    - "Dockerfile"
+    - "Dockerfile.training"
+    - "infra/**"
+    - ".github/**"
+    - "requirements.txt"
+    - "pyproject.toml"
+    - "src/bremen/training/**"
+    - ".project-memory/pr/0050-model-version-readiness-cleanup/PLAN.md"
+  notes:
+    - "Plan is narrow and correct. Three categories: (1) schemas.py — new status constants and response fields; (2) model_state.py — observability fields + accessors; (3) app.py — updated decision logic in handle_model_version()."
+    - "Gap confirmed: current handle_model_version() returns model_status='configured' even when model is loaded (app.py line ~65). Plan correctly fixes this to 'ready'. No 'error' state exists currently."
+    - "Safety design correct: error_category is a safe enum string, not raw exception message. model_uri_configured and checksum_configured are bool, not string. No raw S3 URIs, checksums, patient data, secrets, or refs can leak in responses."
+    - "model_source.py unchanged — derive_model_source() deals with config-only state, not runtime state. Plan correctly keeps this boundary."
+    - "handle_health() unchanged — model_ready already correctly reflects ModelState.is_ready(). Plan adds consistency test only."
+    - "Observability-only changes to model_state.py (_load_attempted, _load_error fields) are not lifecycle changes — they track what already happened without altering timing, retry, hot-swap, or checksum boundary. Compliant."
+    - "All 19 non-goal categories listed. 15 hard rules pass."

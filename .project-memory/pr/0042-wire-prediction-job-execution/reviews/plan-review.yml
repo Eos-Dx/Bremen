@@ -1,0 +1,50 @@
+review_type: plan-review
+branch: 0042-wire-prediction-job-execution
+verdict: approve
+head: "2f7cb40a6f1bb6cb6e17263c4d9838251767def2"
+status: "?? .project-memory/pr/0042-wire-prediction-job-execution/"
+plan_path: ".project-memory/pr/0042-wire-prediction-job-execution/PLAN.md"
+blockers: []
+warnings:
+  - "schemas.py has no h5_path field — fix uses raw_request['h5_path'] inline; schema extension deferred to follow-up PR"
+  - "test_bremen_api_skeleton.py has 2 tests that will break (assert status in ('accepted', 'completed')) — plan acknowledges and provides update strategy; implementation agent must fix during implementation"
+  - "ValueError propagation decision (HTTP 400 vs accept-then-fail) — plan recommends HTTP 400, implementation must confirm"
+checks:
+  branch_confirmed: true
+  plan_artifact_only: true
+  root_cause_identified: true
+  production_evidence_used: true
+  request_schema_read: true
+  h5_path_field_identified: true
+  target_scan_ref_not_used_as_h5_path: true
+  skip_guard_removed_in_plan: true
+  inference_always_attempted_for_accepted_jobs: true
+  completed_requires_non_null_result: true
+  failed_requires_non_empty_error: true
+  tests_cover_missing_h5_failure: true
+  tests_cover_no_completed_null_result: true
+  tests_cover_run_inference_called_with_h5_path: true
+  tests_cover_success_result_path: true
+  real_h5_test_skipped_by_default: true
+  implementation_scope_safe: true
+  no_inference_handler_preflight_bridge_changes: true
+  no_s3_h5_ingestion_scope: true
+  validation_commands_present: true
+  implementation_agent_coder: true
+commit_readiness:
+  ready_to_commit_planning_artifacts: true
+  exact_files_to_stage:
+    - ".project-memory/pr/0042-wire-prediction-job-execution/PLAN.md"
+    - ".project-memory/pr/0042-wire-prediction-job-execution/reviews/plan-review.yml"
+notes:
+  - "Branch confirmed exactly 0042-wire-prediction-job-execution."
+  - "Root cause identified with two-part evidence: (A) startswith('/') guard in app.py handle_submit_prediction marks job completed without calling run_inference — direct code evidence: if not raw_request.get('target_scan_ref', '').startswith('/'): job_store.update_status(record.job_id, STATUS_COMPLETED) with no result; (B) run_inference called with raw_request.get('target_scan_ref', '') instead of h5_path."
+  - "Production evidence: existing logging tests (test_bremen_logging.py in repo) verify run_inference produces 'bremen.prediction.h5.received' and 'bremen.prediction.*' events. Since app.py currently skips inference for non-filesystem refs, those events would never fire in production for non-/ paths."
+  - "Request schema read: PredictionRequest in schemas.py has target_scan_ref, control_scan_ref, request_id — no h5_path. validate_prediction_request ignores unknown fields. Plan uses raw_request['h5_path'] with inline validation — correct approach for this PR; schema extension deferred (flagged as warning)."
+  - "h5_path field: run_inference(inference_handler.py) signature is run_inference(h5_path: str, patient_id: str | None = None). Plan correctly requires h5_path (not target_scan_ref) to be passed."
+  - "Skip guard: plan explicitly removes the startswith('/') guard block (FIX SUMMARY bullet 1). No remaining guard mentioned. All accepted jobs go to inference."
+  - "Invariant enforced: completed requires result (plan Section 7 table: completed → non-null dict; failed → non-empty error). Tests include test_bremen_predictions.py 8.2 asserting no completed/null state."
+  - "Test coverage: 7 new tests in test_bremen_predictions.py covering missing H5 (8.5), empty H5 (8.6), nonexistent H5 (8.1), null-result invariant (8.2), run_inference call with h5_path (8.3), success path (8.4), optional real H5 (8.7 skipped by default). Existing skeleton tests acknowledged for update."
+  - "Scope: app.py only + tests. No inference_handler.py changes (run_inference signature already correct). No preflight.py, preprocessing_bridge.py, training, docs, Docker, Terraform changes."
+  - "S3 H5 ingestion explicitly in non-goals (Section 9), confirmed as follow-up PR after job execution wired."
+  - "Approve: root cause precisely identified, fix path correct, schema gap acknowledged as warning not blocker, test coverage comprehensive, scope tightly bounded."

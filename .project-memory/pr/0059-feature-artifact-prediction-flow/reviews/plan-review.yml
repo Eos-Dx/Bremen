@@ -1,0 +1,158 @@
+# Plan Review: PR0059 — Controlled Feature Artifact Prediction Flow
+
+**Reviewer**: plan-review agent (Bremen XRD-based ML decision-support product)
+**Mode**: review
+**Branch**: 0059-feature-artifact-prediction-flow
+**HEAD**: 10e825ac861f1c7a10ae33a9ef0df51e54b11c10
+**Reviewed at**: 2026-07-10T13:28:18Z
+
+## Environment Capture
+
+- HEAD: `10e825ac861f1c7a10ae33a9ef0df51e54b11c10`
+- Branch: `0059-feature-artifact-prediction-flow`
+- Status: `?? .project-memory/pr/0059-feature-artifact-prediction-flow/`
+- Diff (name-only): (empty — no dirty working tree files)
+- Working tree: clean (only untracked .project-memory/0059 directory with PLAN.md + empty reviews/)
+
+## Verdict Summary
+
+**VERDICT**: approve
+
+No blocking conditions identified. PLAN.md is scoped, safe, and implementable. All required boundary conditions from the review checklist are satisfied.
+
+## Blockers
+
+None.
+
+## Warnings
+
+1. PLAN.md Section 4.4 step 3 makes `validate_portable_logreg_model()` required in the inference flow, while Section 4.2 requirement 2 lists it as optional import. Minor inconsistency — the implementation will resolve this during coding.
+2. PLAN.md Section 3.2 permits optional modification of `docs/feature_artifact_ingestion_boundary.md`. This is a well-scoped cross-reference addition matching the PR0058 handoff contract. Recommended but not required — implementation may skip it.
+
+## Files Read
+
+1. `.project-memory/pr/0059-feature-artifact-prediction-flow/PLAN.md`
+2. `ROADMAP.md`
+3. `docs/feature_artifact_ingestion_boundary.md`
+4. `docs/preprocessing_source_reconciliation.md`
+5. `docs/product_input_pipeline_contract.md`
+6. `docs/converter_preprocessing_boundary.md`
+7. `docs/api_contract.md`
+8. `docs/release_readiness_operator_notes.md`
+9. `.project-memory/IMPLEMENTATION_REPORT_WORKFLOW.md`
+10. `.project-memory/AGENT_TEST_DEBUGGING_RULES.md`
+11. `.project-memory/TEST_DESIGN_STANDARD.md`
+12. `src/bremen/feature_artifacts.py`
+13. `src/bremen/api/inference_handler.py`
+14. `src/bremen/api/decision_support.py`
+15. `src/bremen/api/schemas.py`
+16. `src/bremen/api/preprocessing_bridge.py`
+17. `src/bremen/api/h5_layouts.py`
+18. `src/bremen/api/preflight.py`
+19. `src/bremen/h5_inputs.py`
+20. `src/bremen/model_loader.py`
+21. `src/bremen/pipelines.py`
+22. `src/bremen/inference.py`
+23. `src/bremen/api/model_state.py`
+24. `tests/test_bremen_feature_artifacts.py`
+25. `tests/test_bremen_inference_integration.py`
+26. `tests/test_bremen_decision_support_output.py`
+27. `tests/test_bremen_api_contract.py`
+28. `tests/test_bremen_preprocessing_source_reconciliation.py`
+
+## Files Written
+
+- `.project-memory/pr/0059-feature-artifact-prediction-flow/reviews/plan-review.yml`
+
+## Snapshot Delta
+
+- HEAD: `10e825ac861f1c7a10ae33a9ef0df51e54b11c10`
+- status: `?? .project-memory/pr/0059-feature-artifact-prediction-flow/` (untracked PLAN.md + empty reviews/)
+- diff: empty — no dirty tree files
+
+## Checks
+
+| Check | Result | Notes |
+|-------|--------|-------|
+| scope | pass | PLAN.md is within the defined PR0059 scope: controlled internal prediction flow from validated feature artifact to decision-support report. Does not include public API wiring, H5 changes, preprocessing bridge changes, inference math changes, model loading changes, or dependency additions. |
+| plan-review boundary | pass | Plan-review writes only the allowed artifact. No edits to PLAN.md, source, tests, docs, config, Docker, infra, CI, dependencies, or agent files. |
+| validation strategy | pass | Section 9 defines pre-implementation validation, post-implementation compilation, test suite (PR0058 + new + existing), and safety validation (grep-based checks for forbidden patterns, secrets, clinical claims). |
+| safety boundaries | pass | Section 9.4 defines comprehensive safety grep checks. Section 10 Non-Goals explicitly rejects clinical validation, diagnosis claims, public schema changes, dependency additions, upstream vendoring. Test plan (Section 5) requires synthetic data only. |
+| drift gate | pass | Section 8.2 requires precommit-review to reconcile PLAN.md, plan-review.yml, IMPLEMENTATION_REPORT.md, actual git diff, and validation output before commit. FORBIDDEN files are clear. |
+| evidence completeness | pass | All static evidence from source files verified: `validate_feature_artifact()` exists in `feature_artifacts.py`, `predict_proba_portable()` exists in `inference.py:72`, `build_decision_support_report()` exists in `decision_support.py:48`, `ModelState` exists in `model_state.py:29`, `CompletedResult` exists in `schemas.py:136`, `REQUIRED_FEATURE_COLUMNS` exists in `feature_artifacts.py:36`, `BREMEN_V01_FEATURE_COLUMNS` exists in `preprocessing_bridge.py:35`. No feature_artifact_path or feature_artifact_uri exists in source or docs outside negation context. |
+| dirty tree | pass | Working tree is clean. No staged or unstaged changes. Only untracked directory `.project-memory/pr/0059-feature-artifact-prediction-flow/` containing PLAN.md. |
+
+## Validation
+
+```bash
+git diff --name-only
+# (no output — clean tree)
+```
+
+## Commit Readiness
+
+Plan is ready for implementation. The coder may proceed with the implementation order defined in PLAN.md Section 10. Precommit-review will serve as final gatekeeper.
+
+## Boundary Confirmations
+
+| Boundary | Status | Evidence |
+|----------|--------|----------|
+| No Docker run | pass | Section 9 validation uses `python -m compileall`, `python -m pytest`, `git diff`, `grep` — no Docker. |
+| No pytest run | pass | Plan-review did not run pytest. Only static file reads. |
+| No dependency install | pass | Plan-review did not install dependencies. |
+| No implementation files edited | pass | Only wrote `.project-memory/pr/0059-feature-artifact-prediction-flow/reviews/plan-review.yml`. |
+| No git mutation commands | pass | Only read-only git commands. |
+
+## Detailed Review Analysis
+
+### Option C Continuation
+
+PLAN.md Section 1.2 explicitly states "PR0059 continues Option C" — the runtime remains model-only and decision-support-only. Precomputed feature artifacts are validated at the boundary and passed to model inference. No raw upstream container data enters the runtime. No Option A (redefine H5 contract), B (keep `/scans/target/` as intermediate format), or D (dedicated preprocessing service).
+
+### Investor Path and Demo-Only Rejection
+
+Section 1.4: "PR0059 is an investor-path productization step." Section 1.5: "PR0059 is not a demo-only fork." The same contract applies to demo and production. Section 7 explicitly maps demo vs production paths with identical validation, prediction, and report code.
+
+### Public API Schema Unchanged
+
+Section 1.7: "PR0059 does NOT change the public prediction request schema. No POST /predictions schema changes." Verified against `src/bremen/api/schemas.py` — `PredictionRequest` has only `target_scan_ref`, `control_scan_ref`, `h5_path`, `h5_uri`, `h5_checksum`, `request_id`. No `feature_artifact_path` or `feature_artifact_uri`. The new flow is internal only — no HTTP endpoint, no route registration.
+
+### Existing Behavior Preserved
+
+| Existing component | Verified unchanged |
+|---|---|
+| `h5_path`/`h5_uri` | Section 3.3: h5_inputs.py unchanged |
+| H5 staging (`h5_inputs.py`) | Section 3.3: unchanged |
+| H5 layout detection (`h5_layouts.py`) | Section 3.3: unchanged |
+| Preprocessing bridge math (`preprocessing_bridge.py`) | Section 3.3: unchanged |
+| Inference math (`inference.py`) | Section 3.3: inference.py unchanged |
+| Model loading (`model_loader.py`) | Section 3.3: unchanged |
+| Decision-support report (`decision_support.py`) | Section 3.3: unchanged |
+| `schemas.py` (public API) | Section 3.3: unchanged |
+
+### Import and Dependency Safety
+
+Section 4.2 requirements 6-9 enforce:
+- No `h5py`, `joblib`, `boto3`, `requests`, `httpx`, `numpy` direct imports in new module
+- No `xrd_preprocessing`, `eosdx-container` imports
+- No imports from `preprocessing_bridge`, `h5_layouts`, `preflight`, `h5_inputs`
+- No calls to `run_inference`, `run_preprocessing_bridge`, `run_h5_preflight`
+- No `joblib.load()` — model already loaded by `ModelState`
+
+### IMPLEMENTATION_REPORT Workflow
+
+Section 8.1 requires the coder to create `IMPLEMENTATION_REPORT.md` with all required fields from `.project-memory/IMPLEMENTATION_REPORT_WORKFLOW.md` Section 5. Section 8.2 requires precommit-review to read PLAN.md, plan-review.yml, IMPLEMENTATION_REPORT.md, git status, git diff, changed files, boundary files, and validation output before issuing commit verdict. Blocking conditions (Section 8.3) cover: missing IMPLEMENTATION_REPORT, contradictions, out-of-scope file changes, forbidden imports, weakened tests, safety check failures.
+
+### Clinical Safety
+
+Section 1.6: "PR0059 does not claim clinical validation. All disclaimers from the existing decision-support report are preserved." Sections 5.2 and 6.10 require safety language in both tests and docs. Non-Goals Section 10 item 25: "No clinical validation claims. No diagnosis claims. No replacement of clinical judgment."
+
+## Non-Blocking Observations
+
+### Optional field in PLAN.md Section 4.4 step 3
+
+Section 4.4 step 3 says "Call `validate_portable_logreg_model(model_pkg)`" as a required step. Section 4.2 requirement 2 lists it as "optionally" imported. The implementation should resolve this minor discrepancy — either make it required (as step 3 suggests) or optional (as requirement 2 suggests). This does not block the plan as the implementation will clarify.
+
+### Optional cross-reference to ingestion boundary doc
+
+Section 3.2 permits adding a one-paragraph cross-reference to `docs/feature_artifact_ingestion_boundary.md` Section 12 (PR0059 Handoff). This matches the task prompt's intent and is the right place to link forward. Recommended but not required.
