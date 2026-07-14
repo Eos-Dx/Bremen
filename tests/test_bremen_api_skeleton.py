@@ -140,10 +140,12 @@ class TestHealth:
 class TestModelVersion:
     def test_model_version_returns_safe_not_configured(self):
         """handle_model_version returns not_configured by default with no env."""
-        from bremen.config import read_cloud_config
+        import os
+        from unittest.mock import patch
 
-        cloud = read_cloud_config(env={})
-        response = handle_model_version(cloud=cloud)
+        # Clear all BREMEN_MODEL_* env vars
+        with patch.dict(os.environ, {}, clear=True):
+            response = handle_model_version()
         assert isinstance(response, ModelVersionResponse)
         assert response.model_configured is False
         assert response.model_status == "not_configured"
@@ -151,25 +153,49 @@ class TestModelVersion:
 
     def test_model_version_configured_with_cloud_env(self):
         """handle_model_version with configured cloud returns configured."""
-        from bremen.config import read_cloud_config
+        import os
+        from unittest.mock import patch
 
-        cloud = read_cloud_config(
-            env={"BREMEN_MODEL_BUCKET": "my-bucket"}
-        )
-        response = handle_model_version(cloud=cloud)
+        with patch.dict(
+            os.environ,
+            {"BREMEN_MODEL_BUCKET": "my-bucket"},
+            clear=True,
+        ):
+            response = handle_model_version()
         assert response.model_configured is True
         assert response.model_status == "configured"
         assert response.model_version is None
 
+    def test_model_version_configured_with_cloud_env_and_version(self):
+        """handle_model_version with BREMEN_MODEL_VERSION set."""
+        import os
+        from unittest.mock import patch
+
+        with patch.dict(
+            os.environ,
+            {
+                "BREMEN_MODEL_BUCKET": "my-bucket",
+                "BREMEN_MODEL_VERSION": "1.2.3",
+            },
+            clear=True,
+        ):
+            response = handle_model_version()
+        assert response.model_configured is True
+        assert response.model_status == "configured"
+        assert response.model_version == "1.2.3"
+
     def test_model_version_does_not_load_model(self):
-        """handle_model_version does not call model_package validation."""
-        from bremen.config import read_cloud_config
+        """handle_model_version does not load/validate a model."""
+        import os
+        from unittest.mock import patch
 
         # Even when configured, no model loading happens
-        cloud = read_cloud_config(
-            env={"BREMEN_MODEL_BUCKET": "my-bucket"}
-        )
-        response = handle_model_version(cloud=cloud)
+        with patch.dict(
+            os.environ,
+            {"BREMEN_MODEL_BUCKET": "my-bucket"},
+            clear=True,
+        ):
+            response = handle_model_version()
         assert response.model_status == "configured"
         # All content fields are None (no model fetched)
         assert response.model_checksum is None
