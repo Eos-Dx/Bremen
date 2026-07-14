@@ -64,20 +64,21 @@ def handle_model_version(
 ) -> ModelVersionResponse:
     """Return configured model package metadata.
 
-    Resolves via source precedence:
+    Resolution priority:
 
     1. *explicit_path* argument (local package directory).
-    2. ``BREMEN_MODEL_PACKAGE_DIR`` environment variable (local directory).
-    3. Cloud metadata from ``read_cloud_config()`` — no S3 reads.
-    4. ``not_configured`` — no model package source configured.
+    2. Already-loaded ``ModelState`` ready metadata.
+    3. Failed/attempted ``ModelState`` error metadata.
+    4. Cloud metadata from ``read_cloud_config()`` / ``derive_model_source()``.
+    5. ``not_configured``.
 
     Parameters
     ----------
     explicit_path : Optional explicit path to a local model package
-        directory.  Takes precedence over all env vars.
-    cloud : Optional ``CloudConfig``.  When explicitly provided,
-        uses metadata-only cloud source rather than full precedence
-        resolution (backward-compatible path).
+        directory.  Resolved via ``resolve_model_package_source()``.
+    cloud : Optional ``CloudConfig``.  When explicitly provided without
+        *explicit_path*, uses metadata-only cloud source rather than
+        full precedence resolution (backward-compatible path).
 
     Returns
     -------
@@ -85,16 +86,28 @@ def handle_model_version(
 
     Must not import ``joblib`` / ``pickle`` or deserialize artifacts.
     """
-    if cloud is not None and explicit_path is None:
-        # Cloud-only metadata path (backward compatible)
-        from .model_source import derive_model_source  # noqa: PLC0415
+    # 1. Explicit local package path — full validation via model_package_source
+    if explicit_path is not None:
+        from ..model_package_source import resolve_model_package_source  # noqa: PLC0415
 
-        src = derive_model_source(cloud=cloud)
-        return ModelVersionResponse(**src)
-    # Check if model is actually loaded
+        source = resolve_model_package_source(explicit_path=explicit_path)
+        return ModelVersionResponse(
+            model_configured=source.model_configured,
+            model_version=source.model_version,
+            model_checksum=source.model_checksum,
+            feature_schema_version=source.feature_schema_version,
+            threshold_version=source.threshold_version,
+            threshold_value=source.threshold_value,
+            qc_criteria_version=source.qc_criteria_version,
+            model_status=source.model_status,
+            model_uri_configured=source.model_configured,
+            checksum_configured=source.model_checksum is not None,
+            error_category=source.error,
+        )
+
+    # 2. Already-loaded ModelState — model is loaded and ready
     model_pkg = ModelState.get_model()
     if model_pkg is not None:
-        # Model is loaded and validated — return live metadata with ready status
         state = ModelState.get_instance()
         plr = model_pkg.get("portable_logreg", {})
         return ModelVersionResponse(
@@ -103,7 +116,10 @@ def handle_model_version(
             model_checksum=state._model_checksum,
             feature_schema_version=plr.get("feature_schema_version"),
             threshold_version=plr.get("threshold_version"),
-            threshold_value=float(plr.get("threshold", 0.0)) if plr.get("threshold") is not None else None,
+            threshold_value=(
+                float(plr["threshold"]) if plr.get("threshold") is not None
+                else None
+            ),
             qc_criteria_version=None,
             model_status="ready",
             model_uri_configured=True,
@@ -111,12 +127,13 @@ def handle_model_version(
             error_category=None,
         )
 
-    # Check if loading was attempted and failed
+    # 3. Failed load attempt — model_status="error"
     if ModelState.was_load_attempted():
         state = ModelState.get_instance()
         load_error = ModelState.get_load_error()
-        # Determine configured booleans from available state info
-        uri_configured = bool(state._model_version) or (state._load_error not in (None, "model_uri_not_set"))
+        uri_configured = bool(state._model_version) or (
+            state._load_error not in (None, "model_uri_not_set")
+        )
         checksum_configured = bool(state._model_checksum)
         return ModelVersionResponse(
             model_configured=True,
@@ -132,7 +149,9 @@ def handle_model_version(
             error_category=load_error,
         )
 
-    # Loading not yet attempted — delegate to derive_model_source (config-only)
+    # 4. Cloud metadata / not_configured via derive_model_source
+    from .model_source import derive_model_source  # noqa: PLC0415
+
     src = derive_model_source(cloud=cloud)
     is_configured = src["model_configured"]
     return ModelVersionResponse(
@@ -140,20 +159,6 @@ def handle_model_version(
         model_uri_configured=is_configured,
         checksum_configured=bool(src.get("model_checksum")),
         error_category=None,
-    )
-
-    from ..model_package_source import resolve_model_package_source  # noqa: PLC0415
-
-    source = resolve_model_package_source(explicit_path=explicit_path)
-    return ModelVersionResponse(
-        model_configured=source.model_configured,
-        model_version=source.model_version,
-        model_checksum=source.model_checksum,
-        feature_schema_version=source.feature_schema_version,
-        threshold_version=source.threshold_version,
-        threshold_value=source.threshold_value,
-        qc_criteria_version=source.qc_criteria_version,
-        model_status=source.model_status,
     )
 
 

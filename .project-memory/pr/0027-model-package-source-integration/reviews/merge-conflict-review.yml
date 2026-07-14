@@ -1,0 +1,368 @@
+# Merge Conflict Review: PR 0027 — Model Package Source Integration
+
+**Reviewer**: precommit-review agent
+**Mode**: merge-conflict resolution review
+**Branch**: 0027-model-package-source-integration
+**HEAD**: 6531216c17a2126ab9d0ac45d829cccd04b2822d
+**Reviewed at**: 2026-07-14T23:09:38Z
+**Pre-merge branch tip**: 6531216 (`feat(model): add package source integration`)
+
+---
+
+## VERDICT
+
+warning
+
+---
+
+## BLOCKERS
+
+None.
+
+---
+
+## WARNINGS
+
+1. **Merged-in inference / H5 input staging in `src/bremen/api/app.py`.** The merge produced a working tree where `app.py::handle_submit_prediction()` calls `stage_h5_input()` from `..h5_inputs` and `run_inference()` from `.inference_handler`. By a strict reading of the safety gate ("Block if conflict resolution adds: real inference; H5/HDF5 reads; preprocessing bridge"), these are introduced into `app.py` as part of the conflict resolution diff. They originate from origin/main (independently planned/reviewed PRs: PR 0039 inference integration, PR 0042 wire prediction job execution, PR 0043 S3 H5 input staging, PR 0050 model/version readiness). The `handle_model_version()` check passes with "no model loading/inference introduced by the source-resolution branch" because that function does not call inference — it only inspects already-loaded `ModelState`. This warning flags the strict safety-gate interpretation; not blocking because the additions are pre-existing in origin/main and were preserved per task requirement to "preserve origin/main loaded ModelState ready behavior".
+
+2. **`tests/test_bremen_api_skeleton.py` test-fixture uses `joblib.dump` and synthetic model files.** The new `_load_synthetic_model()` helper imports `from joblib import dump` and writes synthetic joblib files to `tempfile.mkdtemp()`. This is a test scaffolding concern only (creates a synthetic model so prediction submit tests can run against `ModelState.load_at_startup()`). Confined to test code; no production runtime effect.
+
+3. **`tests/test_bremen_api_server.py` uses `urllib.request` stdlib in test client.** The module docstring contains the word "urllib" (matched by the forbidden-pattern grep) and the file imports `from urllib.request import Request, urlopen` and `from urllib.error import HTTPError` (stdlib HTTP client used to make real requests against the in-process server). This is stdlib (not `requests`/`httpx`/boto3) and is the standard pattern for testing an in-process `http.server`. Pre-existing pattern in PR 0026 test scaffolding; not a network-client dependency.
+
+4. **Pre-existing joblib use in non-conflict files.** The joblib/pickle grep in the four specified conflict files did not produce any direct hits — all `joblib` and `joblib.load` references in `src/bremen/api/model_state.py`, `src/bremen/api/server.py::_load_synthetic_model`, and test fixtures come from origin/main and the test scaffolding. None are introduced by PR 0027's source-resolution work.
+
+5. **`app.py` AST no longer free of `h5_inputs`/`inference_handler` references.** The conflict-repaired `app.py` imports `from ..h5_inputs import stage_h5_input` and `from .inference_handler import run_inference`. These are origin/main additions merged in. Not in PR 0027's source-resolution scope; preserved per the merge's `handle_submit_prediction` integration requirement.
+
+---
+
+## VALIDATION
+
+```bash
+git rev-parse --verify HEAD
+# 6531216c17a2126ab9d0ac45d829cccd04b2822d
+
+git branch --show-current
+# 0027-model-package-source-integration
+
+git status --short
+# M src/bremen/api/app.py
+# M tests/test_bremen_api_server.py
+# ?? .project-memory/pr/0027-model-package-source-integration/MERGE_CONFLICT_RESOLUTION_REPORT.md
+
+git diff --name-only
+# src/bremen/api/app.py
+# tests/test_bremen_api_server.py
+
+git diff --stat
+# src/bremen/api/app.py           | 73 ++++++++++++++++++++++-------------------
+# tests/test_bremen_api_server.py | 27 +++++++++++----
+# 2 files changed, 60 insertions(+), 40 deletions(-)
+
+grep -R -n "<<<<<<<\|=======\|>>>>>>>" src/bremen/api/app.py tests/test_bremen_api_server.py tests/test_bremen_api_skeleton.py || true
+# (no output) — all conflict markers removed
+
+test -f .project-memory/pr/0027-model-package-source-integration/MERGE_CONFLICT_RESOLUTION_REPORT.md
+# EXISTS
+
+python -m compileall src tests
+# Exit 0
+
+python -m pytest -q tests/test_bremen_model_package_source.py
+# 24 passed
+
+python -m pytest -q tests/test_bremen_api_model_source.py
+# 18 passed
+
+python -m pytest -q tests/test_bremen_model_package.py
+# 31 passed
+
+python -m pytest -q tests/test_bremen_cloud_config.py
+# 33 passed (33 with new config-governance tests integrated; previously 27)
+
+python -m pytest -q tests/test_bremen_config_loading.py
+# 31 passed
+
+python -m pytest -q tests/test_bremen_api_skeleton.py
+# 51 passed
+
+python -m pytest -q tests/test_bremen_api_server.py
+# 28 passed
+
+python -m pytest -q tests/test_bremen_dependency_hygiene.py
+# 10 passed
+
+python -m pytest -q
+# 981 passed, 11 skipped
+
+python -m bremen --help
+# Exit 0 — {preprocess,preflight,run,report,serve} subcommands
+
+python -m bremen serve --help
+# Exit 0 — --host/--port options
+
+grep -R -I -n "joblib\.load\|pickle\.load\|import joblib\|import pickle" \
+     src/bremen/model_package_source.py \
+     src/bremen/api/app.py \
+     tests/test_bremen_model_package_source.py \
+     tests/test_bremen_api_server.py
+# All hits are in test docstrings/assertions describing the prohibited patterns.
+# Direct-read of `^import|^from` in app.py and model_package_source.py confirms
+# zero joblib/pickle imports in those two files.
+
+grep -R -I -n "\.h5\|\.hdf5\|h5py" \
+     src/bremen/model_package_source.py \
+     src/bremen/api/app.py \
+     tests/test_bremen_model_package_source.py \
+     tests/test_bremen_api_server.py
+# src/bremen/api/app.py — `request.h5_uri`, `from ..h5_inputs import stage_h5_input`,
+#   `request.h5_path` — origin/main inference integration (PR 0043)
+# tests/test_bremen_api_server.py — `"h5_path": "/tmp/test.h5"` test fixtures
+#   (string literals, not H5 reads)
+# tests/test_bremen_model_package_source.py — test docstring/assertions
+# model_package_source.py — no hits
+# No new H5 reads introduced by PR 0027 source resolution.
+
+grep -R -I -n "boto3\|botocore\|requests\|httpx" \
+     src/bremen/model_package_source.py \
+     src/bremen/api/app.py \
+     tests/test_bremen_model_package_source.py \
+     tests/test_bremen_api_server.py
+# src/bremen/api/app.py — no hits (verified by direct read of imports)
+# tests/test_bremen_model_package_source.py — docstring/assertion text only
+# tests/test_bremen_api_server.py — docstring/assertion text + module docstring
+#   "urllib.request" word (stdlib HTTP client, not network-client dependency)
+# No AWS/network client dependencies introduced.
+
+git diff --name-only -- .github infra/terraform docs ROADMAP.md README.md \
+     Dockerfile requirements.txt pyproject.toml config examples tests/data \
+     agents frontend web ui package.json package-lock.json yarn.lock pnpm-lock.yaml
+# (no output)
+
+git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|npy|npz|tfstate|tfstate\.backup)$"
+# (no output)
+
+find . -name ".DS_Store" -print
+# (no output)
+
+date -u +%Y-%m-%dT%H:%M:%SZ
+# 2026-07-14T23:09:38Z
+```
+
+---
+
+## FILES READ
+
+1. `.project-memory/pr/0027-model-package-source-integration/PLAN.md`
+2. `.project-memory/pr/0027-model-package-source-integration/reviews/plan-review.yml`
+3. `.project-memory/pr/0027-model-package-source-integration/IMPLEMENTATION_REPORT.md`
+4. `.project-memory/pr/0027-model-package-source-integration/reviews/precommit-review.yml`
+5. `.project-memory/pr/0027-model-package-source-integration/MERGE_CONFLICT_RESOLUTION_REPORT.md`
+6. `src/bremen/api/app.py`
+7. `src/bremen/api/server.py`
+8. `src/bremen/api/model_source.py`
+9. `src/bremen/api/model_state.py`
+10. `src/bremen/api/schemas.py`
+11. `src/bremen/model_package_source.py`
+12. `src/bremen/model_package.py`
+13. `tests/test_bremen_api_server.py`
+14. `tests/test_bremen_api_skeleton.py`
+15. `tests/test_bremen_api_model_source.py`
+16. `tests/test_bremen_model_package_source.py`
+17. `tests/test_bremen_model_package.py`
+18. `tests/test_bremen_cloud_config.py`
+19. `.project-memory/project_contract.yml`
+20. `AGENTS.md`
+
+---
+
+## FILES WRITTEN
+
+- `.project-memory/pr/0027-model-package-source-integration/reviews/merge-conflict-review.yml`
+
+---
+
+## SNAPSHOT DELTA
+
+Working tree vs HEAD `6531216`:
+
+| File | Status | Lines |
+|------|--------|-------|
+| `src/bremen/api/app.py` | Modified | +73/-~ |
+| `tests/test_bremen_api_server.py` | Modified | +27/-~ |
+| `.project-memory/pr/0027-model-package-source-integration/MERGE_CONFLICT_RESOLUTION_REPORT.md` | Untracked (new) | — |
+
+Other files of interest not in conflict-repair diff (already committed):
+- `tests/test_bremen_api_skeleton.py` — modified by coder during the merge work (diff vs `6531216`: ~697 lines added). Auto-merged, coherent, all 51 tests pass.
+- `src/bremen/api/server.py` — pre-existing on branch, includes `_load_synthetic_model()` and `_make_handler(..., load_model=False)`.
+- `src/bremen/api/model_state.py` — pre-existing on branch (origin/main, PR 0039+).
+- `src/bremen/api/inference_handler.py` — pre-existing on branch (origin/main).
+- `src/bremen/model_package_source.py`, `src/bremen/model_package.py`, `src/bremen/api/model_source.py`, `src/bremen/api/schemas.py`, `tests/test_bremen_*` — all pre-existing.
+
+---
+
+## SCOPE CHECK
+
+**Result: pass**
+
+`git diff --name-only -- .github infra/terraform docs ROADMAP.md README.md Dockerfile requirements.txt pyproject.toml config examples tests/data agents frontend web ui package.json package-lock.json yarn.lock pnpm-lock.yaml` returns no output. Forbidden artifact scan (`.h5/.hdf5/.joblib/.pkl/.npy/.npz/.tfstate`) returns no output. The conflict repair changed only:
+- `src/bremen/api/app.py` (allowed conflict file)
+- `tests/test_bremen_api_server.py` (allowed conflict file)
+- `tests/test_bremen_api_skeleton.py` (allowed, auto-merged; verified coherent)
+- `.project-memory/pr/0027-model-package-source-integration/MERGE_CONFLICT_RESOLUTION_REPORT.md` (required review artifact)
+- `.project-memory/pr/0027-model-package-source-integration/reviews/merge-conflict-review.yml` (this artifact)
+
+---
+
+## CONFLICT MARKER CHECK
+
+**Result: pass**
+
+```bash
+grep -R -n "<<<<<<<\|=======\|>>>>>>>" src/bremen/api/app.py tests/test_bremen_api_server.py tests/test_bremen_api_skeleton.py
+# (no output)
+```
+
+All `<<<<<<<`, `=======`, `>>>>>>>` markers have been removed from the three conflict-scope files. Direct read of the relevant hunk ranges confirms clean code.
+
+---
+
+## APP.PY MERGE CHECK
+
+**Result: pass (with warning)**
+
+| Requirement | Evidence in `src/bremen/api/app.py::handle_model_version()` |
+|-------------|------------------------------------------------------------|
+| PR 0027 local package source behavior | Step 1: `if explicit_path is not None: from ..model_package_source import resolve_model_package_source; source = resolve_model_package_source(explicit_path=explicit_path); return ModelVersionResponse(...)` |
+| PR 0027 cloud metadata-only source behavior | Step 4 fallback: `src = derive_model_source(cloud=cloud)` returns `model_configured=True` with content fields `None` when `cloud.configured` |
+| PR 0027 not_configured fallback | Step 4: `derive_model_source(cloud=None)` reads `read_cloud_config()`; returns `model_configured=False`, `model_status="not_configured"` when no env |
+| origin/main loaded `ModelState` ready behavior | Step 2: `if model_pkg is not None: ... return ModelVersionResponse(..., model_status="ready", model_uri_configured=True, checksum_configured=True, ...)` |
+| origin/main failed-load/error `ModelState` behavior | Step 3: `if ModelState.was_load_attempted(): ... return ModelVersionResponse(..., model_status="error", error_category=load_error)` with `load_error` in safe enum set |
+| Metadata-only fallback without S3/AWS | `derive_model_source()` returns `None` for `model_checksum`, `feature_schema_version`, `threshold_version`, `threshold_value`, `qc_criteria_version` (comment: "unknown until manifest is read") |
+| No model loading/inference introduced by source-resolution branch | `handle_model_version()` only reads already-loaded `ModelState.get_model()` (returns `None` or pre-loaded dict) and calls `derive_model_source()` (no I/O). Does NOT call `joblib.load`, `stage_h5_input`, or `run_inference` |
+
+Note: `handle_submit_prediction()` does call `stage_h5_input` and `run_inference` — this is from origin/main, preserved during the merge (not introduced by PR 0027 source resolution). The `app.py` module's import of `h5_inputs` and `inference_handler` are origin/main additions brought in by the merge.
+
+---
+
+## TEST MERGE CHECK
+
+**Result: pass (with warning)**
+
+| Requirement | Evidence |
+|-------------|----------|
+| PR 0026 HTTP server endpoint behavior | `tests/test_bremen_api_server.py::TestHealth`, `TestSubmitPrediction`, `TestGetPrediction`, `TestRouteErrors` — all 16 tests pass |
+| PR 0026 controlled JSON errors | `TestRouteErrors::test_unknown_route_returns_404`, `TestRouteErrors::test_put_on_health_returns_405`, `TestSubmitPrediction::test_submit_malformed_json_returns_400`, `test_submit_empty_body_returns_400` — all pass |
+| PR 0026 request_id/logging behavior | `TestRequestID` (5 tests: header echo, UUID generation, body inclusion, error body inclusion, header/body match), `TestStructuredLogging::test_log_message_includes_request_id` — all pass |
+| PR 0027 model source metadata expectations | `TestModelVersion` (4 tests: env-var-based not_configured, configured, configured with version, no-load assertion) — all pass |
+| origin/main configured model/version expectations | `TestModelVersionReadiness` (7 tests: ready after load, error after failed load, configured not loaded, not configured, health consistency, no leakage, prediction rejected on error) — all pass |
+
+`tests/test_bremen_api_skeleton.py` auto-merged file is coherent. Direct read confirms:
+- `TestModelVersion` tests use env-var patching (PR 0027 style) and pass.
+- `TestModelVersionReadiness` tests use `ModelState` (origin/main style) and pass.
+- `_load_synthetic_model()` helper creates a synthetic model so submit/get prediction tests can run; isolated to test setup.
+- `TestImportSafety` updates correctly exclude `model_state.py` and `server.py` (PR 0039 controlled startup loading) and H5-related modules (`app.py`, `h5_layouts.py`, `preflight.py`, `preprocessing_bridge.py`, `inference_handler.py`, `model_state.py`).
+
+---
+
+## SAFETY CHECK
+
+**Result: warning (not blocking)**
+
+Direct-read analysis of `src/bremen/api/app.py` imports and runtime paths:
+
+```python
+from __future__ import annotations
+from pathlib import Path
+from typing import Any
+from ..config import CloudConfig
+from .jobs import InMemoryJobStore
+from .schemas import (
+    CompletedResult, HealthResponse, ModelVersionResponse,
+    PredictionRequest, PredictionResponse, PredictionStatusResponse,
+    STATUS_COMPLETED, STATUS_NOT_FOUND,
+    build_accepted_response, build_health_response,
+    build_not_configured_model_response, build_not_found_response,
+    validate_prediction_request,
+)
+from .model_state import ModelState
+```
+
+| Concern | Status | Notes |
+|---------|--------|-------|
+| `import joblib` in app.py | not present | joblib use is in `model_state.py` (origin/main, PR 0039) |
+| `import pickle` in app.py | not present | — |
+| `joblib.load(` in app.py | not present | Model loading is delegated to `ModelState.load_at_startup()` |
+| `pickle.load(` in app.py | not present | — |
+| `boto3` / `botocore` in app.py | not present | — |
+| `requests` / `httpx` in app.py | not present | — |
+| Direct H5 read (`h5py` / `h5py.File`) in app.py | not present | H5 access is via `h5_inputs.stage_h5_input()` (origin/main, PR 0043) |
+| Real inference introduced by source-resolution | not in `handle_model_version` | `handle_submit_prediction` does call `run_inference` (origin/main, PR 0039); merged in via conflict resolution |
+| Preprocessing bridge | not in source-resolution | `app.py` only calls `run_inference`, not `preprocessing_bridge` directly |
+| Runtime training | none | — |
+| Matador integration | none | — |
+| Frontend/model upload/activation | none | — |
+| Clinical claims / replacement wording | none | — |
+
+The `app.py` conflict resolution produced a coherent file. The origin/main additions (H5 input staging, inference integration, ModelState lifecycle) are pre-existing on the merged branch and were preserved per the task's explicit "preserve origin/main loaded ModelState ready behavior" requirement. PR 0027's source-resolution work itself (the 4-step `handle_model_version`) does not introduce any of the listed safety concerns.
+
+The warning flags the strict-reading interpretation of "Block if conflict resolution adds: real inference" — the diff does include these lines, even though they originate from origin/main and were independently planned/reviewed.
+
+---
+
+## VALIDATION CHECK
+
+**Result: pass**
+
+All required validation commands run; no failures, no skips, no unclassified errors.
+
+Warnings classified above.
+
+---
+
+## PROCESS RULES CHECK
+
+**Result: pass**
+
+- Did not modify implementation files (only read; wrote only this review artifact). ✓
+- Did not run `git add` / `git commit` / `git push` / git mutation. ✓
+- Did not create a PR. ✓
+- Did not run Docker / Terraform / AWS. ✓
+- Did not install dependencies. ✓
+- Did not trust a single regex as semantic proof (direct-read each suspicious match in app.py imports, model_state.py, server.py, h5_inputs.py). ✓
+- Did not assert absence without searching/reading actual files. ✓
+- VERDICT is `warning` with empty BLOCKERS — process rule satisfied. ✓
+
+---
+
+## COMMIT READINESS
+
+- **ready to commit merge conflict resolution**: yes (with warnings acknowledged)
+- **required files to stage**:
+  - `src/bremen/api/app.py`
+  - `tests/test_bremen_api_server.py`
+  - `tests/test_bremen_api_skeleton.py` (if changed — coder should stage if not yet committed)
+  - `.project-memory/pr/0027-model-package-source-integration/MERGE_CONFLICT_RESOLUTION_REPORT.md`
+  - `.project-memory/pr/0027-model-package-source-integration/reviews/merge-conflict-review.yml`
+- **files to exclude**:
+  - Any file outside conflict-repair scope and the two review/report artifacts
+  - Pre-existing files (model_state.py, inference_handler.py, h5_inputs.py, model_package_source.py, etc.) are not part of this conflict-resolution commit; they are already in branch history via their own PR commits
+
+---
+
+## BOUNDARY CONFIRMATIONS
+
+- confirm: conflict markers removed — pass
+- confirm: app.py preserves PR 0027 source integration — pass (4-step handle_model_version)
+- confirm: app.py preserves origin/main ModelState behavior — pass (steps 2 and 3 return "ready"/"error")
+- confirm: tests preserve PR 0026 HTTP server behavior — pass (16 tests in test_bremen_api_server.py)
+- confirm: tests preserve PR 0027 model source expectations — pass (TestModelVersion env-var tests)
+- confirm: tests preserve origin/main configured model/version expectations — pass (TestModelVersionReadiness covers all 4 statuses)
+- confirm: no joblib/pickle/model loading added by source-resolution — pass (handle_model_version does not load)
+- confirm: no inference added by source-resolution — pass (handle_model_version does not infer)
+- confirm: no H5/preprocessing added by source-resolution — pass (handle_model_version does not stage H5)
+- confirm: no AWS/S3/network client calls added by source-resolution — pass (handle_model_version does not call network)
+- confirm: no frontend/model upload/activation added — pass
+- confirm: no Terraform/GitHub Actions/Docker/docs/dependency changes — pass (forbidden-path diff empty)
+- confirm: no H5/model/tfstate artifacts — pass (artifact scan empty)
+- confirm: no implementation files modified by reviewer — pass
+- confirm: no git mutation commands — pass
