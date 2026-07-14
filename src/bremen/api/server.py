@@ -22,7 +22,9 @@ Safety
 from __future__ import annotations
 
 import json
+import logging
 import re
+import uuid
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Any
 
@@ -33,6 +35,8 @@ from .app import (
     handle_get_prediction,
 )
 from .jobs import InMemoryJobStore
+
+logger = logging.getLogger(__name__)
 
 _JOB_ID_PATTERN = re.compile(
     r"^/predictions/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
@@ -69,9 +73,47 @@ def _make_handler(
     class _BremenHandler(BaseHTTPRequestHandler):
         """Single-request HTTP handler.  Shared *job_store* from closure."""
 
-        # Silence per-request log output
+        # ---- Request ID ----
+
+        def _get_request_id(self) -> str:
+            """Return the request ID from X-Request-ID header or generate one."""
+            return self.headers.get("X-Request-ID") or str(uuid.uuid4())
+
+        # ---- Structured logging ----
+
         def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
-            pass
+            """Override default log_message to use structured logging.
+
+            This replaces the default ``BaseHTTPRequestHandler.log_message``
+            behaviour with structured key=value logging through ``logger``.
+            Each log line includes request_id, method, path, status, and
+            available contextual fields (job_id, error).
+            """
+            # Format the default status-line message (
+            #   e.g. '"GET /health HTTP/1.1" 200 -'
+            # )
+            message = format % args
+            # Extract status from args[1] (the code passed by log_request)
+            status = args[1] if len(args) >= 2 else "?"
+            extra_parts = []
+            job_id = getattr(self, "_job_id", None)
+            error = getattr(self, "_error", None)
+            if job_id:
+                extra_parts.append(f"job_id={job_id}")
+            if error:
+                extra_parts.append(f"error={error}")
+            extra_str = " ".join(extra_parts)
+            logger.info(
+                "request_id=%(request_id)s method=%(method)s "
+                "path=%(path)s status=%(status)s %(extra)s",
+                {
+                    "request_id": getattr(self, "_request_id", "?"),
+                    "method": getattr(self, "command", "?"),
+                    "path": getattr(self, "path", "?"),
+                    "status": status,
+                    "extra": extra_str,
+                },
+            )
 
         # ---- Route dispatch ----
 
@@ -80,9 +122,11 @@ def _make_handler(
         ) -> None:
             """Serialize *data* as JSON and write the response."""
             body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+            request_id = self._get_request_id()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
+            self.send_header("X-Request-ID", request_id)
             self.end_headers()
             self.wfile.write(body)
 
@@ -102,10 +146,44 @@ def _make_handler(
 
         # ---- Request handler ----
 
+        def _log_and_send(
+            self, data: Any, status: int = 200,
+            job_id: str | None = None, error: str | None = None,
+        ) -> None:
+            """Send JSON response and log the request summary.
+
+            Parameters
+            ----------
+            data : Response body dict.
+            status : HTTP status code.
+            job_id : Optional job ID for request correlation.
+            error : Optional error reason for controlled failures.
+            """
+            request_id = self._get_request_id()
+            data["request_id"] = request_id
+            self._request_id = request_id
+            self._job_id = job_id
+            self._error = error
+            self._send_json(data, status=status)
+
+        def _log_and_send_error(
+            self, message: str, status: int = 400,
+            job_id: str | None = None,
+        ) -> None:
+            """Send an error JSON response with request_id."""
+            self._log_and_send(
+                {"error": message},
+                status=status, job_id=job_id, error=message,
+            )
+
         def do_GET(self) -> None:
+            self._request_id = self._get_request_id()
+            self._job_id = None
+            self._error = None
+
             if self.path == "/health":
                 resp = handle_health(version=version)
-                self._send_json({
+                self._log_and_send({
                     "status": resp.status,
                     "service": resp.service,
                     "version": resp.version,
@@ -113,7 +191,7 @@ def _make_handler(
                 })
             elif self.path == "/model/version":
                 resp = handle_model_version()
-                self._send_json({
+                self._log_and_send({
                     "model_configured": resp.model_configured,
                     "model_version": resp.model_version,
                     "model_checksum": resp.model_checksum,
@@ -125,76 +203,84 @@ def _make_handler(
                 })
             elif (match := _JOB_ID_PATTERN.match(self.path)) is not None:
                 job_id = match.group(1)
+                self._job_id = job_id
                 resp = handle_get_prediction(job_id, job_store)
                 if resp.status == "not_found":
-                    self._send_json({
+                    self._log_and_send({
                         "job_id": resp.job_id,
                         "status": resp.status,
                         "submitted_at": resp.submitted_at,
                         "updated_at": resp.updated_at,
-                    }, status=404)
+                    }, status=404, job_id=job_id, error="Job not found")
                 else:
-                    self._send_json({
+                    self._log_and_send({
                         "job_id": resp.job_id,
                         "status": resp.status,
                         "submitted_at": resp.submitted_at,
                         "updated_at": resp.updated_at,
                         "result": resp.result,
                         "error": resp.error,
-                    })
+                    }, job_id=job_id)
             else:
-                self._send_json(
-                    {"error": f"Not found: {self.path}"},
-                    status=404,
+                self._log_and_send_error(
+                    f"Not found: {self.path}", status=404,
                 )
 
         def do_POST(self) -> None:
+            self._request_id = self._get_request_id()
+            self._job_id = None
+            self._error = None
+
             if self.path == "/predictions":
                 body = self._read_json_body()
                 if body is None:
-                    self._send_json(
-                        {"error": "Invalid or missing JSON body"},
-                        status=400,
+                    self._log_and_send_error(
+                        "Invalid or missing JSON body", status=400,
                     )
                     return
 
                 try:
                     resp = handle_submit_prediction(body, job_store)
                 except ValueError as exc:
-                    self._send_json(
-                        {"error": str(exc)},
-                        status=400,
+                    self._log_and_send_error(
+                        str(exc), status=400,
                     )
                     return
 
-                self._send_json({
+                self._job_id = resp.job_id
+                self._log_and_send({
                     "job_id": resp.job_id,
                     "status": resp.status,
                     "submitted_at": resp.submitted_at,
                     "links": resp.links,
-                }, status=202)
+                }, status=202, job_id=resp.job_id)
             else:
-                self._send_json(
-                    {"error": f"Not found: {self.path}"},
-                    status=404,
+                self._log_and_send_error(
+                    f"Not found: {self.path}", status=404,
                 )
 
         def do_PUT(self) -> None:
-            self._send_json(
-                {"error": "Method not allowed"},
-                status=405,
+            self._request_id = self._get_request_id()
+            self._job_id = None
+            self._error = None
+            self._log_and_send_error(
+                "Method not allowed", status=405,
             )
 
         def do_DELETE(self) -> None:
-            self._send_json(
-                {"error": "Method not allowed"},
-                status=405,
+            self._request_id = self._get_request_id()
+            self._job_id = None
+            self._error = None
+            self._log_and_send_error(
+                "Method not allowed", status=405,
             )
 
         def do_PATCH(self) -> None:
-            self._send_json(
-                {"error": "Method not allowed"},
-                status=405,
+            self._request_id = self._get_request_id()
+            self._job_id = None
+            self._error = None
+            self._log_and_send_error(
+                "Method not allowed", status=405,
             )
 
     return _BremenHandler

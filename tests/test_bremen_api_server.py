@@ -256,6 +256,117 @@ class TestRouteErrors:
 
 
 # ---------------------------------------------------------------------------
+# Request ID propagation
+# ---------------------------------------------------------------------------
+
+
+class TestRequestID:
+    def test_request_id_returned_from_header(self, server_info):
+        """X-Request-ID header value is returned in response header."""
+        host, port, _ = server_info
+        req = Request(
+            f"http://{host}:{port}/health",
+            headers={"X-Request-ID": "my-test-id-001"},
+        )
+        resp = urlopen(req, timeout=3)
+        assert resp.headers.get("X-Request-ID") == "my-test-id-001"
+
+    def test_request_id_generated_when_not_provided(self, server_info):
+        """No X-Request-ID header -> response contains a generated UUID."""
+        host, port, _ = server_info
+        req = Request(f"http://{host}:{port}/health")
+        resp = urlopen(req, timeout=3)
+        rid = resp.headers.get("X-Request-ID", "")
+        # Should be a UUID v4 format
+        import uuid
+
+        try:
+            uuid.UUID(rid)
+        except ValueError:
+            pytest.fail(f"Generated request ID is not a valid UUID: {rid}")
+
+    def test_request_id_in_json_response_body(self, server_info):
+        """Response JSON body includes a 'request_id' field."""
+        host, port, _ = server_info
+        req = Request(
+            f"http://{host}:{port}/health",
+            headers={"X-Request-ID": "body-request-id"},
+        )
+        resp = urlopen(req, timeout=3)
+        data = json.loads(resp.read())
+        assert data.get("request_id") == "body-request-id"
+
+    def test_request_id_in_error_response_body(self, server_info):
+        """Error responses include a 'request_id' field."""
+        host, port, _ = server_info
+        from urllib.request import Request, urlopen
+        from urllib.error import HTTPError
+
+        req = Request(
+            f"http://{host}:{port}/unknown-route",
+            headers={"X-Request-ID": "error-request-id"},
+        )
+        try:
+            urlopen(req, timeout=3)
+            pytest.fail("Expected HTTPError")
+        except HTTPError as exc:
+            data = json.loads(exc.read())
+            assert data.get("request_id") == "error-request-id"
+            assert "error" in data
+
+    def test_request_id_in_json_response_matches_header(self, server_info):
+        """Response header and body request_id match."""
+        host, port, _ = server_info
+        req = Request(
+            f"http://{host}:{port}/health",
+            headers={"X-Request-ID": "match-check-id"},
+        )
+        resp = urlopen(req, timeout=3)
+        header_rid = resp.headers.get("X-Request-ID")
+        body_rid = json.loads(resp.read()).get("request_id")
+        assert header_rid == "match-check-id"
+        assert body_rid == "match-check-id"
+
+
+# ---------------------------------------------------------------------------
+# Structured logging
+# ---------------------------------------------------------------------------
+
+
+class TestStructuredLogging:
+    def test_log_message_includes_request_id(self, server_info):
+        """log_message output includes request_id field."""
+        host, port, _ = server_info
+
+        import logging
+        from io import StringIO
+
+        capture = StringIO()
+        handler = logging.StreamHandler(capture)
+        handler.setLevel(logging.INFO)
+        logger = logging.getLogger("bremen.api.server")
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+
+        try:
+            req = Request(
+                f"http://{host}:{port}/health",
+                headers={"X-Request-ID": "log-test-id"},
+            )
+            urlopen(req, timeout=3)
+
+            output = capture.getvalue()
+            assert "request_id=log-test-id" in output, (
+                f"Log output should contain request_id=log-test-id, got: {output}"
+            )
+            assert "method=GET" in output
+            assert "path=/health" in output
+            assert "status=200" in output
+        finally:
+            logger.removeHandler(handler)
+
+
+# ---------------------------------------------------------------------------
 # Import safety (AST-based) for server.py only
 # ---------------------------------------------------------------------------
 
