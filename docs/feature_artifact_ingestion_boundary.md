@@ -278,8 +278,13 @@ Committed examples, test fixtures, and documentation must not contain:
 
 ## 12. PR0059 Handoff
 
-PR0059 may wire this internal boundary into a controlled internal or
-API path for investor smoke. Specific handoff items:
+PR0059 has implemented the controlled internal prediction flow.
+See `docs/feature_artifact_prediction_flow.md` for the full design.
+PR0059 proves the validated artifact → prediction →
+`decision_support_report` path.  Public API wiring remains deferred.
+PR0060 may package an investor smoke/walkthrough around this flow.
+
+Original handoff items:
 
 1. Wire `validate_feature_artifact()` into a prediction flow that
    accepts precomputed feature artifacts alongside or instead of
