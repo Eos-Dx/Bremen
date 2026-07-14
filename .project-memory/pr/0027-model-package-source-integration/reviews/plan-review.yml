@@ -1,56 +1,320 @@
-review_type: plan-review
-branch: 0027-model-package-source-integration
-verdict: approve
-head: "6c844d662382ef6dd5023a7c707ae3285a7c4efa"
-status: "untracked: .project-memory/pr/0027-model-package-source-integration/ (PLAN.md present, no review file yet); no tracked modifications"
-plan_path: ".project-memory/pr/0027-model-package-source-integration/PLAN.md"
-blockers: []
-warnings: []
-checks:
-  branch_confirmed: true
-  plan_artifact_only: true
-  source_files_not_modified_by_planner: true
-  pr0026_presence_confirmed: true
-  scope_pr0027_only: true
-  no_pr0028_loading_drift: true
-  no_pr0029_h5_drift: true
-  no_pr0030_preprocessing_drift: true
-  no_pr0031_inference_drift: true
-  allowed_files_clear: true
-  forbidden_files_clear: true
-  metadata_only_source_integration: true
-  existing_cloud_config_reused: true
-  safe_public_metadata_required: true
-  no_secret_or_account_exposure: true
-  no_aws_s3_network_calls: true
-  no_local_model_file_reads: true
-  no_runtime_model_package_validation: true
-  no_model_loading_or_deserialization: true
-  validation_commands_present: true
-  forbidden_pattern_checks_present: true
-  block_conditions_present: true
-commit_readiness:
-  ready_to_commit_planning_artifacts: true
-  exact_files_to_stage:
-    - ".project-memory/pr/0027-model-package-source-integration/PLAN.md"
-    - ".project-memory/pr/0027-model-package-source-integration/reviews/plan-review.yml"
-notes:
-  - "Branch verified as 0027-model-package-source-integration (matches hard requirement)."
-  - "PLAN.md 'Confirmation: PR 0026 is present' explicitly asserts that src/bremen/api/server.py exists and 'python -m bremen serve --help' works. Confirmed by direct read of src/bremen/api/server.py (PR 0026 HTTP runner present on branch) and src/bremen/__main__.py (serve subcommand present, lazy imports run_server)."
-  - "PLAN.md scope is strictly metadata-only: derive_model_source() reads CloudConfig (no network) and returns either a not_configured descriptor or a configured descriptor with all content fields set to None. No fetches, no validation calls, no deserialization."
-  - "PLAN.md wiring places handle_model_version() integration inside app.py (optional cloud parameter, default None reads env). This preserves backward compatibility — server.py calls handle_model_version() with no args and continues to work."
-  - "Existing cloud config reused: PLAN.md uses read_cloud_config() from src/bremen/config.py (line 210). The prompt referenced a function named 'load_cloud_config_from_env()' but the actual existing API in the codebase is 'read_cloud_config()'; PLAN.md correctly uses the real existing function. No new config loader is introduced."
-  - "BREMEN_MODEL_* variables reused (per PLAN.md 'Required reads — observed facts' and src/bremen/config.py lines 202-205): BREMEN_MODEL_BUCKET, BREMEN_MODEL_PREFIX, BREMEN_MODEL_VERSION, BREMEN_MODEL_MANIFEST_KEY; additional optional env vars BREMEN_SERVICE_ENV and BREMEN_AWS_REGION are read by read_cloud_config() but never propagated into /model/version."
-  - "PLAN.md explicitly forbids runtime model package validation: Non-goals 'No model package validation (validate_model_package() is not called)', Safety boundaries 'No model package validation at runtime', Stop conditions list model package validation as a block trigger. src/bremen/model_package.py is on the forbidden files list."
-  - "PLAN.md forbids local model file reads, S3/AWS/network calls, joblib.load, pickle, H5/HDF5 reads, Matador, preprocessing, and inference. These are repeated across Non-goals, Safety boundaries, Stop conditions, and forbidden-pattern grep checks (joblib.load, pickle.load, boto3, botocore, h5py, .h5, .hdf5, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, diagnostic / clinical validation / replace MRI / replace biopsy)."
-  - "Public /model/version response when configured is restricted to model_configured=True, model_version (env-or-None), model_status='configured', and the remaining content fields set to None. Platform safety decisions table explicitly states: 'Public API exposes bucket name? No', 'Public API exposes model_checksum? No — not known until manifest is read', 'Public API exposes AWS account ID, access key, or secret? No'. No storage internals (bucket, prefix, manifest key, region, service_env) leak into the response."
-  - "PR 0026 prediction submit/poll behavior preserved: handle_submit_prediction and handle_get_prediction are unchanged in PLAN.md's wiring (only handle_model_version is modified). server.py already returns 202/400/404/200 correctly per tests/test_bremen_api_server.py and PLAN.md does not require any server.py changes by default."
-  - "Focused tests for configured vs. unconfigured state are present: test_bremen_api_model_source.py §3 enumerates 6 scenarios (no-env -> not_configured, bucket+prefix -> configured, content fields None when configured, handle_model_version reflects env, handle_model_version without args, import safety); §4 updates test_bremen_api_skeleton.py for both states."
-  - "HTTP /model/version coverage present for runtime API output change: §5 lists test_get_model_version_not_configured and test_get_model_version_configured in test_bremen_api_server.py following the existing HTTPServer+thread+urllib pattern from PR 0026."
-  - "CLI/serve coverage: PLAN.md says no serve wiring changes by default, so test_bremen_cli_entrypoint.py is not modified. Validation checklist still runs 'python -m bremen serve --help' as a regression check. This satisfies the 'if serve wiring changes' qualifier."
-  - "Allowed and forbidden files clearly enumerated. Allowed list matches the prompt's expected list. Forbidden list covers ROADMAP.md, README.md, docs/** (except api_contract.md only if justified, with explicit justification provided), .github/**, infra/**, Dockerfile, .dockerignore, requirements.txt, pyproject.toml, config/**, examples/**, agents/**, src/bremen/model_package.py, src/bremen/modeling.py, src/bremen/pipelines.py, plus all .h5/.hdf5/.joblib/.pkl/.npy/.npz data artifacts."
-  - "Validation commands present and static/read-only: compileall, pytest for new and existing test files, help commands. Forbidden-pattern grep checks cover joblib/pickle, H5/AWS, AWS credential patterns, and clinical claims."
-  - "Drift gate, stop conditions, rollback plan, decisions summary, and exact validation checks all present. The plan's stop conditions explicitly list the inverse of every allowed boundary, so any drift during implementation triggers a block."
-  - "ROADMAP.md confirms PR 0027 scope (line 102: 'Model package source integration. Resolve local/cloud model package references and validate manifests/checksums without joblib.load(). Uses read_cloud_config() and model_package.validate_model_package().') and confirms PRs 0028-0031 are sequenced later; PLAN.md does not implement any of them."
-  - "project_contract.yml agent_workflow confirms plan-review writes only to .project-memory/pr/<pr-id>/reviews/plan-review.yml; this artifact is being written to the correct path."
-  - "PR 0026 implementation is observed on disk (src/bremen/api/server.py with HTTPServiceRunner class, _make_handler closure, run_server entry; src/bremen/__main__.py with _add_serve_subcommand and _handle_serve; tests/test_bremen_api_server.py exists). PR 0026 is fully present, not merely claimed."
+# Plan Review: PR 0027 — Model Package Source Integration
+
+**Reviewer**: plan-review agent
+**Mode**: review
+**Branch**: 0027-model-package-source-integration
+**HEAD**: 4c522fceeacea7a448b9ad2d14a90d9e63d80a9e
+**Reviewed at**: 2026-07-14T22:04:26Z
+
+---
+
+## VERDICT
+
+approve
+
+---
+
+## BLOCKERS
+
+None.
+
+---
+
+## WARNINGS
+
+1. PLAN.md Section "Forbidden files" lists `docs/**` but has a parenthetical exception: "(except `docs/api_contract.md` only if contract change is justified)." The plan then explicitly says "No `docs/api_contract.md` change needed" and justifies that existing contract already covers all states. This is fine — no contract change planned.
+
+2. PLAN.md says `src/bremen/model_package.py` is in the FORBIDDEN files list but the coder must import `validate_model_package()` and `summarize_model_package()` from it. This is **read-only use** — importing functions does not modify the file. The plan explicitly does not modify `model_package.py`. Confirmed safe.
+
+3. PLAN.md module name resolution note mentions keeping `src/bremen/api/model_source.py` if it already exists. The file exists on branch and contains `derive_model_source()`. The plan's preference to keep it and add `src/bremen/model_package_source.py` is sound.
+
+---
+
+## VALIDATION
+
+```bash
+git rev-parse --verify HEAD
+# 4c522fceeacea7a448b9ad2d14a90d9e63d80a9e
+
+git branch --show-current
+# 0027-model-package-source-integration
+
+git status --short
+# M .project-memory/pr/0027-model-package-source-integration/PLAN.md
+
+test -f .project-memory/pr/0027-model-package-source-integration/PLAN.md
+# EXISTS
+
+grep -n "model package source\|source integration" PLAN.md
+# Line 9: "Add model package source integration for runtime/API surfaces."
+# Line 53: ROADMAP.md reference
+
+grep -n "local" PLAN.md
+# 55+ matches covering local package source, local validation, BREMEN_MODEL_PACKAGE_DIR
+
+grep -n "cloud\|CloudConfig\|BREMEN_MODEL_BUCKET" PLAN.md
+# 46+ matches covering cloud metadata source, CloudConfig usage, read_cloud_config()
+
+grep -n "not_configured" PLAN.md
+# 27+ matches covering default status, model_status, source precedence terminal
+
+grep -n "manifest\|checksum" PLAN.md
+# 30+ matches covering manifest validation, checksum verification, SHA-256
+
+grep -n "/model/version" PLAN.md
+# 14+ matches covering endpoint integration, metadata-only, handler wiring
+
+grep -n "Model Ops\|React\|frontend\|model upload\|activation\|reload" PLAN.md
+# 18+ matches covering future boundary, deferred implementations
+
+grep -n "no joblib\|no model loading\|no inference\|no H5\|no AWS\|no S3" PLAN.md
+# Lines 15, 138, 250, 402, 487-490 — safety boundary assertions
+
+grep -n "Agent: coder\|Mode: implementation" PLAN.md
+# Line 492 — "confirm: implementation assigned to Agent: coder / Mode: implementation: yes"
+
+date -u +%Y-%m-%dT%H:%M:%SZ
+# 2026-07-14T22:04:26Z
+```
+
+---
+
+## FILES READ
+
+1. `.project-memory/pr/0027-model-package-source-integration/PLAN.md`
+2. `ROADMAP.md`
+3. `docs/api_contract.md`
+4. `docs/architecture.md`
+5. `docs/adr/0003-bremen-microservice-api-architecture.md`
+6. `docs/adr/0004-bremen-configuration-management-strategy.md`
+7. `docs/adr/0007-model-artifact-lifecycle.md`
+8. `src/bremen/model_package.py`
+9. `src/bremen/config.py`
+10. `src/bremen/api/app.py`
+11. `src/bremen/api/server.py`
+12. `src/bremen/api/jobs.py`
+13. `src/bremen/api/schemas.py`
+14. `src/bremen/api/model_source.py` (exists on branch)
+15. `src/bremen/__main__.py`
+16. `tests/test_bremen_model_package.py`
+17. `tests/test_bremen_cloud_config.py`
+18. `tests/test_bremen_api_skeleton.py`
+19. `tests/test_bremen_api_server.py`
+20. `tests/test_bremen_config_loading.py`
+21. `.project-memory/project_contract.yml`
+22. `AGENTS.md`
+
+---
+
+## FILES WRITTEN
+
+- `.project-memory/pr/0027-model-package-source-integration/reviews/plan-review.yml`
+
+---
+
+## SCOPE CHECK
+
+**Result: pass**
+
+PLAN.md is focused on model package source resolution and status. The scope covers:
+- New `src/bremen/model_package_source.py` (source resolver with precedence)
+- Modified `src/bremen/api/app.py` (wire `resolve_model_package_source()` into `handle_model_version()`)
+- Possibly modified `src/bremen/api/server.py` (only if needed)
+- New `tests/test_bremen_model_package_source.py`
+- Modified `tests/test_bremen_api_skeleton.py` and `tests/test_bremen_api_server.py`
+
+No model loading, inference, frontend, deployment, or model ops. Matches ROADMAP.md: "Model package source integration. Resolve local/cloud model package references and validate manifests/checksums without `joblib.load()`."
+
+---
+
+## SOURCE RESOLUTION CHECK
+
+**Result: pass**
+
+| Requirement | Evidence |
+|-------------|----------|
+| local package source | Section 1: "Local package source — resolves a local directory path to a validated model package." Explicit path arg + `BREMEN_MODEL_PACKAGE_DIR` env var. |
+| cloud metadata-only source | Section 1: "Cloud metadata source — derives safe model source status from existing cloud config environment variables." Section 3: "Metadata-only; no S3 reads." Returns `model_status="configured"` with content fields `None`. |
+| not_configured status | Section 1: "not_configured — Default when nothing is configured." `source_type: "not_configured"`. |
+| source precedence | Section 1: "1. explicit_path argument > 2. BREMEN_MODEL_PACKAGE_DIR env var > 3. Cloud metadata from read_cloud_config() > 4. not_configured". |
+| fail-closed validation | Section 1: "Fail closed if the path is invalid, missing manifest, failing checksum, or path traversal." Local path "must not silently fall through to cloud config." |
+| no model loading | Section "Safety boundaries"/"Non-goals": "No model loading or deserialization via `joblib.load()` / `pickle.load()`." |
+
+---
+
+## LOCAL SOURCE CHECK
+
+**Result: pass**
+
+| Requirement | Evidence |
+|-------------|----------|
+| Uses existing model package validation | Section 1: "Use the existing `validate_model_package()` from `src/bremen/model_package.py` for directory/checksum validation." "Use the existing `summarize_model_package()` for safe metadata after validation." |
+| manifest validation | Section 1: "resolves a local directory path to a validated model package." Test scenario 5: "verify `model_version`, `feature_schema_version`, `threshold_version`, `model_checksum` are populated from manifest." |
+| checksum validation | Section 1: "failing checksum" causes fail-closed. Uses `validate_model_package()` which verifies SHA-256. |
+| path traversal/local filename safety | Section 1: "Reject if not a directory." "Must not contain local machine path sentinels." Test scenario 8: "Local path traversal rejected." |
+| no joblib/pickle/model deserialization | Section "Safety boundaries": "Local validation reads `manifest.json` only — the model artifact joblib/pkl file is never read by Python code except for SHA-256 checksum computation (pure binary read, no deserialization)." |
+| explicit failure on invalid local package | Section 1: "If the directory is missing or not a valid model package, return `model_status="invalid"` with a descriptive error — do not silently fall through to cloud config." |
+
+---
+
+## CLOUD SOURCE CHECK
+
+**Result: pass**
+
+| Requirement | Evidence |
+|-------------|----------|
+| no S3 read/download | Section 1: "Metadata-only; no S3 reads." Section "Non-goals": "No S3 reads, no model file reads, no network calls (except local filesystem reads for local package validation)." |
+| no boto3/botocore | Section "Validation checklist" grep: `grep -R -I -n "boto3\|botocore" src/bremen tests/test_bremen_model_package_source.py \|\| true` — must return empty. |
+| no AWS/network calls | Section "Safety boundaries": "No S3/AWS network calls." |
+| no claim that package exists in S3 | Section 1: "all content fields `None` (unknown until fetched)." "`model_status="configured"` — accurately reflects source configuration without claiming model is loaded." |
+| uses existing CloudConfig/env metadata safely | Uses `read_cloud_config()` from `config.py`. No env values exposed in public API output. Bucket/prefix/manifest key are internal only. |
+
+---
+
+## MODEL VERSION INTEGRATION CHECK
+
+**Result: pass**
+
+PLAN.md includes metadata-only `/model/version` integration:
+- `handle_model_version()` will call `resolve_model_package_source()` (Section 2).
+- For local: returns full manifest metadata (`model_version`, `model_checksum`, etc.).
+- For cloud: returns `model_configured=True`, all content fields `None`.
+- For not_configured: same as current behavior.
+- Does NOT load model, call S3/AWS, or imply validated cloud package existence.
+
+---
+
+## FRONTEND / MODEL OPS BOUNDARY CHECK
+
+**Result: pass**
+
+| Requirement | Evidence |
+|-------------|----------|
+| future React Model Ops Console acknowledged | Section "Frontend and Model Ops future boundary": "PR 0031-ish: React Model Ops Console MVP." |
+| future upload/stage/activate workflow acknowledged | Section "Frontend and Model Ops future boundary": "PR 0030-ish: Model package management API — upload, validate manifest/checksum/schema, stage, activate/reload." |
+| no React/frontend in PR 0027 | Section "Frontend and Model Ops future boundary": "No React frontend — No frontend code, no webpack/package.json, no Node toolchain." |
+| no model upload endpoint in PR 0027 | Section "Frontend and Model Ops future boundary": "No model upload endpoint." |
+| no model activation/reload/restart endpoint in PR 0027 | Section "Frontend and Model Ops future boundary": "No model activation/reload/restart endpoint." |
+| no Node/package-manager files | Section "Frontend and Model Ops future boundary": "No package manager files." |
+
+---
+
+## SAFETY CHECK
+
+**Result: pass**
+
+PLAN.md does NOT allow:
+
+| Prohibited activity | Evidence of prohibition |
+|---------------------|------------------------|
+| Real inference | Section "Non-goals": "No inference or preprocessing." Section "Safety boundaries". |
+| Model loading/deserialization | Section "Safety boundaries": "No model loading or deserialization via `joblib.load()` / `pickle.load()`." |
+| `joblib.load` | Section "Safety boundaries": "No pickle deserialization of any kind." Validation grep for `joblib.load`. |
+| Pickle loading | Section "Safety boundaries": "No pickle deserialization." Validation grep for `pickle.load`. |
+| H5/HDF5 reads | Section "Non-goals": "No H5/HDF5 reads." Validation grep for `.h5`/`.hdf5`/`h5py`. |
+| Preprocessing bridge | Section "Safety boundaries": "No preprocessing bridge." Non-goals. |
+| Runtime training | Section "Safety boundaries": "No training." Non-goals. |
+| AWS/S3/network calls | Section "Safety boundaries": "No S3/AWS network calls." Validation grep for boto3/botocore/requests/httpx. |
+| Matador integration | Section "Non-goals": "No Matador integration." |
+| Clinical claims | Section "Safety boundaries": "No claim that Bremen diagnoses disease, replaces MRI, replaces biopsy, replaces a radiologist, or is clinically validated." |
+| Replacement for MRI/biopsy/radiologist/clinician | Section "Safety boundaries": explicitly forbidden. AGENTS.md and project_contract.yml consistently enforce. |
+
+**Additional safety notes:**
+- `BREMEN_MODEL_PACKAGE_DIR` is a local dev path only — not leaked into cloud config context.
+- Bucket/prefix/manifest key are NOT exposed in public API output.
+- Local validation reads `manifest.json` only; artifact binary is read only for SHA-256 (no deserialization).
+
+---
+
+## VALIDATION CHECK
+
+**Result: pass**
+
+PLAN.md includes validation for all required categories:
+
+| Validation category | PLAN.md evidence |
+|--------------------|-----------------|
+| git/branch/status/diff | `git rev-parse --verify HEAD`, `git branch --show-current`, `git status --short`, `git diff --name-only` |
+| compileall | `python -m compileall src tests` |
+| Focused model package source tests | `python -m pytest -q tests/test_bremen_model_package_source.py` |
+| Existing model package tests | `python -m pytest -q tests/test_bremen_model_package.py` |
+| Cloud config/config loading tests | `python -m pytest -q tests/test_bremen_cloud_config.py`, `tests/test_bremen_config_loading.py` |
+| API skeleton/server tests | `python -m pytest -q tests/test_bremen_api_skeleton.py`, `tests/test_bremen_api_server.py` |
+| Dependency hygiene tests | `python -m pytest -q tests/test_bremen_dependency_hygiene.py` |
+| Full pytest | `python -m pytest -q` |
+| CLI help and serve help | `python -m bremen --help`, `python -m bremen serve --help` |
+| joblib/pickle grep | `grep -R -I -n "joblib\.load\|pickle\.load\|import joblib\|import pickle" src/bremen tests/test_bremen_model_package_source.py \|\| true` |
+| H5 grep | `grep -R -I -n "\.h5\|\.hdf5\|h5py" src/bremen tests/test_bremen_model_package_source.py \|\| true` |
+| AWS/network dependency grep | `grep -R -I -n "boto3\|botocore\|requests\|httpx" src/bremen tests/test_bremen_model_package_source.py \|\| true` |
+| Web framework grep | `grep -R -I -n "FastAPI\|Flask\|uvicorn\|gunicorn\|starlette\|aiohttp\|django" src tests requirements.txt pyproject.toml \|\| true` |
+| Forbidden path diff | `git diff --name-only -- .github infra/terraform docs ROADMAP.md README.md Dockerfile requirements.txt pyproject.toml config examples tests/data agents frontend web ui package.json` |
+| Artifact scan | `git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|npy|npz|tfstate|tfstate\.backup)$" \|\| true` |
+| .DS_Store check | `find . -name ".DS_Store" -print` |
+
+---
+
+## IMPLEMENTATION AGENT CHECK
+
+**Result: pass**
+
+PLAN.md Section "Implementation agent":
+- **Agent**: coder (confirmed by grep at line 492)
+- **Mode**: implementation (confirmed by grep at line 492)
+
+---
+
+## PROCESS RULES CHECK
+
+**Result: pass**
+
+| Rule | Status |
+|------|--------|
+| VERDICT: block with empty BLOCKERS is invalid | Not applicable — verdict is approve |
+| If BLOCKERS is empty, VERDICT must be approve or warning, never block | ✓ (verdict is approve) |
+| Every blocker must include condition, evidence, why blocking, required action | Not applicable — no blockers |
+| Did not assert absence without reading actual PLAN.md | ✓ — PLAN.md read in full |
+| Did not trust single regex as semantic proof | ✓ — key decisions verified via direct source reads |
+| Did not modify implementation files | ✓ |
+| Did not run tests | ✓ |
+| Did not run Docker/Terraform/AWS | ✓ |
+| Did not install dependencies | ✓ |
+| Did not run git mutation commands | ✓ |
+
+---
+
+## COMMIT READINESS
+
+- **ready to commit planning artifacts**: yes
+- **required files to stage**:
+  - `.project-memory/pr/0027-model-package-source-integration/PLAN.md`
+  - `.project-memory/pr/0027-model-package-source-integration/reviews/plan-review.yml`
+- **files to exclude**: none from this pair
+
+---
+
+## BOUNDARY CONFIRMATIONS
+
+| Boundary | Status | Evidence |
+|----------|--------|---------|
+| model package source integration planned | pass | Section "Objective": model package source integration with cloud metadata and local package resolution. |
+| local package source planned | pass | Section 1: explicit path arg + `BREMEN_MODEL_PACKAGE_DIR` env var. Uses `validate_model_package()`/`summarize_model_package()`. |
+| cloud metadata-only source planned | pass | Section 1: cloud metadata source using `read_cloud_config()`. No S3 reads. Returns `model_status="configured"`, content fields `None`. |
+| not_configured source status planned | pass | Section 1: terminal precedence case. Same as current behavior. |
+| source precedence planned | pass | Section 1: explicit path > BREMEN_MODEL_PACKAGE_DIR env > cloud metadata > not_configured. |
+| fail-closed validation planned | pass | Section 1: invalid local path returns `model_status="invalid"` with error, does not fall through to cloud. |
+| existing model package validation reused where possible | pass | Section 1: "Use the existing `validate_model_package()` from `src/bremen/model_package.py`." |
+| `/model/version` metadata-only integration considered/planned | pass | Section 2: `handle_model_version()` wired to `resolve_model_package_source()`. Metadata-only. |
+| future React/Model Ops direction acknowledged | pass | Section "Frontend and Model Ops future boundary": PR 0030-ish, PR 0031-ish deferred. |
+| no React/frontend implementation planned | pass | Section "Frontend and Model Ops future boundary": explicitly deferred. |
+| no model upload planned | pass | Section "Non-goals"/"Frontend and Model Ops future boundary". |
+| no model activation/reload/restart planned | pass | Section "Non-goals"/"Frontend and Model Ops future boundary". |
+| no new dependencies planned | pass | Forbidden files: requirements.txt, pyproject.toml. Standard-library-only. |
+| no joblib/pickle/model loading planned | pass | Section "Safety boundaries": "No model loading or deserialization via `joblib.load()` / `pickle.load()`." |
+| no inference planned | pass | Section "Safety boundaries". Non-goals. |
+| no H5/preprocessing planned | pass | Section "Non-goals": "No H5/HDF5 reads." |
+| no AWS/S3/network calls planned | pass | Section "Safety boundaries": "No S3/AWS network calls." |
+| no Terraform/GitHub Actions/Docker/docs/ROADMAP changes planned | pass | Forbidden files include all of these. |
+| Bremen safety identity preserved | pass | Section "Safety boundaries": explicitly forbids clinical claims. AGENTS.md and project_contract.yml consistent. |
+| implementation assigned to coder | pass | Section "Implementation agent": Agent: coder, Mode: implementation. |
+| no implementation files modified | pass | Only reviewed PLAN.md files. No edits to source, tests, docs, config, Docker, infra, CI, or agents. |
+| no git mutation commands | pass | Only read-only commands. |
