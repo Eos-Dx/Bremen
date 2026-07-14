@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 
 
-BUILTIN_COMMANDS = ("preprocess", "serve")
+BUILTIN_COMMANDS = ("preprocess", "serve", "demo_smoke")
 STUB_COMMANDS = ("preflight", "run", "report")
 
 
@@ -49,6 +49,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     # --- Serve command: HTTP server ---
     _add_serve_subcommand(subparsers)
+
+    # --- Demo smoke command ---
+    _add_demo_smoke_subcommand(subparsers)
 
     return parser
 
@@ -126,6 +129,8 @@ def main(argv: list[str] | None = None) -> int:
         return _handle_preprocess(args)
     if handler == "serve":
         return _handle_serve(args)
+    if handler == "demo_smoke":
+        return _handle_demo_smoke(args)
     if handler == "stub":
         return _handle_stub(args)
 
@@ -173,6 +178,48 @@ def _handle_serve(args: argparse.Namespace) -> int:
     print("Dev/smoke mode only. Not for production use.")
     run_server(host=args.host, port=args.port)
     return 0
+
+
+def _add_demo_smoke_subcommand(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Add the 'demo-smoke' subcommand (no heavy imports)."""
+    demo = subparsers.add_parser(
+        "demo-smoke",
+        help="Run production demo smoke checks against a running Bremen service.",
+    )
+    demo.add_argument(
+        "--base-url",
+        type=str,
+        default="http://127.0.0.1:8000",
+        help="Base URL of the Bremen HTTP service (default: http://127.0.0.1:8000).",
+    )
+    demo.add_argument(
+        "--timeout",
+        type=int,
+        default=30,
+        help="Request timeout in seconds (default: 30).",
+    )
+    demo.add_argument(
+        "--skip-prediction",
+        action="store_true",
+        help="Skip the prediction check.",
+    )
+    demo.set_defaults(_cmd_handler="demo_smoke")
+
+
+def _handle_demo_smoke(args: argparse.Namespace) -> int:
+    """Run the demo smoke checks against a running Bremen service."""
+    from .demo_smoke import main as demo_main  # noqa: PLC0415
+
+    cli_args = [
+        f"--base-url={args.base_url}",
+        f"--timeout={args.timeout}",
+    ]
+    if args.skip_prediction:
+        cli_args.append("--skip-prediction")
+
+    return demo_main(cli_args)
 
 
 if __name__ == "__main__":
