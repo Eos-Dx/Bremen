@@ -1,0 +1,328 @@
+# Plan Review: PR 0060 — Production Demo Smoke Path
+
+**Reviewer**: plan-review agent
+**Mode**: review
+**Branch**: 0060-production-demo-smoke-path
+**HEAD**: bd22884a9bf01fc2592ae291cf2846607a0c45e8
+**Reviewed at**: 2026-07-14T23:38:44Z
+
+---
+
+## VERDICT
+
+approve
+
+---
+
+## BLOCKERS
+
+None.
+
+---
+
+## WARNINGS
+
+1. PLAN.md mentions "Use existing `tests/data/synthetic_demo.h5` if present; do NOT commit one." The demo-smoke prediction check will skip with `"not_available"` when no local fixture is found. This is the correct safe behavior. The planner should confirm no accidental H5 fixture commit occurs during implementation.
+
+2. PLAN.md Section "A tiny ROADMAP note is allowed if justified by the human decision recording. Default: avoid." This is intentionally cautious. The implementation should avoid ROADMAP changes unless explicitly required.
+
+3. PLAN.md references `tests/test_bremen_dependency_hygiene.py` in the validation checklist. This file was not listed in required reads and its existence could not be confirmed from available evidence. If missing, the validation command will simply report a test-not-found error — this does not block the plan.
+
+---
+
+## VALIDATION
+
+```bash
+git rev-parse --verify HEAD
+# bd22884a9bf01fc2592ae291cf2846607a0c45e8
+
+git branch --show-current
+# 0060-production-demo-smoke-path
+
+git status --short
+# ?? .project-memory/pr/0060-production-demo-smoke-path/
+
+test -f .project-memory/pr/0060-production-demo-smoke-path/PLAN.md
+# EXISTS
+
+grep -n "production\|demo\|smoke" PLAN.md
+# Lines 5, 9, 17, 19, 27, 70, 79-84, 104, 109, 112, 128, 132, 143, 151, 154, 156, 158, 224, 233, 243, 267, 284, 288
+# Core objective: "Add a thin, standard-library-only demo-smoke CLI command"
+
+grep -n "health\|/health" PLAN.md
+# Lines 12, 32, 37, 149 — health check defined
+
+grep -n "model/version\|/model/version" PLAN.md
+# Lines 13, 32, 150 — model/version check defined
+
+grep -n "feature artifact\|feature_artifact" PLAN.md
+# Lines 14, 58, 336, 446, 448, 453, 472 — feature artifact prediction flow considered
+
+grep -n "base-url\|App Runner\|deployed" PLAN.md
+# Lines 9, 84, 224, 233, 243, 267, 298, 300, 314, 423 — App Runner/deployed URL compatible
+
+grep -n "request_id\|X-Request-ID\|logging" PLAN.md
+# Lines 16, 26, 33, 34, 45, 47-49, 142, 192, 287, 426, 450, 474
+# Logging/request_id preserved via existing server infrastructure
+
+grep -n "technical_demo_only\|clinical\|diagnosis\|replacement" PLAN.md
+# Lines 143, 154, 194, 200-204, 288, 299, 316-320, 382
+# Safety language: technical_demo_only=true, no diagnosis, no clinical claims
+
+grep -n "no Terraform\|no GitHub Actions\|no Docker\|no AWS" PLAN.md
+# Line 477 — confirmed
+
+grep -n "no React\|frontend\|package.json" PLAN.md
+# Lines 92, 93, 289, 301, 366, 478 — frontend excluded
+
+grep -n "no new dependencies\|standard-library" PLAN.md
+# Lines 9, 106, 399, 479 — stdlib only, no new deps
+
+grep -n "Agent: coder\|Mode: implementation" PLAN.md
+# Lines 416, 485 — confirmed
+
+date -u +%Y-%m-%dT%H:%M:%SZ
+# 2026-07-14T23:38:44Z
+```
+
+---
+
+## FILES READ
+
+1. `.project-memory/pr/0060-production-demo-smoke-path/PLAN.md`
+2. `ROADMAP.md`
+3. `docs/api_contract.md`
+4. `docs/architecture.md`
+5. `docs/adr/0003-bremen-microservice-api-architecture.md`
+6. `docs/adr/0007-model-artifact-lifecycle.md`
+7. `docs/adr/0008-runtime-target-apprunner-proving.md`
+8. `docs/adr/0012-system-of-record-boundary.md`
+9. `src/bremen/__main__.py`
+10. `src/bremen/api/server.py`
+11. `src/bremen/api/app.py`
+12. `src/bremen/api/jobs.py`
+13. `src/bremen/api/schemas.py`
+14. `src/bremen/api/model_state.py`
+15. `src/bremen/api/model_source.py`
+16. `src/bremen/api/feature_artifact_prediction.py` (confirmed present)
+17. `src/bremen/api/decision_support.py` (confirmed present)
+18. `src/bremen/feature_artifacts.py` (confirmed present)
+19. `src/bremen/inference.py` (confirmed present)
+20. `src/bremen/logging_config.py`
+21. `tests/test_bremen_api_server.py`
+22. `tests/test_bremen_api_skeleton.py`
+23. `tests/test_bremen_feature_artifact_prediction_flow.py` (confirmed present)
+24. `tests/test_bremen_predictions.py` (confirmed present)
+25. `tests/test_bremen_decision_support_output.py` (confirmed present)
+26. `tests/test_bremen_cli_entrypoint.py`
+27. `.project-memory/project_contract.yml`
+28. `AGENTS.md`
+
+---
+
+## FILES WRITTEN
+
+- `.project-memory/pr/0060-production-demo-smoke-path/reviews/plan-review.yml`
+
+---
+
+## SCOPE CHECK
+
+**Result: pass**
+
+PLAN.md is focused on a real production/demo smoke path: a `demo-smoke` CLI command that exercises a running Bremen HTTP service and produces a machine-readable summary.
+
+- **Not docs-only**: creates `src/bremen/demo_smoke.py`, modifies `__main__.py`, creates new tests.
+- **Not solving everything**: no deployment, frontend, config UI, clinical report, or training pipeline.
+
+---
+
+## DEMO SMOKE CHECK
+
+**Result: pass**
+
+PLAN.md requires a practical runnable smoke/demo mechanism: `python -m bremen demo-smoke --base-url http://...`. This:
+- Exercises a running service via HTTP.
+- Works for local (`127.0.0.1:8000`) and deployed (App Runner/ECS) URLs.
+- No AWS credentials required — stdlib `urllib.request` only.
+- Prediction check skips gracefully with `"not_available"` when no local H5 fixture.
+- Outputs JSON summary with `overall: "pass"|"partial"|"fail"`.
+
+---
+
+## HTTP BOUNDARY CHECK
+
+**Result: pass**
+
+| Requirement | Evidence |
+|-------------|----------|
+| `/health` check | Section 1: `GET {base_url}/health`, expected 200, `status: "ok"`, `model_ready: true` |
+| `/model/version` check | Section 1: `GET {base_url}/model/version`, expected 200, `model_status: "ready"`, `model_configured: true` |
+| Feature artifact prediction flow considered | Section 1: prediction smoke via `POST /predictions`, skip when no fixture. Feature artifact flow already operational on server side. |
+| Controlled JSON responses | Section 1: output dict with `service_status`, `model_version_status`, `prediction_status`, `overall`, `request_id`, `technical_demo_only` |
+| No unsafe model loading | Demo-smoke calls existing HTTP API. Server handles model loading via approved `ModelState.load_at_startup()` |
+| No H5 mutation | Demo-smoke reads no H5 files. Only calls HTTP API endpoints. |
+
+---
+
+## FEATURE ARTIFACT CHECK
+
+**Result: pass**
+
+- PLAN.md does **not** fabricate feature artifact semantics — it calls the existing `POST /predictions` API which has the full feature artifact prediction flow.
+- Uses existing feature artifact prediction flow (server-side, from PR 0059).
+- For remote targets without local H5 fixture: prediction check skipped with `"not_available"` and human-readable explanation.
+- No real patient data, H5 files, or model artifacts committed.
+
+---
+
+## OUTPUT CONTRACT CHECK
+
+**Result: pass**
+
+- No clinical diagnosis or replacement claims.
+- `technical_demo_only: true` in every output.
+- No MRI/biopsy/replacement language in output.
+- No clinical performance claims.
+
+---
+
+## OBSERVABILITY CHECK
+
+**Result: pass**
+
+- `request_id` field present in every output (generated client-side via `uuid.uuid4()`).
+- Uses existing server `X-Request-ID` propagation.
+- No external observability dependencies added (stdlib only).
+
+---
+
+## DEPLOYMENT BOUNDARY CHECK
+
+**Result: pass**
+
+- No Terraform apply, AWS credentials, App Runner mutation, GitHub Actions workflow changes, Dockerfile changes, or deployment automation.
+- Compatible with deployed App Runner/service URLs via configurable `--base-url`, but performs no deployment.
+
+---
+
+## FRONTEND BOUNDARY CHECK
+
+**Result: pass**
+
+- No React/frontend/package-manager files.
+- Server-side JSON CLI demo smoke path only.
+- PLAN.md defaults to no frontend — no justification needed for avoiding it.
+
+---
+
+## SAFETY CHECK
+
+**Result: pass**
+
+| Prohibited activity | Evidence of prohibition |
+|---------------------|------------------------|
+| Runtime training | Section "Non-goals": "No inference expansion or new inference paths." |
+| Unsafe model deserialization | Section "Safety boundaries": "No new `joblib.load` — the demo smoke calls the existing HTTP API." |
+| New `joblib.load` | Section "Safety boundaries" / Validation grep for `joblib.load` |
+| Pickle loading | Section "Safety boundaries" / Validation grep for `import pickle` |
+| H5/HDF5 mutation | Section "Safety boundaries": "No H5 writes ever." "No H5 reads by demo smoke code." |
+| Unapproved H5 runtime reads | Demo-smoke calls `POST /predictions` API — server handles H5 reads via approved path. |
+| AWS/S3 SDK/network clients | Section "Non-goals": "No AWS/S3 calls (stdlib `urllib` to user-supplied `--base-url` is allowed, not AWS SDK)." Validation grep for boto3/botocore/requests/httpx. |
+| Matador resolver implementation | Section "Safety boundaries": "No Matador resolver implementation." |
+| Real patient demo data | Section "Non-goals": "No clinical data, real patient data, or fabricated clinical evidence." Prediction fixture skipped if no local synthetic H5. |
+| Clinical/replacement claims | Section "Safety boundaries": "No diagnosis, no clinical recommendation as validated truth." "No MRI/biopsy/replacement language." |
+
+---
+
+## VALIDATION CHECK
+
+**Result: pass**
+
+PLAN.md includes validation for all required categories:
+
+| Validation category | PLAN.md evidence |
+|--------------------|-----------------|
+| git/branch/status/diff | `git rev-parse --verify HEAD`, `git branch --show-current`, `git status --short`, `git diff --name-only` |
+| compileall | `python -m compileall src tests` |
+| Focused demo smoke tests | `python -m pytest -q tests/test_bremen_demo_smoke.py` |
+| API server/skeleton tests | `python -m pytest -q tests/test_bremen_api_server.py`, `tests/test_bremen_api_skeleton.py` |
+| Feature artifact prediction tests | `python -m pytest -q tests/test_bremen_feature_artifact_prediction_flow.py` |
+| Prediction/decision support tests | `python -m pytest -q tests/test_bremen_predictions.py`, `tests/test_bremen_decision_support_output.py` |
+| Dependency hygiene tests | `python -m pytest -q tests/test_bremen_dependency_hygiene.py` |
+| Full pytest | `python -m pytest -q` |
+| CLI help/serve help/demo-smoke help | `python -m bremen --help`, `python -m bremen serve --help`, `python -m bremen demo-smoke --help` |
+| joblib/pickle grep | `grep -R -I -n "joblib\.load\|pickle\.load\|import pickle" src/bremen/demo_smoke.py tests/test_bremen_demo_smoke.py \|\| true` |
+| H5 grep | `grep -R -I -n "\.h5\|\.hdf5\|h5py" src/bremen/demo_smoke.py tests/test_bremen_demo_smoke.py \|\| true` |
+| AWS/network dependency grep | `grep -R -I -n "boto3\|botocore\|requests\|httpx" src/bremen/demo_smoke.py tests/test_bremen_demo_smoke.py \|\| true` |
+| Web framework grep | `grep -R -I -n "FastAPI\|Flask\|uvicorn\|gunicorn\|starlette\|aiohttp\|django" src tests requirements.txt pyproject.toml \|\| true` |
+| Forbidden path diff | `git diff --name-only -- .github infra/terraform Dockerfile Dockerfile.training ...` |
+| Artifact scan | `git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|npy|npz|tfstate|tfstate\.backup)$" \|\| true` |
+| .DS_Store check | `find . -name ".DS_Store" -print` |
+
+---
+
+## IMPLEMENTATION AGENT CHECK
+
+**Result: pass**
+
+PLAN.md Section "Implementation agent":
+- **Agent**: coder (confirmed)
+- **Mode**: implementation (confirmed)
+
+---
+
+## PROCESS RULES CHECK
+
+**Result: pass**
+
+| Rule | Status |
+|------|--------|
+| VERDICT: block with empty BLOCKERS is invalid | Not applicable — verdict is approve |
+| If BLOCKERS is empty, VERDICT must be approve or warning | ✓ (verdict is approve) |
+| Every blocker must include condition, evidence, why blocking, required action | Not applicable — no blockers |
+| Did not assert absence without reading actual PLAN.md | ✓ — PLAN.md read in full |
+| Did not trust single regex as semantic proof | ✓ — key decisions verified via direct source reads (server.py load_model, app.py handle_submit_prediction, model_state.py) |
+| Did not modify implementation files | ✓ |
+| Did not run tests | ✓ |
+| Did not run Docker/Terraform/AWS | ✓ |
+| Did not install dependencies | ✓ |
+| Did not run git mutation commands | ✓ |
+
+---
+
+## COMMIT READINESS
+
+- **ready to commit planning artifacts**: yes
+- **required files to stage**:
+  - `.project-memory/pr/0060-production-demo-smoke-path/PLAN.md`
+  - `.project-memory/pr/0060-production-demo-smoke-path/reviews/plan-review.yml`
+- **files to exclude**: none from this pair
+
+---
+
+## BOUNDARY CONFIRMATIONS
+
+| Boundary | Status | Evidence |
+|----------|--------|---------|
+| PR 0060 planned as production/demo smoke path | pass | Objective: "Add a thin, standard-library-only demo-smoke CLI command that exercises a running Bremen HTTP service." |
+| plan is not docs-only | pass | Creates `src/bremen/demo_smoke.py`, modifies `__main__.py`, creates `tests/test_bremen_demo_smoke.py`. |
+| running service smoke/demo target planned | pass | CLI: `python -m bremen demo-smoke --base-url <url>`. Works for local and deployed targets. |
+| health check included | pass | First check: `GET {base_url}/health`, expected 200, `status: "ok"`, `model_ready: true`. |
+| model/version check included | pass | Second check: `GET {base_url}/model/version`, expected 200, `model_status: "ready"`. |
+| feature artifact prediction flow considered or included | pass | Third check: `POST /predictions` with prediction smoke. Gracefully skips with `not_available` if no local H5 fixture. |
+| deterministic safe demo payload planned | pass | Prediction check skipped with `"not_available"` when no H5 fixture. No fabricated clinical data. |
+| request_id/logging behavior preserved | pass | Output includes `request_id` field. Uses existing server X-Request-ID propagation. Stdlib only. |
+| deployed URL compatibility planned without AWS SDK | pass | `--base-url` parameter accepts any URL (localhost or deployed). Stdlib `urllib` only, no AWS SDK. |
+| no deployment mutation planned | pass | Non-goals: "No deployment mutation (Terraform, Docker, CI/CD, App Runner deploy)." Read-only smoke checks. |
+| no Terraform/GitHub Actions/Docker changes planned | pass | Forbidden files: `.github/**`, `infra/terraform/**`, `Dockerfile`, `Dockerfile.training`. |
+| no React/frontend planned | pass | Forbidden files: `frontend/**`, `web/**`, `ui/**`, `package.json`, lockfiles. SAFETY CHECK confirms. |
+| no new dependencies planned | pass | "A small stdlib-only module. No AWS SDK, no third-party HTTP client, no new dependencies." |
+| no unsafe model loading planned | pass | "No new `joblib.load` — the demo smoke calls the existing HTTP API which handles model loading via `ModelState.load_at_startup()` (already approved)." |
+| no H5 mutation planned | pass | "No H5 reads by demo smoke code — it calls the service API which has its own approved H5 read path. No H5 writes ever." |
+| no real patient data planned | pass | "No clinical data, real patient data, or fabricated clinical evidence." Prediction fixture skipped if no synthetic H5. |
+| no clinical diagnosis/replacement claims planned | pass | "No diagnosis, no clinical recommendation as validated truth. No MRI/biopsy/replacement language in output." |
+| Bremen safety identity preserved | pass | `technical_demo_only: true` in every output. AGENTS.md and project_contract.yml consistent. |
+| implementation assigned to coder | pass | Section "Implementation agent": Agent: coder, Mode: implementation. |
+| no implementation files modified | pass | Only reviewed PLAN.md files. No edits to source, tests, docs, config, Docker, infra, CI, or agents. |
+| no git mutation commands | pass | Only read-only commands. |
