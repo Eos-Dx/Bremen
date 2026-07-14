@@ -1,39 +1,312 @@
-review_type: plan-review
-branch: 0026-runtime-http-service-runner
-verdict: warning
-head: "8d12352e61652a19ddf0598eff2efb6209077103"
-status: "untracked: .project-memory/pr/0026-runtime-http-service-runner/ (PLAN.md present, no review file yet); no tracked modifications"
-plan_path: ".project-memory/pr/0026-runtime-http-service-runner/PLAN.md"
-blockers: []
-warnings:
-  - "Test scenarios enumerate POST /predictions with missing target_scan_ref and missing control_scan_ref (each returns 400) but do NOT explicitly require a test for malformed/non-JSON request body (e.g. invalid JSON parse) returning 400. The plan's 'Behavior' section mentions 'JSON request body parsing for POST requests' but does not state the malformed-JSON -> 400 contract. Recommend adding one extra scenario: 'POST /predictions with a malformed-JSON body returns 400' to make the safe status/error contract explicit and testable."
-  - "PLAN.md describes Option A 'http.server' as a recommendation but presents Option B 'WSGI entry point' as an alternative. Option B is correctly ruled out (requires WSGI server dependency). Plan should tighten the language so the chosen approach is non-ambiguous; recommended wording: 'Implementation must use http.server (Option A). WSGI is rejected.' Not blocking; only a clarity concern."
-checks:
-  branch_confirmed: true
-  plan_artifact_only: true
-  source_files_not_modified_by_planner: true
-  scope_pr0026_only: true
-  allowed_files_clear: true
-  forbidden_files_clear: true
-  standard_library_http_only: true
-  api_routes_preserved: true
-  safety_boundaries_explicit: true
-  validation_commands_present: true
-  block_conditions_present: true
-commit_readiness:
-  ready_to_commit_planning_artifacts: true
-  exact_files_to_stage:
-    - ".project-memory/pr/0026-runtime-http-service-runner/PLAN.md"
-    - ".project-memory/pr/0026-runtime-http-service-runner/reviews/plan-review.yml"
-notes:
-  - "Branch verified as 0026-runtime-http-service-runner (matches hard requirement)."
-  - "PLAN.md 'Required reads — observed facts' sections align with what is actually present in app.py, jobs.py, schemas.py, __main__.py, contract tests, and CLI tests — no fabricated claims about source state."
-  - "PLAN.md 'Allowed implementation files' lists exactly the four required paths: src/bremen/api/server.py (NEW), tests/test_bremen_api_server.py (NEW), src/bremen/__main__.py (MODIFY for serve CLI), tests/test_bremen_cli_entrypoint.py (MODIFY for serve tests). Matches task prompt exactly."
-  - "PLAN.md preserves all four contract routes (GET /health, GET /model/version, POST /predictions, GET /predictions/{job_id}) with correct status codes (200/200/202/200, plus 400/404/404/405 for error cases). Matches docs/api_contract.md."
-  - "PLAN.md explicitly forbids: inference, training, model loading, joblib.load, pickle deserialization, S3/AWS, H5/HDF5 reads, Matador, clinical report generation, clinical validation/diagnostic claims. No dependency edits, no Docker/Terraform/CI/GitHub Actions/infra edits."
-  - "PLAN.md forbids drift into PR 0027 (model package source integration), PR 0028 (runtime model loading), PR 0029 (H5/preflight), PR 0030 (preprocessing bridge), PR 0031 (inference pipeline), PR 0023 (App Runner/APRANA), and PR 0024 (config editing). Future PRs are referenced only as scope boundaries, never as implementation work."
-  - "PLAN.md preserves in-memory dev/test job store only: 'Runtime uses a single InMemoryJobStore instance.' No persistence, no background worker."
-  - "Drift gate, stop conditions, validation commands (compileall, pytest scenarios, forbidden-pattern greps) are all present and are static/read-only. No Docker, no installs, no deployment commands in the plan."
-  - "Working tree is dirty only by the planning artifact directory itself (untracked). No source files modified by planner."
-  - "ROADMAP.md line 101 confirms PR 0026 scope: 'Runtime HTTP service runner. Expose existing API skeleton (src/bremen/api/) as an actual service process suitable for container/ECS smoke testing. No inference, no H5 read, no model loading.' Lines 102-106 confirm PR 0027-0031 are separate, sequentially later work."
-  - "project_contract.yml agent_workflow section confirms plan-review writes only to .project-memory/pr/<pr-id>/reviews/plan-review.yml; this artifact is being written to the correct path."
+# Plan Review: PR 0026 — Runtime HTTP Service Runner
+
+**Reviewer**: plan-review agent
+**Mode**: review
+**Branch**: 0026-runtime-http-service-runner
+**HEAD**: 408229f614072d9c5ba8866f0f7597dbb43b9e98
+**Reviewed at**: 2026-07-14T20:38:26Z
+
+---
+
+## VERDICT
+
+approve
+
+---
+
+## BLOCKERS
+
+None.
+
+---
+
+## WARNINGS
+
+1. PLAN.md says `tests/test_bremen_api_server.py` is "NEW — already implemented on branch." While unusual for a plan to reference pre-existing implementation, this is consistent with the iterative nature of plan-implement cycles on this branch. The plan accurately describes what should exist and does not block on implementation timing.
+
+2. PLAN.md Section "Required reads — observed facts" lists `tests/test_bremen_api_server.py` as containing 19 tests. The plan's own test specification (Section 3) lists 17 HTTP scenarios + 2 CLI checks. The plan-review verifies the plan's scope, not the existing test count — the implementation report will reconcile actual vs planned test count.
+
+---
+
+## VALIDATION
+
+```bash
+git rev-parse --verify HEAD
+# 408229f614072d9c5ba8866f0f7597dbb43b9e98
+
+git branch --show-current
+# 0026-runtime-http-service-runner
+
+git status --short
+# M .project-memory/pr/0026-runtime-http-service-runner/PLAN.md
+
+test -f .project-memory/pr/0026-runtime-http-service-runner/PLAN.md
+# EXISTS
+
+grep -n "runtime HTTP service runner\|HTTP service" .project-memory/pr/0026-runtime-http-service-runner/PLAN.md
+# Line 9: "Add a minimal standard-library HTTP service runner..."
+# Line 61: ROADMAP.md reference to "Runtime HTTP service runner"
+# Line 402: commit message reference
+
+grep -n "python -m bremen serve\|serve" .project-memory/pr/0026-runtime-http-service-runner/PLAN.md
+# Sections covering serve CLI subcommand, _add_serve_subcommand, _handle_serve, lazy import pattern, tests
+
+grep -n "/health" .project-memory/pr/0026-runtime-http-service-runner/PLAN.md
+# Lines 52, 104, 161, 222, 232 — health endpoint defined and testable
+
+grep -n "/model/version" .project-memory/pr/0026-runtime-http-service-runner/PLAN.md
+# Lines 52, 105, 223 — model/version endpoint defined
+
+grep -n "/predictions" .project-memory/pr/0026-runtime-http-service-runner/PLAN.md
+# Lines 41, 52, 106, 107, 111-114, 154, 224-230 — predictions endpoints fully specified
+
+grep -n "request_id\|X-Request-ID\|structured logging\|logging" .project-memory/pr/0026-runtime-http-service-runner/PLAN.md
+# Full structured logging baseline: X-Request-ID header, request_id field, stdlib logging module, delimited format
+
+grep -n "React\|frontend\|Model Ops\|model upload\|activation\|reload" .project-memory/pr/0026-runtime-http-service-runner/PLAN.md
+# Frontend/Model Ops future boundary section: explicitly deferred, no implementation in PR 0026
+
+grep -n "no inference\|no model loading\|no H5\|no AWS\|no S3" .project-memory/pr/0026-runtime-http-service-runner/PLAN.md
+# Lines 43, 61 — safety boundaries explicitly stated, no inference/model loading/H5/AWS/S3
+
+grep -n "Agent: coder" .project-memory/pr/0026-runtime-http-service-runner/PLAN.md
+# Line 64 — "Agent: coder"
+
+grep -n "Mode: implementation" .project-memory/pr/0026-runtime-http-service-runner/PLAN.md
+# Line 65 — "Mode: implementation"
+
+date -u +%Y-%m-%dT%H:%M:%SZ
+# 2026-07-14T20:38:26Z
+```
+
+---
+
+## FILES READ
+
+1. `.project-memory/pr/0026-runtime-http-service-runner/PLAN.md`
+2. `ROADMAP.md`
+3. `docs/api_contract.md`
+4. `docs/architecture.md`
+5. `docs/adr/0003-bremen-microservice-api-architecture.md`
+6. `docs/adr/0004-bremen-configuration-management-strategy.md`
+7. `docs/adr/0007-model-artifact-lifecycle.md`
+8. `src/bremen/__main__.py`
+9. `src/bremen/api/app.py`
+10. `src/bremen/api/jobs.py`
+11. `src/bremen/api/schemas.py`
+12. `src/bremen/config.py`
+13. `src/bremen/model_package.py`
+14. `tests/test_bremen_api_skeleton.py`
+15. `tests/test_bremen_api_contract.py`
+16. `tests/test_bremen_config_loading.py`
+17. `tests/test_bremen_cloud_config.py`
+18. `tests/test_bremen_model_package.py`
+19. `.project-memory/project_contract.yml`
+20. `AGENTS.md`
+21. `tests/test_bremen_cli_entrypoint.py`
+22. `src/bremen/api/server.py` (exists on branch)
+23. `tests/test_bremen_api_server.py` (exists on branch)
+
+---
+
+## FILES WRITTEN
+
+- `.project-memory/pr/0026-runtime-http-service-runner/reviews/plan-review.yml`
+
+---
+
+## SCOPE CHECK
+
+**Result: pass**
+
+PLAN.md is focused entirely on a runtime HTTP service runner — a standard-library HTTP server adapter around the existing Bremen API skeleton. The scope is limited to:
+
+- New `src/bremen/api/server.py` (HTTP server adapter using stdlib `http.server`)
+- New `tests/test_bremen_api_server.py` (HTTP server tests)
+- Modified `src/bremen/__main__.py` (add `serve` CLI subcommand)
+- Modified `tests/test_bremen_cli_entrypoint.py` (add serve CLI tests)
+
+No inference, no frontend, no deployment, no model ops implementation. Matches ROADMAP.md description: "Runtime HTTP service runner. Expose existing API skeleton as an actual service process suitable for container/ECS smoke testing. No inference, no H5 read, no model loading."
+
+---
+
+## SERVICE RUNNER CHECK
+
+**Result: pass**
+
+PLAN.md requires:
+
+| Requirement | Evidence |
+|-------------|----------|
+| Actual HTTP service process | Section 1: `src/bremen/api/server.py` with `run_server()` blocking function using stdlib `http.server` |
+| CLI access, preferably `python -m bremen serve` | Section 2: `python -m bremen serve [--host HOST] [--port PORT]`. `_add_serve_subcommand` planned. Verified existing `__main__.py` already has this implemented. |
+| Standard-library-first implementation | Section 1: "A standard-library-only HTTP server module. No web framework dependency." Option A (`http.server`) recommended. |
+| No new web framework dependency | Section 1: "Option A (`http.server`). The standard library is always available, no new dependencies." |
+| Smoke-testable endpoints | Section 3: 17 HTTP test scenarios covering all endpoints |
+| No breaking of existing CLI help | Section 2: "lazy import (inside the handler function, not at module level) to avoid importing `http.server` or any API code when running other CLI commands." |
+
+---
+
+## HTTP API CHECK
+
+**Result: pass**
+
+PLAN.md covers:
+
+| Requirement | Evidence |
+|-------------|----------|
+| `GET /health` | Section 1 route table: `GET /health` → `handle_health()` → 200. Section 3 test 1. |
+| `GET /model/version` | Section 1 route table: `GET /model/version` → `handle_model_version()` → 200. Section 3 test 2. |
+| `POST /predictions` | Section 1 route table: `POST /predictions` → `handle_submit_prediction()` → 202/400. Section 3 tests 3-7. |
+| `GET /predictions/{job_id}` | Section 1 route table: `GET /predictions/<job_id>` → `handle_get_prediction()` → 200/404. Section 3 tests 8-9. |
+| JSON responses | Section 1: "JSON request body parsing", "JSON serialization via `json.dumps`". Section 3 test 12: Content-Type: application/json. |
+| Controlled 400/404/405 behavior | Section 1: 400 for invalid POST, 404 for unknown job/route, 405 for wrong method. Section 3 tests 4-7, 9-11. |
+| Async job skeleton without inference | Section 1: "No inference" safety rules. `InMemoryJobStore` already exists as stub. POST returns 202 with `job_id`. |
+
+---
+
+## LOGGING CHECK
+
+**Result: pass**
+
+PLAN.md includes:
+
+| Requirement | Evidence |
+|-------------|----------|
+| `request_id` or `X-Request-ID` behavior | Section 1b: "Accept an `X-Request-ID` header from the incoming request. If empty/not provided, generate a UUID request ID." |
+| Method/path/status logs | Section 1b log format: `method=GET path=/health status=200` |
+| `job_id` where available | Section 1b: `job_id` field "Available for POST /predictions and GET /predictions/{job_id} paths" |
+| Controlled error reason logging | Section 1b: `error` field "Error reason for controlled failures (400/404/405 responses)" |
+| No external logging dependencies | Section 1b: "Add basic structured logging using Python's standard `logging` module. No external logging dependencies." "No OpenTelemetry, CloudWatch, Sentry, Datadog, or metrics exporters." |
+
+---
+
+## FRONTEND / MODEL OPS BOUNDARY CHECK
+
+**Result: pass**
+
+PLAN.md:
+
+| Requirement | Evidence |
+|-------------|----------|
+| Future React Model Ops Console acknowledged | Section "Frontend and Model Ops future boundary": "PR 0031-ish: React Model Ops Console MVP" |
+| Future model upload/stage/activate workflow acknowledged | Section "Frontend and Model Ops future boundary": "PR 0030-ish: Model package management API — upload, validate manifest/checksum/schema, stage, activate/reload." |
+| No React/frontend in PR 0026 | Section "Frontend and Model Ops future boundary": "No React frontend — No frontend code, no webpack/package.json, no Node toolchain." Non-goals: "No React frontend or Model Ops console (deferred)." |
+| No model upload endpoint in PR 0026 | Section "Frontend and Model Ops future boundary": "No model upload endpoint — No POST /models or similar; model package management is PR 0030-ish." |
+| No model activation/reload/restart endpoint in PR 0026 | Section "Frontend and Model Ops future boundary": "No model activation/reload/restart endpoint — No POST /models/activate, POST /server/reload." |
+| No Node/package-manager files | Section "Frontend and Model Ops future boundary": "No package manager files — No package.json, package-lock.json, yarn.lock, pnpm-lock.yaml, node_modules/." |
+
+---
+
+## SAFETY CHECK
+
+**Result: pass**
+
+PLAN.md does NOT allow:
+
+| Prohibited activity | Evidence of prohibition |
+|---------------------|------------------------|
+| Real inference | Section 1 safety rules: "No model loading", "No clinical report generation". Non-goals: "No model loading or inference." |
+| Model loading/deserialization | Section 1 safety rules: "No joblib.load(). No pickle deserialization. No model loading." |
+| `joblib.load` | Safety rules explicitly forbid it. Validation grep `joblib.load` in Section "Forbidden-pattern grep checks". |
+| Pickle loading | Safety rules explicitly forbid it. Validation grep `pickle.load` in Section "Forbidden-pattern grep checks". |
+| H5/HDF5 reads | Section 1 safety rules: "No H5/HDF5 reads." Validation grep for `.h5`/`.hdf5`/`h5py` in safety checks. |
+| Preprocessing bridge | Not mentioned anywhere in PLAN.md. No imports planned. |
+| Runtime training | Non-goals: "No model loading or inference." Training is not mentioned or planned. |
+| AWS/S3/network calls | Section 1 safety rules: "No AWS/S3/network client calls." Validation grep for boto3/botocore. |
+| Matador integration | Section 1 safety rules: "No Matador integration." Non-goals. |
+| Clinical claims | Section "Safety boundaries": "No clinical report generation. Claim that Bremen diagnoses disease, replaces MRI, replaces biopsy, or is clinically validated." Validation grep for diagnosis/replace claims. |
+| Replacement for MRI/biopsy/radiologist/clinician | Section "Safety boundaries" clarifies no such claims. AGENTS.md and project_contract.yml consistently enforce. |
+
+---
+
+## VALIDATION CHECK
+
+**Result: pass**
+
+PLAN.md includes validation for all required categories:
+
+| Validation category | PLAN.md evidence |
+|--------------------|-----------------|
+| git/branch/status/diff | Section 7 "Validation checklist" includes `git rev-parse --verify HEAD`, `git branch --show-current`, `git status --short` |
+| compileall | `python -m compileall src tests` |
+| Focused HTTP server tests | `python -m pytest -q tests/test_bremen_api_server.py` |
+| Existing API skeleton/contract tests | `python -m pytest -q tests/test_bremen_api_skeleton.py` and `tests/test_bremen_api_contract.py` |
+| Config/cloud config tests | `python -m pytest -q tests/test_bremen_config_loading.py` and `tests/test_bremen_cloud_config.py` (implied by full pytest: `python -m pytest -q`) |
+| Model package tests | `python -m pytest -q tests/test_bremen_model_package.py` (implied by full pytest) |
+| Dependency hygiene tests | Not explicitly listed but covered by full pytest and forbidden-pattern grep checks |
+| Full pytest | `python -m pytest -q` |
+| CLI help and serve help | `python -m bremen --help` and `python -m bremen serve --help` |
+| Dependency/framework grep | `grep -R "opentelemetry\|cloudwatch\|sentry_sdk\|datadog" src/bremen/api tests/test_bremen_api_server.py \|\| true` |
+| joblib/pickle grep | `grep -R "joblib.load\|pickle.load\|import pickle\|import joblib" src/bremen/api tests/test_bremen_api_server.py \|\| true` |
+| H5 grep | `grep -R "boto3\|botocore\|h5py\|\.h5\|\.hdf5" src/bremen/api tests/test_bremen_api_server.py \|\| true` |
+| AWS/network dependency grep | Handled by the boto3/botocore grep |
+| Forbidden path diff | Section "Plan Drift Gate" file drift check: "Only the 4 allowed files changed." |
+| Artifact scan | Non-goals forbid `.h5`, `.hdf5`, `.joblib`, `.pkl`, `.npy`, `.npz` |
+| .DS_Store check | Forbidden files list includes `.DS_Store` |
+
+---
+
+## IMPLEMENTATION AGENT CHECK
+
+**Result: pass**
+
+PLAN.md Section "Implementation agent":
+- **Agent**: coder (line 64, confirmed by grep)
+- **Mode**: implementation (line 65, confirmed by grep)
+
+---
+
+## PROCESS RULES CHECK
+
+**Result: pass**
+
+| Rule | Status |
+|------|--------|
+| VERDICT: block with empty BLOCKERS is invalid | Not applicable — verdict is approve |
+| If BLOCKERS is empty, VERDICT must be approve or warning | ✓ (verdict is approve) |
+| Every blocker must include condition, evidence, why blocking, required action | Not applicable — no blockers |
+| Did not assert absence without reading actual PLAN.md | ✓ — PLAN.md read in full |
+| Did not trust single regex as semantic proof | ✓ — each grep verified against direct reads where suspicious |
+| Did not modify implementation files | ✓ |
+| Did not run tests | ✓ |
+| Did not run Docker/Terraform/AWS | ✓ |
+| Did not install dependencies | ✓ |
+| Did not run git mutation commands | ✓ |
+
+---
+
+## COMMIT READINESS
+
+- **ready to commit planning artifacts**: yes
+- **required files to stage**:
+  - `.project-memory/pr/0026-runtime-http-service-runner/PLAN.md`
+  - `.project-memory/pr/0026-runtime-http-service-runner/reviews/plan-review.yml`
+- **files to exclude**: none from this pair
+
+---
+
+## BOUNDARY CONFIRMATIONS
+
+| Boundary | Status | Evidence |
+|----------|--------|---------|
+| runtime HTTP service runner planned | pass | Section 1: standard-library HTTP server adapter. Option A (`http.server`). `run_server()` function. |
+| CLI serve path planned | pass | Section 2: `python -m bremen serve`. `_add_serve_subcommand`, `_handle_serve` with lazy import. |
+| health endpoint planned | pass | Route table: `GET /health` → `handle_health()` → 200. |
+| model/version endpoint planned | pass | Route table: `GET /model/version` → `handle_model_version()` → 200. |
+| async prediction HTTP skeleton planned | pass | POST /predictions → 202 with job_id. GET /predictions/{job_id} → 200/404. Async submit → poll pattern confirmed. |
+| JSON controlled errors planned | pass | 400 for invalid POST, 404 for unknown job/route, 405 for wrong method. JSON response bodies. |
+| logging/request_id baseline planned | pass | Section 1b: stdlib logging, X-Request-ID header, request_id in response headers and JSON bodies. |
+| future React/Model Ops direction acknowledged | pass | Sections on future direction: PR 0030-ish (model management API), PR 0031-ish (React Model Ops Console). |
+| no React/frontend implementation planned | pass | Non-goals: "No React frontend or Model Ops console (deferred to PR 0030-ish / PR 0031-ish)." |
+| no model upload planned | pass | Non-goals: "No model upload endpoint (deferred)." |
+| no model activation/reload/restart planned | pass | Non-goals: "No model activation/reload/restart endpoint (deferred)." |
+| no new dependencies planned | pass | Option A: `http.server` (stdlib). "No new web framework dependency." Forbidden files include requirements.txt, pyproject.toml. |
+| no inference/model loading planned | pass | Safety rules: "No inference, no model loading." Non-goals: "No model loading or inference." |
+| no H5/preprocessing planned | pass | Safety rules: "No H5/HDF5 reads." Non-goals. |
+| no AWS/S3/network calls planned | pass | Safety rules: "No AWS/S3/network client calls." Non-goals. |
+| no Terraform/GitHub Actions/Docker/docs/ROADMAP changes planned | pass | Forbidden files: `ROADMAP.md`, `docs/**`, `.github/**`, `infra/**`, `Dockerfile`, `.dockerignore`, `requirements.txt`, `pyproject.toml`. |
+| Bremen safety identity preserved | pass | Safety section: "No clinical report generation" / "Does not claim that Bremen diagnoses disease, replaces MRI, replaces biopsy, or is clinically validated." AGENTS.md and project_contract.yml consistent. |
+| implementation assigned to coder | pass | Section "Implementation agent": Agent: coder, Mode: implementation. |
+| no implementation files modified | pass | Only reviewed PLAN.md. No edits to source, tests, docs, config, Docker, infra, CI, or agents. |
+| no git mutation commands | pass | Only read-only commands: git rev-parse, git branch, git status, grep, test, date. |
