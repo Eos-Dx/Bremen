@@ -1,0 +1,348 @@
+# Plan Review: PR 0061 — Bremen Demo Evidence Pack
+
+**Reviewer**: plan-review agent
+**Mode**: review
+**Branch**: 0061-bremen-demo-evidence-pack
+**HEAD**: 349761d789f4ce23e93fc37ea9fb355c70979c21
+**Reviewed at**: 2026-07-15T08:43:16Z
+
+---
+
+## VERDICT
+
+approve
+
+---
+
+## BLOCKERS
+
+None.
+
+---
+
+## WARNINGS
+
+1. **PLAN.md "Required reads — observed facts" claims `build_standard_feature_artifact()` exists in `feature_artifacts.py` (line 48). This function does NOT exist.** The file only contains `validate_feature_artifact()`, `load_feature_artifact_from_dict()`, and `load_feature_artifact_from_json()`. The PLAN.md's own implementation scope correctly plans to create a new `build_demo_feature_artifact_payload()` in `demo_evidence.py` — this is the right approach. The coder should verify the actual API surface of `feature_artifacts.py` before importing.
+
+2. **PLAN.md Section "Forbidden files" includes `docs/**`** but the plan still references observations from `docs/api_contract.md` and `docs/architecture.md` in the required reads. This is fine — the reads section documents what the planner read; the forbidden list means the implementation must not modify these files.
+
+3. **PLAN.md lists `docs/adr/0008-runtime-target-apprunner-proving.md` and `docs/adr/0012-system-of-record-boundary.md` in required reads** but does not reference them in the implementation scope. This is acceptable — they provide architectural context. No ADR changes are planned.
+
+---
+
+## VALIDATION
+
+```bash
+git rev-parse --verify HEAD
+# 349761d789f4ce23e93fc37ea9fb355c70979c21
+
+git branch --show-current
+# 0061-bremen-demo-evidence-pack
+
+git status --short
+# ?? .project-memory/pr/0061-bremen-demo-evidence-pack/
+
+test -f .project-memory/pr/0061-bremen-demo-evidence-pack/PLAN.md
+# EXISTS
+
+grep -n "Bremen-native\|Bremen" PLAN.md
+# 40+ matches — core objective is Bremen-native evidence pack
+
+grep -n "Aramis\|aramis" PLAN.md
+# 14 matches — all in prohibition/negation context: "not a dependency, benchmark, benchmark target"
+
+grep -n "demo evidence\|evidence bundle\|evidence pack" PLAN.md
+# 50+ matches — core concept throughout
+
+grep -n "technical_demo_only" PLAN.md
+# 15+ matches — required in every bundle
+
+grep -n "product owner\|product-owner\|demo" PLAN.md
+# 30+ matches — product-owner value planned
+
+grep -n "synthetic\|payload" PLAN.md
+# 20+ matches — deterministic synthetic Bremen payload planned
+
+grep -n "request_id\|X-Request-ID\|logging" PLAN.md
+# 10+ matches — request_id preserved, no external logging deps
+
+grep -n "diagnosis\|replacement\|clinical" PLAN.md
+# 20+ matches — all in prohibition/disclaimer context
+
+grep -n "no Terraform\|no GitHub Actions\|no Docker\|no AWS" PLAN.md
+# Line 504 — confirmed
+
+grep -n "no React\|frontend\|package.json" PLAN.md
+# Lines 82, 83, 291, 376, 377, 505 — confirmed
+
+grep -n "no new dependencies\|standard-library" PLAN.md
+# Lines 93, 95, 106, 443, 506 — confirmed
+
+grep -n "Agent: coder\|Mode: implementation" PLAN.md
+# Lines 439, 511 — confirmed
+
+date -u +%Y-%m-%dT%H:%M:%SZ
+# 2026-07-15T08:43:16Z
+```
+
+---
+
+## FILES READ
+
+1. `.project-memory/pr/0061-bremen-demo-evidence-pack/PLAN.md`
+2. `ROADMAP.md`
+3. `docs/api_contract.md`
+4. `docs/architecture.md`
+5. `docs/adr/0003-bremen-microservice-api-architecture.md`
+6. `docs/adr/0007-model-artifact-lifecycle.md`
+7. `docs/adr/0008-runtime-target-apprunner-proving.md`
+8. `docs/adr/0012-system-of-record-boundary.md`
+9. `src/bremen/__main__.py`
+10. `src/bremen/demo_smoke.py`
+11. `src/bremen/api/server.py`
+12. `src/bremen/api/app.py`
+13. `src/bremen/api/jobs.py`
+14. `src/bremen/api/schemas.py`
+15. `src/bremen/api/model_state.py`
+16. `src/bremen/api/model_source.py`
+17. `src/bremen/api/feature_artifact_prediction.py`
+18. `src/bremen/api/decision_support.py`
+19. `src/bremen/feature_artifacts.py`
+20. `src/bremen/inference.py`
+21. `tests/test_bremen_demo_smoke.py`
+22. `tests/test_bremen_api_server.py`
+23. `tests/test_bremen_api_skeleton.py`
+24. `tests/test_bremen_feature_artifact_prediction_flow.py`
+25. `tests/test_bremen_decision_support_output.py`
+26. `tests/test_bremen_cli_entrypoint.py`
+27. `.project-memory/project_contract.yml`
+28. `AGENTS.md`
+
+---
+
+## FILES WRITTEN
+
+- `.project-memory/pr/0061-bremen-demo-evidence-pack/reviews/plan-review.yml`
+
+---
+
+## SCOPE CHECK
+
+**Result: pass**
+
+PLAN.md is focused on a reusable, Bremen-native demo evidence pack. Creates `src/bremen/demo_evidence.py`, integrates with existing `demo_smoke.py`, adds tests.
+
+- **Not docs-only**: creates new module, modifies existing module, creates tests.
+- **Not solving everything**: no frontend, deployment automation, config UI, clinical report template, training pipeline, or Aramis alignment.
+
+---
+
+## BREMEN POSITIONING CHECK
+
+**Result: pass**
+
+| Requirement | Evidence |
+|-------------|----------|
+| Aramis not a dependency | Section "Bremen Product Positioning": "Aramis is sibling provenance/context only. Aramis is not a dependency, benchmark, benchmark target, comparison baseline, or alignment target for Bremen." |
+| Aramis not a benchmark | Same section: "not a dependency, benchmark, benchmark target, comparison baseline." |
+| Aramis not a source of truth | Same section: "No Aramis artifact, Aramis model description, Aramis feature schema, or Aramis score may be used as a Bremen dependency." |
+| Aramis not an alignment target | Same section: "The demo evidence pack is for Bremen product usage only, not cross-product alignment." |
+| Bremen independent | ENFORCED via: zero-tolerance Aramis string grep in evidence output, `product: "Bremen"` invariant, `product_question: "Should patient continue to MRI?"` (Bremen own clinical question). |
+
+---
+
+## DEMO EVIDENCE CHECK
+
+**Result: pass**
+
+| Requirement | Evidence |
+|-------------|----------|
+| Reusable evidence pack | Creates `src/bremen/demo_evidence.py` with `build_demo_evidence_bundle()` and `validate_demo_evidence_bundle()`. Versioned via `DEMO_EVIDENCE_VERSION = "v0.1"`. |
+| Not a disposable script | "reusable, Bremen-native demo evidence pack that makes the existing PR0060 demo-smoke path more meaningful and durable... survives beyond a single demo session." |
+| Technical-demo-safe fields | `technical_demo_only: True` in every bundle. Product identity, disclaimer, safety_notes. |
+| Future usefulness | "product owners can show", "operators can rely on for release confidence." Evidence bundle is an additive field in smoke output. |
+
+---
+
+## DEMO PAYLOAD CHECK
+
+**Result: pass**
+
+| Requirement | Evidence |
+|-------------|----------|
+| No real patient data | Section "Non-goals": "No real patient data." Section "Safety boundaries": "No real patient data, no fabricated clinical evidence." Synethetic payload section: "Avoid real patient data, real scan data, clinical values." |
+| No committed H5/model artifacts | Forbidden files: `.h5`, `.hdf5`, `.joblib`, `.pkl`, `tests/data/**`. Synthetic payload is inline dict/list/float data. |
+| No Aramis artifacts | Section "Bremen Product Positioning": explicitly forbidden. |
+| Deterministic synthetic Bremen payload | `build_demo_feature_artifact_payload()` returns deterministic 15-column feature artifact. TEST 16: deterministic output invariant. |
+
+---
+
+## DEMO-SMOKE INTEGRATION CHECK
+
+**Result: pass**
+
+- Integrates with PR0060 `demo-smoke`: calls `build_demo_evidence_bundle()` near end of `run_demo_smoke()` and adds `evidence` field.
+- Fully backward compatible: evidence field is additive — existing consumers that look at `status`, `health`, `model_version`, `prediction`, `warnings` see no change.
+- Works for local and deployed URLs (via inheriting `--base-url` from demo-smoke).
+- No AWS SDK required (stdlib `urllib` through demo-smoke).
+- Validation test 17: "Demo-smoke can include evidence."
+
+---
+
+## OUTPUT CONTRACT CHECK
+
+**Result: pass**
+
+| Requirement | Evidence |
+|-------------|----------|
+| `technical_demo_only: true` | Required in every bundle. TEST 6: `technical_demo_only is True`. |
+| No clinical diagnosis | Section "Non-negotiable rules": "No clinical diagnosis language — no 'diagnosis', 'diagnose', 'replaces MRI', 'replaces biopsy', 'replaces radiologist', 'replaces clinician'." |
+| No validated clinical recommendation | "This is a technical product demo... not a clinical result. Not clinically validated." |
+| No MRI/biopsy replacement | `BREMEN_DEMO_DISCLAIMER`: "does not replace MRI, biopsy, a radiologist, a clinician, or clinical judgment." |
+| No patient-specific claim | All values synthetic. No real patient data. |
+| No clinical performance claim | Zero tolerance for clinical/replacement language in evidence output. |
+
+---
+
+## OBSERVABILITY CHECK
+
+**Result: pass**
+
+- `request_id` field in evidence bundle (passed through from demo-smoke's request_id).
+- Uses existing `X-Request-ID` propagation via demo-smoke.
+- No external observability dependencies added.
+
+---
+
+## DEPLOYMENT BOUNDARY CHECK
+
+**Result: pass**
+
+- No Terraform apply, AWS credentials, App Runner mutation, GitHub Actions workflow changes, Dockerfile changes, or deployment automation.
+- Compatible with deployed URLs via demo-smoke's `--base-url`.
+
+---
+
+## FRONTEND BOUNDARY CHECK
+
+**Result: pass**
+
+- No React/frontend/package-manager files. Forbidden files include `frontend/**`, `web/**`, `ui/**`, `package.json`, all lockfiles.
+
+---
+
+## SAFETY CHECK
+
+**Result: pass**
+
+| Prohibited activity | Evidence of prohibition |
+|---------------------|------------------------|
+| Runtime training | Section "Non-goals": "No deployment mutation." Not mentioned or planned. |
+| Unsafe model deserialization | "No unsafe model deserialization — demo evidence pack does not touch `joblib.load` or `pickle.load`." |
+| New `joblib.load` | "No new `joblib.load` — the synthetic feature payload is pure dict/list/float data." |
+| Pickle loading | Grep check: `grep -R -I -n "joblib\.load\|pickle\.load\|import pickle" src/bremen tests/test_bremen_demo_evidence.py` |
+| H5/HDF5 mutation | "No H5 reads — the evidence pack works with synthetic feature artifacts (numbers only), not H5 files. No H5 writes." |
+| New H5 runtime dependency | Grep check: `grep -R -I -n "\.h5\|\.hdf5\|h5py" src/bremen/demo_evidence.py tests/test_bremen_demo_evidence.py` |
+| AWS/S3 SDK/network clients | Grep check: `grep -R -I -n "boto3\|botocore\|requests\|httpx" src/bremen/demo_evidence.py` |
+| Matador resolver | Section "Non-goals": "No Matador resolver implementation." |
+| Real patient demo data | Section "Non-goals"/"Safety boundaries": "No real patient data. All values synthetic." |
+| Aramis dependency | Section "Bremen Product Positioning": zero tolerance. Grep check for Aramis/M2Q/BENIGN vs CANCER. |
+| Clinical/replacement claims | Section "Non-negotiable rules": zero tolerance. Grep check for diagnosis/replace patterns. |
+
+---
+
+## VALIDATION CHECK
+
+**Result: pass**
+
+| Validation category | PLAN.md evidence |
+|--------------------|-----------------|
+| git/branch/status/diff | `git rev-parse --verify HEAD`, `git branch --show-current`, `git status --short`, `git diff --name-only` |
+| compileall | `python -m compileall src tests` |
+| Focused demo evidence tests | `python -m pytest -q tests/test_bremen_demo_evidence.py` |
+| Demo-smoke tests | `python -m pytest -q tests/test_bremen_demo_smoke.py` |
+| API server/skeleton tests | `python -m pytest -q tests/test_bremen_api_server.py`, `tests/test_bremen_api_skeleton.py` |
+| Feature artifact prediction tests | Conditionally: `if test -f tests/test_bremen_feature_artifact_prediction_flow.py; then ...` |
+| Decision support tests | Conditionally: `if test -f tests/test_bremen_decision_support_output.py; then ...` |
+| Dependency hygiene tests | Conditionally: `if test -f tests/test_bremen_dependency_hygiene.py; then ...` |
+| Full pytest | `python -m pytest -q` |
+| CLI help/serve help/demo-smoke help | `python -m bremen --help`, `python -m bremen serve --help`, `python -m bremen demo-smoke --help` |
+| Aramis dependency grep | `grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" src/bremen/demo_evidence.py src/bremen/demo_smoke.py tests/` |
+| Clinical/replacement claim grep | `grep -R -I -n "diagnosis\|diagnose\|replaces MRI\|replace MRI\|replaces biopsy\|..."` |
+| joblib/pickle grep | `grep -R -I -n "joblib\.load\|pickle\.load\|import pickle" src/bremen tests/` |
+| H5 grep | `grep -R -I -n "\.h5\|\.hdf5\|h5py" src/bremen/demo_evidence.py tests/test_bremen_demo_evidence.py` |
+| AWS/network dependency grep | `grep -R -I -n "boto3\|botocore\|requests\|httpx" src/bremen/demo_evidence.py src/bremen/demo_smoke.py tests/` |
+| Web framework grep | `grep -R -I -n "FastAPI\|Flask\|uvicorn\|gunicorn\|starlette\|aiohttp\|django" src tests requirements.txt pyproject.toml` |
+| Forbidden path diff | `git diff --name-only -- .github infra/terraform Dockerfile ...` |
+| Artifact scan | `git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|npy|npz|tfstate|tfstate\.backup)$" \|\| true` |
+| .DS_Store check | `find . -name ".DS_Store" -print` |
+| Docs/ROADMAP unchanged | `git diff --name-only -- docs ROADMAP.md` |
+
+---
+
+## IMPLEMENTATION AGENT CHECK
+
+**Result: pass**
+
+PLAN.md Section "Implementation agent":
+- **Agent**: coder (confirmed)
+- **Mode**: implementation (confirmed)
+
+---
+
+## PROCESS RULES CHECK
+
+**Result: pass**
+
+| Rule | Status |
+|------|--------|
+| VERDICT: block with empty BLOCKERS is invalid | Not applicable — verdict is approve |
+| If BLOCKERS is empty, VERDICT must be approve or warning | ✓ (verdict is approve) |
+| Every blocker must include condition, evidence, why blocking, required action | Not applicable — no blockers |
+| Did not assert absence without reading actual PLAN.md | ✓ — PLAN.md read in full |
+| Did not trust single regex as semantic proof | ✓ — key claims verified via direct source reads (demo_smoke.py output shape, feature_artifacts.py API surface) |
+| Did not modify implementation files | ✓ |
+| Did not run tests | ✓ |
+| Did not run Docker/Terraform/AWS | ✓ |
+| Did not install dependencies | ✓ |
+| Did not run git mutation commands | ✓ |
+
+---
+
+## COMMIT READINESS
+
+- **ready to commit planning artifacts**: yes
+- **required files to stage**:
+  - `.project-memory/pr/0061-bremen-demo-evidence-pack/PLAN.md`
+  - `.project-memory/pr/0061-bremen-demo-evidence-pack/reviews/plan-review.yml`
+- **files to exclude**: none from this pair
+
+---
+
+## BOUNDARY CONFIRMATIONS
+
+| Boundary | Status | Evidence |
+|----------|--------|---------|
+| PR0061 planned as Bremen-native demo evidence pack | pass | Objective: "Create a reusable, Bremen-native demo evidence pack." Product identity: `product: "Bremen"`. |
+| Bremen remains independent from Aramis | pass | Section "Bremen Product Positioning": "Aramis is sibling provenance/context only." Zero-tolerance for Aramis strings. |
+| Aramis not used as dependency or benchmark | pass | Section "Bremen Product Positioning": "not a dependency, benchmark, benchmark target, comparison baseline, or alignment target." |
+| demo evidence is not disposable | pass | "reusable... standard evidence bundle structure... survives beyond a single demo session." Versioned via `DEMO_EVIDENCE_VERSION`. |
+| product-owner demo value planned | pass | "product owners can show, and operators can rely on for release confidence." |
+| evidence bundle planned | pass | `build_demo_evidence_bundle()` with structured dict including `technical_demo_only`, `product`, `product_question`, `disclaimer`, `evidence_version`, `safety_notes`. |
+| deterministic synthetic Bremen payload planned | pass | `build_demo_feature_artifact_payload()` — deterministic 15-column artifact. TEST 16: deterministic output. |
+| `technical_demo_only` preserved | pass | Required `True` in every bundle. TEST 6. |
+| demo-smoke integration planned | pass | Additive `evidence` field in `run_demo_smoke()` output. Backward-compatible. |
+| request_id/logging behavior preserved | pass | `request_id` passed through evidence bundle. Existing demo-smoke X-Request-ID unchanged. |
+| deployed URL compatibility preserved without AWS SDK | pass | Via demo-smoke's `--base-url`. Stdlib `urllib` only. |
+| no deployment mutation planned | pass | Non-goals: "No deployment mutation (Terraform, Docker, CI/CD)." |
+| no Terraform/GitHub Actions/Docker changes planned | pass | Forbidden files include all of these. |
+| no React/frontend planned | pass | Forbidden files: `frontend/**`, `web/**`, `ui/**`, `package.json`, lockfiles. |
+| no new dependencies planned | pass | "Stdlib-only module. No new dependencies." Forbidden files include requirements.txt, pyproject.toml. |
+| no unsafe model loading planned | pass | "No new `joblib.load` — the synthetic feature payload is pure dict/list/float data." |
+| no H5 mutation planned | pass | "No H5 reads — the evidence pack works with synthetic feature artifacts (numbers only), not H5 files. No H5 writes." |
+| no real patient data planned | pass | "No real patient data, no fabricated clinical evidence." All values synthetic. |
+| no clinical diagnosis/replacement claims planned | pass | Zero tolerance for diagnosis/replacement strings. `technical_demo_only: true`. Safety notes: "Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment." |
+| Bremen safety identity preserved | pass | `BREMEN_DEMO_DISCLAIMER` consistent with project_contract.yml and AGENTS.md. |
+| implementation assigned to coder | pass | Section "Implementation agent": Agent: coder, Mode: implementation. |
+| no implementation files modified | pass | Only reviewed PLAN.md files. No edits to source, tests, docs, config, Docker, infra, CI, or agents. |
+| no git mutation commands | pass | Only read-only commands. |
