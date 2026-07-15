@@ -257,6 +257,11 @@ def _add_demo_run_subcommand(
         action="store_true",
         help="Skip the prediction check.",
     )
+    demo_run.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Print a formatted plain-text presentation summary.",
+    )
     demo_run.set_defaults(_cmd_handler="demo_run")
 
 
@@ -269,6 +274,8 @@ def _handle_demo_run(args: argparse.Namespace) -> int:
         cli_args.append(f"--base-url={args.base_url}")
     if args.skip_prediction:
         cli_args.append("--skip-prediction")
+    if args.pretty:
+        cli_args.append("--pretty")
     return demo_run_main(cli_args)
 
 

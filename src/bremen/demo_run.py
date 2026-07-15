@@ -249,6 +249,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Skip the prediction check.",
     )
+    parser.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Print a formatted plain-text presentation summary.",
+    )
 
     args = parser.parse_args(argv)
     result = run_demo(
@@ -279,6 +284,13 @@ def main(argv: list[str] | None = None) -> int:
             f"{evidence.get('evidence_version', 'N/A')}"
         )
         print(f"  product: {evidence.get('product', 'N/A')}")
+
+    # Pretty output (additive — JSON output preserved above)
+    if args.pretty:
+        from .demo_presentation import format_pretty  # noqa: PLC0415
+
+        print()
+        print(format_pretty(result))
 
     return 0 if result.get("status") in ("pass", "partial") else 1
 

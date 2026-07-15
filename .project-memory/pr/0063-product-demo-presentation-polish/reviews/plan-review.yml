@@ -1,0 +1,357 @@
+# Plan Review: PR 0063 — Product Demo Presentation Polish
+
+**Reviewer**: plan-review agent
+**Mode**: review
+**Branch**: 0063-product-demo-presentation-polish
+**HEAD**: ef10f6cd8f81ddd8763a7ad77fb275f060769a10
+**Reviewed at**: 2026-07-15T10:52:40Z
+
+---
+
+## VERDICT
+
+approve
+
+---
+
+## BLOCKERS
+
+None.
+
+---
+
+## WARNINGS
+
+1. PLAN.md Section "Required reads" mentions `json_dumps_evidence_bundle()` exists in `demo_evidence.py` (confirmed at line 287). The PLAN.md does not plan to modify this function — it is referenced only for context. No action required.
+
+2. PLAN.md notes `demo-smoke --pretty` is optional and default preference is to keep `--pretty` on `demo-run` only. The implementation should follow this default to keep scope contained. If demo-smoke `--pretty` is added, it must be justified and tested.
+
+---
+
+## VALIDATION
+
+```bash
+git rev-parse --verify HEAD
+# ef10f6cd8f81ddd8763a7ad77fb275f060769a10
+
+git branch --show-current
+# 0063-product-demo-presentation-polish
+
+git status --short
+# ?? .project-memory/pr/0063-product-demo-presentation-polish/
+
+test -f .project-memory/pr/0063-product-demo-presentation-polish/PLAN.md
+# EXISTS
+
+grep -n "pretty\|presentation\|product owner\|product-owner" PLAN.md
+# 30+ matches — core objective: presentation-ready output for product-owner demos
+
+grep -n "demo-run\|demo-smoke\|evidence" PLAN.md
+# 30+ matches — builds on existing demo-run/evidence infrastructure
+
+grep -n "technical_demo_only" PLAN.md
+# Lines 150, 278, 385, 434, 474 — prominent in pretty output
+
+grep -n "request_id\|X-Request-ID\|logging" PLAN.md
+# Lines 18, 230, 476 — request_id visible in pretty output
+
+grep -n "JSON\|backward-compatible\|preserved" PLAN.md
+# Lines 11, 18, 23, 29, 182, 191, 243, 381, 403, 429, 430, 475
+# JSON unchanged, pretty is additive, backward-compatible
+
+grep -n "Aramis\|aramis" PLAN.md
+# Lines 153, 236, 280, 313, 314, 485 — all in prohibition/negation context
+
+grep -n "multi-tenancy\|model-profile\|plugin" PLAN.md
+# Lines 13, 258, 417, 480 — explicitly deferred
+
+grep -n "diagnosis\|replacement\|clinical" PLAN.md
+# Lines 101, 133-137, 143-145, 152, 237, 278, 280, 313, 314, 404, 478, 485
+# All in disclaimer/safety negation context or prohibition
+
+grep -n "no Terraform\|no GitHub Actions\|no Docker\|no AWS" PLAN.md
+# Line 478 — confirmed
+
+grep -n "no React\|frontend\|package.json" PLAN.md
+# Lines 63, 64, 260, 360, 361, 479 — confirmed
+
+grep -n "no new dependencies\|standard-library" PLAN.md
+# Lines 73, 75, 481 — stdlib only
+
+grep -n "Agent: coder\|Mode: implementation" PLAN.md
+# Lines 421, 487 — confirmed
+
+date -u +%Y-%m-%dT%H:%M:%SZ
+# 2026-07-15T10:52:40Z
+```
+
+---
+
+## FILES READ
+
+1. `.project-memory/pr/0063-product-demo-presentation-polish/PLAN.md`
+2. `ROADMAP.md`
+3. `docs/api_contract.md`
+4. `docs/architecture.md`
+5. `docs/adr/0003-bremen-microservice-api-architecture.md`
+6. `docs/adr/0007-model-artifact-lifecycle.md`
+7. `docs/adr/0008-runtime-target-apprunner-proving.md`
+8. `docs/adr/0012-system-of-record-boundary.md`
+9. `src/bremen/__main__.py`
+10. `src/bremen/demo_run.py`
+11. `src/bremen/demo_smoke.py`
+12. `src/bremen/demo_evidence.py`
+13. `src/bremen/api/server.py`
+14. `src/bremen/api/app.py`
+15. `tests/test_bremen_demo_run.py`
+16. `tests/test_bremen_demo_smoke.py`
+17. `tests/test_bremen_demo_evidence.py`
+18. `tests/test_bremen_cli_entrypoint.py`
+19. `tests/test_bremen_api_server.py`
+20. `tests/test_bremen_api_skeleton.py`
+21. `.project-memory/project_contract.yml`
+22. `AGENTS.md`
+
+---
+
+## FILES WRITTEN
+
+- `.project-memory/pr/0063-product-demo-presentation-polish/reviews/plan-review.yml`
+
+---
+
+## SCOPE CHECK
+
+**Result: pass**
+
+PLAN.md is focused on product demo presentation polish — a reusable `--pretty` plain-text output layer for `demo-run`. Creates `src/bremen/demo_presentation.py`, modifies `demo_run.py` and `__main__.py`, adds tests.
+
+- **Not docs-only**: creates new module, modifies existing modules, creates/updates tests.
+- **Not solving everything**: no frontend, multi-tenancy, model profiles, plugins, deployment automation, config UI, clinical report template, or training pipeline.
+
+---
+
+## PRESENTATION CHECK
+
+**Result: pass**
+
+| Requirement | Evidence |
+|-------------|----------|
+| Presentation-ready output layer | `src/bremen/demo_presentation.py` — `format_pretty()` returns stable plain-text string with labelled sections |
+| `--pretty` or equivalent | `python -m bremen demo-run --pretty` — additive flag, non-breaking |
+| Non-breaking while preserving JSON | "JSON output remains unchanged and backward-compatible." Pretty output printed after JSON with blank line separator |
+| No terminal colors/control codes | "No terminal control codes or colors." Stop condition: "Implementation adds HTML, colors, terminal codes, or frontend." |
+
+---
+
+## PRODUCT-OWNER DEMO CHECK
+
+**Result: pass**
+
+- Output is "presentation-ready for product-owner and stakeholder demos."
+- Structured sections: Header, Health, Model/Version, Prediction, Evidence Bundle, Warnings, Footer.
+- Safety disclaimer prominent in header and footer.
+- Handles `not_available`, `fail`, and success states gracefully.
+- "product-owner demos, operator checks, release-walkthrough output."
+
+---
+
+## REUSABILITY CHECK
+
+**Result: pass**
+
+- Pure function module (`demo_presentation.py`) — no state, no side effects.
+- `format_pretty(result)` — deterministic, same input always produces same output.
+- `format_pretty_header()` and `format_pretty_footer()` sub-functions for reuse.
+- Tested with 14+ test scenarios covering all states (pass/fail/not_available).
+
+---
+
+## PRESERVED BEHAVIOR CHECK
+
+**Result: pass**
+
+| Preserved behavior | Evidence |
+|--------------------|----------|
+| JSON output unchanged | "JSON output remains unchanged; pretty output is additive." `test_demo_run_pretty_json_still_present` verifies. |
+| demo-smoke unchanged | Default preference: `--pretty` on `demo-run` only; `demo-smoke` unchanged. |
+| demo-run unchanged (without `--pretty`) | No changes to existing default behavior. |
+| Evidence bundle | `format_pretty()` renders evidence bundle section. |
+| request_id | Visible in pretty output header. |
+| local/external base-url workflows | No changes to `--base-url` behavior. |
+| Existing tests | "Existing tests pass unchanged." |
+
+---
+
+## BREMEN POSITIONING CHECK
+
+**Result: pass**
+
+- Aramis appears only in forbidden-pattern grep and non-goal contexts.
+- Zero-tolerance for Aramis strings in presentation output.
+- Product identity is `Bremen`, clinical question is "Should patient continue to MRI?".
+
+---
+
+## MULTI-TENANCY DEFERRAL CHECK
+
+**Result: pass**
+
+- "No multi-tenancy. No model profiles. No plugins." — explicitly stated in objective.
+- Stop condition: "Implementation starts multi-tenancy/model-profile/plugin work" blocks the PR.
+- "Deferred" listed in non-goals.
+
+---
+
+## OUTPUT CONTRACT CHECK
+
+**Result: pass**
+
+- `technical_demo_only` prominent in header text and footer.
+- "No diagnosis, no 'replaces MRI', no 'replaces biopsy', no 'replaces radiologist', no 'replaces clinician' language (except in disclaimer/safety notes which use safe negation)."
+- Safety disclaimer appears in both header and footer of pretty output.
+- No patient-specific claims.
+
+---
+
+## OBSERVABILITY CHECK
+
+**Result: pass**
+
+- `request_id` included in pretty output header.
+- No external observability dependencies added.
+
+---
+
+## DEPLOYMENT BOUNDARY CHECK
+
+**Result: pass**
+
+- No Terraform apply, AWS credentials, App Runner mutation, GitHub Actions workflow changes, Dockerfile changes, or deployment automation.
+- Pure presentation layer — no deployment impact.
+
+---
+
+## FRONTEND BOUNDARY CHECK
+
+**Result: pass**
+
+- No React/frontend/package-manager files. Plain ASCII text only.
+- "No HTML output." "No terminal codes."
+
+---
+
+## SAFETY CHECK
+
+**Result: pass**
+
+| Prohibited activity | Evidence of prohibition |
+|---------------------|------------------------|
+| Runtime training | Not mentioned or planned. |
+| Unsafe model deserialization | "No unsafe model deserialization." |
+| New `joblib.load` | "No new `joblib.load()` or `pickle.load()`." |
+| Pickle loading | Grep check enforces. |
+| H5/HDF5 mutation | "No H5 reads or writes." Grep check for `.h5`/`.hdf5`/`h5py`. |
+| New H5 runtime dependency | Presentation module works with dict input only. |
+| AWS/S3 SDK/network clients | Grep check for boto3/botocore/requests/httpx. Stdlib only. |
+| Matador resolver | Not mentioned or planned. |
+| Real patient demo data | "No real patient data." All values synthetic. |
+| Aramis dependency | Zero tolerance. Grep check for Aramis/M2Q/BENIGN vs CANCER. |
+| Clinical/replacement claims | Zero tolerance except safe negation in disclaimers. Grep check enforced. |
+
+---
+
+## VALIDATION CHECK
+
+**Result: pass**
+
+| Validation category | PLAN.md evidence |
+|--------------------|-----------------|
+| git/branch/status/diff | `git rev-parse --verify HEAD`, `git branch --show-current`, `git status --short`, `git diff --name-only` |
+| compileall | `python -m compileall src tests` |
+| Focused demo presentation tests | `python -m pytest -q tests/test_bremen_demo_presentation.py` |
+| Demo-run tests | `python -m pytest -q tests/test_bremen_demo_run.py` |
+| Demo-smoke tests | `python -m pytest -q tests/test_bremen_demo_smoke.py` |
+| Demo-evidence tests | `python -m pytest -q tests/test_bremen_demo_evidence.py` |
+| API server/skeleton tests | `python -m pytest -q tests/test_bremen_api_server.py`, `tests/test_bremen_api_skeleton.py` |
+| Dependency hygiene tests | Conditionally: `if test -f tests/test_bremen_dependency_hygiene.py; then ...` |
+| Full pytest | `python -m pytest -q` |
+| CLI help all commands | `python -m bremen --help`, `python -m bremen serve --help`, `python -m bremen demo-smoke --help`, `python -m bremen demo-run --help` |
+| Aramis dependency grep | `grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" src/bremen/demo_presentation.py src/bremen/demo_run.py ... || true` |
+| Clinical/replacement claim grep | `grep -R -I -n "diagnosis\|diagnose\|replaces MRI\|..." || true` |
+| joblib/pickle grep | `grep -R -I -n "joblib\.load\|pickle\.load\|import pickle" src/bremen/demo_presentation.py ... || true` |
+| H5 grep | `grep -R -I -n "\.h5\|\.hdf5\|h5py" src/bremen/demo_presentation.py ... || true` |
+| AWS/network dependency grep | `grep -R -I -n "boto3\|botocore\|requests\|httpx" src/bremen/demo_presentation.py ... || true` |
+| Web framework grep | `grep -R -I -n "FastAPI\|Flask\|uvicorn\|gunicorn\|starlette\|aiohttp\|django" src tests ... || true` |
+| Forbidden path diff | `git diff --name-only -- .github infra/terraform Dockerfile ...` |
+| Artifact scan | `git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|npy|npz|tfstate|tfstate\.backup)$" \|\| true` |
+| .DS_Store check | `find . -name ".DS_Store" -print` |
+| Docs/ROADMAP unchanged | `git diff --name-only -- docs ROADMAP.md` |
+
+---
+
+## IMPLEMENTATION AGENT CHECK
+
+**Result: pass**
+
+PLAN.md Section "Implementation agent":
+- **Agent**: coder (confirmed)
+- **Mode**: implementation (confirmed)
+
+---
+
+## PROCESS RULES CHECK
+
+**Result: pass**
+
+| Rule | Status |
+|------|--------|
+| VERDICT: block with empty BLOCKERS is invalid | Not applicable — verdict is approve |
+| If BLOCKERS is empty, VERDICT must be approve or warning | ✓ (verdict is approve) |
+| Every blocker must include condition, evidence, why blocking, required action | Not applicable — no blockers |
+| Did not assert absence without reading actual PLAN.md | ✓ — PLAN.md read in full |
+| Did not trust single regex as semantic proof | ✓ — key claims verified via direct source reads (demo_run.py `main()` JSON output, `__main__.py` demo_run handler, demo_evidence.py `json_dumps_evidence_bundle`) |
+| Did not modify implementation files | ✓ |
+| Did not run tests | ✓ |
+| Did not run Docker/Terraform/AWS | ✓ |
+| Did not install dependencies | ✓ |
+| Did not run git mutation commands | ✓ |
+
+---
+
+## COMMIT READINESS
+
+- **ready to commit planning artifacts**: yes
+- **required files to stage**:
+  - `.project-memory/pr/0063-product-demo-presentation-polish/PLAN.md`
+  - `.project-memory/pr/0063-product-demo-presentation-polish/reviews/plan-review.yml`
+- **files to exclude**: none from this pair
+
+---
+
+## BOUNDARY CONFIRMATIONS
+
+| Boundary | Status | Evidence |
+|----------|--------|---------|
+| PR0063 planned as product demo presentation polish | pass | "Add a reusable, testable presentation layer to the existing Bremen demo path." |
+| demo remains Bremen-native | pass | `format_pretty()` includes `"Bremen"` product identity. Zero tolerance for Aramis. |
+| demo presentation is not disposable | pass | Reusable module (`demo_presentation.py`), pure functions, 14+ test scenarios. |
+| pretty output planned | pass | `python -m bremen demo-run --pretty` with `format_pretty()` formatter. |
+| product-owner demo value planned | pass | "presentation-ready for product-owner and stakeholder demos." |
+| technical_demo_only preserved | pass | Prominent in header and footer of pretty output. |
+| JSON behavior preserved | pass | JSON output unchanged — pretty output is additive. `test_demo_run_pretty_json_still_present` verifies. |
+| request_id/logging behavior preserved | pass | request_id visible in pretty output header. |
+| no deployment mutation planned | pass | Pure presentation layer. No deployment impact. |
+| no Terraform/GitHub Actions/Docker changes planned | pass | Forbidden files include all of these. |
+| no React/frontend planned | pass | Forbidden files: `frontend/**`, `web/**`, `ui/**`, `package.json`. Plain text only. |
+| multi-tenancy/model-profile/plugin work deferred | pass | Explicitly stated: "No multi-tenancy. No model profiles. No plugins." Stop condition blocks PR if started. |
+| no new dependencies planned | pass | "Stdlib only." Forbidden files include requirements.txt, pyproject.toml. |
+| no unsafe model loading planned | pass | Presentation module is pure dict→str transformation. No model loading. |
+| no H5 mutation planned | pass | No H5 reads or writes. Presentation module works with dict input. |
+| no real patient data planned | pass | "No real patient data." All values synthetic. |
+| no Aramis dependency planned | pass | Zero tolerance. Validation grep enforces. |
+| no clinical diagnosis/replacement claims planned | pass | Safety disclaimer prominent. Zero tolerance for diagnosis/replacement language except safe negation. |
+| Bremen safety identity preserved | pass | Consistent with project_contract.yml and AGENTS.md. |
+| implementation assigned to coder | pass | Section "Implementation agent": Agent: coder, Mode: implementation. |
+| no implementation files modified | pass | Only reviewed PLAN.md files. No edits to source, tests, docs, config, Docker, infra, CI, or agents. |
+| no git mutation commands | pass | Only read-only commands. |

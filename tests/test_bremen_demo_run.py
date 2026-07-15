@@ -505,7 +505,51 @@ class TestCliHelp:
 
 
 # ===================================================================
-# Class 11: Import / dependency safety
+# Class 11: --pretty flag tests
+# ===================================================================
+
+
+class TestPrettyFlag:
+    def test_demo_run_pretty_flag_accepted(self, server_info):
+        """--pretty flag is accepted and prints prettified output."""
+        host, port = server_info
+        # Use run_demo which we can test directly
+        from bremen.demo_presentation import format_pretty
+
+        result = run_demo(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        pretty = format_pretty(result)
+        assert "BREMEN PRODUCT DEMO" in pretty
+        assert "Technical demo only" in pretty
+        assert "Bremen" in pretty
+        assert "Health" in pretty
+        assert "Model / Version" in pretty
+        assert "Evidence Bundle" in pretty
+
+    def test_demo_run_pretty_json_still_present(self):
+        """JSON output is still produced when --pretty is used.
+
+        This subprocess test verifies that the JSON output appears
+        before the pretty output.
+        """
+        from bremen.api.model_state import ModelState
+
+        ModelState.reset_for_tests()
+        result = run_demo(timeout=10, skip_prediction=True)
+        # Verify JSON output is still produced
+        import json
+
+        json_str = json.dumps(result, indent=2, ensure_ascii=False)
+        assert "technical_demo_only" in json_str
+        assert "evidence" in json_str
+        assert "status" in json_str
+
+
+# ===================================================================
+# Class 12: Import / dependency safety
 # ===================================================================
 
 

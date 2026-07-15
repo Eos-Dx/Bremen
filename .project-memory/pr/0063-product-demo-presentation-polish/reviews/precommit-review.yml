@@ -1,0 +1,216 @@
+# PR 0063 — Precommit Review: Product Demo Presentation Polish
+# Reviewer: precommit-review
+# Reviewed at: 2026-07-15T11:06:33Z
+
+---
+
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: pass
+
+BLOCKERS
+None.
+
+WARNINGS
+1. The presentation module's footer contains safe negation language ("Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment") that triggers clinical/replacement grep patterns. This is expected and safe — the footer is a product safety disclaimer, not a clinical claim. The test for no clinical claims correctly exempts the footer.
+2. `demo_presentation.py` module source has zero Aramis strings (verified by grep — the check required by the plan review is satisfied), but `demo_presentation.py` does contain a safety docstring that matches "diagnosis" and "replace" patterns. These are safety header comments, not claims.
+
+VALIDATION
+git rev-parse --verify HEAD: e73952dbc17f902df1a2f4b9e5a02dd03f49eba7
+git branch --show-current: 0063-product-demo-presentation-polish
+git status --short:
+  M src/bremen/__main__.py
+   M src/bremen/demo_run.py
+   M tests/test_bremen_cli_entrypoint.py
+   M tests/test_bremen_demo_run.py
+  ?? .project-memory/pr/0063-product-demo-presentation-polish/IMPLEMENTATION_REPORT.md
+  ?? src/bremen/demo_presentation.py
+  ?? tests/test_bremen_demo_presentation.py
+git diff --name-only: src/bremen/__main__.py src/bremen/demo_run.py tests/test_bremen_cli_entrypoint.py tests/test_bremen_demo_run.py
+git diff --stat: src/bremen/__main__.py | 7 +, src/bremen/demo_run.py | 12 +, tests/test_bremen_cli_entrypoint.py | 11 +, tests/test_bremen_demo_run.py | 46 + (75 insertions, 1 deletion)
+test -f IMPLEMENTATION_REPORT.md: EXISTS
+test -f src/bremen/demo_presentation.py: EXISTS
+test -f tests/test_bremen_demo_presentation.py: EXISTS
+python -m compileall src tests: PASS (no errors)
+python -m pytest -q tests/test_bremen_demo_presentation.py: 43 passed
+python -m pytest -q tests/test_bremen_demo_run.py: 39 passed
+python -m pytest -q tests/test_bremen_demo_smoke.py: 25 passed
+python -m pytest -q tests/test_bremen_demo_evidence.py: 63 passed
+python -m pytest -q tests/test_bremen_api_server.py: 28 passed
+python -m pytest -q tests/test_bremen_api_skeleton.py: 51 passed
+python -m pytest -q tests/test_bremen_dependency_hygiene.py: 10 passed
+python -m pytest -q: 1155 passed, 11 skipped, 28 warnings
+python -m bremen --help: exit 0 (lists demo-run)
+python -m bremen serve --help: exit 0
+python -m bremen demo-smoke --help: exit 0
+python -m bremen demo-run --help: exit 0 (shows --pretty flag)
+python -m bremen demo-run --pretty: exit 0 (JSON + pretty output produced)
+grep Aramis/M2Q/BENIGN in demo_presentation.py: Zero matches (required — clean)
+grep Aramis/M2Q/BENIGN in all demo files: Only pre-existing prohibition patterns and test assertions (safe)
+grep diagnosis/replace in demo_presentation.py: Only safety header comment and footer negation (safe — not claims)
+grep diagnosis/replace in all demo files: Only safety headers, disclaimer negation, prohibition patterns, test assertions (safe)
+grep joblib.load/pickle/import pickle in all demo files: Only test assertions verifying they DON'T appear (safe)
+grep .h5/.hdf5/h5py in demo_presentation.py + demo_run + evidence: Only test assertions verifying no H5 (safe)
+grep boto3/botocore/requests/httpx in all demo files: Only test assertions verifying no imports (safe)
+grep FastAPI/Flask/uvicorn/django: Only pre-existing boundary test files (safe, no new dependencies)
+git diff --name-only -- .github infra/terraform Dockerfile Dockerfile.training requirements.txt pyproject.toml config/training frontend web ui package.json package-lock.json yarn.lock pnpm-lock.yaml tests/data: No output (clean)
+git diff --name-only -- docs ROADMAP.md: No output (clean)
+git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|npy|npz|tfstate|tfstate\.backup)$": No output (clean)
+find . -name ".DS_Store" -print: No output (clean)
+date -u +%Y-%m-%dT%H:%M:%SZ: 2026-07-15T11:06:33Z
+
+FILES READ
+- .project-memory/pr/0063-product-demo-presentation-polish/PLAN.md
+- .project-memory/pr/0063-product-demo-presentation-polish/reviews/plan-review.yml
+- .project-memory/pr/0063-product-demo-presentation-polish/IMPLEMENTATION_REPORT.md
+- ROADMAP.md
+- docs/api_contract.md
+- docs/architecture.md
+- docs/adr/0003-bremen-microservice-api-architecture.md
+- docs/adr/0007-model-artifact-lifecycle.md
+- docs/adr/0008-runtime-target-apprunner-proving.md
+- docs/adr/0012-system-of-record-boundary.md
+- src/bremen/__main__.py
+- src/bremen/demo_presentation.py
+- src/bremen/demo_run.py
+- src/bremen/demo_smoke.py
+- src/bremen/demo_evidence.py
+- src/bremen/api/server.py
+- src/bremen/api/app.py
+- tests/test_bremen_demo_presentation.py
+- tests/test_bremen_demo_run.py
+- tests/test_bremen_demo_smoke.py
+- tests/test_bremen_demo_evidence.py
+- tests/test_bremen_cli_entrypoint.py
+- tests/test_bremen_api_server.py
+- tests/test_bremen_api_skeleton.py
+- tests/test_bremen_dependency_hygiene.py
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN
+- .project-memory/pr/0063-product-demo-presentation-polish/reviews/precommit-review.yml (this file)
+
+SNAPSHOT DELTA
+- files changed (git diff --name-only): src/bremen/__main__.py, src/bremen/demo_run.py, tests/test_bremen_cli_entrypoint.py, tests/test_bremen_demo_run.py
+- files added (untracked): src/bremen/demo_presentation.py, tests/test_bremen_demo_presentation.py, .project-memory/pr/0063-product-demo-presentation-polish/IMPLEMENTATION_REPORT.md
+- git diff --stat: 75 insertions(+), 1 deletion(-) across 4 tracked files
+- new demo_presentation.py: 330 lines, new test_bremen_demo_presentation.py: 626 lines
+
+SCOPE CHECK
+pass — Implementation is product demo presentation polish (not docs-only). Creates src/bremen/demo_presentation.py (330 lines), modifies demo_run.py (+12), modifies __main__.py (+7), creates tests/test_bremen_demo_presentation.py (626 lines), modifies tests/test_bremen_demo_run.py (+46/-1), modifies tests/test_bremen_cli_entrypoint.py (+11). No changes to Terraform, GitHub Actions, Dockerfiles, dependency files, frontend files, training config, tests/data, or H5/model/tfstate artifacts. No docs/ROADMAP changes. No multi-tenancy/model-profile/plugin work started.
+
+PRESENTATION CHECK
+pass — Provides presentation-ready output layer: demo_presentation.py with format_pretty(), format_pretty_header(), format_pretty_footer(). Implements demo-run --pretty flag that produces stable plain-text output with sections (Header, Overview, Health, Model/Version, Prediction, Evidence Bundle, Warnings, Footer). JSON output preserved unchanged (pretty is additive). No terminal codes, no HTML.
+
+PRODUCT-OWNER DEMO CHECK
+pass — Output is meaningful for product-owner/stakeholder demos: clear sections with "BREMEN PRODUCT DEMO" header, "Technical demo only — not a clinical result." safety header, visible health/model/prediction/evidence statuses, request_id, warnings, and footer safety disclaimer. Available via single command: `python -m bremen demo-run --pretty`.
+
+REUSABILITY CHECK
+pass — Presentation logic is in a small deterministic formatter module (demo_presentation.py, 330 lines) with pure functions: format_pretty(), format_pretty_header(), format_pretty_footer(). No state, no side effects. 43 tests covering all states.
+
+PRESERVED BEHAVIOR CHECK
+pass — All existing behaviors preserved:
+- JSON output unchanged (printed first, pretty is additive)
+- demo-smoke unchanged (--pretty only on demo-run per plan default)
+- demo-run non-pretty output unchanged
+- Evidence bundle shape unchanged
+- request_id preserved
+- Local auto-start workflow preserved
+- Explicit base-url workflow preserved
+- All existing tests pass (1155 total, 0 failures)
+
+BREMEN POSITIONING CHECK
+pass — demo_presentation.py has zero Aramis strings (verified by grep). Bremen remains independent with own clinical question and evidence bundle. Product identity prominent in pretty output ("BREMEN PRODUCT DEMO", "Product: Bremen").
+
+MULTI-TENANCY DEFERRAL CHECK
+pass — No multi-tenancy, model profiles, plugin boundary, tenants, auth, config store, or multi-tenancy work. Explicitly deferred in implementation report and PLAN.md. No new architectural patterns introduced.
+
+OUTPUT CONTRACT CHECK
+pass — No clinical diagnosis, validated clinical recommendation, MRI replacement, biopsy replacement, radiologist replacement, clinician replacement, patient-specific claim, or clinical performance claim. Output includes "Technical demo only — not a clinical result." Header and footer safety disclaimer prominent.
+
+OBSERVABILITY CHECK
+pass — request_id visible in pretty output header (Overview section). No external observability dependencies added.
+
+DEPLOYMENT BOUNDARY CHECK
+pass — No Terraform apply, AWS credential use, App Runner mutation, GitHub Actions workflow changes, Dockerfile changes, or deployment automation. Pure presentation layer — no deployment impact.
+
+FRONTEND BOUNDARY CHECK
+pass — No React/frontend/package-manager files, HTML UI, or terminal-control presentation dependencies. Plain ASCII text only (verified by test: no ANSI escape sequences, no terminal control characters).
+
+SAFETY CHECK
+pass — All safety boundaries confirmed:
+- No runtime training (pure dict-to-string transformation)
+- No unsafe model deserialization (no joblib/pickle in demo_presentation.py)
+- No joblib.load in demo_presentation.py (grep confirmed zero — only test assertions verifying absence)
+- No H5/HDF5 mutation (grep: only test assertions verifying no H5)
+- No new H5 runtime dependency (pure text formatting, no file I/O)
+- No AWS/S3 SDK or network clients (grep: only test assertions; stdlib urllib localhost only)
+- No Matador resolver implementation
+- No real patient demo data (formatting of existing synthetic data only)
+- No Aramis dependency (zero Aramis strings in demo_presentation.py)
+- No clinical/replacement claims (only safety header comment and footer negation)
+- technical_demo_only prominent in header and footer
+
+VALIDATION CHECK
+pass — All required validation commands were run and passed. 43 presentation tests pass. 39 demo-run tests pass. All existing tests continue to pass unchanged (1155 passed, 11 skipped, 0 failures). No failures to classify. Forbidden-pattern greps all produce safe results. demo_presentation.py has zero Aramis matches (required). Clinical/replacement strings only appear in safety header/footer negation and test assertions.
+
+IMPLEMENTATION REPORT CHECK
+pass — IMPLEMENTATION_REPORT.md exists and summarizes:
+- Files changed (6 files: 2 new, 4 modified)
+- Product demo presentation (format_pretty with 6 sections)
+- Pretty output (--pretty flag, additive to JSON)
+- Product-owner demo value (single command, clear sections, safety disclaimer)
+- Preserved JSON behavior (unchanged, additive pretty output)
+- Output safety (4 safety invariants)
+- Multi-tenancy deferral (explicitly deferred)
+- Tests run (43 new + all existing, 1155 total, 0 failures)
+- Safety boundaries (11 confirmed safe)
+- Deferred work (multi-tenancy, frontend, deployment, clinical report)
+
+PROCESS RULES CHECK
+pass — Reviewer did not modify implementation files, did not run git add/commit/push, did not create a PR, did not run Docker/Terraform/AWS, did not install dependencies. All review commands were read-only shell commands and file reads.
+
+COMMIT READINESS
+ready to commit implementation artifacts: yes
+required files to stage:
+  - src/bremen/demo_presentation.py
+  - src/bremen/demo_run.py
+  - src/bremen/__main__.py
+  - tests/test_bremen_demo_presentation.py
+  - tests/test_bremen_demo_run.py
+  - tests/test_bremen_cli_entrypoint.py
+  - .project-memory/pr/0063-product-demo-presentation-polish/IMPLEMENTATION_REPORT.md
+  - .project-memory/pr/0063-product-demo-presentation-polish/reviews/precommit-review.yml
+conditionally stage only if changed and justified:
+  - src/bremen/demo_smoke.py (not changed — no stage needed)
+  - src/bremen/demo_evidence.py (not changed — no stage needed)
+  - tests/test_bremen_demo_smoke.py (not changed — no stage needed)
+  - tests/test_bremen_demo_evidence.py (not changed — no stage needed)
+files to exclude:
+  - Any file outside expected implementation scope and review artifact
+
+BOUNDARY CONFIRMATIONS
+- product demo presentation polish implemented: yes (src/bremen/demo_presentation.py)
+- demo remains Bremen-native: yes (BREMEN in header, Product: Bremen, zero Aramis)
+- demo presentation is not disposable: yes (reusable module, 43 tests)
+- --pretty implemented on demo-run: yes (python -m bremen demo-run --pretty)
+- demo-smoke behavior preserved: yes (unchanged)
+- product-owner demo value implemented: yes (single command, clear sections)
+- technical_demo_only preserved: yes (prominent in header and footer)
+- JSON behavior preserved: yes (additive pretty output after JSON)
+- request_id/logging behavior preserved: yes (visible in pretty output)
+- no deployment mutation: yes (pure presentation layer)
+- no Terraform/GitHub Actions/Docker changes: yes (confirmed via git diff)
+- no React/frontend implementation: yes (plain ASCII text only)
+- multi-tenancy/model-profile/plugin work deferred: yes (explicit)
+- no new dependencies: yes (stdlib only)
+- no unsafe model loading: yes (pure dict→str transformation)
+- no H5 mutation: yes (no .h5/.hdf5/h5py in demo_presentation.py)
+- no real patient data: yes (formatting of existing synthetic data)
+- no Aramis dependency: yes (zero Aramis strings in demo_presentation.py)
+- no clinical diagnosis/replacement claims: yes (safety footer negation only)
+- Bremen safety identity preserved: yes (all safety invariants hold)
+- implementation report present: yes (IMPLEMENTATION_REPORT.md exists)
+- no H5/model/tfstate artifacts: yes (git diff confirmed no artifacts)
+- no implementation files modified by reviewer: yes
+- no git mutation commands: yes
