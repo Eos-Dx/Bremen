@@ -1,0 +1,202 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: approve
+
+BLOCKERS: []
+
+WARNINGS:
+- PLAN.md references "1155 tests pass" and "All PR0060–PR0063 are merged" as observed facts, but these are claims about runtime test state, not read-only static evidence. The plan does not block on this — it is a non-blocking narrative note.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: a82f837950b34eefaf8373c475e41160214a27e4
+- command: git branch --show-current
+  exit code: 0
+  output: 0064-demo-readiness-capture-package
+- command: git status --short
+  exit code: 0
+  output: "?? .project-memory/pr/0064-demo-readiness-capture-package/"
+- command: test -f .project-memory/pr/0064-demo-readiness-capture-package/PLAN.md
+  exit code: 0
+  output: EXISTS
+- command: grep -n "capture-dir\|capture package\|manifest" .project-memory/pr/0064-demo-readiness-capture-package/PLAN.md
+  exit code: 0
+  output: (37 matching lines — capture-dir, capture package, manifest all present)
+- command: grep -n "technical_demo_only" .project-memory/pr/0064-demo-readiness-capture-package/PLAN.md
+  exit code: 0
+  output: (27 matching lines — technical_demo_only required in every file)
+- command: grep -n "product owner\|product-owner\|demo" .project-memory/pr/0064-demo-readiness-capture-package/PLAN.md
+  exit code: 0
+  output: (multiple matches — product-owner demo value planned)
+- command: grep -n "JSON\|pretty\|preserved" .project-memory/pr/0064-demo-readiness-capture-package/PLAN.md
+  exit code: 0
+  output: (JSON, pretty, preserved — all present, backward-compatible)
+- command: grep -n "multi-tenancy\|model-profile\|plugin" .project-memory/pr/0064-demo-readiness-capture-package/PLAN.md
+  exit code: 0
+  output: (3 matches — explicitly deferred)
+- command: grep -n "diagnosis\|replacement\|clinical" .project-memory/pr/0064-demo-readiness-capture-package/PLAN.md
+  exit code: 0
+  output: (multiple matches — all in safety/disclaimer/deferred context)
+- command: grep -n "no Terraform\|no GitHub Actions\|no Docker\|no AWS" .project-memory/pr/0064-demo-readiness-capture-package/PLAN.md
+  exit code: 0
+  output: "Line 434: Safety drift — No unsafe deserialization, no H5, no AWS, no clinical claims."
+- command: grep -n "no React\|frontend\|package.json" .project-memory/pr/0064-demo-readiness-capture-package/PLAN.md
+  exit code: 0
+  output: (5 matches — explicitly forbidden)
+- command: grep -n "no new dependencies\|standard-library" .project-memory/pr/0064-demo-readiness-capture-package/PLAN.md
+  exit code: 0
+  output: (multiple matches — stdlib-only, no new dependencies)
+- command: grep -n "Agent: coder" .project-memory/pr/0064-demo-readiness-capture-package/PLAN.md
+  exit code: 0
+  output: "Line 53: Agent: coder"
+- command: grep -n "Mode: implementation" .project-memory/pr/0064-demo-readiness-capture-package/PLAN.md
+  exit code: 0
+  output: "Line 54: Mode: implementation"
+- command: date -u +%Y-%m-%dT%H:%M:%SZ
+  exit code: 0
+  output: 2026-07-15T14:16:30Z
+
+FILES READ:
+- .project-memory/pr/0064-demo-readiness-capture-package/PLAN.md
+- ROADMAP.md
+- docs/api_contract.md
+- docs/architecture.md
+- docs/adr/0003-bremen-microservice-api-architecture.md
+- docs/adr/0007-model-artifact-lifecycle.md
+- docs/adr/0008-runtime-target-apprunner-proving.md
+- docs/adr/0012-system-of-record-boundary.md
+- src/bremen/__main__.py
+- src/bremen/demo_run.py
+- src/bremen/demo_presentation.py
+- src/bremen/demo_smoke.py
+- src/bremen/demo_evidence.py
+- tests/test_bremen_demo_run.py
+- tests/test_bremen_demo_presentation.py
+- tests/test_bremen_demo_smoke.py
+- tests/test_bremen_demo_evidence.py
+- tests/test_bremen_cli_entrypoint.py
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN:
+- .project-memory/pr/0064-demo-readiness-capture-package/reviews/plan-review.yml
+
+SNAPSHOT DELTA:
+- HEAD: a82f837950b34eefaf8373c475e41160214a27e4
+- status: ?? .project-memory/pr/0064-demo-readiness-capture-package/
+- diff: (clean — no modified files)
+
+CHECKS:
+- scope: pass
+- plan-review boundary: pass
+- validation strategy: pass
+- safety boundaries: pass
+- drift gate: pass
+- evidence completeness: pass
+- dirty tree: pass
+
+BOUNDARY CONFIRMATIONS:
+- no Docker run: confirmed
+- no pytest run: confirmed
+- no dependency install: confirmed
+- no implementation files edited: confirmed
+- no git mutation commands: confirmed
+
+SCOPE CHECK: pass
+- PLAN is focused on demo readiness capture package (--capture-dir on demo-run producing 3 files)
+- Not docs-only (implementation plan with 6 files, 18+ tests)
+- Does not start frontend, deployment automation, training, multi-tenancy/model-profiles/plugins, or Aramis alignment
+
+CAPTURE CHECK: pass
+- PLAN requires concrete capture option: `demo-run --capture-dir <directory>`
+- PLAN writes summary (bremen-demo-summary.txt), evidence (bremen-demo-evidence.json), manifest (bremen-demo-manifest.json)
+
+PRODUCT-OWNER DEMO CHECK: pass
+- PLAN produces reusable demo readiness packet (3 files: summary, evidence, manifest)
+- All files include technical_demo_only, Bremen identity, safety disclaimers
+- Suitable for product-owner/operator/release readiness walkthrough
+
+PRESERVED BEHAVIOR CHECK: pass
+- PLAN explicitly states backward-compatible: JSON output unchanged, pretty output unchanged
+- request_id behavior preserved
+- local auto-start (when --base-url not provided) preserved
+- Existing demo-run, demo-smoke, evidence bundle flows unaffected
+- "Demo-run drift: --capture-dir is additive — JSON/pretty output unchanged"
+
+MULTI-TENANCY DEFERRAL CHECK: pass
+- PLAN explicitly defers multi-tenancy, model profiles, plugin work
+- Stop condition: "Block if plan starts multi-tenancy, model-profile, or plugin work"
+- No model profiles, plugin boundary, tenants, auth, config store in scope
+
+OUTPUT CONTRACT CHECK: pass
+- PLAN requires technical_demo_only in every capture file
+- No clinical diagnosis, validated clinical recommendation, MRI/biopsy/radiologist/clinician replacement, patient-specific claim, or clinical performance claim
+- Safety notes contain only negation language (safe disclaimer)
+
+SAFETY CHECK: pass
+- No unsafe deserialization (no joblib.load, no pickle.load)
+- No H5 mutation or access
+- No AWS/S3 SDK or network calls
+- No real patient data
+- No Aramis dependency
+- No deployment mutation (Terraform, Docker, CI/CD, GitHub Actions)
+- No frontend
+- No new dependencies (stdlib only)
+- No --overwrite flag (safe default, no silent overwrite)
+- FileExistsError on collision
+
+VALIDATION CHECK: pass
+- 18+ new capture tests for test_bremen_demo_capture.py
+- 2 demo-run integration tests for test_bremen_demo_run.py
+- 1 CLI help test for test_bremen_cli_entrypoint.py
+- Full pytest run planned
+- python -m bremen --help and subcommand help tests
+- End-to-end capture smoke integration command
+- Forbidden-pattern grep checks (Aramis, clinical, deserialization, H5, AWS/network, web framework)
+- Forbidden path diff checks (.github, infra/terraform, Dockerfile, etc.)
+- .DS_Store check
+- Artifact scan for .h5/.hdf5/.joblib/.pkl etc.
+
+IMPLEMENTATION AGENT CHECK: pass
+- "Agent: coder" (line 53)
+- "Mode: implementation" (line 54)
+- Stop condition explicitly blocks if not Agent: coder / Mode: implementation (line 450)
+
+PROCESS RULES CHECK: pass
+- Branch confirmed: 0064-demo-readiness-capture-package (git branch --show-current)
+- No implementation files modified during review
+- No git mutation commands run
+- All required static evidence read
+- No tests, Docker, Terraform, AWS commands executed
+
+COMMIT READINESS:
+- ready to commit planning artifacts: yes
+- required files to stage:
+  - .project-memory/pr/0064-demo-readiness-capture-package/PLAN.md
+  - .project-memory/pr/0064-demo-readiness-capture-package/reviews/plan-review.yml
+- files to exclude: none from this pair
+
+BOUNDARY CONFIRMATIONS:
+- PR0064 planned as demo readiness capture package: confirmed
+- demo remains Bremen-native: confirmed
+- capture package is not disposable: confirmed (versioned, reusable, testable)
+- --capture-dir planned for demo-run: confirmed
+- product-owner demo value planned: confirmed
+- technical_demo_only preserved: confirmed
+- JSON behavior preserved: confirmed
+- pretty behavior preserved: confirmed
+- request_id behavior preserved: confirmed
+- no deployment mutation planned: confirmed
+- no Terraform/GitHub Actions/Docker changes planned: confirmed
+- no React/frontend planned: confirmed
+- multi-tenancy/model-profile/plugin work deferred: confirmed
+- no new dependencies planned: confirmed
+- no unsafe model loading planned: confirmed
+- no H5 mutation planned: confirmed
+- no real patient data planned: confirmed
+- no Aramis dependency planned: confirmed
+- no clinical diagnosis/replacement claims planned: confirmed
+- Bremen safety identity preserved: confirmed
+- implementation assigned to coder: confirmed
+- no implementation files modified: confirmed
+- no git mutation commands: confirmed

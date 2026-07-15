@@ -588,7 +588,78 @@ class TestImportSafety:
 
 
 # ===================================================================
-# Class 12: End-to-end CLI test
+# Class 13: --capture-dir flag tests
+# ===================================================================
+
+
+class TestCaptureDirFlag:
+    def test_demo_run_capture_dir_writes_files(self, server_info):
+        """demo-run --capture-dir <tmpdir> writes 3 files."""
+        import tempfile
+
+        host, port = server_info
+        with tempfile.TemporaryDirectory() as tmpdir:
+            from bremen.demo_capture import (
+                FILE_SUMMARY,
+                FILE_EVIDENCE,
+                FILE_MANIFEST,
+                write_demo_capture,
+            )
+
+            result = run_demo(
+                base_url=f"http://{host}:{port}",
+                timeout=5,
+                skip_prediction=True,
+            )
+            write_demo_capture(
+                result=result,
+                capture_dir=tmpdir,
+            )
+            dir_path = Path(tmpdir)
+            assert (dir_path / FILE_SUMMARY).exists(), (
+                "Summary file not written"
+            )
+            assert (dir_path / FILE_EVIDENCE).exists(), (
+                "Evidence file not written"
+            )
+            assert (dir_path / FILE_MANIFEST).exists(), (
+                "Manifest file not written"
+            )
+
+    def test_demo_run_capture_dir_with_pretty(self, server_info):
+        """demo-run --pretty --capture-dir includes pretty text in summary."""
+        import tempfile
+
+        host, port = server_info
+        with tempfile.TemporaryDirectory() as tmpdir:
+            from bremen.demo_capture import (
+                FILE_SUMMARY,
+                write_demo_capture,
+            )
+            from bremen.demo_presentation import format_pretty
+
+            result = run_demo(
+                base_url=f"http://{host}:{port}",
+                timeout=5,
+                skip_prediction=True,
+            )
+            pretty_text = format_pretty(result)
+            write_demo_capture(
+                result=result,
+                capture_dir=tmpdir,
+                pretty_text=pretty_text,
+            )
+            content = (Path(tmpdir) / FILE_SUMMARY).read_text(
+                encoding="utf-8"
+            )
+            assert "BREMEN PRODUCT DEMO" in content
+            assert "Technical demo only" in content
+            assert "Health" in content
+            assert "Model / Version" in content
+
+
+# ===================================================================
+# Class 14: End-to-end CLI test
 # ===================================================================
 
 

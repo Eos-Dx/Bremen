@@ -1,0 +1,209 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: pass
+
+BLOCKERS
+(none)
+
+WARNINGS
+(none)
+
+VALIDATION
+git rev-parse --verify HEAD: f886fa1ca33ae0cd54a4a5edbc1fcefd0625073c
+git branch --show-current: 0064-demo-readiness-capture-package
+git status --short: 4 modified (__main__.py, demo_run.py, test_bremen_cli_entrypoint.py, test_bremen_demo_run.py), 4 untracked (IMPLEMENTATION_REPORT.md, precommit-review.yml (this artifact), demo_capture.py, test_bremen_demo_capture.py)
+git diff --name-only: src/bremen/__main__.py src/bremen/demo_run.py tests/test_bremen_cli_entrypoint.py tests/test_bremen_demo_run.py
+git diff --stat: 4 files changed, 121 insertions(+), 2 deletions(-)
+test -f IMPLEMENTATION_REPORT.md: EXISTS
+test -f src/bremen/demo_capture.py: EXISTS
+test -f tests/test_bremen_demo_capture.py: EXISTS
+python -m compileall src tests: All files compiled successfully
+python -m pytest -q tests/test_bremen_demo_capture.py: 37 passed
+python -m pytest -q tests/test_bremen_demo_run.py: 41 passed
+python -m pytest -q tests/test_bremen_demo_presentation.py: 43 passed
+python -m pytest -q tests/test_bremen_demo_smoke.py: 25 passed
+python -m pytest -q tests/test_bremen_demo_evidence.py: 63 passed
+python -m pytest -q tests/test_bremen_api_server.py: 28 passed
+python -m pytest -q tests/test_bremen_api_skeleton.py: 51 passed
+python -m pytest -q tests/test_bremen_dependency_hygiene.py: 10 passed (file exists)
+python -m pytest -q: 1195 passed, 11 skipped
+python -m bremen --help: Exits 0, shows demo-run and demo-smoke commands
+python -m bremen serve --help: Shows --host, --port
+python -m bremen demo-smoke --help: Shows --base-url, --timeout, --skip-prediction
+python -m bremen demo-run --help: Shows --base-url, --timeout, --skip-prediction, --pretty, --capture-dir
+python -m bremen demo-run --pretty: JSON output + formatted plain-text, both printed. Exit 0.
+End-to-end --capture-dir smoke test: 3 files created (bremen-demo-summary.txt, bremen-demo-evidence.json, bremen-demo-manifest.json)
+Aramis grep (demo_capture.py, demo_run.py, demo_presentation.py, tests): Zero matches in source code. Only test assertions testing absence.
+Clinical/replacement grep (same files): Only safety negation language in source and test assertions. No claims.
+joblib/pickle grep (same files): Only test assertions checking absence. Zero in source code.
+H5 grep (demo_capture.py, demo_run.py, tests): Zero in source code. Only test assertions checking absence.
+AWS/network grep (same files): Zero in source code. Only test assertions checking absence.
+Web framework grep (src, tests, requirements.txt, pyproject.toml): Only pre-existing deferred references in test assertions.
+Forbidden files diff (.github, infra/terraform, Dockerfile, Dockerfile.training, requirements.txt, pyproject.toml, config/training, frontend, web, ui, package.json, tests/data): No output — zero changes.
+Docs/ROADMAP diff: No output — zero changes.
+Artifact scan (.h5, .hdf5, .joblib, .pkl, .npy, .npz, .tfstate): No output — zero artifacts.
+.DS_Store: No output — zero files.
+
+FILES READ
+.project-memory/pr/0064-demo-readiness-capture-package/PLAN.md
+.project-memory/pr/0064-demo-readiness-capture-package/reviews/plan-review.yml
+.project-memory/pr/0064-demo-readiness-capture-package/IMPLEMENTATION_REPORT.md
+ROADMAP.md
+docs/api_contract.md
+docs/architecture.md
+docs/adr/0003-bremen-microservice-api-architecture.md
+docs/adr/0007-model-artifact-lifecycle.md
+docs/adr/0008-runtime-target-apprunner-proving.md
+docs/adr/0012-system-of-record-boundary.md
+src/bremen/__main__.py
+src/bremen/demo_capture.py
+src/bremen/demo_run.py
+src/bremen/demo_presentation.py
+src/bremen/demo_smoke.py
+src/bremen/demo_evidence.py
+tests/test_bremen_demo_capture.py
+tests/test_bremen_demo_run.py
+tests/test_bremen_demo_presentation.py
+tests/test_bremen_demo_smoke.py
+tests/test_bremen_demo_evidence.py
+tests/test_bremen_cli_entrypoint.py
+tests/test_bremen_api_server.py
+tests/test_bremen_api_skeleton.py
+tests/test_bremen_dependency_hygiene.py
+.project-memory/project_contract.yml
+AGENTS.md
+
+FILES WRITTEN
+.project-memory/pr/0064-demo-readiness-capture-package/reviews/precommit-review.yml
+
+SNAPSHOT DELTA
+Modified files (121 insertions, 2 deletions):
+  src/bremen/__main__.py              | 11 ++++++ (added _add_demo_run_subcommand and _handle_demo_run)
+  src/bremen/demo_run.py              | 28 +++++++++++++- (added --pretty and --capture-dir args + end-of-run capture logic)
+  tests/test_bremen_cli_entrypoint.py | 11 ++++++ (capture-dir in help test)
+  tests/test_bremen_demo_run.py       | 73 ++++++++++++++++++++++++++++- (capture end-to-end, overwrite safety, fallback text, manifest verification)
+New files:
+  src/bremen/demo_capture.py          | 237 lines (build_capture_manifest, write_demo_capture, _build_fallback_summary)
+  tests/test_bremen_demo_capture.py   | 588 lines (37 tests covering manifest shape, write smoke, FileExistsError, safety, determinism)
+
+SCOPE CHECK
+pass: Implementation is a demo readiness capture package. Modified files are within approved scope (__main__.py, demo_run.py, tests). New files (demo_capture.py, test_bremen_demo_capture.py) are expected implementation files. No Terraform, GitHub Actions, Dockerfiles, dependency files, frontend files, training config/pipeline, tests/data, H5/model/tfstate artifacts changed. No docs/ROADMAP changes. No multi-tenancy/model-profile/plugin work started.
+
+CAPTURE CHECK
+pass: Implementation provides:
+  - demo-run --capture-dir CLI flag
+  - Summary text capture (bremen-demo-summary.txt) with fallback when --pretty not used
+  - Evidence/result JSON capture (bremen-demo-evidence.json)
+  - Manifest JSON capture (bremen-demo-manifest.json)
+  - Safe directory creation (Path.mkdir(parents=True, exist_ok=True))
+  - Safe failure for path/file collisions (FileExistsError when dir exists as file or output files already exist)
+  - No silent overwrite (FileExistsError rather than overwriting)
+
+PRODUCT-OWNER DEMO CHECK
+pass: Captured artifacts are useful for demo share-out/operator/release readiness review. A single command `python -m bremen demo-run --pretty --capture-dir ./demo-results` produces 3 portable files (summary, evidence JSON, manifest JSON) that can be shared, archived, or used in walkthroughs. Not just low-level test fixtures.
+
+MANIFEST CHECK
+pass: Manifest (bremen-demo-manifest.json) includes all required fields:
+  - demo_capture_version: "v0.1"
+  - generated_at_utc: ISO-8601 UTC timestamp
+  - technical_demo_only: true
+  - product: "Bremen"
+  - status: from demo-run result
+  - files: list of {"filename", "description"} for all 3 files
+  - safety_notes: 4-item list with disclaimer language
+  - request_id: carried through from demo-run result
+
+PRESERVED BEHAVIOR CHECK
+pass: All existing behaviors preserved:
+  - JSON output unchanged (printed first, before pretty/capture)
+  - Pretty output unchanged (--pretty still produces formatted plain-text)
+  - demo-run without --capture-dir: unchanged, prints JSON + human-readable summary
+  - demo-smoke: unchanged
+  - Evidence bundle shape: unchanged (still produced by demo_smoke)
+  - request_id behavior: unchanged (carried through all outputs)
+  - Local auto-start workflow: unchanged (default behavior when --base-url not set)
+  - Explicit base-url workflow: unchanged (passed through to demo_smoke)
+  - Existing tests: all 1195 pass (0 failures, 11 skipped)
+
+MULTI-TENANCY DEFERRAL CHECK
+pass: No model profiles, plugin boundary, tenants, auth, config store, or multi-tenancy work started. All explicitly deferred in IMPLEMENTATION_REPORT.md.
+
+OUTPUT CONTRACT CHECK
+pass: No clinical diagnosis, validated clinical recommendation, MRI replacement, biopsy replacement, radiologist replacement, clinician replacement, patient-specific claim, or clinical performance claim found in any output file. Every capture file includes technical_demo_only: true. Safety disclaimers use only negation language ("does not replace MRI, biopsy, radiologist, clinician, or clinical judgment"). Verified by direct grep.
+
+SAFETY CHECK
+pass: No new safety violations introduced:
+  - No runtime training
+  - No unsafe model deserialization (no joblib.load, no pickle.load in demo_capture.py or demo_run.py)
+  - No H5/HDF5 mutation (no .h5, .hdf5, or h5py in demo_capture.py or demo_run.py)
+  - No new H5 runtime dependency
+  - No AWS/S3 SDK/network clients (no boto3, botocore, requests, httpx in source)
+  - No Matador resolver implementation
+  - No real patient demo data
+  - No Aramis dependency (zero Aramis strings in source)
+  - No clinical/replacement claims (only safe negation)
+  - No new dependencies (stdlib only for demo_capture.py)
+  - Verified by direct grep of all changed and new source files
+
+VALIDATION CHECK
+pass: All required validation commands were run successfully. No failures. Results recorded in VALIDATION section.
+
+IMPLEMENTATION REPORT CHECK
+pass: Implementation report (.project-memory/pr/0064-demo-readiness-capture-package/IMPLEMENTATION_REPORT.md) exists and summarizes:
+  - Files changed (4 modified + 2 new)
+  - Demo capture behavior (build_capture_manifest, write_demo_capture)
+  - Manifest shape (all required fields)
+  - Product-owner demo value (single command produces portable packet)
+  - Preserved JSON/pretty behavior (additive, backward-compatible)
+  - Output safety (technical_demo_only, no clinical claims, no Aramis)
+  - Tests run and results (37 capture tests, 41 demo-run tests, all pass)
+  - Safety boundaries (no unsafe deserialization, no H5, no AWS, no new deps)
+  - Multi-tenancy/model-profile/plugin deferral (explicitly deferred)
+
+PROCESS RULES CHECK
+pass: Reviewer did not modify any implementation files. Did not run git add, git commit, git push. Did not create a PR. Did not run Docker, Terraform, or AWS commands. Did not install any dependencies. Only read files, ran validation commands (pytest, compileall, grep, git status), and wrote the review artifact.
+
+COMMIT READINESS
+ready to commit implementation artifacts: yes
+required files to stage:
+  - src/bremen/demo_capture.py
+  - src/bremen/demo_run.py
+  - src/bremen/__main__.py
+  - tests/test_bremen_demo_capture.py
+  - tests/test_bremen_demo_run.py
+  - tests/test_bremen_cli_entrypoint.py
+  - .project-memory/pr/0064-demo-readiness-capture-package/IMPLEMENTATION_REPORT.md
+  - .project-memory/pr/0064-demo-readiness-capture-package/reviews/precommit-review.yml
+conditionally stage only if changed and justified:
+  - src/bremen/demo_presentation.py (not changed — not applicable)
+  - src/bremen/demo_evidence.py (not changed — not applicable)
+  - tests/test_bremen_demo_presentation.py (not changed — not applicable)
+  - tests/test_bremen_demo_evidence.py (not changed — not applicable)
+  - tests/test_bremen_demo_smoke.py (not changed — not applicable)
+files to exclude:
+  - any file outside expected implementation scope and review artifact (none found)
+
+BOUNDARY CONFIRMATIONS
+- demo readiness capture package implemented: yes
+- demo remains Bremen-native: yes
+- capture package is not disposable: yes (versioned, reusable, 37 tests)
+- --capture-dir implemented for demo-run: yes
+- product-owner demo value implemented: yes
+- technical_demo_only preserved: yes
+- JSON behavior preserved: yes
+- pretty behavior preserved: yes
+- request_id behavior preserved: yes
+- no deployment mutation: yes
+- no Terraform/GitHub Actions/Docker changes: yes
+- no React/frontend implementation: yes
+- multi-tenancy/model-profile/plugin work deferred: yes
+- no new dependencies: yes
+- no unsafe model loading: yes
+- no H5 mutation: yes
+- no real patient data: yes
+- no Aramis dependency: yes
+- no clinical diagnosis/replacement claims: yes
+- Bremen safety identity preserved: yes
+- implementation report present: yes
+- no H5/model/tfstate artifacts: yes
+- no implementation files modified by reviewer: yes
+- no git mutation commands: yes
