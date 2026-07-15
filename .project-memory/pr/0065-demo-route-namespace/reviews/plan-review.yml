@@ -1,0 +1,241 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: approve
+
+BLOCKERS: []
+
+WARNINGS:
+- PLAN.md server.py section imports `build_existence_proof` from `demo_ui` (line ~172), but that function is not defined in the `demo_ui.py` module specification, which lists only `build_demo_html_page` and `build_demo_evidence_json_response`. The imported function is never called in the handler body. This is a drafting inconsistency — the coder must remove the unused import during implementation.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: b628914d7328f4f81c0aeb197fd51c48921d44fd
+- command: git branch --show-current
+  exit code: 0
+  output: 0065-demo-route-namespace
+- command: git status --short
+  exit code: 0
+  output: "?? .project-memory/pr/0065-demo-route-namespace/"
+- command: test -f .project-memory/pr/0065-demo-route-namespace/PLAN.md
+  exit code: 0
+  output: EXISTS
+- command: grep -n "/demo\|route namespace\|path" .project-memory/pr/0065-demo-route-namespace/PLAN.md
+  exit code: 0
+  output: (multiple matches — /demo/* route namespace present)
+- command: grep -n "root /\|root \`/\`\|not root" .project-memory/pr/0065-demo-route-namespace/PLAN.md
+  exit code: 0
+  output: "Line 255: No demo content at root / (only /demo and /demo/*)"
+- command: grep -n -- "--ui\|launch command\|startup command" .project-memory/pr/0065-demo-route-namespace/PLAN.md
+  exit code: 0
+  output: "Line 11: No new CLI command. No --ui flag. No separate service mode."
+- command: grep -n "browser\|UI\|REST\|evidence" .project-memory/pr/0065-demo-route-namespace/PLAN.md
+  exit code: 0
+  output: (multiple matches — browser UI, REST evidence endpoint, evidence bundle)
+- command: grep -n "technical_demo_only" .project-memory/pr/0065-demo-route-namespace/PLAN.md
+  exit code: 0
+  output: (multiple matches — technical_demo_only in HTML and JSON)
+- command: grep -n "product owner\|product-owner\|board\|stakeholder" .project-memory/pr/0065-demo-route-namespace/PLAN.md
+  exit code: 0
+  output: "Line 9: board-friendly browser view... Line 87: board-friendly HTML page... Line 142: board-friendly and screenshot-ready."
+- command: grep -n "React\|frontend\|package" .project-memory/pr/0065-demo-route-namespace/PLAN.md
+  exit code: 0
+  output: "Line 11: No React. No package manager. No external assets."
+- command: grep -n "multi-tenancy\|model-profile\|plugin" .project-memory/pr/0065-demo-route-namespace/PLAN.md
+  exit code: 0
+  output: (3 matches — explicitly deferred)
+- command: grep -n "diagnosis\|replacement\|clinical" .project-memory/pr/0065-demo-route-namespace/PLAN.md
+  exit code: 0
+  output: (multiple matches — all in safety/disclaimer context)
+- command: grep -n "no Terraform\|no GitHub Actions\|no Docker\|no AWS" .project-memory/pr/0065-demo-route-namespace/PLAN.md
+  exit code: 0
+  output: "Line 422: Safety drift — No unsafe deserialization, no H5, no AWS, no clinical claims."
+- command: grep -n "no new dependencies\|standard-library" .project-memory/pr/0065-demo-route-namespace/PLAN.md
+  exit code: 0
+  output: (multiple matches — stdlib-only, no new dependencies)
+- command: grep -n "Agent: coder" .project-memory/pr/0065-demo-route-namespace/PLAN.md
+  exit code: 0
+  output: "Line 49: Agent: coder"
+- command: grep -n "Mode: implementation" .project-memory/pr/0065-demo-route-namespace/PLAN.md
+  exit code: 0
+  output: "Line 50: Mode: implementation"
+- command: date -u +%Y-%m-%dT%H:%M:%SZ
+  exit code: 0
+  output: 2026-07-15T19:07:51Z
+
+FILES READ:
+- .project-memory/pr/0065-demo-route-namespace/PLAN.md
+- ROADMAP.md
+- docs/api_contract.md
+- docs/architecture.md
+- docs/adr/0003-bremen-microservice-api-architecture.md
+- docs/adr/0007-model-artifact-lifecycle.md
+- docs/adr/0008-runtime-target-apprunner-proving.md
+- docs/adr/0012-system-of-record-boundary.md
+- src/bremen/__main__.py
+- src/bremen/api/server.py
+- src/bremen/api/app.py
+- src/bremen/demo_run.py
+- src/bremen/demo_capture.py
+- src/bremen/demo_presentation.py
+- src/bremen/demo_smoke.py
+- src/bremen/demo_evidence.py
+- tests/test_bremen_api_server.py
+- tests/test_bremen_api_skeleton.py
+- tests/test_bremen_demo_run.py
+- tests/test_bremen_demo_capture.py
+- tests/test_bremen_demo_presentation.py
+- tests/test_bremen_demo_smoke.py
+- tests/test_bremen_demo_evidence.py
+- tests/test_bremen_cli_entrypoint.py
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN:
+- .project-memory/pr/0065-demo-route-namespace/reviews/plan-review.yml
+
+SNAPSHOT DELTA:
+- HEAD: b628914d7328f4f81c0aeb197fd51c48921d44fd
+- status: "?? .project-memory/pr/0065-demo-route-namespace/"
+- diff: (no modified files)
+
+CHECKS:
+- scope: pass
+- plan-review boundary: pass
+- validation strategy: pass
+- safety boundaries: pass
+- drift gate: pass
+- evidence completeness: pass
+- dirty tree: pass
+
+BOUNDARY CONFIRMATIONS:
+- no Docker run: confirmed
+- no pytest run: confirmed
+- no dependency install: confirmed
+- no implementation files edited: confirmed
+- no git mutation commands: confirmed
+
+SCOPE CHECK: pass
+- PLAN is focused on `/demo/*` route namespace in the existing Bremen HTTP service
+- Not docs-only (implementation plan with 4 files, 12+ UI tests, 5+ server tests)
+- Does not start production frontend, React, deployment automation, training, multi-tenancy/model-profiles/plugins, or Aramis alignment
+
+ROUTE NAMESPACE CHECK: pass
+- PLAN requires demo under `/demo` and `/demo/api/evidence`
+- PLAN explicitly says "No demo content at root `/`" (line 255)
+- PLAN explicitly says "No new CLI command. No `--ui` flag. No separate service mode" (line 11)
+
+BROWSER UI CHECK: pass
+- PLAN requires concrete browser UI route `/demo` with board-friendly visual content
+- Content includes: header, Service Health card, Model/Source card, Evidence Bundle card, Prediction/Demo Flow card, safety disclaimer footer
+- Card-based layout, screenshot-ready
+
+REST/EVIDENCE CHECK: pass
+- PLAN backs UI with `/demo/api/evidence` endpoint returning same evidence bundle JSON as CLI tools
+- Evidence sourced via `build_demo_evidence_bundle()` — same as existing demo-smoke flow
+- No separate clinical/patient workflow invented
+
+ENABLEMENT / DEPRECATION CHECK: pass
+- Demo is isolated by `/demo/*` route namespace only
+- "Future removal is possible by gating `/demo/*`" (line 13)
+- Existing production-like endpoints (`/health`, `/model/version`, `/predictions`) unchanged
+- Root routing unchanged
+
+PRODUCT-OWNER DEMO CHECK: pass
+- PLAN produces "board-friendly browser view", "board-demo oriented", "screenshot-ready" output
+- Product-owner/board demo value explicitly planned
+- Not a developer debug page
+
+PRESERVED BEHAVIOR CHECK: pass
+- No changes to `__main__.py`, `demo_run.py`, `demo_smoke.py`, or any CLI commands
+- Existing API endpoints (`/health`, `/model/version`, `/predictions`) unchanged
+- JSON, pretty, capture-dir, demo-run, demo-smoke, evidence bundle, request_id, local auto-start, explicit base-url workflows preserved
+
+MULTI-TENANCY DEFERRAL CHECK: pass
+- PLAN explicitly defers multi-tenancy, model profiles, plugin work
+- Stop condition: "Block if plan starts multi-tenancy/model-profile/plugin work" (line 433)
+
+OUTPUT CONTRACT CHECK: pass
+- `technical_demo_only` required in HTML and JSON output
+- No clinical diagnosis, validated clinical recommendation, MRI/biopsy/radiologist/clinician replacement, patient-specific claim, or clinical performance claim
+- Safety disclaimers use only safe negation language
+
+FRONTEND/DEPENDENCY CHECK: pass
+- Self-contained HTML with inline CSS only
+- No React, no frontend build step, no package manager
+- No external assets, no CDN, no fonts, no images
+- No JavaScript beyond absolute minimum inline usage
+- Stdlib only — no new dependencies
+
+SAFETY CHECK: pass
+- No unsafe deserialization (no joblib.load, no pickle.load)
+- No H5 mutation or access
+- No AWS/S3 SDK or network calls
+- No real patient data
+- No Aramis dependency
+- No deployment mutation (Terraform, Docker, CI/CD, GitHub Actions)
+- No new dependencies (stdlib only)
+- No interactive/stateful UI that could leak data
+
+VALIDATION CHECK: pass
+- 12+ new UI tests for test_bremen_demo_ui.py (content, safety, determinism, external asset scan)
+- 5+ HTTP-level tests for test_bremen_api_server.py (HTML response, JSON response, content type, safety)
+- Full existing test suite run planned (demo-run, capture, presentation, smoke, evidence, server, skeleton)
+- Full pytest run planned
+- python -m bremen --help and subcommand help tests
+- End-to-end capture smoke and /demo route tests
+- Forbidden-pattern grep checks (Aramis, clinical, deserialization, H5, AWS/network, web framework, external assets, --ui flag)
+- Forbidden path diff checks (.github, infra/terraform, Dockerfile, etc.)
+- .DS_Store check
+- Artifact scan for .h5/.hdf5/.joblib/.pkl etc.
+
+IMPLEMENTATION AGENT CHECK: pass
+- "Agent: coder" (line 49)
+- "Mode: implementation" (line 50)
+- Stop condition explicitly blocks if not Agent: coder / Mode: implementation (line 439)
+
+PROCESS RULES CHECK: pass
+- Branch confirmed: 0065-demo-route-namespace (git branch --show-current)
+- No implementation files modified during review
+- No git mutation commands run
+- All required static evidence read
+- No tests, Docker, Terraform, AWS commands executed
+
+COMMIT READINESS:
+- ready to commit planning artifacts: yes
+- required files to stage:
+  - .project-memory/pr/0065-demo-route-namespace/PLAN.md
+  - .project-memory/pr/0065-demo-route-namespace/reviews/plan-review.yml
+- files to exclude: none from this pair
+
+BOUNDARY CONFIRMATIONS:
+- PR0065 planned as demo route namespace: confirmed
+- demo remains Bremen-native: confirmed
+- demo is separated by /demo path, not startup command: confirmed
+- no --ui flag planned: confirmed
+- no extra launch command planned: confirmed
+- no root / demo page planned: confirmed
+- browser UI is board-demo oriented: confirmed
+- UI is REST/evidence backed: confirmed
+- UI is not production UI: confirmed
+- no React/frontend stack planned: confirmed
+- no package-manager files planned: confirmed
+- product-owner/board demo value planned: confirmed
+- technical_demo_only preserved: confirmed
+- JSON behavior preserved: confirmed
+- pretty behavior preserved: confirmed
+- capture-dir behavior preserved: confirmed
+- request_id behavior preserved: confirmed
+- /demo deprecation/removal boundary planned: confirmed
+- no deployment mutation planned: confirmed
+- no Terraform/GitHub Actions/Docker changes planned: confirmed
+- multi-tenancy/model-profile/plugin work deferred: confirmed
+- no new dependencies planned: confirmed
+- no unsafe model loading planned: confirmed
+- no H5 mutation planned: confirmed
+- no real patient data planned: confirmed
+- no Aramis dependency planned: confirmed
+- no clinical diagnosis/replacement claims planned: confirmed
+- Bremen safety identity preserved: confirmed
+- implementation assigned to coder: confirmed
+- no implementation files modified: confirmed
+- no git mutation commands: confirmed
