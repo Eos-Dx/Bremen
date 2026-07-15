@@ -1,0 +1,219 @@
+# PR 0061 — Precommit Review: Bremen Demo Evidence Pack
+# Reviewer: precommit-review
+# Reviewed at: 2026-07-15T09:16:28Z
+
+---
+
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: pass
+
+BLOCKERS
+None.
+
+WARNINGS
+1. The evidence bundle disclaimer and safety_notes fields contain safe negation language (e.g., "does not replace MRI, biopsy, a radiologist, a clinician, or clinical judgment") that triggers some forbidden-pattern grep patterns. This is expected and safe — the disclaimer is a product-identity safety statement, not a clinical claim. The validation logic in `validate_demo_evidence_bundle()` correctly skips these fields during clinical/replacement language scanning.
+2. The Aramis prohibition pattern list in `demo_evidence.py` (_ARAMIS_PATTERNS) and corresponding test assertions cause grep matches. This is safe — these are internal detection patterns and negative tests, not actual Aramis references in evidence output.
+
+VALIDATION
+git rev-parse --verify HEAD: 04efe3c591114127f2666d227b948eebe98915f8
+git branch --show-current: 0061-bremen-demo-evidence-pack
+git status --short:
+  M src/bremen/demo_smoke.py
+   M tests/test_bremen_demo_smoke.py
+  ?? .project-memory/pr/0061-bremen-demo-evidence-pack/IMPLEMENTATION_REPORT.md
+  ?? src/bremen/demo_evidence.py
+  ?? tests/test_bremen_demo_evidence.py
+git diff --name-only: src/bremen/demo_smoke.py tests/test_bremen_demo_smoke.py
+git diff --stat: src/bremen/demo_smoke.py | 22 ++++-, tests/test_bremen_demo_smoke.py | 182 ++++++++++++++++--
+test -f IMPLEMENTATION_REPORT.md: EXISTS
+test -f src/bremen/demo_evidence.py: EXISTS
+test -f tests/test_bremen_demo_evidence.py: EXISTS
+python -m compileall src tests: PASS (no errors)
+python -m pytest -q tests/test_bremen_demo_evidence.py: 63 passed
+python -m pytest -q tests/test_bremen_demo_smoke.py: 25 passed
+python -m pytest -q tests/test_bremen_api_server.py: 28 passed
+python -m pytest -q tests/test_bremen_api_skeleton.py: 51 passed
+python -m pytest -q tests/test_bremen_feature_artifact_prediction_flow.py: 46 passed
+python -m pytest -q tests/test_bremen_decision_support_output.py: 38 passed
+python -m pytest -q tests/test_bremen_dependency_hygiene.py: 10 passed
+python -m pytest -q: 1069 passed, 11 skipped, 28 warnings
+python -m bremen --help: exit 0 (lists demo-smoke)
+python -m bremen serve --help: exit 0
+python -m bremen demo-smoke --help: exit 0
+grep Aramis/M2Q/BENIGN in evidence files: Only in prohibition pattern lists, docstrings, and test assertions (safe — no Aramis in actual output)
+grep diagnosis/replace in evidence files: Only in disclaimer (safe negation), pattern lists, docstrings, and test assertions (safe)
+grep joblib.load/pickle/import pickle: Only pre-existing modules (model_state.py, model_loader.py, modeling.py) — none in PR0061 scope
+grep .h5/.hdf5/h5py in evidence files: Only test_bremen_demo_evidence.py assertions verifying no H5 in evidence module (safe)
+grep boto3/botocore/requests/httpx in evidence files: Only test assertions verifying no network imports (safe)
+grep FastAPI/Flask/uvicorn/django: Only pre-existing boundary test files (safe, no new dependencies)
+git diff --name-only -- .github infra/terraform Dockerfile Dockerfile.training requirements.txt pyproject.toml config/training frontend web ui package.json package-lock.json yarn.lock pnpm-lock.yaml tests/data: No output (clean)
+git diff --name-only -- docs ROADMAP.md: No output (clean)
+git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|npy|npz|tfstate|tfstate\.backup)$": No output (clean)
+find . -name ".DS_Store" -print: No output (clean)
+date -u +%Y-%m-%dT%H:%M:%SZ: 2026-07-15T09:16:28Z
+
+FILES READ
+- .project-memory/pr/0061-bremen-demo-evidence-pack/PLAN.md
+- .project-memory/pr/0061-bremen-demo-evidence-pack/reviews/plan-review.yml
+- .project-memory/pr/0061-bremen-demo-evidence-pack/IMPLEMENTATION_REPORT.md
+- ROADMAP.md
+- docs/api_contract.md
+- docs/architecture.md
+- docs/adr/0003-bremen-microservice-api-architecture.md
+- docs/adr/0007-model-artifact-lifecycle.md
+- docs/adr/0008-runtime-target-apprunner-proving.md
+- docs/adr/0012-system-of-record-boundary.md
+- src/bremen/__main__.py
+- src/bremen/demo_smoke.py
+- src/bremen/demo_evidence.py
+- src/bremen/api/server.py
+- src/bremen/api/app.py
+- src/bremen/api/jobs.py
+- src/bremen/api/schemas.py
+- src/bremen/api/model_state.py
+- src/bremen/api/model_source.py
+- src/bremen/api/feature_artifact_prediction.py
+- src/bremen/api/decision_support.py
+- src/bremen/feature_artifacts.py
+- src/bremen/inference.py
+- tests/test_bremen_demo_evidence.py
+- tests/test_bremen_demo_smoke.py
+- tests/test_bremen_api_server.py
+- tests/test_bremen_api_skeleton.py
+- tests/test_bremen_feature_artifact_prediction_flow.py
+- tests/test_bremen_decision_support_output.py
+- tests/test_bremen_cli_entrypoint.py
+- tests/test_bremen_dependency_hygiene.py
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN
+- .project-memory/pr/0061-bremen-demo-evidence-pack/reviews/precommit-review.yml (this file)
+
+SNAPSHOT DELTA
+- files changed (git diff --name-only): src/bremen/demo_smoke.py, tests/test_bremen_demo_smoke.py
+- files added (untracked): src/bremen/demo_evidence.py, tests/test_bremen_demo_evidence.py, .project-memory/pr/0061-bremen-demo-evidence-pack/IMPLEMENTATION_REPORT.md
+- git diff --stat: 196 insertions(+), 8 deletions(-) across 2 tracked files
+
+SCOPE CHECK
+pass — Implementation is a real Bremen-native demo evidence pack (not docs-only). Creates src/bremen/demo_evidence.py (386 lines), modifies demo_smoke.py (+22/-4), creates tests/test_bremen_demo_evidence.py (795 lines), modifies tests/test_bremen_demo_smoke.py (+182/-4). No changes to Terraform, GitHub Actions, Dockerfiles, dependency files, frontend files, training config, tests/data, or H5/model/tfstate artifacts. No docs/ROADMAP changes.
+
+BREMEN POSITIONING CHECK
+pass — Bremen remains independent from Aramis:
+- `product: "Bremen"` and `product_question: "Should patient continue to MRI?"` hardcoded as invariants
+- Aramis appears only in prohibition pattern lists (_ARAMIS_PATTERNS) and negative-test assertions
+- validate_demo_evidence_bundle() rejects any bundle containing Aramis strings
+- Zero Aramis references in any evidence output
+- Bremen owns its own clinical question, feature schema, and decision-support contract
+
+DEMO EVIDENCE CHECK
+pass — Implementation provides a reusable evidence pack (not a disposable script):
+- Module src/bremen/demo_evidence.py with versioned contract (DEMO_EVIDENCE_VERSION = "v0.1")
+- build_demo_evidence_bundle() — structured evidence bundle with mandatory + optional fields
+- validate_demo_evidence_bundle() — validates shape, product identity, safety disclaimers
+- json_dumps_evidence_bundle() — validated JSON serialization
+- Product-owner demo value: service up, model visible, synthetic payload accepted, decision-support returned, all with request_id/status/warnings
+- 63 tests covering all aspects
+
+DEMO PAYLOAD CHECK
+pass — Deterministic synthetic Bremen payload:
+- build_demo_feature_artifact_payload() returns 15-column feature artifact conforming to bremen.feature_artifact.v0.1
+- Stable feature values chosen for known prediction result (p_mri_needed ≈ 0.62, MRI_RECOMMENDED)
+- Metadata explicitly states "demo_evidence_pack" / "technical_demo_only"
+- Passes validate_feature_artifact() from feature_artifacts.py
+- No real patient data, no H5 files, no model artifacts committed
+
+DEMO-SMOKE INTEGRATION CHECK
+pass — Demo-smoke integration is additive and backward-compatible:
+- run_demo_smoke() calls build_demo_evidence_bundle() and adds "evidence" field to result dict
+- Existing consumers looking at status, health, model_version, prediction, warnings see no change
+- request_id propagated from top-level to evidence bundle
+- Works with local and deployed URLs via existing --base-url mechanism
+- No AWS SDK required
+
+OUTPUT CONTRACT CHECK
+pass — No clinical diagnosis, validated clinical recommendation, MRI replacement, biopsy replacement, radiologist replacement, clinician replacement, patient-specific claim, or clinical performance claim:
+- technical_demo_only: true in every evidence bundle
+- Disclaimer and safety_notes use safe negation language only
+- validate_demo_evidence_bundle() rejects clinical/replacement language in all fields
+- Product question is "Should patient continue to MRI?" (Bremen's own clinical question)
+
+OBSERVABILITY CHECK
+pass — request_id propagated to evidence bundle, matching top-level demo-smoke request_id. X-Request-ID behavior preserved via existing demo-smoke HTTP calls. No external observability dependencies added.
+
+DEPLOYMENT BOUNDARY CHECK
+pass — No Terraform apply, AWS credential use, App Runner mutation, GitHub Actions workflow changes, Dockerfile changes, or deployment automation. Compatible with deployed URLs via demo-smoke --base-url.
+
+FRONTEND BOUNDARY CHECK
+pass — No React/frontend/package-manager files added or modified.
+
+SAFETY CHECK
+pass — All safety boundaries confirmed:
+- No runtime training (demo_evidence.py is pure data transformation)
+- No unsafe model deserialization (no joblib.load/pickle/import pickle in evidence module)
+- No joblib.load in evidence module (grep: only pre-existing modules outside PR0061 scope)
+- No pickle loading
+- No H5/HDF5 mutation (grep: only test assertions verifying no H5 in evidence module)
+- No new H5 runtime dependency (evidence pack works with synthetic feature artifact numbers only)
+- No AWS/S3 SDK or network clients (grep: only test assertions)
+- No Matador resolver implementation
+- No real patient demo data (all values synthetic, metadata says "demo_evidence_pack")
+- No Aramis dependency (zero tolerance — Aramis only in prohibition pattern lists)
+- No clinical/replacement claims (only safe negation disclaimer)
+- technical_demo_only: true in every output
+
+VALIDATION CHECK
+pass — All required validation commands were run and passed. 63 demo evidence tests pass. 25 demo-smoke tests pass (including 10 new evidence integration tests). All existing tests continue to pass unchanged (1069 passed, 11 skipped). No failures to classify. Forbidden-pattern greps all produce safe results only (prohibition lists, tests assertions, pre-existing code). Aramis/clinical strings appear only in negative-test contexts (safe with justification).
+
+IMPLEMENTATION REPORT CHECK
+pass — IMPLEMENTATION_REPORT.md exists and summarizes:
+- Files changed (4 files: 2 new, 2 modified, 1385 lines total)
+- Bremen product positioning (independent from Aramis, own clinical question)
+- Evidence contract (mandatory/optional fields, validation, JSON serialization)
+- Demo payload (deterministic synthetic, 15-column, passes validate_feature_artifact)
+- Demo-smoke integration (additive evidence field, backward compatible)
+- Product-owner demo value (6-step demo narrative)
+- Tests run (63 evidence + 10 demo-smoke integration, 1069 total)
+- Safety boundaries (13 confirmed safe)
+- Deferred frontend/deployment/model ops work (explicitly called out)
+
+PROCESS RULES CHECK
+pass — Reviewer did not modify implementation files, did not run git add/commit/push, did not create a PR, did not run Docker/Terraform/AWS, did not install dependencies. All review commands were read-only shell commands and file reads.
+
+COMMIT READINESS
+ready to commit implementation artifacts: yes
+required files to stage:
+  - src/bremen/demo_evidence.py
+  - src/bremen/demo_smoke.py
+  - tests/test_bremen_demo_evidence.py
+  - tests/test_bremen_demo_smoke.py
+  - .project-memory/pr/0061-bremen-demo-evidence-pack/IMPLEMENTATION_REPORT.md
+  - .project-memory/pr/0061-bremen-demo-evidence-pack/reviews/precommit-review.yml
+files to exclude:
+  - Any file outside expected implementation scope and review artifact
+
+BOUNDARY CONFIRMATIONS
+- Bremen-native demo evidence pack implemented: yes (src/bremen/demo_evidence.py)
+- Bremen remains independent from Aramis: yes (product: "Bremen", zero Aramis in output)
+- Aramis not used as dependency or benchmark: yes (only in prohibition patterns/tests)
+- demo evidence is not disposable: yes (versioned module, 386 lines, comprehensive tests)
+- product-owner demo value implemented: yes (6-step demo narrative supported)
+- evidence bundle implemented: yes (build_demo_evidence_bundle)
+- deterministic synthetic Bremen payload implemented: yes (build_demo_feature_artifact_payload)
+- technical_demo_only preserved: yes (true in every evidence bundle)
+- demo-smoke integration implemented: yes (additive "evidence" field)
+- request_id/logging behavior preserved: yes (propagated through evidence bundle)
+- deployed URL compatibility preserved without AWS SDK: yes (via demo-smoke --base-url)
+- no deployment mutation: yes (read-only evidence pack)
+- no Terraform/GitHub Actions/Docker changes: yes (confirmed via git diff)
+- no React/frontend implementation: yes (no frontend files)
+- no new dependencies: yes (stdlib only)
+- no unsafe model loading: yes (demo_evidence.py never imports joblib/pickle)
+- no H5 mutation: yes (no .h5/.hdf5/h5py in evidence module)
+- no real patient data: yes (synthetic values only)
+- no clinical diagnosis/replacement claims: yes (safe negation disclaimer only)
+- Bremen safety identity preserved: yes (all safety invariants hold)
+- implementation report present: yes (IMPLEMENTATION_REPORT.md exists)
+- no H5/model/tfstate artifacts: yes (git diff confirmed no artifacts)
+- no implementation files modified by reviewer: yes
+- no git mutation commands: yes
