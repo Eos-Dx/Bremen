@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 
 
-BUILTIN_COMMANDS = ("preprocess", "serve", "demo_smoke")
+BUILTIN_COMMANDS = ("preprocess", "serve", "demo_smoke", "demo_run")
 STUB_COMMANDS = ("preflight", "run", "report")
 
 
@@ -52,6 +52,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     # --- Demo smoke command ---
     _add_demo_smoke_subcommand(subparsers)
+
+    # --- Demo run command ---
+    _add_demo_run_subcommand(subparsers)
 
     return parser
 
@@ -131,6 +134,8 @@ def main(argv: list[str] | None = None) -> int:
         return _handle_serve(args)
     if handler == "demo_smoke":
         return _handle_demo_smoke(args)
+    if handler == "demo_run":
+        return _handle_demo_run(args)
     if handler == "stub":
         return _handle_stub(args)
 
@@ -220,6 +225,51 @@ def _handle_demo_smoke(args: argparse.Namespace) -> int:
         cli_args.append("--skip-prediction")
 
     return demo_main(cli_args)
+
+def _add_demo_run_subcommand(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Add the 'demo-run' subcommand (no heavy imports)."""
+    demo_run = subparsers.add_parser(
+        "demo-run",
+        help=(
+            "One-command demo: start local server, run smoke checks, "
+            "produce evidence bundle."
+        ),
+    )
+    demo_run.add_argument(
+        "--base-url",
+        type=str,
+        default=None,
+        help=(
+            "Base URL of an already-running Bremen service. "
+            "If not provided, starts a local server."
+        ),
+    )
+    demo_run.add_argument(
+        "--timeout",
+        type=int,
+        default=30,
+        help="Timeout in seconds (default: 30).",
+    )
+    demo_run.add_argument(
+        "--skip-prediction",
+        action="store_true",
+        help="Skip the prediction check.",
+    )
+    demo_run.set_defaults(_cmd_handler="demo_run")
+
+
+def _handle_demo_run(args: argparse.Namespace) -> int:
+    """Run the one-command demo."""
+    from .demo_run import main as demo_run_main  # noqa: PLC0415
+
+    cli_args = [f"--timeout={args.timeout}"]
+    if args.base_url:
+        cli_args.append(f"--base-url={args.base_url}")
+    if args.skip_prediction:
+        cli_args.append("--skip-prediction")
+    return demo_run_main(cli_args)
 
 
 if __name__ == "__main__":

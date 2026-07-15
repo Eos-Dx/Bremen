@@ -1,0 +1,198 @@
+# PR 0062 — Precommit Review: One-command Bremen Demo Runner
+# Reviewer: precommit-review
+# Reviewed at: 2026-07-15T10:01:02Z
+
+---
+
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: pass
+
+BLOCKERS
+None.
+
+WARNINGS
+1. Uses private `_make_handler()` from `src/bremen/api/server.py` (underscore-prefixed). This is consistent with existing test patterns (`test_bremen_api_server.py` uses the same approach). The function is re-exported for testability and the pattern is well-established.
+2. The end-to-end CLI subprocess test (`TestEndToEndCli.test_demo_run_cli_skip_prediction`) starts a real server subprocess and may be sensitive to timing on loaded systems. It passed in this run (37 tests/20.91s), but is inherently slower than isolated unit tests.
+
+VALIDATION
+git rev-parse --verify HEAD: c4ea09072869035dddefb9ede4db894384d621fa
+git branch --show-current: 0062-one-command-demo-runner
+git status --short:
+  M src/bremen/__main__.py
+   M tests/test_bremen_cli_entrypoint.py
+  ?? .project-memory/pr/0062-one-command-demo-runner/IMPLEMENTATION_REPORT.md
+  ?? src/bremen/demo_run.py
+  ?? tests/test_bremen_demo_run.py
+git diff --name-only: src/bremen/__main__.py tests/test_bremen_cli_entrypoint.py
+git diff --stat: src/bremen/__main__.py | 52 ++++++++-, tests/test_bremen_cli_entrypoint.py | 40 ++++++++
+test -f IMPLEMENTATION_REPORT.md: EXISTS
+test -f src/bremen/demo_run.py: EXISTS
+test -f tests/test_bremen_demo_run.py: EXISTS
+python -m compileall src tests: PASS (no errors)
+python -m pytest -q tests/test_bremen_demo_run.py: 37 passed
+python -m pytest -q tests/test_bremen_demo_smoke.py: 25 passed
+python -m pytest -q tests/test_bremen_demo_evidence.py: 63 passed
+python -m pytest -q tests/test_bremen_api_server.py: 28 passed
+python -m pytest -q tests/test_bremen_api_skeleton.py: 51 passed
+python -m pytest -q tests/test_bremen_dependency_hygiene.py: 10 passed
+python -m pytest -q: 1109 passed, 11 skipped, 28 warnings
+python -m bremen --help: exit 0 (lists demo-run, demo-smoke, serve)
+python -m bremen serve --help: exit 0
+python -m bremen demo-smoke --help: exit 0
+python -m bremen demo-run --help: exit 0 (shows --base-url, --timeout, --skip-prediction)
+grep Aramis/M2Q/BENIGN in demo_run.py: Zero matches (required — clean)
+grep Aramis/M2Q/BENIGN in all evidence files: Only in prohibition patterns and test assertions in demo_evidence.py / test_bremen_demo_evidence.py (safe)
+grep diagnosis/replace in demo_run.py: Only safety header comment (safe — "No clinical diagnosis or replacement claims.")
+grep diagnosis/replace in all evidence files: Only disclaimer negation, prohibition patterns, test assertions (safe)
+grep joblib.load/pickle/import pickle in all evidence files: Only test assertions verifying they DON'T appear (safe — no actual deserialization)
+grep .h5/.hdf5/h5py in demo_run.py + evidence: Only test assertions verifying no H5 (safe — no actual H5 dependency)
+grep boto3/botocore/requests/httpx in all evidence files: Only test assertions verifying no imports (safe — stdlib urllib localhost only)
+grep FastAPI/Flask/uvicorn/django: Only pre-existing boundary test files (safe, no new dependencies)
+git diff --name-only -- .github infra/terraform Dockerfile Dockerfile.training requirements.txt pyproject.toml config/training frontend web ui package.json package-lock.json yarn.lock pnpm-lock.yaml tests/data: No output (clean)
+git diff --name-only -- docs ROADMAP.md: No output (clean)
+git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|npy|npz|tfstate|tfstate\.backup)$": No output (clean)
+find . -name ".DS_Store" -print: No output (clean)
+date -u +%Y-%m-%dT%H:%M:%SZ: 2026-07-15T10:01:02Z
+
+FILES READ
+- .project-memory/pr/0062-one-command-demo-runner/PLAN.md
+- .project-memory/pr/0062-one-command-demo-runner/reviews/plan-review.yml
+- .project-memory/pr/0062-one-command-demo-runner/IMPLEMENTATION_REPORT.md
+- ROADMAP.md
+- docs/api_contract.md
+- docs/architecture.md
+- docs/adr/0003-bremen-microservice-api-architecture.md
+- docs/adr/0007-model-artifact-lifecycle.md
+- docs/adr/0008-runtime-target-apprunner-proving.md
+- docs/adr/0012-system-of-record-boundary.md
+- src/bremen/__main__.py
+- src/bremen/demo_run.py
+- src/bremen/demo_smoke.py
+- src/bremen/demo_evidence.py
+- src/bremen/api/server.py
+- src/bremen/api/app.py
+- src/bremen/api/jobs.py
+- src/bremen/api/schemas.py
+- tests/test_bremen_demo_run.py
+- tests/test_bremen_demo_smoke.py
+- tests/test_bremen_demo_evidence.py
+- tests/test_bremen_api_server.py
+- tests/test_bremen_api_skeleton.py
+- tests/test_bremen_cli_entrypoint.py
+- tests/test_bremen_dependency_hygiene.py
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN
+- .project-memory/pr/0062-one-command-demo-runner/reviews/precommit-review.yml (this file)
+
+SNAPSHOT DELTA
+- files changed (git diff --name-only): src/bremen/__main__.py, tests/test_bremen_cli_entrypoint.py
+- files added (untracked): src/bremen/demo_run.py, tests/test_bremen_demo_run.py, .project-memory/pr/0062-one-command-demo-runner/IMPLEMENTATION_REPORT.md
+- git diff --stat: 91 insertions(+), 1 deletion(-) across 2 tracked files
+- new demo_run.py: 250 lines, new test_bremen_demo_run.py: 558 lines
+
+SCOPE CHECK
+pass — Implementation is a real one-command Bremen demo runner (not docs-only). Creates src/bremen/demo_run.py (250 lines), modifies __main__.py (+52/-1), creates tests/test_bremen_demo_run.py (558 lines), modifies tests/test_bremen_cli_entrypoint.py (+40). No changes to Terraform, GitHub Actions, Dockerfiles, dependency files, frontend files, training config, tests/data, or H5/model/tfstate artifacts. No docs/ROADMAP changes.
+
+ONE-COMMAND DEMO CHECK
+pass — Provides python -m bremen demo-run [--base-url URL] [--timeout SECONDS] [--skip-prediction]. Starts a local service (via _start_local_server), runs existing demo-smoke/evidence path (via run_demo_smoke), requires no manual service startup.
+
+SERVER LIFECYCLE CHECK
+pass — Implementation provides:
+- localhost only by default (127.0.0.1 hardcoded)
+- ephemeral port via _find_free_port() using socket.bind(("127.0.0.1", 0)) — no fixed port conflict
+- bounded health wait via _wait_for_health() with configurable timeout and 0.5s poll interval
+- controlled failure output (dict with technical_demo_only, status: "fail", error message, warnings)
+- shutdown/cleanup in finally block (server.shutdown() + thread.join(timeout=5))
+- daemon thread (daemon=True) — no hanging background process
+
+DEMO EVIDENCE CHECK
+pass — Evidence bundle preserved: run_demo() calls run_demo_smoke() which already includes build_demo_evidence_bundle(). technical_demo_only: True enforced throughout. Evidence remains reusable and versioned (DEMO_EVIDENCE_VERSION in demo_evidence.py).
+
+PRODUCT-OWNER DEMO CHECK
+pass — Demo-run output is meaningful for showing Bremen workflow without manual setup: single command starts service, runs smoke checks, produces evidence bundle, prints JSON + human-readable summary. Completes the demo trilogy (PR0060 smoke + PR0061 evidence + PR0062 one-command).
+
+BREMEN POSITIONING CHECK
+pass — demo_run.py contains zero Aramis strings (verified by grep). Bremen remains independent with own clinical question and evidence bundle. Aramis only appears in prohibition patterns and test assertions in demo_evidence.py/test files (safe).
+
+OUTPUT CONTRACT CHECK
+pass — No clinical diagnosis, validated clinical recommendation, MRI replacement, biopsy replacement, radiologist replacement, clinician replacement, patient-specific claim, or clinical performance claim. Output includes technical_demo_only: true at top level and in evidence bundle.
+
+OBSERVABILITY CHECK
+pass — request_id preserved (generated by run_demo_smoke as UUID, sent as X-Request-ID header). No external observability dependencies added.
+
+DEPLOYMENT BOUNDARY CHECK
+pass — No Terraform apply, AWS credential use, App Runner mutation, GitHub Actions workflow changes, Dockerfile changes, or deployment automation. Local server startup for demo-run is allowed (stdlib only). --base-url override provides deployed URL compatibility without deployment action.
+
+FRONTEND BOUNDARY CHECK
+pass — No React/frontend/package-manager files added or modified.
+
+SAFETY CHECK
+pass — All safety boundaries confirmed:
+- No runtime training (demo_run.py is server lifecycle + delegation to demo-smoke)
+- No unsafe model deserialization (reuses existing _load_synthetic_model() — no new joblib.load/pickle)
+- No joblib.load in demo_run.py (grep: only test assertions verifying absence)
+- No H5/HDF5 mutation (grep: only test assertions verifying no H5)
+- No new H5 runtime dependency (demo-run only calls existing HTTP API)
+- No AWS/S3 SDK or network clients (grep: only test assertions; stdlib urllib to localhost only)
+- No Matador resolver implementation
+- No real patient demo data (synthetic values only)
+- No Aramis dependency (zero Aramis strings in demo_run.py)
+- No clinical/replacement claims (only safety header comment)
+- technical_demo_only: true in every output
+
+VALIDATION CHECK
+pass — All required validation commands were run and passed. 37 demo-run tests pass. All existing tests continue to pass unchanged (1109 passed, 11 skipped). No failures to classify. Forbidden-pattern greps all produce safe results. demo_run.py has zero Aramis matches (required). Clinical/replacement strings only appear in safety header comments and prohibition contexts.
+
+IMPLEMENTATION REPORT CHECK
+pass — IMPLEMENTATION_REPORT.md exists and summarizes:
+- Files changed (4 files: 2 new, 2 modified)
+- One-command demo (python -m bremen demo-run, 6-step lifecycle)
+- Server lifecycle (localhost, ephemeral port, health wait, controlled failure, shutdown)
+- Demo-smoke/evidence reuse (calls run_demo_smoke(), evidence included automatically)
+- Product-owner demo value (1-command completes demo trilogy)
+- Output contract (all fields inherited from demo-smoke + evidence)
+- Tests run (37 new + all existing, 1109 total)
+- Safety boundaries (13 confirmed safe)
+- Deferred frontend/deployment/model ops work (explicitly called out)
+
+PROCESS RULES CHECK
+pass — Reviewer did not modify implementation files, did not run git add/commit/push, did not create a PR, did not run Docker/Terraform/AWS, did not install dependencies. All review commands were read-only shell commands and file reads.
+
+COMMIT READINESS
+ready to commit implementation artifacts: yes
+required files to stage:
+  - src/bremen/__main__.py
+  - src/bremen/demo_run.py
+  - tests/test_bremen_demo_run.py
+  - tests/test_bremen_cli_entrypoint.py
+  - .project-memory/pr/0062-one-command-demo-runner/IMPLEMENTATION_REPORT.md
+  - .project-memory/pr/0062-one-command-demo-runner/reviews/precommit-review.yml
+files to exclude:
+  - Any file outside expected implementation scope and review artifact
+
+BOUNDARY CONFIRMATIONS
+- one-command Bremen demo runner implemented: yes (python -m bremen demo-run)
+- demo-run starts local service: yes (_start_local_server with _make_handler(load_model=True))
+- demo-run uses existing demo-smoke/evidence path: yes (calls run_demo_smoke())
+- demo evidence is not disposable: yes (builds on versioned evidence bundle)
+- product-owner demo value implemented: yes (completes demo trilogy)
+- technical_demo_only preserved: yes (in every output)
+- request_id/logging behavior preserved: yes (via run_demo_smoke)
+- localhost/ephemeral-port lifecycle implemented: yes (127.0.0.1, port=0, daemon thread, finally cleanup)
+- deployed URL compatibility remains in demo-smoke: yes (--base-url override)
+- no deployment mutation: yes (read-only demo runner)
+- no Terraform/GitHub Actions/Docker changes: yes (confirmed via git diff)
+- no React/frontend implementation: yes (no frontend files)
+- no new dependencies: yes (stdlib only)
+- no unsafe model loading: yes (reuses existing _load_synthetic_model())
+- no H5 mutation: yes (no .h5/.hdf5/h5py in demo_run.py)
+- no real patient data: yes (synthetic values only)
+- no Aramis dependency: yes (zero Aramis strings in demo_run.py)
+- no clinical diagnosis/replacement claims: yes (safety header only)
+- Bremen safety identity preserved: yes (all safety invariants hold)
+- implementation report present: yes (IMPLEMENTATION_REPORT.md exists)
+- no H5/model/tfstate artifacts: yes (git diff confirmed no artifacts)
+- no implementation files modified by reviewer: yes
+- no git mutation commands: yes
