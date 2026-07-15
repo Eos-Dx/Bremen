@@ -180,6 +180,17 @@ class TestDemoRunCli:
         assert "--timeout" in result.stdout
         assert "--skip-prediction" in result.stdout
 
+    def test_demo_run_pretty_in_help(self):
+        """demo-run --help shows --pretty."""
+        result = subprocess.run(
+            [sys.executable, "-m", "bremen", "demo-run", "--help"],
+            capture_output=True,
+            text=True,
+        )
+        assert "--pretty" in result.stdout, (
+            "demo-run --help must list '--pretty' option"
+        )
+
 
 # ---------------------------------------------------------------------------
 # No Aramis identity in help output
