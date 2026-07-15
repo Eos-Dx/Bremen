@@ -135,7 +135,7 @@ class TestDemoSmokeAgainstServer:
         assert result["status"] == "pass"
 
     def test_json_output_shape(self, server_info):
-        """Output dict contains all expected keys."""
+        """Output dict contains all expected keys, including evidence."""
         host, port = server_info
         result = run_demo_smoke(
             base_url=f"http://{host}:{port}",
@@ -145,7 +145,7 @@ class TestDemoSmokeAgainstServer:
         expected_keys = {
             "technical_demo_only", "base_url", "request_id",
             "checks", "health", "model_version", "prediction",
-            "warnings", "status", "timestamp",
+            "warnings", "status", "timestamp", "evidence",
         }
         assert set(result.keys()) == expected_keys, (
             f"Missing keys: {expected_keys - set(result.keys())}"
@@ -294,21 +294,189 @@ class TestOutputContract:
         thread.join(timeout=2)
 
     def test_no_diagnosis_language(self, server_info):
-        """Output should not contain diagnosis or clinical claims."""
+        """Output should not contain diagnosis or clinical claims.
+
+        The evidence bundle disclaimer and safety_notes intentionally
+        contain safe negation language (e.g. "not clinically validated",
+        "does not replace MRI").  These are safe — only asserts actual
+        clinical claims are absent from non-evidence output.
+        """
         host, port = server_info
         result = run_demo_smoke(
             base_url=f"http://{host}:{port}",
             timeout=5,
             skip_prediction=True,
         )
-        output = json.dumps(result).lower()
+        # Assert no clinical claims in the top-level output (excluding evidence)
+        top_level = {k: v for k, v in result.items() if k != "evidence"}
+        top_output = json.dumps(top_level).lower()
         prohibited = ["diagnosis", "diagnoses", "clinical validation",
                       "replace mri", "replace biopsy", "clinically validated",
                       "fda clearance", "fda-cleared"]
         for phrase in prohibited:
-            if phrase in output:
+            if phrase in top_output:
                 # Check context — the health response may contain "not a
                 # diagnostic replacement" which is the safe disclaimer
-                if "not a diagnostic" in output:
+                if "not a diagnostic" in top_output:
                     continue
-                pytest.fail(f"Output contains prohibited phrase: {phrase}")
+                pytest.fail(
+                    f"Top-level output contains prohibited phrase: {phrase}"
+                )
+
+
+# ---------------------------------------------------------------------------
+# Evidence bundle integration tests (PR0061)
+# ---------------------------------------------------------------------------
+
+
+class TestEvidenceBundleInDemoSmoke:
+    """Tests verifying the evidence bundle is present in demo-smoke output."""
+
+    @pytest.fixture
+    def server_info(self):
+        """Start a local test server with synthetic model."""
+        import socket
+        import threading
+        from http.server import HTTPServer
+        from bremen.api.jobs import InMemoryJobStore
+        from bremen.api.server import _make_handler
+        from bremen.api.model_state import ModelState
+
+        host = "127.0.0.1"
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            port = int(s.getsockname()[1])
+
+        job_store = InMemoryJobStore()
+        ModelState.reset_for_tests()
+        handler = _make_handler(job_store, version="test-version", load_model=True)
+        server = HTTPServer((host, port), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        yield host, port
+
+        server.shutdown()
+        thread.join(timeout=2)
+
+    def test_demo_smoke_output_contains_evidence_bundle(self, server_info):
+        """Demo-smoke output contains an 'evidence' key."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        assert "evidence" in result, (
+            "Demo-smoke output must contain 'evidence' key"
+        )
+        assert isinstance(result["evidence"], dict)
+
+    def test_demo_smoke_evidence_technical_demo_only(self, server_info):
+        """Evidence bundle technical_demo_only is True."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        evidence = result["evidence"]
+        assert evidence["technical_demo_only"] is True
+
+    def test_demo_smoke_evidence_product_is_bremen(self, server_info):
+        """Evidence bundle product is 'Bremen'."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        evidence = result["evidence"]
+        assert evidence["product"] == "Bremen"
+
+    def test_demo_smoke_evidence_has_required_keys(self, server_info):
+        """Evidence bundle contains all mandatory keys."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        evidence = result["evidence"]
+        required = {
+            "technical_demo_only", "product", "product_question",
+            "disclaimer", "evidence_version", "scenario_id",
+            "safety_notes",
+        }
+        assert required <= set(evidence.keys()), (
+            f"Missing evidence keys: {required - set(evidence.keys())}"
+        )
+
+    def test_demo_smoke_evidence_preserves_request_id(self, server_info):
+        """Evidence bundle request_id matches top-level request_id."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        assert result["evidence"]["request_id"] == result["request_id"]
+
+    def test_demo_smoke_evidence_includes_base_url(self, server_info):
+        """Evidence bundle includes the base_url."""
+        host, port = server_info
+        base_url = f"http://{host}:{port}"
+        result = run_demo_smoke(
+            base_url=base_url,
+            timeout=5,
+            skip_prediction=True,
+        )
+        assert result["evidence"]["base_url"] == base_url
+
+    def test_demo_smoke_evidence_includes_model_status(self, server_info):
+        """Evidence bundle includes model_status from server."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        # With synthetic model loaded, status should be "ready"
+        assert result["evidence"]["model_status"] == "ready"
+
+    def test_demo_smoke_evidence_includes_checks(self, server_info):
+        """Evidence bundle includes checks dict."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        evidence = result["evidence"]
+        assert "checks" in evidence
+        assert evidence["checks"]["health"] == "pass"
+        assert evidence["checks"]["model_version"] == "pass"
+
+    def test_demo_smoke_evidence_includes_warnings(self, server_info):
+        """Evidence bundle includes warnings list."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        assert isinstance(result["evidence"]["warnings"], list)
+
+    def test_unavailable_service_evidence_still_produced(self):
+        """Even when service is unavailable, evidence bundle is produced."""
+        result = run_demo_smoke(
+            base_url="http://127.0.0.1:1",
+            timeout=2,
+            skip_prediction=True,
+        )
+        assert "evidence" in result
+        evidence = result["evidence"]
+        assert evidence["technical_demo_only"] is True
+        assert evidence["product"] == "Bremen"
+        # Warnings should be present
+        assert len(evidence["warnings"]) > 0

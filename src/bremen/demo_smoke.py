@@ -258,7 +258,7 @@ def run_demo_smoke(
     else:
         overall = "fail"
 
-    return {
+    result = {
         "technical_demo_only": True,
         "base_url": base_url,
         "request_id": request_id,
@@ -270,6 +270,26 @@ def run_demo_smoke(
         "status": overall,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
+    # Add evidence bundle (additive — backward-compatible)
+    from .demo_evidence import build_demo_evidence_bundle  # noqa: PLC0415
+
+    result["evidence"] = build_demo_evidence_bundle(
+        base_url=base_url,
+        request_id=request_id,
+        job_id=prediction_result.get("job_id"),
+        model_status=model_version_result.get("model_status"),
+        model_version=model_version_result.get("model_version"),
+        feature_schema_version=model_version_result.get(
+            "feature_schema_version"
+        ),
+        prediction_status=prediction_result.get("status"),
+        decision_support=prediction_result.get("decision_support"),
+        checks=checks,
+        warnings=warnings,
+    )
+
+    return result
 
 
 def main(argv: list[str] | None = None) -> int:
