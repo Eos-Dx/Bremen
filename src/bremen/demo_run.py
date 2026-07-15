@@ -254,6 +254,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Print a formatted plain-text presentation summary.",
     )
+    parser.add_argument(
+        "--capture-dir",
+        type=str,
+        default=None,
+        help=(
+            "Directory to write demo capture files "
+            "(summary.txt, evidence.json, manifest.json). "
+            "Directory is created if it does not exist."
+        ),
+    )
 
     args = parser.parse_args(argv)
     result = run_demo(
@@ -286,11 +296,27 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  product: {evidence.get('product', 'N/A')}")
 
     # Pretty output (additive — JSON output preserved above)
+    pretty_text: str | None = None
     if args.pretty:
         from .demo_presentation import format_pretty  # noqa: PLC0415
 
+        pretty_text = format_pretty(result)
         print()
-        print(format_pretty(result))
+        print(pretty_text)
+
+    # Demo capture (additive — writes files to capture-dir)
+    if args.capture_dir:
+        from .demo_capture import write_demo_capture  # noqa: PLC0415
+
+        manifest = write_demo_capture(
+            result=result,
+            capture_dir=args.capture_dir,
+            pretty_text=pretty_text,
+        )
+        print(f"\nDemo capture written to: {args.capture_dir}")
+        print(f"  summary: {manifest['files'][0]['filename']}")
+        print(f"  evidence: {manifest['files'][1]['filename']}")
+        print(f"  manifest: {manifest['files'][2]['filename']}")
 
     return 0 if result.get("status") in ("pass", "partial") else 1
 

@@ -191,6 +191,17 @@ class TestDemoRunCli:
             "demo-run --help must list '--pretty' option"
         )
 
+    def test_demo_run_capture_dir_in_help(self):
+        """demo-run --help shows --capture-dir."""
+        result = subprocess.run(
+            [sys.executable, "-m", "bremen", "demo-run", "--help"],
+            capture_output=True,
+            text=True,
+        )
+        assert "--capture-dir" in result.stdout, (
+            "demo-run --help must list '--capture-dir' option"
+        )
+
 
 # ---------------------------------------------------------------------------
 # No Aramis identity in help output

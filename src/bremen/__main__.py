@@ -262,6 +262,15 @@ def _add_demo_run_subcommand(
         action="store_true",
         help="Print a formatted plain-text presentation summary.",
     )
+    demo_run.add_argument(
+        "--capture-dir",
+        type=str,
+        default=None,
+        help=(
+            "Directory to write demo capture files "
+            "(summary.txt, evidence.json, manifest.json)."
+        ),
+    )
     demo_run.set_defaults(_cmd_handler="demo_run")
 
 
@@ -276,6 +285,8 @@ def _handle_demo_run(args: argparse.Namespace) -> int:
         cli_args.append("--skip-prediction")
     if args.pretty:
         cli_args.append("--pretty")
+    if args.capture_dir:
+        cli_args.append(f"--capture-dir={args.capture_dir}")
     return demo_run_main(cli_args)
 
 
