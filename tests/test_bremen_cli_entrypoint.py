@@ -142,6 +142,46 @@ def test_stub_invocation_exits_1(command):
 
 
 # ---------------------------------------------------------------------------
+# Demo-run CLI subcommand tests
+# ---------------------------------------------------------------------------
+
+
+class TestDemoRunCli:
+    def test_demo_run_help_exits_0(self):
+        """python -m bremen demo-run --help exits 0."""
+        result = subprocess.run(
+            [sys.executable, "-m", "bremen", "demo-run", "--help"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, (
+            f"Exit code {result.returncode}: {result.stderr}"
+        )
+
+    def test_demo_run_in_main_help(self):
+        """python -m bremen --help lists 'demo-run'."""
+        result = subprocess.run(
+            [sys.executable, "-m", "bremen", "--help"],
+            capture_output=True,
+            text=True,
+        )
+        assert "demo-run" in result.stdout, (
+            "Main help output must list 'demo-run' command"
+        )
+
+    def test_demo_run_help_shows_options(self):
+        """demo-run --help shows --base-url, --timeout, --skip-prediction."""
+        result = subprocess.run(
+            [sys.executable, "-m", "bremen", "demo-run", "--help"],
+            capture_output=True,
+            text=True,
+        )
+        assert "--base-url" in result.stdout
+        assert "--timeout" in result.stdout
+        assert "--skip-prediction" in result.stdout
+
+
+# ---------------------------------------------------------------------------
 # No Aramis identity in help output
 # ---------------------------------------------------------------------------
 
