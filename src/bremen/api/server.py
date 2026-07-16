@@ -260,6 +260,10 @@ def _make_handler(
                         "result": resp.result,
                         "error": resp.error,
                     }, job_id=job_id)
+            elif self.path == "/demo":
+                _handle_demo_route(self)
+            elif self.path == "/demo/api/evidence":
+                _handle_demo_evidence_route(self)
             else:
                 self._log_and_send_error(
                     f"Not found: {self.path}", status=404,
@@ -372,6 +376,70 @@ def _make_handler(
             )
 
     return _BremenHandler
+
+
+def _handle_demo_route(handler: BaseHTTPRequestHandler) -> None:
+    """Handle GET /demo — return a board-friendly HTML demo page.
+
+    Uses lazy imports to avoid module-level coupling with demo modules.
+    """
+    import json as _json  # noqa: PLC0415
+
+    from ..demo_ui import build_demo_html_page  # noqa: PLC0415
+    from ..demo_evidence import build_demo_evidence_bundle  # noqa: PLC0415
+
+    request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())
+    host_header = handler.headers.get("Host", "localhost")
+    base_url = f"http://{host_header}"
+
+    evidence = build_demo_evidence_bundle(
+        base_url=base_url,
+        request_id=request_id,
+        model_status="ready",
+        prediction_status="not_available",
+    )
+
+    html = build_demo_html_page(
+        evidence=evidence,
+        base_url=base_url,
+        request_id=request_id,
+    )
+    body = html.encode("utf-8")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("X-Request-ID", request_id)
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def _handle_demo_evidence_route(handler: BaseHTTPRequestHandler) -> None:
+    """Handle GET /demo/api/evidence — return evidence bundle JSON.
+
+    Uses lazy imports to avoid module-level coupling with demo modules.
+    """
+    from ..demo_ui import build_demo_evidence_json_response  # noqa: PLC0415
+    from ..demo_evidence import build_demo_evidence_bundle  # noqa: PLC0415
+
+    request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())
+    host_header = handler.headers.get("Host", "localhost")
+    base_url = f"http://{host_header}"
+
+    evidence = build_demo_evidence_bundle(
+        base_url=base_url,
+        request_id=request_id,
+        model_status="ready",
+        prediction_status="not_available",
+    )
+
+    json_str = build_demo_evidence_json_response(evidence=evidence)
+    body = json_str.encode("utf-8")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "application/json")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("X-Request-ID", request_id)
+    handler.end_headers()
+    handler.wfile.write(body)
 
 
 def run_server(
