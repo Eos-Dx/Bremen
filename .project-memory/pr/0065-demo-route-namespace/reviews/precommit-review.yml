@@ -1,0 +1,319 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: pass
+
+BLOCKERS: []
+
+WARNINGS: []
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: a14dc2698bc0baae18b2f64ef04a9a6f3177a2ce
+- command: git branch --show-current
+  exit code: 0
+  output: 0065-demo-route-namespace
+- command: git status --short
+  exit code: 0
+  output: "M src/bremen/api/server.py\n M tests/test_bremen_api_server.py\n?? .project-memory/pr/0065-demo-route-namespace/IMPLEMENTATION_REPORT.md\n?? src/bremen/demo_ui.py\n?? tests/test_bremen_demo_ui.py"
+- command: git diff --name-only
+  exit code: 0
+  output: "src/bremen/api/server.py\ntests/test_bremen_api_server.py"
+- command: git diff --stat
+  exit code: 0
+  output: "src/bremen/api/server.py        | 68 +++++++++++++++++++++++++++++++++++\n tests/test_bremen_api_server.py | 79 +++++++++++++++++++++++++++++++++++++++++\n 2 files changed, 147 insertions(+)"
+- command: test -f .project-memory/pr/0065-demo-route-namespace/IMPLEMENTATION_REPORT.md
+  exit code: 0
+  output: EXISTS
+- command: test -f src/bremen/demo_ui.py
+  exit code: 0
+  output: EXISTS
+- command: test -f tests/test_bremen_demo_ui.py
+  exit code: 0
+  output: EXISTS
+- command: python -m compileall src tests
+  exit code: 0
+  output: "Listing 'src'...\nListing 'src/bremen'...\nListing 'src/bremen/api'...\nListing 'src/bremen/training'...\nListing 'tests'...\nListing 'tests/data'..."
+- command: python -m pytest -q tests/test_bremen_demo_ui.py
+  exit code: 0
+  output: "33 passed in 1.68s"
+- command: python -m pytest -q tests/test_bremen_api_server.py
+  exit code: 0
+  output: "38 passed in 17.85s"
+- command: python -m pytest -q tests/test_bremen_api_skeleton.py
+  exit code: 0
+  output: "51 passed in 1.90s"
+- command: python -m pytest -q tests/test_bremen_demo_run.py
+  exit code: 0
+  output: "41 passed in 22.50s"
+- command: python -m pytest -q tests/test_bremen_demo_capture.py
+  exit code: 0
+  output: "37 passed in 1.90s"
+- command: python -m pytest -q tests/test_bremen_demo_presentation.py
+  exit code: 0
+  output: "43 passed in 1.51s"
+- command: python -m pytest -q tests/test_bremen_demo_smoke.py
+  exit code: 0
+  output: "25 passed in 16.18s"
+- command: python -m pytest -q tests/test_bremen_demo_evidence.py
+  exit code: 0
+  output: "63 passed in 1.53s"
+- command: test -f tests/test_bremen_dependency_hygiene.py && python -m pytest -q tests/test_bremen_dependency_hygiene.py
+  exit code: 0
+  output: "10 passed in 0.01s"
+- command: python -m pytest -q
+  exit code: 0
+  output: "1238 passed, 11 skipped in 100.01s (0:01:40)"
+- command: python -m bremen --help
+  exit code: 0
+  output: "usage: bremen [-h] {preprocess,preflight,run,report,serve,demo-smoke,demo-run} ...\nXRD-based ML decision-support workflow foundation. Not a diagnostic replacement."
+- command: python -m bremen serve --help
+  exit code: 0
+  output: Lists --host and --port options
+- command: python -m bremen demo-smoke --help
+  exit code: 0
+  output: Lists --base-url, --timeout, --skip-prediction
+- command: python -m bremen demo-run --help
+  exit code: 0
+  output: Lists --base-url, --timeout, --skip-prediction, --pretty, --capture-dir
+- command: python -m bremen demo-run --pretty
+  exit code: 0
+  output: Evidence bundle with technical_demo_only true, product Bremen, safety disclaimers present
+- command: tmpdir="$(mktemp -d)" && python -m bremen demo-run --pretty --capture-dir "$tmpdir"
+  exit code: 0
+  output: "3 files created: bremen-demo-evidence.json, bremen-demo-manifest.json, bremen-demo-summary.txt"
+- command: grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" src/bremen/demo_ui.py src/bremen/api/server.py tests/test_bremen_demo_ui.py tests/test_bremen_api_server.py
+  exit code: 0
+  output: Only test assertion/comments (negation tests), no source references
+- command: grep -R -I -n "diagnosis\|diagnose\|replaces MRI\|replace MRI\|replaces biopsy\|replace biopsy\|replaces radiologist\|replace radiologist\|replaces clinician\|replace clinician" src/bremen/demo_ui.py src/bremen/api/server.py tests/test_bremen_demo_ui.py tests/test_bremen_api_server.py
+  exit code: 0
+  output: Only safety disclaimer negation strings and test assertions
+- command: grep -R -I -n "joblib\.load\|pickle\.load\|import pickle" src/bremen/demo_ui.py src/bremen/api/server.py tests/test_bremen_demo_ui.py tests/test_bremen_api_server.py
+  exit code: 0
+  output: Only test assertion strings verifying absence
+- command: grep -R -I -n "\.h5\|\.hdf5\|h5py" src/bremen/demo_ui.py src/bremen/api/server.py tests/test_bremen_demo_ui.py tests/test_bremen_api_server.py
+  exit code: 0
+  output: Only pre-existing test payload strings and test assertions
+- command: grep -R -I -n "boto3\|botocore\|requests\|httpx" src/bremen/demo_ui.py src/bremen/api/server.py tests/test_bremen_demo_ui.py tests/test_bremen_api_server.py
+  exit code: 0
+  output: Only test assertion strings and docstring references
+- command: grep -R -I -n "FastAPI\|Flask\|uvicorn\|gunicorn\|starlette\|aiohttp\|django" src tests requirements.txt pyproject.toml
+  exit code: 0
+  output: Only pre-existing deferred references in test assertions
+- command: grep -R -I -n "https://\|http://.*cdn\|unpkg\|jsdelivr\|googleapis\|fontawesome" src/bremen/demo_ui.py tests/test_bremen_demo_ui.py
+  exit code: 0
+  output: Only test assertion strings
+- command: grep -R -I -n -- "--ui\|demo-run --ui\|demo-run --browser" src/bremen tests
+  exit code: 0
+  output: (no output)
+- command: grep -R -I -n "build_existence_proof" src/bremen tests
+  exit code: 0
+  output: (no output)
+- command: git diff --name-only -- .github infra/terraform Dockerfile Dockerfile.training requirements.txt pyproject.toml config/training frontend web ui package.json package-lock.json yarn.lock pnpm-lock.yaml tests/data
+  exit code: 0
+  output: (no output)
+- command: git diff --name-only -- docs ROADMAP.md
+  exit code: 0
+  output: (no output)
+- command: git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|npy|npz|tfstate|tfstate\.backup)$"
+  exit code: 0
+  output: (no output)
+- command: find . -name ".DS_Store" -print
+  exit code: 0
+  output: (no output)
+- command: date -u +%Y-%m-%dT%H:%M:%SZ
+  exit code: 0
+  output: 2026-07-16T09:46:57Z
+
+FILES READ:
+- .project-memory/pr/0065-demo-route-namespace/PLAN.md
+- .project-memory/pr/0065-demo-route-namespace/reviews/plan-review.yml
+- .project-memory/pr/0065-demo-route-namespace/IMPLEMENTATION_REPORT.md
+- ROADMAP.md
+- docs/api_contract.md
+- docs/architecture.md
+- docs/adr/0003-bremen-microservice-api-architecture.md
+- docs/adr/0007-model-artifact-lifecycle.md
+- docs/adr/0008-runtime-target-apprunner-proving.md
+- docs/adr/0012-system-of-record-boundary.md
+- src/bremen/__main__.py
+- src/bremen/api/server.py
+- src/bremen/api/app.py
+- src/bremen/demo_ui.py
+- src/bremen/demo_run.py
+- src/bremen/demo_capture.py
+- src/bremen/demo_presentation.py
+- src/bremen/demo_smoke.py
+- src/bremen/demo_evidence.py
+- tests/test_bremen_demo_ui.py
+- tests/test_bremen_api_server.py
+- tests/test_bremen_api_skeleton.py
+- tests/test_bremen_demo_run.py
+- tests/test_bremen_demo_capture.py
+- tests/test_bremen_demo_presentation.py
+- tests/test_bremen_demo_smoke.py
+- tests/test_bremen_demo_evidence.py
+- tests/test_bremen_cli_entrypoint.py
+- tests/test_bremen_dependency_hygiene.py
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN:
+- .project-memory/pr/0065-demo-route-namespace/reviews/precommit-review.yml
+
+SNAPSHOT DELTA:
+- HEAD: a14dc2698bc0baae18b2f64ef04a9a6f3177a2ce
+- Branch: 0065-demo-route-namespace
+- git status: 2 modified (src/bremen/api/server.py, tests/test_bremen_api_server.py), 3 untracked (IMPLEMENTATION_REPORT.md, src/bremen/demo_ui.py, tests/test_bremen_demo_ui.py)
+- git diff: +68 lines in server.py, +79 lines in test_bremen_api_server.py
+- 2 new files: demo_ui.py (262 lines), test_bremen_demo_ui.py (330 lines)
+- Total: 2 modified + 2 new implementation files + 1 IMPLEMENTATION_REPORT.md
+- No forbidden files changed
+
+SCOPE CHECK: pass
+- Implementation is exactly `/demo/*` route namespace in existing Bremen HTTP service
+- No Terraform, GitHub Actions, Dockerfiles, dependency files, frontend files, training config, tests/data changes
+- No docs/ROADMAP changes
+- No production frontend, React, deployment automation, training, multi-tenancy/model profiles/plugins, or Aramis alignment
+
+ROUTE NAMESPACE CHECK: pass
+- Demo is under `/demo` and `/demo/api/evidence`
+- NOT at root `/` (root `/` still returns 404, verified by test `test_root_still_404`)
+- No `--ui` flag, no separate UI launch command, no additional service startup mode
+- No CLI changes whatsoever
+
+BROWSER UI CHECK: pass
+- Concrete browser UI route at `/demo` returns HTML page with board-friendly visual content
+- Content includes: banner ("Technical demo only"), header, overview card, service health card, model/source card, evidence bundle card, demo flow card, warnings section, footer safety disclaimer
+- Card-based layout, screenshot-ready
+
+REST/EVIDENCE CHECK: pass
+- UI is backed by safe demo JSON/evidence endpoint `/demo/api/evidence`
+- Uses same `build_demo_evidence_bundle()` as CLI tools
+- No separate clinical/patient workflow invented
+
+ENABLEMENT / DEPRECATION CHECK: pass
+- Demo is isolated by route namespace (`/demo/*` only)
+- Future deprecation/removal possible by removing two `elif` branches in `do_GET()` and deleting `demo_ui.py`
+- Existing production endpoints (`/health`, `/model/version`, `/predictions`) unchanged
+- Root routing unchanged
+
+PRODUCT-OWNER DEMO CHECK: pass
+- Output is board-friendly, screenshot-ready HTML page with all key status indicators
+- Product owner can open `http://localhost:8000/demo` in a browser
+- Clean card-based layout with service health, model info, evidence bundle, and demo flow
+- evidence JSON available over REST at `/demo/api/evidence`
+- Not a developer debug page
+
+PRESERVED BEHAVIOR CHECK: pass
+- Existing JSON, pretty, capture-dir, demo-run, demo-smoke behavior unchanged
+- `/health`, `/model/version`, `/predictions`, `/predictions/{job_id}` unchanged
+- request_id propagation unchanged
+- Existing evidence bundle shape unchanged
+- No changes to `__main__.py`, `demo_run.py`, `demo_smoke.py`, or any CLI commands
+- Root `/` still 404
+- `demo-run --pretty` test produced expected output with Bremen identity and safety disclaimers
+- End-to-end capture smoke test: 3 files created correctly (evidence.json, manifest.json, summary.txt)
+
+MULTI-TENANCY DEFERRAL CHECK: pass
+- No model profiles, plugin boundary, tenants, auth, config store, or multi-tenancy started
+- Explicitly deferred in PLAN.md and IMPLEMENTATION_REPORT.md
+
+OUTPUT CONTRACT CHECK: pass
+- HTML output includes prominent "Technical demo only — not a clinical result." banner
+- JSON output includes `technical_demo_only: true`
+- No clinical diagnosis, validated clinical recommendation, MRI replacement, biopsy replacement, radiologist replacement, clinician replacement, patient-specific claim, or clinical performance claim
+- `technical_demo_only` preserved in both HTML and JSON output
+- Safety disclaimers use only negation language
+
+FRONTEND/DEPENDENCY CHECK: pass
+- No React, package manager files, frontend build pipeline
+- No external assets/CDN (verified by grep and test)
+- Self-contained HTML with inline CSS only
+- No JavaScript (no `<script>` tags, verified by test)
+- Stdlib only — no new dependencies (verified by import analysis)
+
+SAFETY CHECK: pass
+- No `joblib.load()` or `pickle.load()` in new code (verified by grep)
+- No H5 reads, writes, or mutation (verified by grep)
+- No AWS/S3 SDK or network client imports (verified by grep)
+- No real patient data (synthetic evidence only)
+- No Aramis dependency or strings in source code (only test negation assertions)
+- No deployment mutation (no Terraform, Docker, CI/CD changes)
+- No new dependencies (stdlib only)
+- `build_existence_proof` not created or imported (verified by grep)
+
+VALIDATION CHECK: pass
+- All required validation commands executed and passed
+- 33 UI tests passed (test_bremen_demo_ui.py)
+- 38 server tests passed (test_bremen_api_server.py)
+- 1238 total tests passed, 11 skipped, 0 failures
+- All forbidden-pattern greps clean: no Aramis references, no clinical claims, no unsafe deserialization, no H5 dependency, no AWS/network deps, no web framework deps, no external assets/CDN, no --ui flag, no build_existence_proof
+- No forbidden files changed
+- No docs/ROADMAP changes
+- No artifacts (h5, hdf5, joblib, pkl, npy, npz, tfstate)
+- No .DS_Store files
+- demo-run --pretty and capture-dir both work correctly
+
+IMPLEMENTATION REPORT CHECK: pass
+- Implementation report `.project-memory/pr/0065-demo-route-namespace/IMPLEMENTATION_REPORT.md` exists
+- Summarizes: files changed, demo route namespace, browser UI, REST endpoint, product-owner/board demo value, enablement/deprecation boundary, preserved behavior, multi-tenancy/model-profile/plugin deferral, safety boundaries, tests run
+- Plan-review warning about `build_existence_proof` resolved: zero matches in repo
+
+PROCESS RULES CHECK: pass
+- Branch confirmed: `0065-demo-route-namespace`
+- No implementation files modified during review
+- No git mutation commands run (no git add, commit, push)
+- No Docker run
+- No Terraform run
+- No AWS operations
+- No dependency installation
+- All required files read
+- All validation commands executed
+- All evidence captured from commands/filesystem, not agent narrative
+
+COMMIT READINESS:
+- ready to commit implementation artifacts: yes
+- required files to stage:
+  - src/bremen/demo_ui.py
+  - src/bremen/api/server.py
+  - tests/test_bremen_demo_ui.py
+  - tests/test_bremen_api_server.py
+  - .project-memory/pr/0065-demo-route-namespace/IMPLEMENTATION_REPORT.md
+  - .project-memory/pr/0065-demo-route-namespace/reviews/precommit-review.yml
+- conditionally stage only if changed and justified: (none of the conditional files changed)
+- files to exclude:
+  - any file outside expected implementation scope and review artifact
+
+BOUNDARY CONFIRMATIONS:
+- demo route namespace implemented: yes — `/demo` and `/demo/api/evidence`
+- demo remains Bremen-native: yes — product identity "Bremen" throughout
+- demo is separated by /demo path, not startup command: yes — no CLI changes
+- no --ui flag added: yes — confirmed by grep
+- no extra launch command added: yes — no CLI files changed
+- no root / demo page added: yes — root `/` still 404 (tested)
+- browser UI is board-demo oriented: yes — card-based layout, screenshot-ready
+- UI is REST/evidence backed: yes — backed by `/demo/api/evidence` endpoint
+- UI is not production UI: yes — technical demo only
+- no React/frontend stack added: yes — stdlib HTML only
+- no package-manager files added: yes — no changes to package.json etc.
+- product-owner/board demo value implemented: yes — clean HTML overview page
+- technical_demo_only preserved: yes — prominent in HTML banner and JSON field
+- JSON behavior preserved: yes — existing demo-run JSON tests pass
+- pretty behavior preserved: yes — existing demo-run --pretty tests pass
+- capture-dir behavior preserved: yes — capture smoke test produced 3 files
+- request_id behavior preserved: yes — X-Request-ID in response headers
+- /demo deprecation/removal boundary preserved: yes — isolated to two elif branches
+- no deployment mutation: yes — no Terraform, Docker, CI changes
+- no Terraform/GitHub Actions/Docker changes: yes — confirmed by git diff
+- multi-tenancy/model-profile/plugin work deferred: yes — not started
+- no new dependencies: yes — stdlib only
+- no unsafe model loading: yes — no joblib.load/pickle.load
+- no H5 mutation: yes — no H5 access
+- no real patient data: yes — synthetic evidence only
+- no Aramis dependency: yes — zero Aramis strings in source (test negation only)
+- no clinical diagnosis/replacement claims: yes — only safety negation language
+- Bremen safety identity preserved: yes — decision-support framing throughout
+- build_existence_proof not created/imported: yes — zero matches in repo
+- no H5/model/tfstate artifacts: yes — confirmed by grep
+- no implementation files modified by reviewer: yes
+- no git mutation commands: yes

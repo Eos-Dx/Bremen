@@ -451,6 +451,85 @@ class TestStructuredLogging:
 
 
 # ---------------------------------------------------------------------------
+# GET /demo and GET /demo/api/evidence (demo route namespace)
+# ---------------------------------------------------------------------------
+
+
+class TestDemoRoutes:
+    """Tests for the /demo/* route namespace (PR0065)."""
+
+    def test_get_demo_returns_html(self, server_info):
+        """GET /demo returns 200 with text/html content type."""
+        host, port, _ = server_info
+        status, body, headers = _get(host, port, "/demo")
+        assert status == 200
+        ct = headers.get("Content-Type", "")
+        assert "text/html" in ct
+
+    def test_get_demo_contains_bremen(self, server_info):
+        """GET /demo response contains 'Bremen'."""
+        host, port, _ = server_info
+        _, body, _ = _get(host, port, "/demo")
+        assert b"Bremen" in body
+
+    def test_get_demo_contains_technical_demo(self, server_info):
+        """GET /demo response contains 'technical demo'."""
+        host, port, _ = server_info
+        _, body, _ = _get(host, port, "/demo")
+        assert b"Technical demo only" in body
+
+    def test_get_demo_contains_request_id(self, server_info):
+        """GET /demo response contains X-Request-ID header."""
+        host, port, _ = server_info
+        _, _, headers = _get(host, port, "/demo")
+        assert "X-Request-ID" in headers
+        assert len(headers["X-Request-ID"]) > 0
+
+    def test_get_demo_api_evidence_returns_json(self, server_info):
+        """GET /demo/api/evidence returns 200 with JSON content type."""
+        host, port, _ = server_info
+        status, body, headers = _get(host, port, "/demo/api/evidence")
+        assert status == 200
+        ct = headers.get("Content-Type", "")
+        assert "application/json" in ct
+
+    def test_get_demo_api_evidence_contains_technical_demo_only(
+        self, server_info
+    ):
+        """GET /demo/api/evidence JSON has technical_demo_only: true."""
+        host, port, _ = server_info
+        _, body, _ = _get(host, port, "/demo/api/evidence")
+        data = json.loads(body)
+        assert data["technical_demo_only"] is True
+
+    def test_get_demo_api_evidence_contains_bremen(self, server_info):
+        """GET /demo/api/evidence JSON has product: 'Bremen'."""
+        host, port, _ = server_info
+        _, body, _ = _get(host, port, "/demo/api/evidence")
+        data = json.loads(body)
+        assert data["product"] == "Bremen"
+
+    def test_get_demo_api_evidence_has_request_id(self, server_info):
+        """GET /demo/api/evidence returns X-Request-ID header."""
+        host, port, _ = server_info
+        _, _, headers = _get(host, port, "/demo/api/evidence")
+        assert "X-Request-ID" in headers
+        assert len(headers["X-Request-ID"]) > 0
+
+    def test_root_still_404(self, server_info):
+        """Root / still returns 404 (not a demo page)."""
+        host, port, _ = server_info
+        status, _, _ = _get(host, port, "/")
+        assert status == 404
+
+    def test_demo_missing_subroute_returns_404(self, server_info):
+        """Unknown /demo/* subroute returns 404."""
+        host, port, _ = server_info
+        status, _, _ = _get(host, port, "/demo/unknown")
+        assert status == 404
+
+
+# ---------------------------------------------------------------------------
 # Import safety (AST-based) for server.py only
 # ---------------------------------------------------------------------------
 
