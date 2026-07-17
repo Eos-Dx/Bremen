@@ -1,0 +1,171 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: approve
+
+BLOCKERS: []
+
+WARNINGS:
+  - PLAN.md references 1238 passing tests (line 38) but this count was not verified by plan-review — verification is deferred to implementation validation phase.
+  - PLAN.md does not explicitly spell "standard-library" as a single word in a standalone declaration; however, the boundary confirmations and stdlib usage are clear.
+
+VALIDATION:
+  - command: git rev-parse --verify HEAD
+    exit code: 0
+    output: df45268b6cf1770ab11e85c9f50224fdb0c9fd18
+  - command: git branch --show-current
+    exit code: 0
+    output: 0066-demo-route-readiness-smoke
+  - command: git status --short
+    exit code: 0
+    output: "?? .project-memory/pr/0066-demo-route-readiness-smoke/"
+  - command: test -f .project-memory/pr/0066-demo-route-readiness-smoke/PLAN.md
+    exit code: 0
+    output: EXISTS
+  - command: grep -n "/demo\|/demo/api/evidence\|route readiness" .project-memory/pr/0066-demo-route-readiness-smoke/PLAN.md
+    exit code: 0
+    output: >-
+      Multiple matches confirmed — PLAN explicitly plans Check 4 (GET /demo)
+      at lines 74-108 and Check 5 (GET /demo/api/evidence) at lines 111-145.
+  - command: grep -n "demo-smoke\|base-url\|deployed" .project-memory/pr/0066-demo-route-readiness-smoke/PLAN.md
+    exit code: 0
+    output: >-
+      Lines 9, 189, 221, 379 — confirms demo-smoke integration and
+      --base-url preservation.
+  - command: grep -n "--ui\|startup command\|launch command" .project-memory/pr/0066-demo-route-readiness-smoke/PLAN.md
+    exit code: 0
+    output: >-
+      Lines 11, 171, 232-233, 318, 374-375 — confirms no --ui, no new
+      startup command.
+  - command: grep -n "technical_demo_only" .project-memory/pr/0066-demo-route-readiness-smoke/PLAN.md
+    exit code: 0
+    output: >-
+      Lines 9, 17, 120, 126, 135, 158, 193 — technical_demo_only is
+      enforced throughout.
+  - command: grep -n "React\|frontend\|package" .project-memory/pr/0066-demo-route-readiness-smoke/PLAN.md
+    exit code: 0
+    output: >-
+      Lines 59-60, 176, 270-271, 380-381 — React/frontend/package-manager
+      are forbidden, not planned.
+  - command: grep -n "multi-tenancy\|model-profile\|plugin" .project-memory/pr/0066-demo-route-readiness-smoke/PLAN.md
+    exit code: 0
+    output: >-
+      Lines 178, 384 — multi-tenancy/model-profile/plugin work is explicitly
+      deferred to non-goals.
+  - command: grep -n "diagnosis\|replacement\|clinical" .project-memory/pr/0066-demo-route-readiness-smoke/PLAN.md
+    exit code: 0
+    output: >-
+      Lines 191-192, 196, 246-247, 310, 390 — no clinical/replacement claims;
+      safety boundaries are defined.
+  - command: grep -n "no Terraform\|no GitHub Actions\|no Docker\|no AWS" .project-memory/pr/0066-demo-route-readiness-smoke/PLAN.md
+    exit code: 0
+    output: >-
+      Lines 310, 383 — confirms no AWS, no Terraform, no GitHub Actions,
+      no Docker changes.
+  - command: grep -n "no new dependencies\|standard-library" .project-memory/pr/0066-demo-route-readiness-smoke/PLAN.md
+    exit code: 0
+    output: >-
+      Line 385 — no new dependencies confirmed. Stdlib urllib.request used
+      (line 189).
+  - command: grep -n "Agent: coder" .project-memory/pr/0066-demo-route-readiness-smoke/PLAN.md
+    exit code: 0
+    output: >-
+      Line 324 — stop condition: "Implementation phase is not Agent: coder /
+      Mode: implementation." Boundary confirmation at line 391.
+  - command: grep -n "Mode: implementation" .project-memory/pr/0066-demo-route-readiness-smoke/PLAN.md
+    exit code: 0
+    output: >-
+      Line 324 — same stop condition. Implementation agent section at lines
+      40-43 confirms Agent: coder, Mode: implementation.
+  - command: date -u +%Y-%m-%dT%H:%M:%SZ
+    exit code: 0
+    output: 2026-07-16T10:03:50Z
+
+FILES READ:
+  - .project-memory/pr/0066-demo-route-readiness-smoke/PLAN.md
+  - src/bremen/demo_smoke.py
+  - src/bremen/demo_run.py
+  - src/bremen/demo_capture.py
+  - src/bremen/demo_ui.py
+  - src/bremen/api/server.py
+  - tests/test_bremen_demo_smoke.py
+  - tests/test_bremen_demo_ui.py
+  - tests/test_bremen_demo_run.py
+  - tests/test_bremen_demo_capture.py
+  - tests/test_bremen_api_server.py
+  - .project-memory/project_contract.yml
+  - AGENTS.md
+
+FILES WRITTEN:
+  - .project-memory/pr/0066-demo-route-readiness-smoke/reviews/plan-review.yml
+
+SCOPE CHECK: pass
+
+ROUTE READINESS CHECK: pass
+
+DEMO-SMOKE CHECK: pass
+
+STARTUP SIMPLICITY CHECK: pass
+
+PRESERVED BEHAVIOR CHECK: pass
+
+FRONTEND/DEPENDENCY CHECK: pass
+
+SAFETY CHECK: pass
+
+VALIDATION CHECK: pass
+
+IMPLEMENTATION AGENT CHECK: pass
+
+PROCESS RULES CHECK: pass
+
+COMMIT READINESS:
+  ready to commit planning artifacts: yes
+  required files to stage:
+    - .project-memory/pr/0066-demo-route-readiness-smoke/PLAN.md
+    - .project-memory/pr/0066-demo-route-readiness-smoke/reviews/plan-review.yml
+  files to exclude: none from this pair
+
+BOUNDARY CONFIRMATIONS:
+  PR0066 planned as demo route readiness smoke: yes — PLAN.md line 1
+  /demo and /demo/api/evidence checks planned: yes — PLAN.md lines 74-145
+  no new startup command planned: yes — PLAN.md lines 11, 171, 318, 374
+  no --ui flag planned: yes — PLAN.md lines 11, 171, 232-233, 318, 375
+  no root / demo page planned: yes — PLAN.md line 308 (route drift check)
+  existing demo-run behavior preserved: yes — PLAN.md line 167 (flow-through)
+  existing capture-dir behavior preserved: yes — PLAN.md lines 29-33
+  demo-smoke deployed base-url value preserved or improved: yes — PLAN.md lines 9, 221, 379
+  no React/frontend stack planned: yes — PLAN.md lines 176, 380-381
+  no package-manager files planned: yes — PLAN.md lines 60, 271, 381
+  no deployment mutation planned: yes — PLAN.md lines 383
+  no Terraform/GitHub Actions/Docker changes planned: yes — PLAN.md lines 383
+  multi-tenancy/model-profile/plugin work deferred: yes — PLAN.md lines 178, 384
+  no new dependencies planned: yes — PLAN.md lines 179, 385
+  no unsafe model loading planned: yes — PLAN.md lines 184-185
+  no H5 mutation planned: yes — PLAN.md line 186
+  no real patient data planned: yes — PLAN.md lines 194
+  no Aramis dependency planned: yes — PLAN.md lines 195, 238-244, 389
+  no clinical diagnosis/replacement claims planned: yes — PLAN.md lines 191-192, 196, 246-247, 390
+  Bremen safety identity preserved: yes — PLAN.md lines 183-196, 309-310
+  implementation assigned to coder: yes — PLAN.md lines 40-43, 324, 391
+  no implementation files modified: pass — no existing files modified during plan-review
+  no git mutation commands: pass — no git add/commit/push/merge executed
+
+SNAPSHOT DELTA:
+  HEAD: df45268b6cf1770ab11e85c9f50224fdb0c9fd18
+  status: clean (only untracked .project-memory/pr/0066-demo-route-readiness-smoke/)
+  diff: none
+
+CHECKS:
+  scope: pass
+  plan-review boundary: pass
+  validation strategy: pass
+  safety boundaries: pass
+  drift gate: pass
+  evidence completeness: pass
+  dirty tree: pass
+
+BOUNDARY CONFIRMATIONS:
+  - no Docker run
+  - no pytest run
+  - no dependency install
+  - no implementation files edited
+  - no git mutation commands
