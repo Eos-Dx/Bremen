@@ -1,0 +1,217 @@
+schema_version: "1"
+pr_id: "0068"
+review_type: plan-review
+verdict: approve
+reviewer: plan-review
+timestamp: "2026-07-17T20:35:33Z"
+head_verified: "b41f17d6b735f8cf05a2d3a06f57dae4ce8e04ef"
+branch_confirmed: "0068-demo-ux-polish-readiness-fixes"
+
+snapshot_delta:
+  head: "b41f17d6b735f8cf05a2d3a06f57dae4ce8e04ef"
+  status: "?? .project-memory/pr/0068-demo-ux-polish-readiness-fixes/"
+  diff: "(empty — only untracked PR directory)"
+
+scope:
+  verdict: pass
+  details: "PLAN.md focuses exclusively on demo UX polish and readiness fixes for /demo. No broad production frontend, deployment automation, multi-tenancy, model profiles, plugins, or Aramis alignment."
+
+files_read:
+  - .project-memory/pr/0068-demo-ux-polish-readiness-fixes/PLAN.md
+  - src/bremen/demo_ui.py
+  - src/bremen/demo_config.py
+  - src/bremen/api/server.py
+  - src/bremen/demo_evidence.py
+  - src/bremen/demo_smoke.py
+  - tests/test_bremen_demo_ui.py
+  - tests/test_bremen_api_server.py
+  - tests/test_bremen_demo_smoke.py
+  - .project-memory/project_contract.yml
+  - AGENTS.md
+  - .project-memory/review-artifact.schema.yml
+
+files_written:
+  - .project-memory/pr/0068-demo-ux-polish-readiness-fixes/reviews/plan-review.yml
+
+validation:
+  - command: "git rev-parse --verify HEAD"
+    exit_code: 0
+    output: "b41f17d6b735f8cf05a2d3a06f57dae4ce8e04ef"
+  - command: "git branch --show-current"
+    exit_code: 0
+    output: "0068-demo-ux-polish-readiness-fixes"
+  - command: "git status --short"
+    exit_code: 0
+    output: "?? .project-memory/pr/0068-demo-ux-polish-readiness-fixes/"
+  - command: "test -f .project-memory/pr/0068-demo-ux-polish-readiness-fixes/PLAN.md"
+    exit_code: 0
+    output: "EXISTS"
+  - command: "grep -n 'redesign\\|polish\\|UX\\|UI' .project-memory/pr/0068-demo-ux-polish-readiness-fixes/PLAN.md"
+    exit_code: 0
+    output: "Lines 1,5,9,15,17,23,53,57,77,86,218,231,248,352,371,375,395,436,440,441,451 match."
+  - command: "grep -n 'storage_not_configured\\|storage configured\\|BREMEN_DEMO_H5' .project-memory/pr/0068-demo-ux-polish-readiness-fixes/PLAN.md"
+    exit_code: 0
+    output: "Lines 21,23,124,131,444 match."
+  - command: "grep -n 'model_status\\|model ready\\|readiness' .project-memory/pr/0068-demo-ux-polish-readiness-fixes/PLAN.md"
+    exit_code: 0
+    output: "Lines 5,9,17,35,53,57,113,116,117,118,160,183,189,191,196,216,218,223,224,226,351,353,356,436,440,446,447 match."
+  - command: "grep -n 'not run yet\\|FAIL' .project-memory/pr/0068-demo-ux-polish-readiness-fixes/PLAN.md"
+    exit_code: 0
+    output: "Lines 15,17,19,21,23,28,30,32,80,84,115,121,218,224,226,353,385,397,448 match."
+  - command: "grep -n 'alert\\|inline' .project-memory/pr/0068-demo-ux-polish-readiness-fixes/PLAN.md"
+    exit_code: 0
+    output: "Lines 21,23,28,31,53,57,123,124,125,126,127,222,298,299,354,357,358,371,376,386,398,400,444,445 match."
+  - command: "grep -n 'React\\|package manager\\|new dependencies' .project-memory/pr/0068-demo-ux-polish-readiness-fixes/PLAN.md"
+    exit_code: 0
+    output: "Line 11 and 244-245: explicitly states no React, no frontend build, no new dependencies."
+  - command: "grep -n 'H5 container\\|Upload\\|Analyze\\|logs\\|events\\|result' .project-memory/pr/0068-demo-ux-polish-readiness-fixes/PLAN.md"
+    exit_code: 0
+    output: "Lines 11,17,19,21,37,90,98,99,121,125,126,127,134,135,136,137,352,354,377,398,448,449,451 match."
+  - command: "grep -n -- '--ui\\|startup command\\|root /' .project-memory/pr/0068-demo-ux-polish-readiness-fixes/PLAN.md"
+    exit_code: 0
+    output: "Line 242: 'No new CLI command, no --ui flag.' Lines 242,302,303,383,452,453 confirm."
+  - command: "grep -n 'technical_demo_only\\|not a clinical result' .project-memory/pr/0068-demo-ux-polish-readiness-fixes/PLAN.md"
+    exit_code: 0
+    output: "Line 90: safety banner with 'Technical demo only — not a clinical result.' Line 259: preserved."
+  - command: "grep -n 'Agent: coder' .project-memory/pr/0068-demo-ux-polish-readiness-fixes/PLAN.md"
+    exit_code: 0
+    output: "Line 389 confirms implementation is assigned to Agent: coder / Mode: implementation."
+  - command: "grep -n 'Mode: implementation' .project-memory/pr/0068-demo-ux-polish-readiness-fixes/PLAN.md"
+    exit_code: 0
+    output: "Line 389 confirms Mode: implementation."
+  - command: "date -u +%Y-%m-%dT%H:%M:%SZ"
+    exit_code: 0
+    output: "2026-07-17T20:35:33Z"
+
+blockers: []
+
+warnings:
+  - "Plan code example for server.py accesses ModelState private attributes (state._model_version, state._model_checksum). Implementation should verify these attributes exist or use public accessor methods. This is a plan-level documentation choice, not a blocker, but may cause implementation friction."
+  - "The existing test_bremen_demo_ui.py has a test named test_no_javascript whose docstring and assertion check for <script> presence (the name contradicts the body). PLAN says to modify tests — this should be cleaned up during implementation."
+
+checks:
+  scope: pass
+  ux_redesign: pass
+  readiness_consistency: pass
+  storage_config: pass
+  container_workflow: pass
+  react_dependency: pass
+  startup_simplicity: pass
+  safety: pass
+  preserved_behavior: pass
+  validation: pass
+  implementation_agent: pass
+  process_rules: pass
+  plan_review_boundary: pass
+  evidence_completeness: pass
+  boundary_confirmations: pass
+
+decisions_made:
+  - "Full /demo visual redesign from debug-card layout to polished product demo."
+  - "Model readiness sourced from ModelState singleton (live model status), not hardcoded 'ready'."
+  - "Prediction check shows 'Not run yet' before analyze, not FAIL."
+  - "Expected errors rendered inline in Events panel, not via alert() dialogs."
+  - "Storage configuration status visible at workspace top; upload disabled when not configured."
+  - "No React, no new dependencies, no package manager files."
+  - "No --ui flag, no new startup command, no root / demo page."
+  - "Existing endpoints and workflow preserved unchanged."
+
+roadmap_alignment:
+  status: pass
+  details: "PR0068 is correctly scoped as demo UX polish and readiness fixes. No roadmap deviation, no redefinition of historical PRs."
+
+source_format_assessment: "not applicable — this PR modifies existing Python/HTML/JS source, does not introduce a new source format adapter."
+
+source_schema_assessment: "not applicable — no new source schema introduced."
+
+numeric_financial_assessment: "not applicable — no financial arithmetic."
+
+unit_contract_assessment: "not applicable — no unit contract."
+
+source_safety_assessment: "pass — no external sources, URLs, or unsafe paths added. Storage config references env var BREMEN_DEMO_H5_BUCKET without credentials."
+
+profile_mapping_assessment: "not applicable — no run-profile mapping."
+
+artifact_mapping_assessment: "not applicable — no artifact mapping."
+
+cli_assessment: "pass — no new CLI commands. demo-smoke CLI preserved unchanged."
+
+read_only_surface_assessment: "pass — no HTTP mutation. All operations are read/display."
+
+synthetic_fixture_assessment: "not applicable — no synthetic fixture needed for this PR."
+
+error_contract_assessment: "pass — expected errors (storage_not_configured, upload rejections, analyze errors) handled inline in Events panel, not via alert(). Unexpected errors fall back to alert()."
+
+smoke_assessment: "pass — existing demo-smoke tests continue to work. Validation includes full pytest suite."
+
+preservation_assessment: "pass — existing endpoints, evidence bundle, H5 workflow, demo-smoke, demo-run, capture, CLI preserved. Only UI presentation changes to 4 files."
+
+deferral_assessment: "pass — no PDF, BIM, quantity takeoff, scheduling, Mermaid, Visual Gate, Artifact Registry, or later-roadmap work introduced."
+
+implementation_scope_assessment: "pass — exactly 4 files listed with MODIFY. Forbidden files clearly enumerated. No scope creep."
+
+test_contract_assessment: "pass — focused UI/server/smoke tests, full pytest, grep checks for forbidden patterns, git diff checks, .DS_Store check. All validation commands are specified and executable."
+
+implementation_report_assessment: "not required by task — PLAN.md is the contract for this review cycle."
+
+boundary_confirmations:
+  - "PR0068 planned as demo UX polish and readiness fixes: confirmed"
+  - "full /demo redesign planned: confirmed"
+  - "no React planned for this PR: confirmed"
+  - "no package manager files planned: confirmed"
+  - "storage_not_configured inline handling planned: confirmed"
+  - "upload errors rendered inline, not alert-only: confirmed"
+  - "model readiness consistency planned: confirmed"
+  - "model_status ready displays ready in /demo: confirmed"
+  - "prediction check before Analyze shows not run yet, not FAIL: confirmed"
+  - "H5 container workspace remains product input: confirmed"
+  - "upload/select/analyze workflow preserved: confirmed"
+  - "logs/events/result UI improved: confirmed"
+  - "no new startup command planned: confirmed"
+  - "no --ui flag planned: confirmed"
+  - "no root / demo page planned: confirmed"
+  - "no deployment mutation planned: confirmed"
+  - "no Terraform/GitHub Actions/Docker changes planned: confirmed"
+  - "no new dependencies planned: confirmed"
+  - "no unsafe model loading planned: confirmed"
+  - "no H5 mutation planned: confirmed"
+  - "no committed H5/patient data planned: confirmed"
+  - "no Aramis dependency planned: confirmed"
+  - "no clinical diagnosis/replacement claims planned: confirmed"
+  - "implementation assigned to Agent: coder / Mode: implementation: confirmed"
+  - "no git mutation commands run: confirmed"
+  - "no implementation files modified by reviewer: confirmed"
+
+plan_drift_gate:
+  status: pass
+  details: "No conditions triggering plan drift gate. Source format unchanged, schema unchanged, no financial arithmetic, no mutation, no URLs, no profile changes, no new value types, no construction-specific rendering, no HTTP mutation, no Artifact Registry, no quantity takeoff, no Mermaid/Visual Gate, no agent/provider execution, no PR0148 absorption, implementation scope unconditional."
+
+no_drift_check:
+  status: pass
+  details:
+    - "correct branch: 0068-demo-ux-polish-readiness-fixes"
+    - "PLAN.md-only state before review: confirmed (only untracked PR directory)"
+    - "complete Roadmap alignment: pass"
+    - "one exact scope: demo UX polish and readiness fixes"
+    - "deterministic UI mapping: pass (model state from ModelState singleton)"
+    - "source immutability: pass (no source mutation)"
+    - "existing endpoints unchanged: pass"
+    - "no construction-specific rendering: pass"
+    - "no HTTP mutation: pass"
+    - "no Artifact Registry: pass"
+    - "no quantity takeoff or scheduling: pass"
+    - "no agent/provider/shell/git/gh/Docker/network execution: pass"
+    - "PR 0065–0067 preserved: pass"
+    - "executable smoke: pass"
+    - "exact implementation scope: 4 files"
+    - "complete validation: pass"
+    - "implementation assigned to coder: pass"
+    - "review artifact physically written and read back: confirmed"
+
+commit_readiness: ready
+
+required_files_to_stage:
+  - .project-memory/pr/0068-demo-ux-polish-readiness-fixes/PLAN.md
+  - .project-memory/pr/0068-demo-ux-polish-readiness-fixes/reviews/plan-review.yml
+
+files_to_exclude: []
