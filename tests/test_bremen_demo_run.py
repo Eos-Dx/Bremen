@@ -200,6 +200,7 @@ class TestRunDemoWithExplicitUrl:
         expected_keys = {
             "technical_demo_only", "base_url", "request_id",
             "checks", "health", "model_version", "prediction",
+            "demo_routes", "demo_evidence",
             "warnings", "status", "timestamp", "evidence",
         }
         assert set(result.keys()) == expected_keys, (

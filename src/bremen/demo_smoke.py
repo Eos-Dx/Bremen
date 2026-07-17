@@ -34,12 +34,14 @@ def run_demo_smoke(
 ) -> dict:
     """Run the demo smoke checks against a running Bremen service.
 
-    Performs three checks in order:
+    Performs five checks in order:
 
     1. **Health check** — ``GET {base_url}/health``
     2. **Model version check** — ``GET {base_url}/model/version``
     3. **Prediction smoke** — ``POST {base_url}/predictions`` (optional;
        skipped if *skip_prediction* is ``True`` or no fixture available).
+    4. **Demo route check** — ``GET {base_url}/demo``
+    5. **Demo evidence check** — ``GET {base_url}/demo/api/evidence``
 
     Parameters
     ----------
@@ -52,7 +54,8 @@ def run_demo_smoke(
     -------
     A dict with keys:
     ``base_url``, ``request_id``, ``checks``, ``health``,
-    ``model_version``, ``prediction``, ``warnings``, ``status``,
+    ``model_version``, ``prediction``, ``demo_routes``,
+    ``demo_evidence``, ``warnings``, ``status``,
     ``technical_demo_only``, ``timestamp``.
     """
     request_id = str(uuid.uuid4())
@@ -249,6 +252,96 @@ def run_demo_smoke(
             checks["prediction"] = "fail"
             warnings.append(f"Prediction check error: {exc}")
 
+    # ---- Check 4: Demo route (/demo) ----
+    try:
+        status, body, resp_headers = _request("GET", "/demo")
+        body_text = body.decode("utf-8")
+        html_ok = (
+            status == 200
+            and "Bremen" in body_text
+            and "technical demo" in body_text.lower()
+        )
+        demo_routes_result = {
+            "status": "pass" if html_ok else "fail",
+            "http_status": status,
+            "contains_bremen": "Bremen" in body_text,
+            "contains_technical_demo": "technical demo" in body_text.lower(),
+        }
+        if html_ok:
+            checks["demo_routes"] = "pass"
+        else:
+            checks["demo_routes"] = "fail"
+            warnings.append(
+                f"/demo check: HTTP {status}, "
+                f"Bremen={'Bremen' in body_text}, "
+                f"tech_demo={'technical demo' in body_text.lower()}"
+            )
+    except HTTPError as exc:
+        demo_routes_result = {
+            "status": "fail", "http_status": exc.code, "error": str(exc),
+        }
+        checks["demo_routes"] = "fail"
+        warnings.append(f"/demo HTTP error: {exc.code}")
+    except URLError as exc:
+        demo_routes_result = {
+            "status": "error", "error": str(exc.reason),
+        }
+        checks["demo_routes"] = "fail"
+        warnings.append(f"/demo connection error: {exc.reason}")
+    except Exception as exc:
+        demo_routes_result = {
+            "status": "error", "error": str(exc),
+        }
+        checks["demo_routes"] = "fail"
+        warnings.append(f"/demo check error: {exc}")
+
+    # ---- Check 5: Demo evidence route (/demo/api/evidence) ----
+    try:
+        status, body, resp_headers = _request(
+            "GET", "/demo/api/evidence"
+        )
+        data = json.loads(body)
+        json_ok = (
+            status == 200
+            and data.get("technical_demo_only") is True
+            and data.get("product") == "Bremen"
+        )
+        demo_evidence_result = {
+            "status": "pass" if json_ok else "fail",
+            "http_status": status,
+            "technical_demo_only": data.get("technical_demo_only"),
+            "product": data.get("product"),
+        }
+        if json_ok:
+            checks["demo_evidence"] = "pass"
+        else:
+            checks["demo_evidence"] = "fail"
+            warnings.append(
+                f"/demo/api/evidence check: HTTP {status}, "
+                f"technical_demo_only={data.get('technical_demo_only')}, "
+                f"product={data.get('product')}"
+            )
+    except HTTPError as exc:
+        demo_evidence_result = {
+            "status": "fail", "http_status": exc.code, "error": str(exc),
+        }
+        checks["demo_evidence"] = "fail"
+        warnings.append(f"/demo/api/evidence HTTP error: {exc.code}")
+    except URLError as exc:
+        demo_evidence_result = {
+            "status": "error", "error": str(exc.reason),
+        }
+        checks["demo_evidence"] = "fail"
+        warnings.append(
+            f"/demo/api/evidence connection error: {exc.reason}"
+        )
+    except (json.JSONDecodeError, Exception) as exc:
+        demo_evidence_result = {
+            "status": "error", "error": str(exc),
+        }
+        checks["demo_evidence"] = "fail"
+        warnings.append(f"/demo/api/evidence check error: {exc}")
+
     # ---- Overall status ----
     check_values = set(checks.values())
     if check_values == {"pass"}:
@@ -266,6 +359,8 @@ def run_demo_smoke(
         "health": health_result,
         "model_version": model_version_result,
         "prediction": prediction_result,
+        "demo_routes": demo_routes_result,
+        "demo_evidence": demo_evidence_result,
         "warnings": warnings,
         "status": overall,
         "timestamp": datetime.now(timezone.utc).isoformat(),

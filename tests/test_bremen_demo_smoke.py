@@ -145,6 +145,7 @@ class TestDemoSmokeAgainstServer:
         expected_keys = {
             "technical_demo_only", "base_url", "request_id",
             "checks", "health", "model_version", "prediction",
+            "demo_routes", "demo_evidence",
             "warnings", "status", "timestamp", "evidence",
         }
         assert set(result.keys()) == expected_keys, (
@@ -480,3 +481,285 @@ class TestEvidenceBundleInDemoSmoke:
         assert evidence["product"] == "Bremen"
         # Warnings should be present
         assert len(evidence["warnings"]) > 0
+
+
+# ---------------------------------------------------------------------------
+# Demo route readiness tests (PR0066)
+# ---------------------------------------------------------------------------
+
+
+class TestDemoRouteReadiness:
+    """Tests for /demo and /demo/api/evidence route readiness checks."""
+
+    @pytest.fixture
+    def server_info(self):
+        """Start a local test server with synthetic model loaded."""
+        import socket
+        import threading
+        from http.server import HTTPServer
+        from bremen.api.jobs import InMemoryJobStore
+        from bremen.api.server import _make_handler
+        from bremen.api.model_state import ModelState
+
+        host = "127.0.0.1"
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            port = int(s.getsockname()[1])
+
+        job_store = InMemoryJobStore()
+        ModelState.reset_for_tests()
+        handler = _make_handler(
+            job_store, version="test-version", load_model=True
+        )
+        server = HTTPServer((host, port), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        yield host, port
+
+        server.shutdown()
+        thread.join(timeout=2)
+
+    def test_demo_routes_in_result(self, server_info):
+        """demo_routes key is present in result dict."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        assert "demo_routes" in result
+        assert isinstance(result["demo_routes"], dict)
+
+    def test_demo_evidence_in_result(self, server_info):
+        """demo_evidence key is present in result dict."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        assert "demo_evidence" in result
+        assert isinstance(result["demo_evidence"], dict)
+
+    def test_demo_routes_check_against_test_server(self, server_info):
+        """Demo route check passes against running test server."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        assert result["checks"]["demo_routes"] == "pass"
+        assert result["demo_routes"]["status"] == "pass"
+        assert result["demo_routes"]["http_status"] == 200
+        assert result["demo_routes"]["contains_bremen"] is True
+        assert result["demo_routes"]["contains_technical_demo"] is True
+
+    def test_demo_evidence_check_against_test_server(self, server_info):
+        """Demo evidence check passes against running test server."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        assert result["checks"]["demo_evidence"] == "pass"
+        assert result["demo_evidence"]["status"] == "pass"
+        assert result["demo_evidence"]["http_status"] == 200
+        assert result["demo_evidence"]["technical_demo_only"] is True
+        assert result["demo_evidence"]["product"] == "Bremen"
+
+    def test_demo_routes_check_contains_html_fields(self, server_info):
+        """Demo route result includes expected HTML check fields."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        dr = result["demo_routes"]
+        assert "status" in dr
+        assert "http_status" in dr
+        assert "contains_bremen" in dr
+        assert "contains_technical_demo" in dr
+
+    def test_demo_evidence_check_contains_json_fields(self, server_info):
+        """Demo evidence result includes expected JSON check fields."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        de = result["demo_evidence"]
+        assert "status" in de
+        assert "http_status" in de
+        assert "technical_demo_only" in de
+        assert "product" in de
+
+    def test_demo_routes_fail_when_service_unavailable(self):
+        """Demo route checks report failure when service is unreachable."""
+        result = run_demo_smoke(
+            base_url="http://127.0.0.1:1",
+            timeout=2,
+            skip_prediction=True,
+        )
+        assert result["checks"]["demo_routes"] == "fail"
+        assert result["demo_routes"]["status"] in ("fail", "error")
+
+    def test_demo_evidence_fail_when_service_unavailable(self):
+        """Demo evidence checks report failure when service is unreachable."""
+        result = run_demo_smoke(
+            base_url="http://127.0.0.1:1",
+            timeout=2,
+            skip_prediction=True,
+        )
+        assert result["checks"]["demo_evidence"] == "fail"
+        assert result["demo_evidence"]["status"] in ("fail", "error")
+
+    def test_demo_routes_check_has_error_on_unavailable(self):
+        """Demo route check includes error info on unavailable service."""
+        result = run_demo_smoke(
+            base_url="http://127.0.0.1:1",
+            timeout=2,
+            skip_prediction=True,
+        )
+        assert "error" in result["demo_routes"]
+
+    def test_demo_evidence_check_has_error_on_unavailable(self):
+        """Demo evidence check includes error info on unavailable service."""
+        result = run_demo_smoke(
+            base_url="http://127.0.0.1:1",
+            timeout=2,
+            skip_prediction=True,
+        )
+        assert "error" in result["demo_evidence"]
+
+    def test_demo_checks_in_checks_dict(self, server_info):
+        """demo_routes and demo_evidence are present in checks dict."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        assert "demo_routes" in result["checks"]
+        assert "demo_evidence" in result["checks"]
+
+    def test_demo_checks_contribute_to_overall_status(self, server_info):
+        """When all checks including demo routes pass, overall is pass."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        # All active checks: health, model_version, demo_routes, demo_evidence
+        assert result["checks"]["health"] == "pass"
+        assert result["checks"]["model_version"] == "pass"
+        assert result["checks"]["demo_routes"] == "pass"
+        assert result["checks"]["demo_evidence"] == "pass"
+        assert result["status"] == "pass"
+
+    def test_demo_checks_show_partial_on_route_failure(self):
+        """When demo routes fail but health passes, status is partial."""
+        # Use unavailable service: health/model fail, but demo routes also fail
+        result = run_demo_smoke(
+            base_url="http://127.0.0.1:1",
+            timeout=2,
+            skip_prediction=True,
+        )
+        assert result["checks"]["demo_routes"] == "fail"
+        assert result["checks"]["demo_evidence"] == "fail"
+        assert result["status"] == "fail"
+
+    def test_existing_checks_preserved_with_demo_routes(self, server_info):
+        """Health, model_version, and prediction checks still work."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        assert result["health"]["status"] == "ok"
+        assert result["model_version"]["model_status"] == "ready"
+        assert result["prediction"]["status"] == "not_available"
+        assert result["checks"]["health"] == "pass"
+        assert result["checks"]["model_version"] == "pass"
+
+    def test_evidence_bundle_includes_demo_checks(self, server_info):
+        """Evidence bundle checks now includes demo_routes and demo_evidence."""
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        evidence = result["evidence"]
+        assert "checks" in evidence
+        assert evidence["checks"]["demo_routes"] == "pass"
+        assert evidence["checks"]["demo_evidence"] == "pass"
+
+    def test_deployed_base_url_mode_validates_demo_routes(self, server_info):
+        """With explicit base-url pointing at running service, demo routes pass."""
+        host, port = server_info
+        base_url = f"http://{host}:{port}"
+        result = run_demo_smoke(
+            base_url=base_url,
+            timeout=5,
+            skip_prediction=True,
+        )
+        assert result["demo_routes"]["status"] == "pass"
+        assert result["demo_evidence"]["status"] == "pass"
+        assert result["base_url"] == base_url
+
+    def test_no_ui_flag_in_demo_smoke(self):
+        """demo-smoke does not accept --ui flag."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m", "bremen", "demo-smoke", "--ui",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0, (
+            "--ui should be rejected by demo-smoke"
+        )
+
+    def test_no_root_demo_page(self):
+        """Root / returns 404, not a demo page."""
+        import socket
+        import threading
+        from http.server import HTTPServer
+        from urllib.error import HTTPError
+        from urllib.request import urlopen, Request
+        from bremen.api.jobs import InMemoryJobStore
+        from bremen.api.server import _make_handler
+        from bremen.api.model_state import ModelState
+
+        host = "127.0.0.1"
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            port = int(s.getsockname()[1])
+
+        job_store = InMemoryJobStore()
+        ModelState.reset_for_tests()
+        handler = _make_handler(
+            job_store, version="test-version", load_model=True
+        )
+        server = HTTPServer((host, port), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        try:
+            req = Request(f"http://{host}:{port}/")
+            try:
+                urlopen(req, timeout=3)
+                pytest.fail("Expected HTTPError for root /")
+            except HTTPError as exc:
+                assert exc.code == 404
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
