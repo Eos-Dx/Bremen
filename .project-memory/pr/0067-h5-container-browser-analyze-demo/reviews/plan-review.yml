@@ -1,0 +1,196 @@
+# Plan Review — PR 0067 H5 Container Browser Analyze Demo
+# Generated: 2026-07-17T18:51:06Z
+
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: approve
+
+BLOCKERS: []
+
+WARNINGS:
+- Container catalog uses env-var mock list (BREMEN_DEMO_H5_CONTAINERS) instead of real S3 listing. Per PLAN.md rationale ("fastest demo vertical slice"), this is acceptable for demo scope.
+- No S3-integrated upload test described (tests mock S3 upload). Acceptable for demo scope — upload validation (size, extension, filename header) is tested.
+- PLAN introduces 4 new env vars (BREMEN_DEMO_H5_BUCKET, BREMEN_DEMO_H5_PREFIX, BREMEN_DEMO_H5_ALLOW_UPLOAD, BREMEN_DEMO_H5_CONTAINERS) but all are optional with safe defaults, not credentials.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: 804161de0567bc9a58998b85ee5a19607fac4fe1
+- command: git branch --show-current
+  exit code: 0
+  output: 0067-h5-container-browser-analyze-demo
+- command: git status --short
+  exit code: 0
+  output: "?? .project-memory/pr/0067-h5-container-browser-analyze-demo/"
+- command: test -f .project-memory/pr/0067-h5-container-browser-analyze-demo/PLAN.md
+  exit code: 0
+  output: EXISTS
+- command: date -u +%Y-%m-%dT%H:%M:%SZ
+  exit code: 0
+  output: 2026-07-17T18:51:06Z
+- command: grep -n "H5\|h5\|HDF5\|hdf5" .project-memory/pr/0067-h5-container-browser-analyze-demo/PLAN.md
+  exit code: 0
+  output: Found 80+ lines confirming H5 container is the primary input (see FILES READ)
+- command: grep -n "container\|catalog\|list\|select" .project-memory/pr/0067-h5-container-browser-analyze-demo/PLAN.md
+  exit code: 0
+  output: Found 60+ lines confirming container list, catalog, selection
+- command: grep -n "upload\|file input\|browser" .project-memory/pr/0067-h5-container-browser-analyze-demo/PLAN.md
+  exit code: 0
+  output: Found 30+ lines confirming browser upload of H5 containers
+- command: grep -n "Analyze\|analyze" .project-memory/pr/0067-h5-container-browser-analyze-demo/PLAN.md
+  exit code: 0
+  output: Found 30+ lines confirming Analyze button and route
+- command: grep -n "logs\|events\|event" .project-memory/pr/0067-h5-container-browser-analyze-demo/PLAN.md
+  exit code: 0
+  output: Found 40+ lines confirming events/logs in API and UI
+- command: grep -n "model output\|real model\|model_not_ready" .project-memory/pr/0067-h5-container-browser-analyze-demo/PLAN.md
+  exit code: 0
+  output: Found 4 lines confirming real model output and model_not_ready behavior
+- command: grep -n "/demo\|/demo/api" .project-memory/pr/0067-h5-container-browser-analyze-demo/PLAN.md
+  exit code: 0
+  output: Found 30+ lines confirming /demo routes
+- command: grep -n "technical_demo_only\|not a clinical result" .project-memory/pr/0067-h5-container-browser-analyze-demo/PLAN.md
+  exit code: 0
+  output: technical_demo_only: true in every response; safety disclaimer present
+- command: grep -n -- "--ui\|startup command\|launch command" .project-memory/pr/0067-h5-container-browser-analyze-demo/PLAN.md
+  exit code: 0
+  output: Explicitly forbids --ui and new startup commands (lines 442-443)
+- command: grep -n "React\|frontend\|package" .project-memory/pr/0067-h5-container-browser-analyze-demo/PLAN.md
+  exit code: 0
+  output: Forbidden files include frontend/**, package.json, React. Explicitly says "No React/frontend stack"
+- command: grep -n "patient data\|raw H5\|hardcoded" .project-memory/pr/0067-h5-container-browser-analyze-demo/PLAN.md
+  exit code: 0
+  output: No raw H5 contents, no patient identifiers, no hardcoded S3 paths
+- command: grep -n "diagnosis\|replacement\|clinical" .project-memory/pr/0067-h5-container-browser-analyze-demo/PLAN.md
+  exit code: 0
+  output: No clinical diagnosis/replacement claims. technical_demo_only disclaimer in every response
+- command: grep -n "Agent: coder" .project-memory/pr/0067-h5-container-browser-analyze-demo/PLAN.md
+  exit code: 0
+  output: Line 50: "- **Agent**: coder"
+- command: grep -n "Mode: implementation" .project-memory/pr/0067-h5-container-browser-analyze-demo/PLAN.md
+  exit code: 0
+  output: Line 51: "- **Mode**: implementation"
+- command: git diff --name-only
+  exit code: 0
+  output: (empty — no implementation files modified)
+
+FILES READ:
+- .project-memory/pr/0067-h5-container-browser-analyze-demo/PLAN.md
+- src/bremen/demo_ui.py
+- src/bremen/api/server.py
+- src/bremen/api/app.py
+- src/bremen/demo_evidence.py
+- src/bremen/demo_smoke.py
+- src/bremen/demo_run.py
+- tests/test_bremen_demo_ui.py
+- tests/test_bremen_api_server.py
+- tests/test_bremen_demo_smoke.py
+- tests/test_bremen_demo_run.py
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN:
+- .project-memory/pr/0067-h5-container-browser-analyze-demo/reviews/plan-review.yml
+
+SNAPSHOT DELTA:
+- HEAD: 804161de0567bc9a58998b85ee5a19607fac4fe1
+- status: "?? .project-memory/pr/0067-h5-container-browser-analyze-demo/"
+- diff: (empty — no implementation files modified)
+
+CHECKS:
+- scope: pass
+- plan-review boundary: pass
+- validation strategy: pass
+- safety boundaries: pass
+- drift gate: pass
+- evidence completeness: pass
+- dirty tree: pass
+
+BOUNDARY CONFIRMATIONS:
+- no Docker run: yes
+- no pytest run: yes
+- no dependency install: yes
+- no implementation files edited: yes
+- no git mutation commands: yes
+
+SCOPE CHECK: pass
+PLAN focuses on fastest H5 container browser analyze demo. Not docs-only. Not production frontend, React, deployment automation, multi-tenancy, model profiles, plugins, or Aramis alignment.
+
+DEMO INPUT CHECK: pass
+H5 container is clearly stated as product/demo input (line 9). PLAN includes: list of existing containers via env-var mock list (lines 149-152), browser upload of new H5 container (lines 164-178), selecting a container for analysis (lines 322-326). Synthetic feature artifact removed as primary input (lines 410-411, 555-556).
+
+ANALYZE FLOW CHECK: pass
+Analyze button planned in UI (lines 272, 347-366). Backend route POST /demo/api/h5/analyze under /demo/* (lines 181-215). Returns structured events/logs array and final result/status (lines 203-215).
+
+MODEL OUTPUT CHECK: pass
+PLAN requires real model output when model ready via existing inference_handler.run_inference() (lines 37, 201-202). Explicit model_not_ready behavior defined (lines 191, 241). No fake successful prediction allowed — model_not_ready returns events with failure event (line 191).
+
+STORAGE/H5 SAFETY CHECK: pass
+No hardcoded patient S3 path — uses env var BREMEN_DEMO_H5_BUCKET (lines 121, 464). No raw H5 content in response or logs (lines 246, 445, 463). No committed H5 files in repo (forbidden files list lines 76-77). No H5 mutation — read-only during inference (line 460). No credentials in source code (env-var driven). Uses existing boto3 dep for S3 (no new deps). Props for upload limits (100 MB, extension validation, filename sanitization).
+
+BROWSER DEMO CHECK: pass
+PLAN updates /demo with: container list card (lines 256-260), upload input with file type restriction (lines 264-267, 413), Analyze action (lines 272, 347), events/logs panel (lines 279-284), result/evidence card (lines 286-289). Root / still returns 404 (line 445 in test).
+
+STARTUP SIMPLICITY CHECK: pass
+No --ui flag (explicitly forbidden lines 442-443, 499-500). No new startup command. No changes to __main__.py, demo_run.py, demo_smoke.py, demo_capture.py (line 68, 442-443).
+
+FRONTEND/DEPENDENCY CHECK: pass
+No React/frontend stack (line 446). Forbidden files include package.json, node_modules, frontend/ (lines 73-74). No external assets/CDN tested by greps (lines 508-509). No new dependencies (boto3 already exists, line 29).
+
+SAFETY CHECK: pass
+No unsafe deserialization — uses existing ModelState.load_at_startup() and inference_handler.run_inference() (lines 454-455, 522-523). No real patient data committed (line 462). No Aramis dependency (lines 513-514, 677). No clinical diagnosis/replacement claims (lines 466, 517-519, 678). technical_demo_only: true prominent in every response (lines 211, 465). No deployment mutation. Upload to configured S3 bucket only.
+
+PRESERVED BEHAVIOR CHECK: pass
+Existing demo-run preserved (no changes to demo_run.py, line 68). Existing capture-dir preserved (same). Existing demo-smoke preserved (same). Existing /demo/api/evidence unchanged. request_id preserved. Existing API endpoints (health, model/version, predictions) unchanged. Root / still 404.
+
+VALIDATION CHECK: pass
+PLAN includes (lines 469-539): git checks (rev-parse, branch, status, diff), compileall, focused tests (demo_ui, api_server, demo_smoke, demo_run, demo_capture, api_skeleton), full pytest, CLI help checks (bremen --help, serve, demo-smoke, demo-run), forbidden --ui grep, synthetic-feature-as-primary grep, external/CDN asset grep, Aramis grep, clinical-claims grep, unsafe-deserialization grep, forbidden-path diff, docs/ROADMAP diff, model/artifact diff, .DS_Store find.
+
+IMPLEMENTATION AGENT CHECK: pass
+PLAN explicitly assigns Agent: coder (line 50) / Mode: implementation (line 51).
+
+PROCESS RULES CHECK: pass
+Plan-review agent did not modify implementation files, did not run tests, did not run Docker/Terraform/AWS, did not install dependencies, did not run git mutation commands. Branch confirmed as 0067-h5-container-browser-analyze-demo. All required static reads completed.
+
+COMMIT READINESS:
+- ready to commit planning artifacts: yes
+- required files to stage:
+  - .project-memory/pr/0067-h5-container-browser-analyze-demo/PLAN.md
+  - .project-memory/pr/0067-h5-container-browser-analyze-demo/reviews/plan-review.yml
+- files to exclude: none from this pair
+
+BOUNDARY CONFIRMATIONS:
+- PR0067 planned as H5 container browser analyze demo: yes
+- H5 container planned as product input: yes
+- list of existing system containers planned: yes (via env-var mock list)
+- browser upload of new H5 container planned: yes
+- container selection planned: yes
+- Analyze button planned: yes
+- logs/events planned in API response and UI: yes
+- real model output planned when model ready: yes
+- explicit model_not_ready behavior planned: yes
+- no fake successful prediction planned: yes
+- synthetic feature artifact no longer primary product input: yes
+- feature artifact treated as derived/internal only: yes
+- no committed H5/patient data planned: yes
+- no raw H5 contents in response/logging planned: yes
+- no hardcoded patient S3 path planned: yes
+- no new startup command planned: yes
+- no --ui flag planned: yes
+- no root / demo page planned: yes
+- existing demo-run behavior preserved: yes
+- existing capture-dir behavior preserved: yes
+- existing demo-smoke behavior preserved: yes
+- no React/frontend stack planned: yes
+- no package-manager files planned: yes
+- no deployment mutation planned: yes
+- no Terraform/GitHub Actions/Docker changes planned: yes
+- multi-tenancy/model-profile/plugin work deferred: yes
+- no new dependencies planned: yes (boto3 already exists)
+- no unsafe model loading planned: yes
+- no H5 mutation planned: yes
+- no Aramis dependency planned: yes
+- no clinical diagnosis/replacement claims planned: yes
+- Bremen safety identity preserved: yes
+- implementation assigned to coder: yes
+- no implementation files modified: yes
+- no git mutation commands: yes
