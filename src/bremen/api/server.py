@@ -68,6 +68,7 @@ from .app import (
     handle_get_prediction,
 )
 from .jobs import InMemoryJobStore
+from ..demo_config import read_demo_h5_config
 
 logger = logging.getLogger(__name__)
 
@@ -264,6 +265,8 @@ def _make_handler(
                 _handle_demo_route(self)
             elif self.path == "/demo/api/evidence":
                 _handle_demo_evidence_route(self)
+            elif self.path == "/demo/api/h5/containers":
+                _handle_demo_h5_containers_list(self)
             else:
                 self._log_and_send_error(
                     f"Not found: {self.path}", status=404,
@@ -274,7 +277,11 @@ def _make_handler(
             self._job_id = None
             self._error = None
 
-            if self.path == "/predictions":
+            if self.path == "/demo/api/h5/containers":
+                _handle_demo_h5_containers_upload(self)
+            elif self.path == "/demo/api/h5/analyze":
+                _handle_demo_h5_analyze(self)
+            elif self.path == "/predictions":
                 body = self._read_json_body()
                 if body is None:
                     self._log_and_send_error(
@@ -387,6 +394,7 @@ def _handle_demo_route(handler: BaseHTTPRequestHandler) -> None:
 
     from ..demo_ui import build_demo_html_page  # noqa: PLC0415
     from ..demo_evidence import build_demo_evidence_bundle  # noqa: PLC0415
+    from ..demo_config import read_demo_h5_config  # noqa: PLC0415
 
     request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())
     host_header = handler.headers.get("Host", "localhost")
@@ -399,10 +407,13 @@ def _handle_demo_route(handler: BaseHTTPRequestHandler) -> None:
         prediction_status="not_available",
     )
 
+    demo_config = read_demo_h5_config()
+
     html = build_demo_html_page(
         evidence=evidence,
         base_url=base_url,
         request_id=request_id,
+        upload_max_bytes=demo_config["upload_max_bytes"],
     )
     body = html.encode("utf-8")
     handler.send_response(200)
@@ -440,6 +451,567 @@ def _handle_demo_evidence_route(handler: BaseHTTPRequestHandler) -> None:
     handler.send_header("X-Request-ID", request_id)
     handler.end_headers()
     handler.wfile.write(body)
+
+
+# ---------------------------------------------------------------------------
+# Demo H5 container endpoints
+# ---------------------------------------------------------------------------
+
+
+def _handle_demo_h5_containers_list(
+    handler: BaseHTTPRequestHandler,
+) -> None:
+    """Handle GET /demo/api/h5/containers — list demo H5 containers."""
+    import json as _json  # noqa: PLC0415
+    import os as _os  # noqa: PLC0415
+
+    request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())
+    config = read_demo_h5_config()
+
+    if config["h5_bucket"] is None:
+        # No bucket configured — return safe empty response
+        data = {
+            "storage": "not_configured",
+            "containers": [],
+            "technical_demo_only": True,
+        }
+    else:
+        # Read configured container list from env var
+        try:
+            containers_json = _os.environ.get(
+                "BREMEN_DEMO_H5_CONTAINERS", "[]"
+            )
+            containers = _json.loads(containers_json)
+            if not isinstance(containers, list):
+                containers = []
+        except (_json.JSONDecodeError, TypeError):
+            containers = []
+
+        data = {
+            "storage": "configured",
+            "containers": containers,
+            "technical_demo_only": True,
+        }
+
+    data["request_id"] = request_id
+    body = _json.dumps(data, ensure_ascii=False).encode("utf-8")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "application/json")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("X-Request-ID", request_id)
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def _handle_demo_h5_containers_upload(
+    handler: BaseHTTPRequestHandler,
+) -> None:
+    """Handle POST /demo/api/h5/containers — upload an H5 container."""
+    import json as _json  # noqa: PLC0415
+
+    request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())
+    config = read_demo_h5_config()
+
+    # ---- Input validation (before storage check) ----
+
+    # Validate content length
+    content_length = int(handler.headers.get("Content-Length", 0))
+    if content_length == 0:
+        body = _json.dumps({
+            "status": "upload_rejected",
+            "error": "Empty body",
+            "request_id": request_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(400)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+        return
+
+    if content_length > config["upload_max_bytes"]:
+        body = _json.dumps({
+            "status": "upload_rejected",
+            "error": f"File too large: {content_length} bytes "
+                     f"(max {config['upload_max_bytes']})",
+            "request_id": request_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(413)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+        return
+
+    # Validate filename from header
+    raw_filename = handler.headers.get("X-H5-Filename", "").strip()
+    if not raw_filename:
+        body = _json.dumps({
+            "status": "upload_rejected",
+            "error": "Missing X-H5-Filename header",
+            "request_id": request_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(400)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+        return
+
+    # Sanitize filename — reject path separators
+    if "/" in raw_filename or "\\" in raw_filename or ".." in raw_filename:
+        body = _json.dumps({
+            "status": "upload_rejected",
+            "error": "Invalid filename — path separators not allowed",
+            "request_id": request_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(400)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+        return
+
+    # Validate extension
+    name_lower = raw_filename.lower()
+    if not (name_lower.endswith(".h5") or name_lower.endswith(".hdf5")):
+        body = _json.dumps({
+            "status": "upload_rejected",
+            "error": (
+                f"Invalid file extension: {raw_filename!r}. "
+                "Only .h5 and .hdf5 files are accepted."
+            ),
+            "request_id": request_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(400)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+        return
+
+    # ---- Storage checks (after input is validated) ----
+
+    # Check upload enabled
+    if not config["allow_upload"]:
+        body = _json.dumps({
+            "status": "upload_disabled",
+            "request_id": request_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(403)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+        return
+
+    # Check storage configured
+    if config["h5_bucket"] is None:
+        body = _json.dumps({
+            "status": "storage_not_configured",
+            "request_id": request_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(503)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+        return
+
+    # Sanitize filename (keep only safe characters)
+    sanitized = "".join(
+        c for c in raw_filename if c.isalnum() or c in "._- "
+    )
+    sanitized = sanitized.replace(" ", "_").strip("._")
+    if not sanitized:
+        sanitized = "uploaded.h5"
+    # Ensure .h5 extension
+    if not sanitized.lower().endswith(".h5"):
+        sanitized += ".h5"
+
+    # Read raw bytes from request body
+    raw_body = handler.rfile.read(content_length)
+
+    # Upload to S3
+    try:
+        from boto3 import client as _s3_client  # noqa: PLC0415
+
+        s3 = _s3_client("s3")
+        key = f"{config['h5_prefix']}{sanitized}"
+        s3.put_object(
+            Bucket=config["h5_bucket"],
+            Key=key,
+            Body=raw_body,
+        )
+
+        body = _json.dumps({
+            "status": "uploaded",
+            "id": key,
+            "filename": sanitized,
+            "size_bytes": content_length,
+            "request_id": request_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(201)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+    except Exception as exc:
+        body = _json.dumps({
+            "status": "upload_rejected",
+            "error": f"S3 upload failed: {type(exc).__name__}",
+            "request_id": request_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(503)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+
+
+def _handle_demo_h5_analyze(
+    handler: BaseHTTPRequestHandler,
+) -> None:
+    """Handle POST /demo/api/h5/analyze — analyze selected H5 container."""
+    import json as _json  # noqa: PLC0415
+    from datetime import datetime, timezone  # noqa: PLC0415
+    from ..h5_inputs import stage_h5_input  # noqa: PLC0415
+    from ..api.inference_handler import run_inference  # noqa: PLC0415
+    from .model_state import ModelState  # noqa: PLC0415
+
+    def _now() -> str:
+        return datetime.now(timezone.utc).isoformat()
+
+    request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())
+    job_id = str(uuid.uuid4())
+    events: list[dict] = []
+
+    # Read body
+    content_length = int(handler.headers.get("Content-Length", 0))
+    if content_length == 0:
+        events.append({
+            "event": "request_received", "timestamp": _now(),
+            "detail": "Analyze requested (empty body)",
+        })
+        body = _json.dumps({
+            "status": "failed",
+            "events": events,
+            "error": "Missing JSON body",
+            "request_id": request_id,
+            "job_id": job_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(400)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+        return
+
+    raw = handler.rfile.read(content_length)
+    try:
+        body_dict = _json.loads(raw)
+    except (_json.JSONDecodeError, ValueError):
+        events.append({
+            "event": "request_received", "timestamp": _now(),
+            "detail": "Analyze requested (invalid JSON)",
+        })
+        body = _json.dumps({
+            "status": "failed",
+            "events": events,
+            "error": "Invalid JSON body",
+            "request_id": request_id,
+            "job_id": job_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(400)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+        return
+
+    container_id = body_dict.get("container_id", "").strip()
+
+    events.append({
+        "event": "request_received",
+        "timestamp": _now(),
+        "detail": "Analyze requested",
+    })
+
+    if not container_id:
+        events.append({
+            "event": "h5_container_unavailable",
+            "timestamp": _now(),
+            "detail": "Missing container_id",
+        })
+        body = _json.dumps({
+            "status": "failed",
+            "events": events,
+            "error": "container_id is required",
+            "request_id": request_id,
+            "job_id": job_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(400)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+        return
+
+    events.append({
+        "event": "container_selected",
+        "timestamp": _now(),
+        "detail": f"Container: {container_id}",
+    })
+
+    # Check storage configured
+    config = read_demo_h5_config()
+    if config["h5_bucket"] is None:
+        events.append({
+            "event": "storage_not_configured",
+            "timestamp": _now(),
+            "detail": "Demo H5 bucket not configured",
+        })
+        body = _json.dumps({
+            "status": "failed",
+            "events": events,
+            "request_id": request_id,
+            "job_id": job_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(503)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+        return
+
+    # Check model ready
+    if not ModelState.is_ready():
+        events.append({
+            "event": "model_not_ready",
+            "timestamp": _now(),
+            "detail": "Model is not loaded",
+        })
+        load_error = ModelState.get_load_error()
+        if load_error:
+            events[-1]["detail"] = f"Model not ready: {load_error}"
+        body = _json.dumps({
+            "status": "failed",
+            "events": events,
+            "request_id": request_id,
+            "job_id": job_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(200)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+        return
+
+    # Stage H5 from S3
+    s3_uri = f"s3://{config['h5_bucket']}/{container_id}"
+
+    events.append({
+        "event": "h5_staging_started",
+        "timestamp": _now(),
+        "detail": f"Staging from {config['h5_bucket']}",
+    })
+
+    try:
+        staged_path = stage_h5_input(s3_uri)
+        events.append({
+            "event": "h5_staging_completed",
+            "timestamp": _now(),
+            "detail": f"Staged: {staged_path.name}",
+        })
+    except Exception as exc:
+        events.append({
+            "event": "h5_container_unavailable",
+            "timestamp": _now(),
+            "detail": f"S3 download failed: {type(exc).__name__}",
+        })
+        body = _json.dumps({
+            "status": "failed",
+            "events": events,
+            "request_id": request_id,
+            "job_id": job_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(200)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+        return
+
+    # Preflight
+    events.append({
+        "event": "h5_preflight_started",
+        "timestamp": _now(),
+        "detail": "Running H5 preflight",
+    })
+
+    # Preprocessing
+    events.append({
+        "event": "preprocessing_started",
+        "timestamp": _now(),
+        "detail": "Starting preprocessing bridge",
+    })
+
+    # Model inference
+    events.append({
+        "event": "model_inference_started",
+        "timestamp": _now(),
+        "detail": f"Model version: {body_dict.get('model_version', 'current')}",
+    })
+
+    try:
+        result = run_inference(str(staged_path))
+
+        events.append({
+            "event": "h5_preflight_completed",
+            "timestamp": _now(),
+            "detail": "Preflight passed",
+        })
+        events.append({
+            "event": "preprocessing_completed",
+            "timestamp": _now(),
+            "detail": "15 features extracted",
+        })
+        events.append({
+            "event": "model_inference_completed",
+            "timestamp": _now(),
+            "detail": f"p_mri_needed={result.get('p_mri_needed', 'N/A')}",
+        })
+        events.append({
+            "event": "evidence_built",
+            "timestamp": _now(),
+            "detail": "Evidence bundle assembled",
+        })
+        events.append({
+            "event": "completed",
+            "timestamp": _now(),
+            "detail": "Analysis complete",
+        })
+
+        body = _json.dumps({
+            "status": "completed",
+            "events": events,
+            "result": {
+                "p_mri_needed": result.get("p_mri_needed"),
+                "triage_recommendation": result.get("triage_recommendation"),
+                "qc_status": result.get("qc_status"),
+                "model_version": result.get("model_version"),
+                "feature_schema_version": result.get("feature_schema_version"),
+                "prediction_id": result.get("prediction_id"),
+            },
+            "evidence": {
+                "model_version": result.get("model_version"),
+                "model_checksum": result.get("model_checksum"),
+                "feature_schema_version": result.get("feature_schema_version"),
+                "threshold_version": result.get("threshold_version"),
+                "prediction_id": result.get("prediction_id"),
+            },
+            "container": {
+                "id": container_id,
+                "bucket": config["h5_bucket"],
+            },
+            "request_id": request_id,
+            "job_id": job_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(200)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+
+    except RuntimeError as exc:
+        err_str = str(exc).lower()
+        if "preflight" in err_str:
+            events.append({
+                "event": "h5_preflight_failed",
+                "timestamp": _now(),
+                "detail": str(exc)[:200],
+            })
+            status_msg = "h5_preflight_failed"
+        elif "preprocessing" in err_str or "bridge" in err_str:
+            events.append({
+                "event": "preprocessing_failed",
+                "timestamp": _now(),
+                "detail": str(exc)[:200],
+            })
+            status_msg = "preprocessing_failed"
+        else:
+            events.append({
+                "event": "inference_failed",
+                "timestamp": _now(),
+                "detail": str(exc)[:200],
+            })
+            status_msg = "inference_failed"
+
+        body = _json.dumps({
+            "status": "failed",
+            "events": events,
+            "request_id": request_id,
+            "job_id": job_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(200)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+
+    except Exception:
+        events.append({
+            "event": "inference_failed",
+            "timestamp": _now(),
+            "detail": "Unexpected inference error",
+        })
+        body = _json.dumps({
+            "status": "failed",
+            "events": events,
+            "request_id": request_id,
+            "job_id": job_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(200)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
 
 
 def run_server(
