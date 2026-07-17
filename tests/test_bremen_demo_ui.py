@@ -135,9 +135,9 @@ class TestHtmlPageContent:
         assert html.strip().startswith("<!DOCTYPE html>")
 
     def test_no_javascript(self):
-        """HTML contains no <script> tags."""
+        """HTML contains inline JavaScript for H5 container interactions."""
         html = build_demo_html_page()
-        assert "<script>" not in html.lower()
+        assert "<script>" in html.lower()
 
     def test_html_structure(self):
         """HTML has html, head, body tags."""
@@ -171,14 +171,90 @@ class TestHtmlPageContent:
         assert "Evidence Bundle" in html
 
     def test_demo_flow_card_present(self):
-        """HTML includes demo flow card."""
+        """HTML includes H5 Container Workspace card (replaces old Demo Flow)."""
         html = build_demo_html_page()
-        assert "Demo Flow" in html
+        assert "H5 Container Workspace" in html
 
     def test_footer_has_safety_disclaimer(self):
         """HTML footer includes safety disclaimer."""
         html = build_demo_html_page()
         assert "Does not replace MRI" in html
+
+    def test_contains_h5_container_workspace(self):
+        """HTML includes H5 Container Workspace card."""
+        html = build_demo_html_page()
+        assert "H5 Container Workspace" in html
+
+    def test_contains_container_list_div(self):
+        """HTML includes container list div with id='container-list'."""
+        html = build_demo_html_page()
+        assert 'id="container-list"' in html
+
+    def test_contains_upload_file_input(self):
+        """HTML includes file input for H5 upload."""
+        html = build_demo_html_page()
+        assert 'type="file"' in html
+        assert 'accept=".h5,.hdf5"' in html
+        assert 'id="h5-file-input"' in html
+
+    def test_contains_upload_button(self):
+        """HTML includes Upload button."""
+        html = build_demo_html_page()
+        assert 'onclick="uploadH5()"' in html
+
+    def test_contains_analyze_button(self):
+        """HTML includes Analyze button."""
+        html = build_demo_html_page()
+        assert 'onclick="analyzeH5()"' in html
+
+    def test_contains_events_logs_card(self):
+        """HTML includes Events / Logs card."""
+        html = build_demo_html_page()
+        assert "Events / Logs" in html
+
+    def test_contains_inline_javascript(self):
+        """HTML contains inline <script> tag with demo logic."""
+        html = build_demo_html_page()
+        assert "<script>" in html
+        assert "loadContainers" in html
+
+    def test_no_synthetic_feature_artifact_as_primary(self):
+        """HTML does not contain 'Synthetic Feature Artifact' as primary flow."""
+        html = build_demo_html_page()
+        assert "Synthetic Feature Artifact" not in html
+
+    def test_no_redacted_text_in_js(self):
+        """HTML does not contain [REDACTED] literal text."""
+        html = build_demo_html_page()
+        assert "[REDACTED]" not in html
+
+    def test_upload_size_limit_is_numeric(self):
+        """Client-side upload size limit is a numeric value."""
+        html = build_demo_html_page()
+        # The JS should contain file.size > followed by a numeric value
+        assert "file.size > " in html
+        # Confirm a numeric value follows (default 100 MB)
+        import re as _re
+        match = _re.search(r"file\.size > (\d+)", html)
+        assert match is not None, "file.size > should be followed by a number"
+        limit = int(match.group(1))
+        assert limit > 0, f"upload limit should be positive, got {limit}"
+        # Should be in a reasonable range (1 MB to 1 GB)
+        assert 1_000_000 <= limit <= 1_073_741_824, (
+            f"upload limit {limit} outside reasonable range"
+        )
+
+    def test_no_external_network_calls_in_js(self):
+        """Inline JavaScript only makes fetch calls to relative /demo/api/* paths."""
+        html = build_demo_html_page()
+        # Extract script content
+        script_start = html.lower().find("<script>")
+        script_end = html.lower().find("</script>")
+        if script_start != -1 and script_end != -1:
+            script_content = html[script_start:script_end]
+            # Should not contain absolute URLs
+            assert "http://" not in script_content
+            assert "https://" not in script_content
 
 
 # ===================================================================
@@ -289,11 +365,12 @@ class TestNoAramisReferences:
 
 class TestImportSafety:
     def test_no_h5_references(self):
-        """Module does not reference h5, hdf5, or h5py."""
+        """Module does not import h5py or reference H5 at module level."""
         source = MODULE_PATH.read_text(encoding="utf-8").lower()
-        assert ".h5" not in source
-        assert ".hdf5" not in source
-        assert "h5py" not in source
+        # The module may reference .h5/.hdf5 as string patterns for
+        # UI file input accept attributes, but must not import h5py.
+        assert "import h5py" not in source
+        assert "from h5py" not in source
 
     def test_no_joblib_or_pickle(self):
         """Module does not reference joblib or pickle."""
