@@ -389,31 +389,58 @@ def _handle_demo_route(handler: BaseHTTPRequestHandler) -> None:
     """Handle GET /demo — return a board-friendly HTML demo page.
 
     Uses lazy imports to avoid module-level coupling with demo modules.
+    Reads actual model state from ``ModelState`` singleton (not hardcoded).
     """
     import json as _json  # noqa: PLC0415
+    import uuid as _uuid  # noqa: PLC0415
 
     from ..demo_ui import build_demo_html_page  # noqa: PLC0415
     from ..demo_evidence import build_demo_evidence_bundle  # noqa: PLC0415
     from ..demo_config import read_demo_h5_config  # noqa: PLC0415
+    from .model_state import ModelState  # noqa: PLC0415
 
-    request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())
+    request_id = handler.headers.get("X-Request-ID") or str(_uuid.uuid4())
     host_header = handler.headers.get("Host", "localhost")
     base_url = f"http://{host_header}"
+
+    # ---- Determine actual model state from ModelState ----
+    model_pkg = ModelState.get_model()
+    if model_pkg is not None:
+        state = ModelState.get_instance()
+        plr = model_pkg.get("portable_logreg", {})
+        model_info = {
+            "model_status": "ready",
+            "model_version": state._model_version or plr.get("model_version") or "unknown",
+            "model_checksum": state._model_checksum or "",
+            "feature_schema_version": plr.get("feature_schema_version"),
+        }
+    elif ModelState.was_load_attempted():
+        model_info = {
+            "model_status": "error",
+            "error_category": ModelState.get_load_error(),
+        }
+    else:
+        model_info = {"model_status": "not_configured"}
 
     evidence = build_demo_evidence_bundle(
         base_url=base_url,
         request_id=request_id,
-        model_status="ready",
+        model_status=model_info.get("model_status", "not_configured"),
+        model_version=model_info.get("model_version"),
+        feature_schema_version=model_info.get("feature_schema_version"),
         prediction_status="not_available",
     )
 
     demo_config = read_demo_h5_config()
+    storage_configured = demo_config.get("h5_bucket") is not None
 
     html = build_demo_html_page(
         evidence=evidence,
         base_url=base_url,
         request_id=request_id,
-        upload_max_bytes=demo_config["upload_max_bytes"],
+        model_info=model_info,
+        storage_configured=storage_configured,
+        upload_max_bytes=demo_config.get("upload_max_bytes", 100 * 1024 * 1024),
     )
     body = html.encode("utf-8")
     handler.send_response(200)

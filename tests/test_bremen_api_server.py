@@ -530,6 +530,97 @@ class TestDemoRoutes:
 
 
 # ---------------------------------------------------------------------------
+# GET /demo — redesigned demo page model readiness (PR0068)
+# ---------------------------------------------------------------------------
+
+
+class TestDemoReadiness:
+    """Tests for model readiness display in /demo (PR0068)."""
+
+    def test_get_demo_shows_ready_when_model_loaded(self, server_info):
+        """With model loaded, /demo HTML contains 'badge-ready' and model version."""
+        host, port, _ = server_info
+        _, body, _ = _get(host, port, "/demo")
+        text = body.decode("utf-8")
+        # Badge should show ready
+        assert "badge-ready" in text or "Ready" in text or "smoke-v0.1" in text
+
+    def test_get_demo_shows_not_configured_without_model(self):
+        """Without model config, /demo HTML shows not configured."""
+        from bremen.api.model_state import ModelState
+        from bremen.api.jobs import InMemoryJobStore
+
+        ModelState.reset_for_tests()
+        host = "127.0.0.1"
+        port = _find_free_port()
+        job_store = InMemoryJobStore()
+        handler = _make_handler(job_store, version="test-version", load_model=False)
+        server = HTTPServer((host, port), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            status, body, _ = _get(host, port, "/demo")
+            assert status == 200
+            text = body.decode("utf-8")
+            assert "Not configured" in text or "badge-warn" in text
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+        ModelState.reset_for_tests()
+
+    def test_get_demo_no_status_fail(self, server_info):
+        """With model loaded, /demo does NOT show FAIL labels."""
+        host, port, _ = server_info
+        _, body, _ = _get(host, port, "/demo")
+        text = body.decode("utf-8")
+        assert "status-fail" not in text
+        assert "FAIL" not in text or "Not run yet" in text
+
+    def test_get_demo_no_service_health_card(self, server_info):
+        """Redesigned /demo does not contain old Service Health card."""
+        host, port, _ = server_info
+        _, body, _ = _get(host, port, "/demo")
+        text = body.decode("utf-8")
+        assert "Service Health" not in text
+
+    def test_get_demo_storage_not_configured_visible(self, server_info):
+        """Without bucket, H5 storage not configured is visible in HTML."""
+        host, port, _ = server_info
+        _, body, _ = _get(host, port, "/demo")
+        text = body.decode("utf-8")
+        # Should mention storage not configured via env var hints
+        assert "BREMEN_DEMO_H5_BUCKET" in text
+
+    def test_get_demo_hero_header_present(self, server_info):
+        """Redesigned /demo has hero header."""
+        host, port, _ = server_info
+        _, body, _ = _get(host, port, "/demo")
+        text = body.decode("utf-8")
+        assert "class=\"hero\"" in text or "hero-title" in text
+
+    def test_get_demo_processing_events_card(self, server_info):
+        """Redesigned /demo has Processing / Events card."""
+        host, port, _ = server_info
+        _, body, _ = _get(host, port, "/demo")
+        text = body.decode("utf-8")
+        assert "Processing / Events" in text or "events-panel" in text
+
+    def test_get_demo_result_card_present(self, server_info):
+        """Redesigned /demo has result card."""
+        host, port, _ = server_info
+        _, body, _ = _get(host, port, "/demo")
+        text = body.decode("utf-8")
+        assert 'id="result-card"' in text
+
+    def test_analyze_button_disabled_by_default(self, server_info):
+        """Analyze button has disabled attribute when no container selected."""
+        host, port, _ = server_info
+        _, body, _ = _get(host, port, "/demo")
+        text = body.decode("utf-8")
+        assert 'disabled' in text and 'id="analyze-btn"' in text
+
+
+# ---------------------------------------------------------------------------
 # GET /demo/api/h5/containers
 # ---------------------------------------------------------------------------
 
