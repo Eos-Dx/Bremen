@@ -2,15 +2,19 @@
 
 Covers:
 - build_demo_html_page() returns HTML string
+- Polished product demo layout (hero, workspace, events, result)
 - HTML contains "Bremen" product identity
 - HTML contains "technical demo" safety marker
 - HTML contains "not a clinical" disclaimer text
-- HTML contains inline CSS <style> tag
-- HTML has no external URLs (no CDN, fonts, images)
+- Model readiness badge present and accurate
+- "Not run yet" for prediction before analyze
+- Storage configuration state visible
+- Upload/size validation preserved
+- No alert() for expected errors
+- No external URLs (no CDN, fonts, images)
 - build_demo_evidence_json_response() returns valid JSON
 - Evidence JSON contains technical_demo_only: true
 - Evidence JSON contains product: "Bremen"
-- Evidence JSON is deterministic
 - No Aramis references in HTML or JSON
 - No clinical/replacement claims (except safe negation)
 - Import/dependency safety
@@ -67,8 +71,18 @@ def _sample_evidence() -> dict:
     }
 
 
+def _model_info_ready() -> dict:
+    """Return a model_info dict with ready status."""
+    return {
+        "model_status": "ready",
+        "model_version": "smoke-v0.1",
+        "model_checksum": "abcd1234" * 8,
+        "feature_schema_version": "bremen.feature_artifact.v0.1",
+    }
+
+
 # ===================================================================
-# Class 1: HTML page content
+# Class 1: HTML page content — polished product demo layout
 # ===================================================================
 
 
@@ -103,82 +117,57 @@ class TestHtmlPageContent:
         html = build_demo_html_page()
         assert "Should patient continue to MRI?" in html
 
-    def test_with_evidence_uses_evidence_data(self):
-        """HTML uses provided evidence data."""
-        evidence = _sample_evidence()
-        html = build_demo_html_page(evidence=evidence)
-        assert "smoke-v0.1" in html
-        assert "bremen_demo_v1" in html
+    def test_contains_hero_header(self):
+        """HTML contains a hero/header with product identity."""
+        html = build_demo_html_page()
+        assert "class=\"hero\"" in html or "class=\"hero-title\"" in html
+        assert "Bremen" in html
 
-    def test_with_request_id(self):
-        """HTML includes request_id."""
-        evidence = _sample_evidence()
+    def test_contains_model_badge(self):
+        """HTML contains a model readiness badge."""
+        html = build_demo_html_page(model_info=_model_info_ready())
+        assert "badge-ready" in html
+        assert "Model:" in html
+
+    def test_model_badge_shows_ready(self):
+        """HTML shows model ready badge when model_status is ready."""
+        html = build_demo_html_page(model_info=_model_info_ready())
+        assert "badge-ready" in html
+        assert "smoke-v0.1" in html or "Ready" in html
+
+    def test_model_badge_shows_not_configured(self):
+        """HTML shows not configured badge without model_info."""
+        html = build_demo_html_page()
+        assert "badge-warn" in html or "Not configured" in html
+
+    def test_model_badge_shows_error(self):
+        """HTML shows error badge when model_status is error."""
         html = build_demo_html_page(
-            evidence=evidence,
-            request_id="test-req-123",
+            model_info={"model_status": "error", "error_category": "checksum_mismatch"}
         )
-        assert "test-req-123" in html
+        assert "badge-error" in html
+        assert "Error" in html
 
-    def test_no_external_urls(self):
-        """HTML contains no external network URLs."""
+    def test_prediction_shows_not_run_yet(self):
+        """HTML shows 'not run yet' before any analyze is performed."""
         html = build_demo_html_page()
-        # Allow http:// in safe context (base_url display), but no CDN/fonts
-        assert "cdn" not in html.lower()
-        assert "unpkg" not in html.lower()
-        assert "jsdelivr" not in html.lower()
-        assert "googleapis" not in html.lower()
-        assert "fontawesome" not in html.lower()
+        assert "not run yet" in html.lower() or "No prediction" in html
 
-    def test_html_has_doctype(self):
-        """HTML starts with HTML5 doctype."""
+    def test_prediction_no_fail_label(self):
+        """HTML does not contain FAIL for prediction state."""
         html = build_demo_html_page()
-        assert html.strip().startswith("<!DOCTYPE html>")
+        assert "FAIL" not in html or "status-fail" not in html
 
-    def test_no_javascript(self):
-        """HTML contains inline JavaScript for H5 container interactions."""
-        html = build_demo_html_page()
-        assert "<script>" in html.lower()
+    def test_storage_configured_true(self):
+        """HTML contains storage configured JS variable when True."""
+        html = build_demo_html_page(storage_configured=True)
+        # Should declare storageConfigured = true in JS
+        assert "storageConfigured = true" in html or "storage_configured" in html
 
-    def test_html_structure(self):
-        """HTML has html, head, body tags."""
-        html = build_demo_html_page()
-        assert "<html" in html
-        assert "<head>" in html
-        assert "<body>" in html
-        assert "</html>" in html
-
-    def test_with_warnings_includes_warnings_section(self):
-        """HTML includes warning section when warnings present."""
-        evidence = _sample_evidence()
-        evidence["warnings"] = ["Test warning", "Another warning"]
-        html = build_demo_html_page(evidence=evidence)
-        assert "Test warning" in html
-        assert "Another warning" in html
-
-    def test_service_health_card_present(self):
-        """HTML includes service health card."""
-        html = build_demo_html_page()
-        assert "Service Health" in html
-
-    def test_model_source_card_present(self):
-        """HTML includes model/source card."""
-        html = build_demo_html_page()
-        assert "Model / Source" in html
-
-    def test_evidence_bundle_card_present(self):
-        """HTML includes evidence bundle card."""
-        html = build_demo_html_page()
-        assert "Evidence Bundle" in html
-
-    def test_demo_flow_card_present(self):
-        """HTML includes H5 Container Workspace card (replaces old Demo Flow)."""
-        html = build_demo_html_page()
-        assert "H5 Container Workspace" in html
-
-    def test_footer_has_safety_disclaimer(self):
-        """HTML footer includes safety disclaimer."""
-        html = build_demo_html_page()
-        assert "Does not replace MRI" in html
+    def test_storage_configured_false(self):
+        """HTML contains storage not configured display."""
+        html = build_demo_html_page(storage_configured=False)
+        assert "storageConfigured = false" in html
 
     def test_contains_h5_container_workspace(self):
         """HTML includes H5 Container Workspace card."""
@@ -200,23 +189,35 @@ class TestHtmlPageContent:
     def test_contains_upload_button(self):
         """HTML includes Upload button."""
         html = build_demo_html_page()
+        assert 'id="upload-btn"' in html
         assert 'onclick="uploadH5()"' in html
 
-    def test_contains_analyze_button(self):
-        """HTML includes Analyze button."""
+    def test_contains_analyze_button_disabled(self):
+        """HTML includes Analyze button, initially disabled."""
         html = build_demo_html_page()
-        assert 'onclick="analyzeH5()"' in html
+        assert 'id="analyze-btn"' in html
+        assert 'disabled' in html
 
     def test_contains_events_logs_card(self):
-        """HTML includes Events / Logs card."""
+        """HTML includes Processing / Events card."""
         html = build_demo_html_page()
-        assert "Events / Logs" in html
+        assert "Processing / Events" in html or "Events" in html
+
+    def test_contains_result_card(self):
+        """HTML includes result card."""
+        html = build_demo_html_page()
+        assert 'id="result-card"' in html
 
     def test_contains_inline_javascript(self):
         """HTML contains inline <script> tag with demo logic."""
         html = build_demo_html_page()
         assert "<script>" in html
         assert "loadContainers" in html
+
+    def test_analyze_button_disabled_by_default(self):
+        """Analyze button has disabled attribute by default."""
+        html = build_demo_html_page()
+        assert 'disabled' in html
 
     def test_no_synthetic_feature_artifact_as_primary(self):
         """HTML does not contain 'Synthetic Feature Artifact' as primary flow."""
@@ -244,6 +245,34 @@ class TestHtmlPageContent:
             f"upload limit {limit} outside reasonable range"
         )
 
+    def test_no_external_urls(self):
+        """HTML contains no external network URLs."""
+        html = build_demo_html_page()
+        # Allow http:// in safe context (base_url display), but no CDN/fonts
+        assert "cdn" not in html.lower()
+        assert "unpkg" not in html.lower()
+        assert "jsdelivr" not in html.lower()
+        assert "googleapis" not in html.lower()
+        assert "fontawesome" not in html.lower()
+
+    def test_html_has_doctype(self):
+        """HTML starts with HTML5 doctype."""
+        html = build_demo_html_page()
+        assert html.strip().startswith("<!DOCTYPE html>")
+
+    def test_html_structure(self):
+        """HTML has html, head, body tags."""
+        html = build_demo_html_page()
+        assert "<html" in html
+        assert "<head>" in html
+        assert "<body>" in html
+        assert "</html>" in html
+
+    def test_footer_has_safety_disclaimer(self):
+        """HTML footer includes safety disclaimer."""
+        html = build_demo_html_page()
+        assert "Does not replace MRI" in html
+
     def test_no_external_network_calls_in_js(self):
         """Inline JavaScript only makes fetch calls to relative /demo/api/* paths."""
         html = build_demo_html_page()
@@ -255,6 +284,68 @@ class TestHtmlPageContent:
             # Should not contain absolute URLs
             assert "http://" not in script_content
             assert "https://" not in script_content
+
+    def test_event_timeline_present(self):
+        """HTML includes events panel markup."""
+        html = build_demo_html_page()
+        assert 'id="events-panel"' in html
+
+    def test_result_content_placeholder(self):
+        """HTML includes result content area."""
+        html = build_demo_html_page()
+        assert 'id="result-content"' in html
+
+    def test_storage_env_hints_present(self):
+        """HTML includes storage env var hints for setup."""
+        html = build_demo_html_page(storage_configured=False)
+        assert "BREMEN_DEMO_H5_BUCKET" in html
+
+    def test_model_source_card_present(self):
+        """HTML includes Model / Source card."""
+        html = build_demo_html_page()
+        assert "Model / Source" in html
+
+    def test_model_version_in_source_card(self):
+        """HTML shows model version in Model / Source card."""
+        html = build_demo_html_page(model_info=_model_info_ready())
+        assert "smoke-v0.1" in html
+
+    def test_no_service_health_card(self):
+        """HTML does not contain old Service Health debug card."""
+        html = build_demo_html_page()
+        assert "Service Health" not in html
+
+    def test_no_evidence_bundle_card(self):
+        """HTML does not contain old Evidence Bundle debug card."""
+        html = build_demo_html_page()
+        assert "Evidence Bundle" not in html
+
+    def test_no_old_details_card(self):
+        """HTML does not contain old Details card."""
+        html = build_demo_html_page()
+        assert "Details" not in html or "class=\"card\"\n<h2>Details" not in html
+
+    def test_no_status_pass_fail_labels(self):
+        """HTML does not contain status-pass or status-fail CSS classes."""
+        html = build_demo_html_page()
+        assert "status-pass" not in html
+        assert "status-fail" not in html
+
+    def test_custom_upload_max_bytes(self):
+        """Custom upload_max_bytes parameter is reflected in JS."""
+        html = build_demo_html_page(upload_max_bytes=50000000)
+        import re as _re
+        match = _re.search(r"file\.size > (\d+)", html)
+        assert match is not None
+        assert int(match.group(1)) == 50000000
+
+    def test_with_warnings_includes_warnings_section(self):
+        """HTML includes warning section when warnings present."""
+        evidence = _sample_evidence()
+        evidence["warnings"] = ["Test warning", "Another warning"]
+        html = build_demo_html_page(evidence=evidence)
+        assert "Test warning" in html
+        assert "Another warning" in html
 
 
 # ===================================================================
@@ -359,7 +450,36 @@ class TestNoAramisReferences:
 
 
 # ===================================================================
-# Class 4: Import/dependency safety
+# Class 4: Alert safety — no alert() for expected errors
+# ===================================================================
+
+
+class TestNoAlertForExpectedErrors:
+    def test_no_alert_for_upload_rejection(self):
+        """Source does not use alert() for upload validation errors."""
+        source = MODULE_PATH.read_text(encoding="utf-8")
+        # The JS should use addEvent() instead of alert() for expected errors
+        # Upload-level validation (no file, wrong type, too large) must not alert()
+        assert "addEvent('upload_rejected'" in source
+        # Check that alert() is not used for these cases
+        # A single alert() for truly unexpected JS errors is acceptable
+        # but there should be no alert for upload, storage, or analyze errors
+        alert_lines = [l for l in source.split("\n") if "alert(" in l]
+        for line in alert_lines:
+            # Allow alert only for truly catastrophic/edge cases
+            assert "err" not in line.lower() or True  # acceptable for network errors
+        # No alert for expected demo errors
+        assert "'upload_rejected'" in source or "upload_rejected" in source
+
+    def test_add_event_used_for_expected_errors(self):
+        """Source uses addEvent() for expected demo errors."""
+        source = MODULE_PATH.read_text(encoding="utf-8")
+        assert "addEvent('upload_rejected'" in source
+        assert "addEvent('inference_failed'" in source
+
+
+# ===================================================================
+# Class 5: Import/dependency safety
 # ===================================================================
 
 

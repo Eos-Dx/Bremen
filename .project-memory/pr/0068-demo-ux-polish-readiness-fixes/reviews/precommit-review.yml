@@ -1,0 +1,396 @@
+# Precommit Review — PR 0068 Demo UX Polish and Readiness Fixes
+review_type: precommit-review
+pr_id: "0068"
+reviewer: precommit-review
+timestamp: "2026-07-18T09:04:26Z"
+
+# ---------------------------------------------------------------------------
+# Snapshot
+# ---------------------------------------------------------------------------
+head: d9d18fbaf3c18ef28d07b81dfba9cf702b103bd9
+branch: 0068-demo-ux-polish-readiness-fixes
+status_short: |-
+  M src/bremen/api/server.py
+   M src/bremen/demo_ui.py
+   M tests/test_bremen_api_server.py
+   M tests/test_bremen_demo_ui.py
+  ?? .project-memory/pr/0068-demo-ux-polish-readiness-fixes/IMPLEMENTATION_REPORT.md
+diff_name_only: |-
+  src/bremen/api/server.py
+  src/bremen/demo_ui.py
+  tests/test_bremen_api_server.py
+  tests/test_bremen_demo_ui.py
+diff_stat: |-
+  src/bremen/api/server.py        |  33 +++-
+  src/bremen/demo_ui.py           | 386 ++++++++++++++++++++++++----------------
+  tests/test_bremen_api_server.py |  91 ++++++++++
+  tests/test_bremen_demo_ui.py    | 268 ++++++++++++++++++++--------
+  4 files changed, 545 insertions(+), 233 deletions(-)
+implementation_report: EXISTS
+
+# ---------------------------------------------------------------------------
+# VERDICT
+# ---------------------------------------------------------------------------
+VERDICT: pass
+
+# ---------------------------------------------------------------------------
+# BLOCKERS
+# ---------------------------------------------------------------------------
+BLOCKERS: []
+
+# ---------------------------------------------------------------------------
+# WARNINGS
+# ---------------------------------------------------------------------------
+WARNINGS: []
+
+# ---------------------------------------------------------------------------
+# VALIDATION
+# ---------------------------------------------------------------------------
+VALIDATION:
+  - command: git rev-parse --verify HEAD
+    exit_code: 0
+    output: d9d18fbaf3c18ef28d07b81dfba9cf702b103bd9
+  - command: git branch --show-current
+    exit_code: 0
+    output: 0068-demo-ux-polish-readiness-fixes
+  - command: git status --short
+    exit_code: 0
+    output: "M src/bremen/api/server.py\n M src/bremen/demo_ui.py\n M tests/test_bremen_api_server.py\n M tests/test_bremen_demo_ui.py\n?? .project-memory/pr/0068-demo-ux-polish-readiness-fixes/IMPLEMENTATION_REPORT.md"
+  - command: git diff --name-only
+    exit_code: 0
+    output: "src/bremen/api/server.py\nsrc/bremen/demo_ui.py\ntests/test_bremen_api_server.py\ntests/test_bremen_demo_ui.py"
+  - command: git diff --stat
+    exit_code: 0
+    output: |-
+      src/bremen/api/server.py        |  33 +++-
+      src/bremen/demo_ui.py           | 386 ++++++++++++++++++++++++----------------
+      tests/test_bremen_api_server.py |  91 ++++++++++
+      tests/test_bremen_demo_ui.py    | 268 ++++++++++++++++++++--------
+      4 files changed, 545 insertions(+), 233 deletions(-)
+  - command: test -f .project-memory/pr/0068-demo-ux-polish-readiness-fixes/IMPLEMENTATION_REPORT.md
+    exit_code: 0
+    output: EXISTS
+  - command: python -m compileall src tests
+    exit_code: 0
+    output: "No syntax errors"
+  - command: python -m pytest -q tests/test_bremen_demo_ui.py
+    exit_code: 0
+    output: "60 passed in 1.83s"
+  - command: python -m pytest -q tests/test_bremen_api_server.py
+    exit_code: 0
+    output: "63 passed in 30.61s"
+  - command: python -m pytest -q tests/test_bremen_demo_smoke.py
+    exit_code: 0
+    output: "43 passed in 23.53s"
+  - command: python -m pytest -q tests/test_bremen_demo_run.py
+    exit_code: 0
+    output: "41 passed in 22.21s"
+  - command: python -m pytest -q tests/test_bremen_demo_capture.py
+    exit_code: 0
+    output: "37 passed in 1.24s"
+  - command: python -m pytest -q tests/test_bremen_api_skeleton.py
+    exit_code: 0
+    output: "51 passed in 1.28s"
+  - command: python -m pytest -q tests/test_bremen_dependency_hygiene.py
+    exit_code: 0
+    output: "10 passed in 0.01s"
+  - command: python -m pytest -q
+    exit_code: 0
+    output: "1308 passed, 11 skipped, 28 warnings in 117.19s"
+  - command: python -m bremen --help
+    exit_code: 0
+    output: Lists serve, demo-smoke, demo-run
+  - command: python -m bremen serve --help
+    exit_code: 0
+    output: "--host, --port only"
+  - command: python -m bremen demo-smoke --help
+    exit_code: 0
+    output: "--base-url, --timeout, --skip-prediction"
+  - command: python -m bremen demo-run --help
+    exit_code: 0
+    output: "--base-url, --timeout, --skip-prediction, --pretty, --capture-dir"
+  - command: grep -R -I -n "React\|react\|package.json\|vite\|webpack" src/bremen tests
+    exit_code: 1
+    output: "No matches"
+  - command: grep -R -I -n "alert(" src/bremen/demo_ui.py
+    exit_code: 1
+    output: "No matches in demo_ui.py source"
+  - command: grep -R -I -n "alert(" tests/test_bremen_demo_ui.py
+    exit_code: 0
+    output: "Only in comments/test assertions verifying absence of alert()"
+  - command: grep -R -I -n -- "--ui\|demo-run --ui" src/bremen tests
+    exit_code: 0
+    output: "Only in test assertions verifying --ui is rejected"
+  - command: grep -R -I -n "Synthetic Feature Artifact\|synthetic feature artifact" src/bremen/demo_ui.py
+    exit_code: 1
+    output: "No matches in demo_ui.py source"
+  - command: grep -R -I -n "https://\|http://.*cdn\|unpkg\|jsdelivr\|googleapis\|fontawesome" src/bremen/demo_ui.py
+    exit_code: 1
+    output: "No external assets/CDN in source"
+  - command: grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" src/bremen
+    exit_code: 0
+    output: "Only in demo_evidence.py prohibition patterns and validation code"
+    note: "No Aramis dependency or product labels in UI/server/tests"
+  - command: grep -R -I -n "diagnosis\|diagnose\|replaces MRI\|replace MRI\|replaces biopsy\|replace biopsy\|replaces radiologist\|replace radiologist\|replaces clinician\|replace clinician" src/bremen tests/test_bremen_demo_ui.py tests/test_bremen_api_server.py
+    exit_code: 0
+    output: "Only safe negation language (Does not replace...) and prohibition patterns"
+  - command: grep -R -I -n "joblib\.load\|pickle\.load\|import pickle" src/bremen
+    exit_code: 0
+    output: "Only in existing controlled modules (model_state.py, model_loader.py, modeling.py)"
+  - command: git diff --name-only -- .github infra/terraform Dockerfile Dockerfile.training requirements.txt pyproject.toml config/training frontend web ui package.json package-lock.json yarn.lock pnpm-lock.yaml tests/data
+    exit_code: 0
+    output: "No output — no forbidden files changed"
+  - command: git diff --name-only -- docs ROADMAP.md
+    exit_code: 0
+    output: "No output — docs/ROADMAP unchanged"
+  - command: git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|npy|npz|tfstate|tfstate\.backup)$" || true
+    exit_code: 1
+    output: "No H5/model/tfstate artifacts in diff"
+  - command: find . -name ".DS_Store" -print 2>/dev/null
+    exit_code: 0
+    output: "No .DS_Store found"
+  - command: date -u +%Y-%m-%dT%H:%M:%SZ
+    exit_code: 0
+    output: "2026-07-18T09:04:26Z"
+
+# ---------------------------------------------------------------------------
+# FILES READ
+# ---------------------------------------------------------------------------
+FILES_READ:
+  - .project-memory/pr/0068-demo-ux-polish-readiness-fixes/PLAN.md
+  - .project-memory/pr/0068-demo-ux-polish-readiness-fixes/reviews/plan-review.yml
+  - .project-memory/pr/0068-demo-ux-polish-readiness-fixes/IMPLEMENTATION_REPORT.md
+  - src/bremen/demo_ui.py
+  - src/bremen/api/server.py
+  - src/bremen/demo_config.py
+  - src/bremen/demo_evidence.py
+  - src/bremen/demo_smoke.py
+  - tests/test_bremen_demo_ui.py
+  - tests/test_bremen_api_server.py
+  - tests/test_bremen_demo_smoke.py
+  - tests/test_bremen_demo_run.py
+  - tests/test_bremen_demo_capture.py
+  - tests/test_bremen_api_skeleton.py
+  - tests/test_bremen_dependency_hygiene.py
+  - .project-memory/project_contract.yml
+  - AGENTS.md
+
+# ---------------------------------------------------------------------------
+# FILES WRITTEN
+# ---------------------------------------------------------------------------
+FILES_WRITTEN:
+  - .project-memory/pr/0068-demo-ux-polish-readiness-fixes/reviews/precommit-review.yml
+
+# ---------------------------------------------------------------------------
+# SNAPSHOT DELTA
+# ---------------------------------------------------------------------------
+SNAPSHOT_DELTA:
+  head: d9d18fbaf3c18ef28d07b81dfba9cf702b103bd9
+  branch: 0068-demo-ux-polish-readiness-fixes
+  status: 4 modified (server.py, demo_ui.py, test_bremen_api_server.py, test_bremen_demo_ui.py), 1 untracked (IMPLEMENTATION_REPORT.md)
+  diff_files_count: 4
+  diff_insertions: 545
+  diff_deletions: 233
+
+# ---------------------------------------------------------------------------
+# SCOPE CHECK
+# ---------------------------------------------------------------------------
+SCOPE_CHECK:
+  verdict: pass
+  details: "Implementation focuses exclusively on demo UX polish and readiness fixes for /demo. No React/frontend build, deployment automation, multi-tenancy, model profiles/plugins, or Aramis alignment introduced."
+
+# ---------------------------------------------------------------------------
+# UX REDESIGN CHECK
+# ---------------------------------------------------------------------------
+UX_REDESIGN_CHECK:
+  verdict: pass
+  details: |-
+    /demo page completely redesigned from debug-card layout to polished product demo.
+    Old layout (removed): Service Health card with PASS/FAIL labels, Model/Source card,
+    Evidence Bundle card, Demo Flow card, _status() function.
+    New layout: Safety banner, Hero header (product name, question, model readiness badge),
+    H5 Container Workspace (storage status, container list, upload, select, analyze),
+    Processing/Events panel (color-coded timeline), Result card (hidden until analyze),
+    Model/Source information card, safety disclaimer footer.
+    All verified by direct source reading and test assertions.
+
+# ---------------------------------------------------------------------------
+# READINESS CONSISTENCY CHECK
+# ---------------------------------------------------------------------------
+READINESS_CONSISTENCY_CHECK:
+  verdict: pass
+  details: |-
+    Model state now read from ModelState singleton in _handle_demo_route() instead of
+    hardcoded "ready". Three actual states: "ready" (green badge with version),
+    "not_configured" (yellow badge), "error" (red badge). Prediction before Analyze
+    shows "No prediction has been run yet. Select an H5 container and click Analyze."
+    Verified: test_get_demo_shows_ready_when_model_loaded, test_get_demo_no_status_fail,
+    test_get_demo_shows_not_configured_without_model.
+
+# ---------------------------------------------------------------------------
+# STORAGE CONFIG CHECK
+# ---------------------------------------------------------------------------
+STORAGE_CONFIG_CHECK:
+  verdict: pass
+  details: |-
+    storage_not_configured handled inline at workspace top with yellow warning badge
+    and env var hints (BREMEN_DEMO_H5_BUCKET, BREMEN_DEMO_H5_PREFIX, etc.).
+    Upload section hidden when not configured. No alert() for storage errors.
+    Verified: test_get_demo_storage_not_configured_visible asserts BREMEN_DEMO_H5_BUCKET
+    in HTML. Inline JS updateStorageUI() shows storage-missing status without alert().
+
+# ---------------------------------------------------------------------------
+# CONTAINER WORKFLOW CHECK
+# ---------------------------------------------------------------------------
+CONTAINER_WORKFLOW_CHECK:
+  verdict: pass
+  details: |-
+    H5 container list/upload/select/Analyze/logs/result workflow fully preserved:
+    - GET /demo/api/h5/containers lists containers with storage state
+    - POST /demo/api/h5/containers upload handler with all validation
+    - Container selection with Select button, highlighted row
+    - Selected container shown in blue info area, Analyze button enabled
+    - POST /demo/api/h5/analyze returns structured events and result
+    - Events panel shows color-coded timeline
+    - Result card shows prediction outcome when available
+    Verified by source reading and test coverage.
+
+# ---------------------------------------------------------------------------
+# REACT/DEPENDENCY CHECK
+# ---------------------------------------------------------------------------
+REACT_DEPENDENCY_CHECK:
+  verdict: pass
+  details: |-
+    No React, no package.json, no vite/webpack/frontend build. grep returns no matches.
+    No new dependencies added. Self-contained HTML/CSS/JS, standard library only.
+    No CDN/external assets — verified by grep for CDN URLs, unpkg, jsdelivr,
+    googleapis, fontawesome returning no matches in source.
+
+# ---------------------------------------------------------------------------
+# STARTUP SIMPLICITY CHECK
+# ---------------------------------------------------------------------------
+STARTUP_SIMPLICITY_CHECK:
+  verdict: pass
+  details: "No --ui flag, no new startup command. No root / demo page (root / still 404). Verified by test_get_demo_root_still_404 and grep checks."
+
+# ---------------------------------------------------------------------------
+# SAFETY CHECK
+# ---------------------------------------------------------------------------
+SAFETY_CHECK:
+  verdict: pass
+  details: |-
+    No unsafe deserialization — only existing controlled modules use joblib. No new
+    joblib.load() or pickle.load() in demo_ui.py or server.py. No raw H5 logging,
+    no real patient data committed, no Aramis dependency, no clinical/replacement
+    claims (only safe negation "Does not replace..."), no deployment mutation,
+    no new dependencies. technical_demo_only preserved in all responses.
+
+# ---------------------------------------------------------------------------
+# PRESERVED BEHAVIOR CHECK
+# ---------------------------------------------------------------------------
+PRESERVED_BEHAVIOR_CHECK:
+  verdict: pass
+  details: |-
+    All existing endpoints and behaviors preserved:
+    - /health unchanged
+    - /model/version unchanged
+    - /predictions unchanged
+    - /predictions/{job_id} unchanged
+    - /demo/api/evidence unchanged
+    - /demo/api/h5/containers GET/POST unchanged
+    - /demo/api/h5/analyze unchanged
+    - demo-smoke CLI unchanged
+    - demo-run CLI unchanged (--pretty, --capture-dir preserved)
+    - serve CLI unchanged (--host, --port)
+    - request_id propagation preserved in all routes
+    - Root / still 404
+
+# ---------------------------------------------------------------------------
+# VALIDATION CHECK
+# ---------------------------------------------------------------------------
+VALIDATION_CHECK:
+  verdict: pass
+  details: |-
+    All 24 validation commands executed and passed:
+    - All pytest suites pass (1308 passed, 11 skipped)
+    - compileall passes (no syntax errors)
+    - CLI --help checks pass
+    - All safety grep checks pass with expected output
+    - No forbidden files changed
+    - No model/H5/tfstate artifacts
+
+# ---------------------------------------------------------------------------
+# IMPLEMENTATION REPORT CHECK
+# ---------------------------------------------------------------------------
+IMPLEMENTATION_REPORT_CHECK:
+  verdict: pass
+  details: |-
+    IMPLEMENTATION_REPORT.md exists and summarizes:
+    - files changed (4 modified, 1 new)
+    - UX redesign (full layout with sections)
+    - readiness consistency (ModelState singleton)
+    - storage configuration UX (inline status)
+    - container catalog UX (empty state, selected highlight)
+    - Analyze logs/result UX (color-coded events)
+    - React/no-React decision (no React)
+    - preserved behavior (all endpoints)
+    - safety boundaries (all verified)
+    - tests run (1308 passed)
+    - warnings (none)
+
+# ---------------------------------------------------------------------------
+# PROCESS RULES CHECK
+# ---------------------------------------------------------------------------
+PROCESS_RULES_CHECK:
+  verdict: pass
+  details: |-
+    Reviewer did not modify implementation files, run git mutations, Docker/Terraform/AWS,
+    or install dependencies. All evidence from filesystem reads and shell commands.
+
+# ---------------------------------------------------------------------------
+# COMMIT READINESS
+# ---------------------------------------------------------------------------
+COMMIT_READINESS:
+  ready_to_commit_implementation_artifacts: yes
+  required_files_to_stage:
+    - src/bremen/demo_ui.py
+    - tests/test_bremen_demo_ui.py
+    - .project-memory/pr/0068-demo-ux-polish-readiness-fixes/IMPLEMENTATION_REPORT.md
+    - .project-memory/pr/0068-demo-ux-polish-readiness-fixes/reviews/precommit-review.yml
+  conditionally_stage_if_changed_and_justified:
+    - src/bremen/api/server.py
+    - tests/test_bremen_api_server.py
+  files_to_exclude:
+    - any file outside expected implementation scope and review artifact
+
+# ---------------------------------------------------------------------------
+# BOUNDARY CONFIRMATIONS
+# ---------------------------------------------------------------------------
+BOUNDARY_CONFIRMATIONS:
+  demo_ux_polish_implemented: true
+  full_demo_redesign_implemented: true
+  no_react_added: true
+  no_package_manager_files_added: true
+  storage_not_configured_handled_inline: true
+  upload_errors_rendered_inline_not_alert_only: true
+  model_readiness_consistency_fixed: true
+  model_status_ready_displays_ready_in_demo: true
+  prediction_check_before_analyze_shows_not_run_yet_not_fail: true
+  h5_container_workspace_remains_product_input: true
+  upload_select_analyze_workflow_preserved: true
+  logs_events_result_ui_improved: true
+  no_new_startup_command: true
+  no_ui_flag: true
+  no_root_demo_page: true
+  no_deployment_mutation: true
+  no_terraform_github_actions_docker_changes: true
+  no_new_dependencies: true
+  no_unsafe_model_loading: true
+  no_h5_mutation: true
+  no_committed_h5_patient_data: true
+  no_aramis_dependency: true
+  no_clinical_diagnosis_replacement_claims: true
+  implementation_report_present: true
+  no_h5_model_tfstate_artifacts: true
+  no_implementation_files_modified_by_reviewer: true
+  no_git_mutation_commands: true
