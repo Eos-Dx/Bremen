@@ -1,0 +1,217 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: approve
+
+BLOCKERS:
+- <none>
+
+WARNINGS:
+- PLAN.md _list_s3_containers() docstring says "returns empty list" but code raises re-raise; this is a minor documentation/comment inconsistency. The caller (in _handle_demo_h5_containers_list) must catch the exception to set list_failed status. The coder should align the docstring or comment to match the raise behavior.
+- PLAN.md references S3 path containing "aramis" in example H5 filename (`aramis_real_h5_subset_20260128_5_patients.h5`). This is acknowledged as factual observation of existing S3 objects, not a planned Aramis dependency. Acceptable but should be noted for review awareness.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: 620986fa494815526bfe5b8bb82b08ae09bbaa94
+- command: git branch --show-current
+  exit code: 0
+  output: 0069-demo-live-rehearsal-analyze-fix
+- command: git status --short
+  exit code: 0
+  output: "?? .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/"
+- command: test -f .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/PLAN.md
+  exit code: 0
+  output: EXISTS
+- command: grep -n "S3\|s3\|ListBucket\|BREMEN_DEMO_H5_BUCKET\|BREMEN_DEMO_H5_PREFIX" .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/PLAN.md
+  exit code: 0
+  output: 58 matches — comprehensive S3 catalog listing coverage
+- command: grep -n "containers.*\[\]\|catalog\|listing\|selectable" .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/PLAN.md
+  exit code: 0
+  output: 19 matches — catalog listing and selectability covered
+- command: grep -n "uploaded.*selectable\|after upload" .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/PLAN.md
+  exit code: 0
+  output: "481:- confirm: uploaded containers selectable after upload planned: yes"
+- command: grep -n "Unexpected inference error\|stage-specific\|logger.exception\|exc_info\|traceback" .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/PLAN.md
+  exit code: 0
+  output: 23 matches — analyze observability comprehensively covered
+- command: grep -n "h5_preflight_failed\|preprocessing_failed\|inference_failed" .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/PLAN.md
+  exit code: 0
+  output: 8 matches — stage-specific failure events explicitly named
+- command: grep -n "model_inference_completed\|completed\|result" .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/PLAN.md
+  exit code: 0
+  output: 12 matches — success target explicitly defined
+- command: grep -n "fake success\|no fake" .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/PLAN.md
+  exit code: 0
+  output: "486:- confirm: no fake success planned: yes"
+- command: grep -n "React\|package manager\|new dependencies" .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/PLAN.md
+  exit code: 0
+  output: 9 matches — explicitly forbidden, no new dependencies
+- command: grep -n -- "--ui\|startup command\|root /" .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/PLAN.md
+  exit code: 0
+  output: 6 matches — explicitly forbidden
+- command: grep -n "technical_demo_only\|not a clinical result" .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/PLAN.md
+  exit code: 0
+  output: "173, 281" — safety markers present
+- command: grep -n "Agent: coder" .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/PLAN.md
+  exit code: 0
+  output: "44" — implementation agent correctly assigned
+- command: grep -n "Mode: implementation" .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/PLAN.md
+  exit code: 0
+  output: "45" — implementation mode correctly assigned
+- command: date -u +%Y-%m-%dT%H:%M:%SZ
+  exit code: 0
+  output: 2026-07-18T10:30:17Z
+- command: git diff --name-only HEAD
+  exit code: 0
+  output: (empty — no modified files)
+- command: find . -name ".DS_Store" -print
+  exit code: 0
+  output: (empty — no .DS_Store files)
+
+FILES READ:
+- .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/PLAN.md
+- .project-memory/project_contract.yml
+- AGENTS.md
+- src/bremen/api/server.py
+- src/bremen/demo_ui.py
+- src/bremen/demo_config.py
+- tests/test_bremen_api_server.py
+- tests/test_bremen_demo_ui.py
+
+FILES WRITTEN:
+- .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/reviews/plan-review.yml
+
+SNAPSHOT DELTA:
+- HEAD: 620986fa494815526bfe5b8bb82b08ae09bbaa94
+- status: ?? .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/
+- diff: (clean — no tracked files modified)
+
+CHECKS:
+- scope: pass
+- plan-review boundary: pass
+- validation strategy: pass
+- safety boundaries: pass
+- drift gate: pass
+- evidence completeness: pass
+- dirty tree: pass
+
+BOUNDARY CONFIRMATIONS:
+- no Docker run: confirmed
+- no pytest run: confirmed
+- no dependency install: confirmed
+- no implementation files edited: confirmed
+- no git mutation commands: confirmed
+
+SCOPE CHECK: pass
+- PLAN focuses on three specific live-rehearsal blockers (S3 catalog listing, uploaded container selectability, Analyze failure observability).
+- No broad frontend/design work, deployment automation, multi-tenancy, model profiles, plugins, or Aramis alignment.
+
+S3 CATALOG CHECK: pass
+- PLAN requires listing configured S3 prefix (boto3 list_objects_v2 paginator).
+- Returns safe H5/HDF5 metadata (id, filename, size_bytes, last_modified).
+- Preserves env catalog + S3 list + uploaded merge (not replacement).
+- Handles list failure safely via list_failed storage status.
+
+UPLOADED CONTAINER SELECTABILITY CHECK: pass
+- PLAN requires uploaded H5 to appear/select in UI after upload via merge strategy.
+- Deduplication by id across env catalog, S3-listed, and runtime-uploaded containers.
+
+ANALYZE OBSERVABILITY CHECK: pass
+- PLAN requires safe stage-specific failure details (h5_preflight_failed, preprocessing_failed, inference_failed).
+- Requires logger.exception() for all unexpected analyze errors (server-side).
+- Replaces bare `except Exception` returning only "Unexpected inference error" with safe class+message detail.
+- Exception class + truncated message (≤200 chars) in API response.
+
+ANALYZE PATH CHECK: pass
+- PLAN requires investigation of H5 → preprocessing → model inference path.
+- No fake success planned.
+- Explicit incompatible-H5 failure planned as actionable message.
+
+SUCCESS CRITERIA CHECK: pass
+- PLAN targets at least one demo H5 returning model_inference_completed and result.
+- Explicit safe incompatibility path if impossible.
+
+UI PRESERVATION CHECK: pass
+- PLAN explicitly says no changes to demo_ui.py, demo_run.py, demo_smoke.py, demo_capture.py, __main__.py.
+- PR0068 polished UI (H5 list/upload/select/Analyze/events/result workflow) preserved.
+
+REACT/DEPENDENCY CHECK: pass
+- PLAN explicitly bans React, package manager files, new dependencies.
+- No package.json, package-lock.json, yarn.lock, pnpm-lock.yaml, node_modules.
+
+STARTUP SIMPLICITY CHECK: pass
+- PLAN explicitly bans --ui flag, new startup command, another service mode, root / demo page.
+
+SAFETY CHECK: pass
+- No unsafe deserialization (uses existing ModelState and run_inference()).
+- No raw H5 logging — only key, filename, size, last_modified.
+- No real patient data committed.
+- No Aramis dependency.
+- No clinical/replacement claims — technical_demo_only: true in all responses.
+- No deployment mutation.
+- No new dependencies.
+- Safe exception detail only (no traceback, file paths, or secrets in API response).
+
+PRESERVED BEHAVIOR CHECK: pass
+- No changes to /demo/api/evidence, /health, /model/version, /predictions endpoints.
+- H5 endpoints preserved (upload already works).
+- demo-smoke, demo-run JSON, pretty, capture-dir, request_id all preserved.
+- Local and deployed workflows preserved.
+
+VALIDATION CHECK: pass
+- Includes focused API/UI tests (S3 listing mock, merged catalog, exception logging, mock inference).
+- Full pytest and compile checks.
+- CLI help checks (bremen --help, serve --help, demo-smoke --help, demo-run --help).
+- Forbidden-pattern grep checks for: logger.exception, React/webpack/vite, alert(), --ui, external assets/CDN, Aramis/M2Q/BENIGN vs CANCER, clinical/replacement claims, unsafe deserialization.
+- Forbidden file diff checks (.github, infra/terraform, Dockerfile, requirements.txt, etc.).
+- Model/data artifact checks (.h5, .hdf5, .joblib, .pkl, .npy, .npz, tfstate).
+- .DS_Store check.
+- Boundary confirmation checks included.
+
+IMPLEMENTATION AGENT CHECK: pass
+- Agent: coder
+- Mode: implementation
+- Both confirmed via PLAN.md grep evidence (lines 44-45).
+
+PROCESS RULES CHECK: pass
+- Branch confirmed: 0069-demo-live-rehearsal-analyze-fix
+- HEAD: 620986fa494815526bfe5b8bb82b08ae09bbaa94
+- No git mutation commands run.
+- No implementation files modified.
+- No tests run.
+- All required validation commands executed.
+
+COMMIT READINESS:
+- ready to commit planning artifacts: yes
+- required files to stage:
+  - .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/PLAN.md
+  - .project-memory/pr/0069-demo-live-rehearsal-analyze-fix/reviews/plan-review.yml
+- files to exclude: none from this pair
+
+BOUNDARY CONFIRMATIONS:
+- PR0069 planned as final live rehearsal analyze fix: confirmed
+- S3 prefix catalog listing planned: confirmed
+- uploaded containers selectable after upload planned: confirmed
+- analyze safe stage-specific failure details planned: confirmed
+- server-side exception logging planned: confirmed
+- real analyze path investigation planned: confirmed
+- successful model_inference_completed path targeted: confirmed
+- no fake success planned: confirmed
+- incompatible H5 explicit failure planned: confirmed
+- PR0068 polished UI preserved: confirmed
+- no React planned: confirmed
+- no package manager files planned: confirmed
+- no new startup command planned: confirmed
+- no --ui flag planned: confirmed
+- no root / demo page planned: confirmed
+- no deployment mutation planned: confirmed
+- no Terraform/GitHub Actions/Docker changes planned: confirmed
+- no new dependencies planned: confirmed
+- no unsafe model loading planned: confirmed
+- no H5 mutation planned: confirmed
+- no committed H5/patient data planned: confirmed
+- no Aramis dependency planned: confirmed
+- no clinical diagnosis/replacement claims planned: confirmed
+- Bremen safety identity preserved: confirmed
+- implementation assigned to coder: confirmed
+- no implementation files modified: confirmed
+- no git mutation commands: confirmed
