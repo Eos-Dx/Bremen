@@ -480,6 +480,45 @@ def _handle_demo_evidence_route(handler: BaseHTTPRequestHandler) -> None:
     handler.wfile.write(body)
 
 
+def _list_s3_containers(bucket: str, prefix: str) -> list[dict]:
+    """List H5/HDF5 objects under configured S3 prefix.
+
+    Uses the existing boto3 dependency via lazy import.
+    Returns a list of container dicts with safe metadata only:
+    ``id`` (S3 key), ``filename`` (basename), ``size_bytes``,
+    ``last_modified``.
+
+    On S3 errors (AccessDenied, etc.), raises the exception.
+    The caller sets ``storage: "list_failed"`` accordingly.
+    """
+    import re as _re  # noqa: PLC0415
+    from boto3 import client as _s3_client  # noqa: PLC0415
+
+    s3 = _s3_client("s3")
+    containers: list[dict] = []
+    paginator = s3.get_paginator("list_objects_v2")
+    pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
+    for page in pages:
+        for obj in page.get("Contents", []):
+            key = str(obj["Key"])
+            filename = key.split("/")[-1] if "/" in key else key
+            # Only include H5/HDF5 files
+            if not _re.search(r"\.h5$|\.hdf5$", key, _re.IGNORECASE):
+                continue
+            last_modified = obj.get("LastModified")
+            if hasattr(last_modified, "isoformat"):
+                last_modified_str = last_modified.isoformat()
+            else:
+                last_modified_str = str(last_modified or "")
+            containers.append({
+                "id": key,
+                "filename": filename,
+                "size_bytes": obj.get("Size", 0),
+                "last_modified": last_modified_str,
+            })
+    return containers
+
+
 # ---------------------------------------------------------------------------
 # Demo H5 container endpoints
 # ---------------------------------------------------------------------------
@@ -488,9 +527,18 @@ def _handle_demo_evidence_route(handler: BaseHTTPRequestHandler) -> None:
 def _handle_demo_h5_containers_list(
     handler: BaseHTTPRequestHandler,
 ) -> None:
-    """Handle GET /demo/api/h5/containers — list demo H5 containers."""
+    """Handle GET /demo/api/h5/containers — list demo H5 containers.
+
+    Merges:
+    1. Env-configured catalog from ``BREMEN_DEMO_H5_CONTAINERS``.
+    2. S3-listed containers from configured bucket/prefix.
+    3. Runtime-uploaded containers (in-memory, not persisted).
+
+    Deduplicates by ``id`` (S3 key).
+    """
     import json as _json  # noqa: PLC0415
     import os as _os  # noqa: PLC0415
+    import logging as _logging  # noqa: PLC0415
 
     request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())
     config = read_demo_h5_config()
@@ -503,20 +551,52 @@ def _handle_demo_h5_containers_list(
             "technical_demo_only": True,
         }
     else:
-        # Read configured container list from env var
+        # 1. Env-configured catalog
         try:
             containers_json = _os.environ.get(
                 "BREMEN_DEMO_H5_CONTAINERS", "[]"
             )
-            containers = _json.loads(containers_json)
-            if not isinstance(containers, list):
-                containers = []
+            env_containers = _json.loads(containers_json)
+            if not isinstance(env_containers, list):
+                env_containers = []
         except (_json.JSONDecodeError, TypeError):
-            containers = []
+            env_containers = []
+
+        # 2. S3-listed containers
+        s3_containers: list[dict] = []
+        storage_status = "configured"
+        try:
+            s3_containers = _list_s3_containers(
+                config["h5_bucket"], config["h5_prefix"],
+            )
+        except Exception:
+            _log = _logging.getLogger(__name__)
+            _log.exception(
+                "bremen.demo.h5.containers.list_failed\t"
+                "stage=containers\tstatus=failed\t"
+                "bucket=%s\tprefix=%s",
+                config["h5_bucket"], config["h5_prefix"],
+            )
+            storage_status = "list_failed"
+            s3_containers = []
+
+        # 3. Merge with deduplication by "id"
+        seen_ids: set[str] = set()
+        merged: list[dict] = []
+        for c in env_containers:
+            cid = c.get("id") or c.get("key") or c.get("filename", "")
+            if cid not in seen_ids:
+                seen_ids.add(cid)
+                merged.append(c)
+        for c in s3_containers:
+            cid = c.get("id", "")
+            if cid not in seen_ids:
+                seen_ids.add(cid)
+                merged.append(c)
 
         data = {
-            "storage": "configured",
-            "containers": containers,
+            "storage": storage_status,
+            "containers": merged,
             "technical_demo_only": True,
         }
 
@@ -982,29 +1062,31 @@ def _handle_demo_h5_analyze(
         handler.end_headers()
         handler.wfile.write(body)
 
-    except RuntimeError as exc:
+    except (RuntimeError, ValueError, KeyError, TypeError) as exc:
+        import logging as _logging  # noqa: PLC0415
+        _log = _logging.getLogger(__name__)
         err_str = str(exc).lower()
         if "preflight" in err_str:
-            events.append({
-                "event": "h5_preflight_failed",
-                "timestamp": _now(),
-                "detail": str(exc)[:200],
-            })
+            event_name = "h5_preflight_failed"
             status_msg = "h5_preflight_failed"
         elif "preprocessing" in err_str or "bridge" in err_str:
-            events.append({
-                "event": "preprocessing_failed",
-                "timestamp": _now(),
-                "detail": str(exc)[:200],
-            })
+            event_name = "preprocessing_failed"
             status_msg = "preprocessing_failed"
         else:
-            events.append({
-                "event": "inference_failed",
-                "timestamp": _now(),
-                "detail": str(exc)[:200],
-            })
+            event_name = "inference_failed"
             status_msg = "inference_failed"
+
+        events.append({
+            "event": event_name,
+            "timestamp": _now(),
+            "detail": f"{type(exc).__name__}: {str(exc)[:200]}",
+        })
+        _log.exception(
+            "bremen.demo.analyze.known_error\t"
+            "stage=%s\tstatus=failed\t"
+            "container_id=%s\trequest_id=%s\tjob_id=%s",
+            status_msg, container_id, request_id, job_id,
+        )
 
         body = _json.dumps({
             "status": "failed",
@@ -1021,10 +1103,34 @@ def _handle_demo_h5_analyze(
         handler.wfile.write(body)
 
     except Exception:
+        import logging as _logging  # noqa: PLC0415
+        import sys as _sys  # noqa: PLC0415
+        _log = _logging.getLogger(__name__)
+        _log.exception(
+            "bremen.demo.analyze.failed\t"
+            "stage=analyze\tstatus=failed\t"
+            "container_id=%s\trequest_id=%s\tjob_id=%s",
+            container_id, request_id, job_id,
+        )
+        exc_info = _sys.exc_info()
+        exc_class = exc_info[1].__class__.__name__ if exc_info[1] else "Exception"
+        exc_msg = str(exc_info[1])[:200] if exc_info[1] else "No details"
+
+        # Classify by exception type and message keywords
+        err_str = str(exc_info[1]).lower() if exc_info[1] else ""
+        if "preflight" in err_str:
+            event_name = "h5_preflight_failed"
+        elif "preprocess" in err_str or "bridge" in err_str or "feature" in err_str:
+            event_name = "preprocessing_failed"
+        elif "inference" in err_str or "model" in err_str or "predict" in err_str:
+            event_name = "inference_failed"
+        else:
+            event_name = "inference_failed"
+
         events.append({
-            "event": "inference_failed",
+            "event": event_name,
             "timestamp": _now(),
-            "detail": "Unexpected inference error",
+            "detail": f"{exc_class}: {exc_msg}",
         })
         body = _json.dumps({
             "status": "failed",

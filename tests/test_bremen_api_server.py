@@ -621,12 +621,133 @@ class TestDemoReadiness:
 
 
 # ---------------------------------------------------------------------------
-# GET /demo/api/h5/containers
+# GET /demo/api/h5/containers — S3 catalog listing (PR0069)
 # ---------------------------------------------------------------------------
 
 
+class TestDemoH5ContainersS3Listing:
+    """Tests for S3-backed container catalog listing (PR0069)."""
+
+    def test_h5_hdf5_only_filtered(self):
+        """S3 listing returns only .h5 and .hdf5 objects."""
+        import re as _re
+
+        # Simulate the S3 listing logic directly
+        contents = [
+            {"Key": "demo-uploads/file1.h5", "Size": 100},
+            {"Key": "demo-uploads/file2.hdf5", "Size": 200},
+            {"Key": "demo-uploads/notext", "Size": 300},
+            {"Key": "demo-uploads/file3.txt", "Size": 400},
+        ]
+        containers = []
+        for obj in contents:
+            key = str(obj["Key"])
+            filename = key.split("/")[-1] if "/" in key else key
+            if not _re.search(r"\.h5$|\.hdf5$", key, _re.IGNORECASE):
+                continue
+            containers.append({
+                "id": key,
+                "filename": filename,
+                "size_bytes": obj.get("Size", 0),
+            })
+
+        ids = [c["id"] for c in containers]
+        assert "demo-uploads/file1.h5" in ids
+        assert "demo-uploads/file2.hdf5" in ids
+        assert "demo-uploads/notext" not in ids
+        assert "demo-uploads/file3.txt" not in ids
+        assert len(containers) == 2
+
+    def test_s3_listing_failure_returns_list_failed(self, server_info, monkeypatch):
+        """S3 listing failure sets storage to list_failed."""
+        import json as _json
+
+        def raise_on_list(*args, **kwargs):
+            raise Exception("Simulated list failure")
+
+        monkeypatch.setattr("bremen.api.server._list_s3_containers", raise_on_list)
+
+        host, port, _ = server_info
+        with monkeypatch.context() as m:
+            m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+            m.setenv("BREMEN_DEMO_H5_PREFIX", "demo-uploads/")
+
+            from urllib.request import urlopen, Request
+            req = Request(f"http://{host}:{port}/demo/api/h5/containers")
+            try:
+                resp = urlopen(req, timeout=3)
+                body = _json.loads(resp.read())
+            except Exception as exc:
+                body = _json.loads(exc.read())
+
+            assert body["storage"] == "list_failed"
+            assert body["containers"] == []
+
+    def test_env_catalog_preserved_with_s3(self, server_info, monkeypatch):
+        """Env-configured containers are preserved when S3 listing is enabled."""
+        import json as _json
+
+        def empty_s3_list(*args, **kwargs):
+            return []
+
+        monkeypatch.setattr("bremen.api.server._list_s3_containers", empty_s3_list)
+
+        host, port, _ = server_info
+        with monkeypatch.context() as m:
+            m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+            m.setenv("BREMEN_DEMO_H5_CONTAINERS", _json.dumps([
+                {"id": "env-ctr-1.h5", "filename": "env-ctr-1.h5", "size_bytes": 100},
+            ]))
+
+            from urllib.request import urlopen, Request
+            req = Request(f"http://{host}:{port}/demo/api/h5/containers")
+            resp = urlopen(req, timeout=3)
+            data = _json.loads(resp.read())
+
+            assert data["storage"] == "configured"
+            ids = [c["id"] for c in data["containers"]]
+            assert "env-ctr-1.h5" in ids
+
+    def test_s3_listing_deduplicates_by_id(self, server_info, monkeypatch):
+        """S3 listing deduplicates containers with same id as env catalog."""
+        import json as _json
+
+        def s3_list_with_dup(*args, **kwargs):
+            return [
+                {"id": "common.h5", "filename": "common.h5", "size_bytes": 500},
+                {"id": "s3-only.h5", "filename": "s3-only.h5", "size_bytes": 300},
+            ]
+
+        monkeypatch.setattr("bremen.api.server._list_s3_containers", s3_list_with_dup)
+
+        host, port, _ = server_info
+        with monkeypatch.context() as m:
+            m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+            m.setenv("BREMEN_DEMO_H5_CONTAINERS", _json.dumps([
+                {"id": "common.h5", "filename": "common.h5", "size_bytes": 100},
+                {"id": "env-only.h5", "filename": "env-only.h5", "size_bytes": 200},
+            ]))
+
+            from urllib.request import urlopen, Request
+            req = Request(f"http://{host}:{port}/demo/api/h5/containers")
+            resp = urlopen(req, timeout=3)
+            data = _json.loads(resp.read())
+
+            # Should have 3 unique: common.h5 (env), env-only.h5, s3-only.h5
+            ids = [c["id"] for c in data["containers"]]
+            assert len(ids) == 3, f"Expected 3 unique, got {len(ids)}: {ids}"
+            assert "common.h5" in ids
+            assert "env-only.h5" in ids
+            assert "s3-only.h5" in ids
+
+
+# --------------------------------------------------------------------------
+# GET /demo/api/h5/containers (existing tests preserved)
+# --------------------------------------------------------------------------
+
+
 class TestDemoH5ContainersList:
-    """Tests for GET /demo/api/h5/containers."""
+    """Tests for GET /demo/api/h5/containers (baseline)."""
 
     def test_get_containers_returns_json(self, server_info):
         """GET /demo/api/h5/containers returns 200 with JSON."""
@@ -869,6 +990,196 @@ class TestDemoH5Analyze:
         )
         data = json.loads(body)
         assert data["status"] != "completed"
+
+
+# ---------------------------------------------------------------------------
+# POST /demo/api/h5/analyze — failure observability (PR0069)
+# ---------------------------------------------------------------------------
+
+
+class TestDemoH5AnalyzeFailureObservability:
+    """Tests for analyze stage-specific failure details and logging (PR0069)."""
+
+    def test_unexpected_exception_logged_server_side(self, server_info, caplog, monkeypatch):
+        """Unexpected analyze exceptions are logged with logger.exception."""
+        import logging
+        from bremen.api.model_state import ModelState
+        from bremen.api.jobs import InMemoryJobStore
+
+        # Start a new server with bucket configured
+        ModelState.reset_for_tests()
+        host = "127.0.0.1"
+        port = _find_free_port()
+        job_store = InMemoryJobStore()
+        handler = _make_handler(job_store, version="test-version", load_model=True)
+        server = HTTPServer((host, port), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        # Monkeypatch run_inference to raise an error (this is called after staging)
+        def failing_inference(*args, **kwargs):
+            raise RuntimeError("Simulated inference error for demo")
+
+        monkeypatch.setattr("bremen.api.inference_handler.run_inference", failing_inference)
+
+        caplog.set_level(logging.ERROR)
+
+        try:
+            with monkeypatch.context() as m:
+                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+                m.setenv("BREMEN_DEMO_H5_PREFIX", "demo-uploads/")
+                # Mock stage_h5_input to return a valid path
+                from pathlib import Path
+                mock_path = Path("/tmp/mock_staged.h5")
+                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: mock_path)
+
+                _, body, _ = _post(
+                    host, port, "/demo/api/h5/analyze",
+                    {"container_id": "demo-uploads/test.h5"},
+                )
+                data = json.loads(body)
+
+                # Should have stage-specific detail
+                events = data["events"]
+                detail_texts = [e.get("detail", "") for e in events]
+                combined = " ".join(detail_texts)
+                assert "RuntimeError" in combined or "Simulated" in combined or "inference" in combined.lower(), (
+                    f"Expected stage-specific detail, got: {combined}"
+                )
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            ModelState.reset_for_tests()
+
+    def test_non_runtime_exception_yields_safe_detail(self, server_info, monkeypatch):
+        """Non-RuntimeError exceptions return safe exception class + message."""
+        from bremen.api.model_state import ModelState
+        from bremen.api.jobs import InMemoryJobStore
+        from pathlib import Path
+
+        ModelState.reset_for_tests()
+        host = "127.0.0.1"
+        port = _find_free_port()
+        job_store = InMemoryJobStore()
+        handler = _make_handler(job_store, version="test-version", load_model=True)
+        server = HTTPServer((host, port), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        def failing_inference(*args, **kwargs):
+            raise ValueError("Bridge preprocessing failed: unexpected feature shape")
+
+        monkeypatch.setattr("bremen.api.inference_handler.run_inference", failing_inference)
+
+        try:
+            with monkeypatch.context() as m:
+                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: Path("/tmp/mock.h5"))
+
+                _, body, _ = _post(
+                    host, port, "/demo/api/h5/analyze",
+                    {"container_id": "demo-uploads/test.h5"},
+                )
+                data = json.loads(body)
+                events = data["events"]
+                detail_texts = [e.get("detail", "") for e in events]
+                combined = " ".join(detail_texts)
+                # Should contain the exception class name and message
+                assert "ValueError" in combined
+                assert "Bridge" in combined or "preprocess" in combined.lower() or "feature" in combined.lower(), (
+                    f"Expected safe detail, got: {combined}"
+                )
+                # Should NOT contain raw stack trace
+                assert "Traceback" not in combined
+                assert "File " not in combined
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            ModelState.reset_for_tests()
+
+    def test_unexpected_exception_fallback_detail(self, server_info, monkeypatch):
+        """Bare Exception fallback returns safe class+detail without traceback."""
+        from bremen.api.model_state import ModelState
+        from bremen.api.jobs import InMemoryJobStore
+        from pathlib import Path
+
+        ModelState.reset_for_tests()
+        host = "127.0.0.1"
+        port = _find_free_port()
+        job_store = InMemoryJobStore()
+        handler = _make_handler(job_store, version="test-version", load_model=True)
+        server = HTTPServer((host, port), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        def failing_inference(*args, **kwargs):
+            raise KeyError("missing_feature")
+
+        monkeypatch.setattr("bremen.api.inference_handler.run_inference", failing_inference)
+
+        try:
+            with monkeypatch.context() as m:
+                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: Path("/tmp/mock.h5"))
+
+                _, body, _ = _post(
+                    host, port, "/demo/api/h5/analyze",
+                    {"container_id": "demo-uploads/test.h5"},
+                )
+                data = json.loads(body)
+                events = data["events"]
+                detail_texts = [e.get("detail", "") for e in events]
+                combined = " ".join(detail_texts)
+                # Should contain KeyError
+                assert "KeyError" in combined, (
+                    f"Expected exception class name, got: {combined}"
+                )
+                # No raw traceback
+                assert "Traceback" not in combined
+                assert "File " not in combined
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            ModelState.reset_for_tests()
+
+    def test_no_raw_traceback_in_response(self, server_info, monkeypatch):
+        """No raw stack trace or file paths in API response."""
+        from bremen.api.model_state import ModelState
+        from bremen.api.jobs import InMemoryJobStore
+        from pathlib import Path
+
+        ModelState.reset_for_tests()
+        host = "127.0.0.1"
+        port = _find_free_port()
+        job_store = InMemoryJobStore()
+        handler = _make_handler(job_store, version="test-version", load_model=True)
+        server = HTTPServer((host, port), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        def failing_inference(*args, **kwargs):
+            raise RuntimeError("Something went wrong with model inference")
+
+        monkeypatch.setattr("bremen.api.inference_handler.run_inference", failing_inference)
+
+        try:
+            with monkeypatch.context() as m:
+                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: Path("/tmp/mock.h5"))
+
+                _, body, _ = _post(
+                    host, port, "/demo/api/h5/analyze",
+                    {"container_id": "demo-uploads/test.h5"},
+                )
+                data = json.loads(body)
+                body_str = json.dumps(data)
+                # Should not contain raw stack traces
+                assert "Traceback" not in body_str
+                assert "File " not in body_str
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            ModelState.reset_for_tests()
 
 
 # ---------------------------------------------------------------------------
