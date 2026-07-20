@@ -514,3 +514,22 @@ class TestImportSafety:
                 assert top not in (
                     "boto3", "requests", "httpx", "botocore"
                 ), f"Module imports {module}"
+
+
+# ===================================================================
+# Class 6: UI null guard for request-id-display (PR0070)
+# ===================================================================
+
+
+class TestUiNullGuard:
+    """Tests for null-safe DOM element access in inline JS (PR0070)."""
+
+    def test_request_id_display_uses_null_guard(self):
+        """JS uses null guard before setting textContent on request-id-display."""
+        source = MODULE_PATH.read_text(encoding="utf-8")
+        # The JS should use a variable assignment and null check
+        assert "getElementById('request-id-display')" in source
+        # Should guard with a variable and if-check
+        assert "ridEl" in source or "ridEl" in source
+        # Should check element exists before setting textContent
+        assert "if (ridEl)" in source or "if (ridEl)" in source
