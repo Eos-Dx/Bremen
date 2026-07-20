@@ -1,0 +1,185 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: approve
+
+BLOCKERS:
+- <none>
+
+WARNINGS:
+- PLAN.md section 2 (metadata ambiguity) analyzes existing set() logic and concludes it works correctly for repeated identical values. This section is analysis, not an actionable fix item. The coder should verify during implementation that no code change to the deduplication logic is actually needed.
+- PLAN.md proposes two traversal fix options (try/except fallback vs. visititems) then selects visititems as the preferred approach. The coder should implement one consistent approach and not leave dead code from the other approach.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: bad84e57b16ae36d8b7d362dbd09a9522339d88e
+- command: git branch --show-current
+  exit code: 0
+  output: 0070-demo-h5-preflight-and-ui-error-fix
+- command: git status --short
+  exit code: 0
+  output: "?? .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/"
+- command: test -f .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/PLAN.md
+  exit code: 0
+  output: EXISTS
+- command: grep -n "KeyError\|component not found\|run_h5_preflight\|resolve_patient_metadata\|_walk_for_patient_name" .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/PLAN.md
+  exit code: 0
+  output: 42 matches — preflight traversal issue exhaustively covered
+- command: grep -n "visititems\|recursive\|traversal\|nested" .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/PLAN.md
+  exit code: 0
+  output: 34 matches — traversal fix approach thoroughly documented
+- command: grep -n "session/sample/patient_name\|canonical\|Ambiguous\|H5MetadataError" .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/PLAN.md
+  exit code: 0
+  output: 11 matches — metadata paths, ambiguity, and error types specified
+- command: grep -n "h5_preflight_failed\|preprocessing_failed\|inference_failed" .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/PLAN.md
+  exit code: 0
+  output: 7 matches — stage-specific failure classification covered
+- command: grep -n "Cannot set properties of null\|textContent\|DOM" .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/PLAN.md
+  exit code: 0
+  output: 11 matches — UI null-textContent error fully addressed
+- command: grep -n "fake success\|no fake" .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/PLAN.md
+  exit code: 0
+  output: "220, 415" — no fake success explicitly confirmed
+- command: grep -n "technical_demo_only\|clinical\|patient data" .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/PLAN.md
+  exit code: 0
+  output: 9 matches — safety markers and data protection covered
+- command: grep -n "React\|package manager\|new dependencies" .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/PLAN.md
+  exit code: 0
+  output: 7 matches — explicitly forbidden
+- command: grep -n "Agent: coder" .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/PLAN.md
+  exit code: 0
+  output: "49" — implementation agent correctly assigned
+- command: grep -n "Mode: implementation" .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/PLAN.md
+  exit code: 0
+  output: "50" — implementation mode correctly assigned
+- command: date -u +%Y-%m-%dT%H:%M:%SZ
+  exit code: 0
+  output: 2026-07-19T23:01:58Z
+
+FILES READ:
+- .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/PLAN.md
+- src/bremen/api/preflight.py
+- src/bremen/api/inference_handler.py
+- src/bremen/api/server.py
+- src/bremen/demo_ui.py
+- .project-memory/project_contract.yml
+- AGENTS.md
+- tests/test_bremen_api_server.py (documented by PLAN.md, confirmed via read)
+
+FILES WRITTEN:
+- .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/reviews/plan-review.yml
+
+SNAPSHOT DELTA:
+- HEAD: bad84e57b16ae36d8b7d362dbd09a9522339d88e
+- status: ?? .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/
+- diff: (clean — no tracked files modified)
+
+CHECKS:
+- scope: pass
+- plan-review boundary: pass
+- validation strategy: pass
+- safety boundaries: pass
+- drift gate: pass
+- evidence completeness: pass
+- dirty tree: pass
+
+BOUNDARY CONFIRMATIONS:
+- no Docker run: confirmed
+- no pytest run: confirmed
+- no dependency install: confirmed
+- no implementation files edited: confirmed
+- no git mutation commands: confirmed
+
+SCOPE CHECK: pass
+- PLAN focuses on two specific live-rehearsal blockers (H5 preflight traversal KeyError, UI null textContent crash).
+- No broad frontend/design work, infra, deployment automation, model retraining, Aramis alignment, or multi-tenancy.
+
+PREFLIGHT CHECK: pass
+- PLAN requires fixing `_walk_for_patient_name()` traversal so valid nested H5 metadata does not raise raw h5py `component not found` KeyError.
+- Uses h5py.File.visititems() — standard h5py recursive traversal with no manual path construction.
+
+METADATA CHECK: pass
+- PLAN handles canonical `session/sample/patient_name` paths for calibration layout.
+- Accepts repeated identical patient_name values (set deduplication handles this correctly).
+- Genuinely conflicting values raise H5MetadataError as safe failure.
+
+STAGE CLASSIFICATION CHECK: pass
+- PLAN requires preflight failures to be `h5_preflight_failed`, not generic `inference_failed`.
+- Analyzes that after traversal fix, `resolve_patient_metadata` either succeeds or raises `H5MetadataError` which is wrapped by `run_h5_preflight` as RuntimeError with "preflight" in message — allowing correct stage classification in server.py.
+
+ANALYZE COMPLETION CHECK: pass
+- PLAN does not allow fake success.
+- Targets full completion path (preflight → preprocessing → inference → completed) for `benign_one_patient.h5`.
+- Permits honest next-stage failure if preprocessing/model inference still fails, with correct stage-specific classification.
+
+UI CHECK: pass
+- PLAN fixes `Cannot set properties of null (setting 'textContent')` by guarding `document.getElementById('request-id-display').textContent` with null check.
+- Preserves PR0068/0069 polished UI/catalog/upload/select/analyze/events/result workflow.
+- No HTML template structure changed — only null guard added.
+
+SAFETY CHECK: pass
+- No raw H5/patient data leaks (patient identifier used for metadata resolution only, not logged).
+- No H5 mutation (read-only).
+- No unsafe model loading (no new joblib.load/pickle.load).
+- No clinical diagnosis/replacement claims.
+- No committed H5/patient data.
+- No new dependencies.
+- No React/frontend build tools.
+- No deployment mutation.
+- technical_demo_only: true preserved.
+
+VALIDATION CHECK: pass
+- Includes focused tests for traversal (resolve_patient_metadata with nested calibration layout, verify no KeyError).
+- Includes tests for metadata ambiguity.
+- Includes stage classification tests.
+- Includes UI null-safe DOM element access tests (test_bremen_demo_ui.py).
+- Full pytest, compile all, CLI help checks.
+- Forbidden-pattern greps: component not found, textContent, alert(), React, --ui, clinical/replacement claims, unsafe deserialization.
+- Forbidden file diff checks (.github, infra/terraform, Dockerfile, requirements.txt, etc.).
+- Model/data artifact checks (.h5, .hdf5, .joblib, .pkl, .npy, .npz).
+- .DS_Store check.
+
+IMPLEMENTATION AGENT CHECK: pass
+- Agent: coder (line 49)
+- Mode: implementation (line 50)
+- Both confirmed via PLAN.md grep evidence.
+
+PROCESS RULES CHECK: pass
+- Branch confirmed: 0070-demo-h5-preflight-and-ui-error-fix
+- HEAD: bad84e57b16ae36d8b7d362dbd09a9522339d88e
+- No git mutation commands run.
+- No implementation files modified.
+- No tests run.
+- All required validation commands executed.
+- BLOCKERS empty, VERDICT is approve (valid).
+- Every blocker would include direct quote/command evidence (not applicable as no blockers).
+
+COMMIT READINESS:
+- ready to commit planning artifacts: yes
+- required files to stage:
+  - .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/PLAN.md
+  - .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/reviews/plan-review.yml
+- files to exclude: none from this pair
+
+BOUNDARY CONFIRMATIONS:
+- local preflight KeyError planned for fix: confirmed
+- H5 traversal planned without invalid nested re-indexing: confirmed (visititems approach)
+- canonical patient metadata behavior planned: confirmed
+- genuine metadata conflict remains safe failure: confirmed
+- h5_preflight_failed classification planned: confirmed
+- Analyze path targeted beyond preflight: confirmed
+- no fake success planned: confirmed
+- UI null textContent error planned for fix: confirmed
+- PR0068/0069 demo UI/catalog behavior preserved: confirmed
+- no React planned: confirmed
+- no package manager files planned: confirmed
+- no new dependencies planned: confirmed
+- no deployment mutation planned: confirmed
+- no unsafe model loading planned: confirmed
+- no H5 mutation planned: confirmed
+- no committed H5/patient data planned: confirmed
+- no Aramis dependency planned: confirmed
+- no clinical diagnosis/replacement claims planned: confirmed
+- Bremen safety identity preserved: confirmed
+- implementation assigned to coder: confirmed
+- no implementation files modified: confirmed
+- no git mutation commands: confirmed
