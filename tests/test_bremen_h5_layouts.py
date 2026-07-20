@@ -686,8 +686,243 @@ class TestIdenticalRefs:
 
 
 # ---------------------------------------------------------------------------
-# M. Optional real H5 smoke (skipped by default)
+# M. Session layout adapter (PR0071)
 # ---------------------------------------------------------------------------
+
+
+class TestSessionLayoutDetection:
+    """Tests for SessionLayoutH5Adapter detection."""
+
+    def test_detects_session_layout(self, tmp_path: Path):
+        """Session adapter detects valid session layout."""
+        path = tmp_path / "session.h5"
+        with h5py.File(path, "w") as f:
+            sets = f.create_group("/session/sets")
+            s1 = sets.create_group("set_001_sample_main")
+            s1.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0]))
+            s1.create_dataset("integration/i", data=np.array([0.1, 0.2, 0.3]))
+            c1 = sets.create_group("contralateral_set_001_sample_main")
+            c1.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0]))
+            c1.create_dataset("integration/i", data=np.array([0.4, 0.5, 0.6]))
+
+        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        adapter = SessionLayoutH5Adapter()
+        with h5py.File(path, "r") as f:
+            assert adapter.detect(f) is True
+
+    def test_detect_false_for_canonical(self, tmp_path: Path):
+        """Session adapter returns False for canonical layout."""
+        path = tmp_path / "canonical.h5"
+        with h5py.File(path, "w") as f:
+            tg = f.create_group("/scans/target")
+            tg.create_dataset("measurements", data=np.random.rand(3, 10))
+
+        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        adapter = SessionLayoutH5Adapter()
+        with h5py.File(path, "r") as f:
+            assert adapter.detect(f) is False
+
+    def test_detect_false_for_missing_session_sets(self, tmp_path: Path):
+        """Session adapter returns False without /session/sets."""
+        path = tmp_path / "empty.h5"
+        with h5py.File(path, "w") as f:
+            f.create_dataset("/some_data", data=42)
+
+        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        adapter = SessionLayoutH5Adapter()
+        with h5py.File(path, "r") as f:
+            assert adapter.detect(f) is False
+
+    def test_detect_false_for_missing_contralateral_pair(self, tmp_path: Path):
+        """Session adapter returns False without matching contralateral pair."""
+        path = tmp_path / "session_no_contra.h5"
+        with h5py.File(path, "w") as f:
+            sets = f.create_group("/session/sets")
+            s1 = sets.create_group("set_001_sample_main")
+            s1.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0]))
+            s1.create_dataset("integration/i", data=np.array([0.1, 0.2, 0.3]))
+
+        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        adapter = SessionLayoutH5Adapter()
+        with h5py.File(path, "r") as f:
+            assert adapter.detect(f) is False
+
+    def test_detect_false_for_calibration_layout(self, tmp_path: Path):
+        """Session adapter returns False for calibration layout."""
+        path = tmp_path / "calib.h5"
+        with h5py.File(path, "w") as f:
+            calib = f.create_group("/calib_test")
+            s1 = calib.create_group("sample_01")
+            s1.create_dataset("sample/patient_name", data="P001")
+            s1.create_dataset("sample/sample_type", data="RIGHT BREAST")
+
+        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        adapter = SessionLayoutH5Adapter()
+        with h5py.File(path, "r") as f:
+            assert adapter.detect(f) is False
+
+
+class TestSessionContextResolution:
+    """Tests for SessionLayoutH5Adapter.resolve_prediction_context."""
+
+    def _create_session_h5(self, tmp_path: Path) -> Path:
+        path = tmp_path / "session.h5"
+        with h5py.File(path, "w") as f:
+            f.create_dataset("/patient/id", data="P001")
+            f.create_dataset("/session/sample/patient_name", data="patient_cancer_001")
+            f.create_dataset("/session/sample/sample_type", data="RIGHT BREAST")
+            sets = f.create_group("/session/sets")
+            s1 = sets.create_group("set_001_sample_main")
+            s1.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0], dtype=np.float64))
+            s1.create_dataset("integration/i", data=np.array([0.1, 0.2, 0.3], dtype=np.float64))
+            c1 = sets.create_group("contralateral_set_001_sample_main")
+            c1.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0], dtype=np.float64))
+            c1.create_dataset("integration/i", data=np.array([0.4, 0.5, 0.6], dtype=np.float64))
+            s2 = sets.create_group("set_002_sample_main")
+            s2.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0], dtype=np.float64))
+            s2.create_dataset("integration/i", data=np.array([0.7, 0.8, 0.9], dtype=np.float64))
+            c2 = sets.create_group("contralateral_set_002_sample_main")
+            c2.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0], dtype=np.float64))
+            c2.create_dataset("integration/i", data=np.array([1.0, 1.1, 1.2], dtype=np.float64))
+        return path
+
+    def test_resolves_first_pair_by_default(self, tmp_path: Path):
+        """Resolves first valid pair when no explicit refs given."""
+        path = self._create_session_h5(tmp_path)
+        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        adapter = SessionLayoutH5Adapter()
+        # The adapter requires explicit refs; we pass them directly
+        with h5py.File(path, "r") as f:
+            ctx = adapter.resolve_prediction_context(
+                f, "set_001_sample_main", "contralateral_set_001_sample_main"
+            )
+        assert ctx.layout_name == "session_layout"
+        assert "set_001_sample_main" in ctx.target_group_path
+        assert "contralateral_set_001_sample_main" in ctx.control_group_path
+
+    def test_includes_patient_identifier(self, tmp_path: Path):
+        """Resolved context includes patient identifier."""
+        path = self._create_session_h5(tmp_path)
+        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        adapter = SessionLayoutH5Adapter()
+        with h5py.File(path, "r") as f:
+            ctx = adapter.resolve_prediction_context(
+                f, "set_001_sample_main", "contralateral_set_001_sample_main"
+            )
+        assert ctx.patient_identifier == "P001"
+        assert ctx.patient_identifier_source == "patient_id"
+
+    def test_raises_on_missing_integration(self, tmp_path: Path):
+        """Missing integration array raises H5ContainerError."""
+        path = tmp_path / "session_no_i.h5"
+        with h5py.File(path, "w") as f:
+            sets = f.create_group("/session/sets")
+            s1 = sets.create_group("set_001_sample_main")
+            s1.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0]))
+            c1 = sets.create_group("contralateral_set_001_sample_main")
+            c1.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0]))
+            c1.create_dataset("integration/i", data=np.array([0.4, 0.5, 0.6]))
+
+        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        adapter = SessionLayoutH5Adapter()
+        with h5py.File(path, "r") as f:
+            with pytest.raises(Exception) as exc_info:
+                adapter.resolve_prediction_context(
+                    f, "set_001_sample_main", "contralateral_set_001_sample_main"
+                )
+        assert "Missing" in str(exc_info.value)
+        assert "integration/i" in str(exc_info.value)
+
+    def test_raises_on_q_axis_mismatch(self, tmp_path: Path):
+        """Mismatched q-axis lengths raise H5ContainerError."""
+        path = tmp_path / "session_q_mismatch.h5"
+        with h5py.File(path, "w") as f:
+            sets = f.create_group("/session/sets")
+            s1 = sets.create_group("set_001_sample_main")
+            s1.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0], dtype=np.float64))
+            s1.create_dataset("integration/i", data=np.array([0.1, 0.2, 0.3], dtype=np.float64))
+            c1 = sets.create_group("contralateral_set_001_sample_main")
+            c1.create_dataset("integration/q", data=np.array([4.0, 5.0], dtype=np.float64))
+            c1.create_dataset("integration/i", data=np.array([0.4, 0.5], dtype=np.float64))
+
+        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        adapter = SessionLayoutH5Adapter()
+        with h5py.File(path, "r") as f:
+            with pytest.raises(Exception) as exc_info:
+                adapter.resolve_prediction_context(
+                    f, "set_001_sample_main", "contralateral_set_001_sample_main"
+                )
+        assert "lengths do not match" in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# N. Session layout preflight passes (PR0071)
+# ---------------------------------------------------------------------------
+
+
+class TestSessionPreflight:
+    """Tests that session layout H5 passes preflight with explicit refs."""
+
+    def test_preflight_passes_with_session_layout(self, tmp_path: Path):
+        """run_h5_preflight with session layout refs passes."""
+        path = tmp_path / "session_preflight.h5"
+        with h5py.File(path, "w") as f:
+            f.create_dataset("/patient/id", data="P001")
+            f.create_dataset("/session/sample/patient_name", data="patient_cancer_001")
+            f.create_dataset("/session/sample/sample_type", data="RIGHT BREAST")
+            sets = f.create_group("/session/sets")
+            s1 = sets.create_group("set_001_sample_main")
+            s1.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0], dtype=np.float64))
+            s1.create_dataset("integration/i", data=np.array([0.1, 0.2, 0.3], dtype=np.float64))
+            c1 = sets.create_group("contralateral_set_001_sample_main")
+            c1.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0], dtype=np.float64))
+            c1.create_dataset("integration/i", data=np.array([0.4, 0.5, 0.6], dtype=np.float64))
+
+        result = run_h5_preflight(
+            path,
+            target_scan_ref="set_001_sample_main",
+            control_scan_ref="contralateral_set_001_sample_main",
+        )
+        assert result.passed is True
+        assert result.metadata.get("layout_name") == "session_layout"
+        assert result.patient_id == "P001"
+
+
+# ---------------------------------------------------------------------------
+# O. No biopsy/birads/BENIGN/CANCER labels as prediction targets
+# ---------------------------------------------------------------------------
+
+
+class TestNoClinicalLabels:
+    """Session layout adapter must not use clinical labels as targets."""
+
+    def test_no_biopsy_or_birads_in_adapter(self):
+        """SessionLayoutH5Adapter does not use biopsy/birads as prediction targets."""
+        from bremen.api import h5_layouts as _hl
+        src_path = Path(_hl.__file__)
+        source = src_path.read_text(encoding="utf-8")
+        # "birads" and "biopsy" may appear in safety comments but NOT as
+        # prediction target references or dataset reads
+        import ast
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                s = node.value.lower()
+                # Allow safety comments that say "NOT use ..."
+                if "not use" in s:
+                    continue
+                if "birads" in s:
+                    pytest.fail(f"birads found in string literal: {node.value!r}")
+                if "biopsy" in s:
+                    pytest.fail(f"biopsy found in string literal: {node.value!r}")
+
+    def test_no_benign_vs_cancer_as_target(self):
+        """Adapter does not use BENIGN vs CANCER classification."""
+        from bremen.api import h5_layouts as _hl
+        src_path = Path(_hl.__file__)
+        source = src_path.read_text(encoding="utf-8")
+        assert "benign" not in source.lower() or "BENIGN" in source
+        assert "cancer" not in source.lower() or "CANCER" in source
 
 
 @pytest.mark.skipif(

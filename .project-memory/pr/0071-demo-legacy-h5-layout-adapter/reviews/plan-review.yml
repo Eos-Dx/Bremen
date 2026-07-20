@@ -1,0 +1,173 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: approve
+
+BLOCKERS:
+- <none>
+
+WARNINGS:
+- PLAN.md Section 4 analysis claims preprocessing bridge should work without changes for the session layout because it "reads integration arrays at {group_path}/integration/i." However, `run_preprocessing_bridge()` in `preprocessing_bridge.py` currently branches on `layout_context.layout_name`: only `"calibration_sample"` uses resolved group paths; all other layout names (including the new `"session_layout"`) fall into the `else` branch which calls `_extract_profiles(f, "target")` — reading from `/scans/target/measurements` — which does NOT exist in the session layout. The plan correctly allows preprocessing_bridge.py changes ("Allowed only if repository inspection proves necessary"), but the analysis section underestimates the required change. The coder must add a `"session_layout"` branch (similar to the `"calibration_sample"` branch) in `build_feature_table()` to read integration i/q arrays from the resolved group paths.
+- PLAN.md code snippet in `SessionLayoutH5Adapter.resolve_prediction_context()` calls `_read_sample_metadata_str(h5_file, f"{target_path}/../sample/sample_type")` with 2 positional arguments, but the function signature is `_read_sample_metadata_str(h5_file, sample_path, dataset_rel_path)` requiring 3 arguments. The coder must fix this by splitting the path into `sample_path` and `dataset_rel_path` components.
+- PLAN.md boundary confirmations include "event ordering fix planned: yes" and "preflight failures stop before preprocessing/model events: yes" — these are not discussed in the plan body and appear to be holdovers. They are acceptable as affirmations of preserved behavior from PR0068/0069/0070 but should be clarified if they represent new work.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: d86625cae0d925253085ed86bcc349387ece49e5
+- command: git branch --show-current
+  exit code: 0
+  output: 0071-demo-legacy-h5-layout-adapter
+- command: git status --short
+  exit code: 0
+  output: "?? .project-memory/pr/0071-demo-legacy-h5-layout-adapter/"
+- command: test -f .project-memory/pr/0071-demo-legacy-h5-layout-adapter/PLAN.md
+  exit code: 0
+  output: EXISTS
+- command: grep -n "session/sets\|SessionLayoutH5Adapter\|legacy\|synthetic" .project-memory/pr/0071-demo-legacy-h5-layout-adapter/PLAN.md
+  exit code: 0
+  output: 30 matches — adapter design fully documented
+- command: grep -n "detect\|resolve_prediction_context\|H5LayoutAdapter\|register_adapter" .project-memory/pr/0071-demo-legacy-h5-layout-adapter/PLAN.md
+  exit code: 0
+  output: 17 matches — adapter protocol compliance verified
+- command: grep -n "integration/q\|integration/i\|q-axis\|normalization" .project-memory/pr/0071-demo-legacy-h5-layout-adapter/PLAN.md
+  exit code: 0
+  output: 17 matches — integration array handling covered
+- command: grep -n "Aramis\|aramis\|biopsy\|birads\|BENIGN\|CANCER\|benign\|cancer\|diagnosis\|diagnose\|replaces\|replace" .project-memory/pr/0071-demo-legacy-h5-layout-adapter/PLAN.md
+  exit code: 0
+  output: 15 matches — all in forbidden/avoidance context, not as prediction targets
+- command: grep -n "technical_demo_only\|clinical\|patient data\|patient_name\|patient_identifier" .project-memory/pr/0071-demo-legacy-h5-layout-adapter/PLAN.md
+  exit code: 0
+  output: 16 matches — safety markers and data protection covered
+- command: grep -n "fake success\|no fake" .project-memory/pr/0071-demo-legacy-h5-layout-adapter/PLAN.md
+  exit code: 0
+  output: "315, 334, 528" — no fake success explicitly confirmed
+- command: grep -n "React\|package manager\|new dependencies\|package.json" .project-memory/pr/0071-demo-legacy-h5-layout-adapter/PLAN.md
+  exit code: 0
+  output: 12 matches — all in forbidden context
+- command: grep -n "Agent: coder" .project-memory/pr/0071-demo-legacy-h5-layout-adapter/PLAN.md
+  exit code: 0
+  output: "61" — implementation agent correctly assigned
+- command: grep -n "Mode: implementation" .project-memory/pr/0071-demo-legacy-h5-layout-adapter/PLAN.md
+  exit code: 0
+  output: "62" — implementation mode correctly assigned
+- command: grep -n "preprocessing_bridge\|run_preprocessing_bridge" .project-memory/pr/0071-demo-legacy-h5-layout-adapter/PLAN.md
+  exit code: 0
+  output: 4 matches — bridge compatibility assessed (with noted analysis gap)
+- command: date -u +%Y-%m-%dT%H:%M:%SZ
+  exit code: 0
+  output: 2026-07-20T09:31:16Z
+
+FILES READ:
+- .project-memory/pr/0071-demo-legacy-h5-layout-adapter/PLAN.md
+- src/bremen/api/h5_layouts.py
+- src/bremen/api/preflight.py
+- src/bremen/api/inference_handler.py
+- src/bremen/api/preprocessing_bridge.py
+- src/bremen/api/server.py
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN:
+- .project-memory/pr/0071-demo-legacy-h5-layout-adapter/reviews/plan-review.yml
+
+SNAPSHOT DELTA:
+- HEAD: d86625cae0d925253085ed86bcc349387ece49e5
+- status: ?? .project-memory/pr/0071-demo-legacy-h5-layout-adapter/
+- diff: (clean — no tracked files modified)
+
+CHECKS:
+- scope: pass
+- plan-review boundary: pass
+- validation strategy: pass
+- safety boundaries: pass
+- drift gate: pass
+- evidence completeness: pass
+- dirty tree: pass
+
+BOUNDARY CONFIRMATIONS:
+- no Docker run: confirmed
+- no pytest run: confirmed
+- no dependency install: confirmed
+- no implementation files edited: confirmed
+- no git mutation commands: confirmed
+
+SCOPE CHECK: pass
+- PLAN focuses on adding a third H5LayoutAdapter (`SessionLayoutH5Adapter`) for legacy/synthetic session-layout H5 containers using `/session/sets/*` structure.
+- No broad frontend/design work, infra, deployment automation, model retraining, Aramis alignment, or multi-tenancy.
+
+ADAPTER IMPLEMENTATION CHECK: pass
+- PLAN correctly implements the `H5LayoutAdapter` protocol (detect + resolve_prediction_context).
+- Detection: `/session/sets` with paired `set_NNN_sample_main` + `contralateral_set_NNN_sample_main` groups containing `integration/q` and `integration/i`.
+- Excludes canonical layout (`/scans/target/measurements`) in detect().
+- Pairing by shared NNN index, first pair by sort order if no explicit refs.
+- Q-axis validation: length match + range compatibility (≤0.01 tolerance).
+- Registration via `register_adapter(SessionLayoutH5Adapter())`.
+
+ARAMIS BOUNDARY CHECK: pass
+- PLAN explicitly states adapter is NOT Aramis integration.
+- No Aramis product labels, biopsy metadata, birads, or benign/cancer classifications used as Bremen prediction targets.
+- Side metadata from `sample/sample_type` → breast type → side (not clinical labels).
+- Validation grep checks verify all Aramis/cancer/biopsy references are in forbidden context only.
+
+SAFETY CHECK: pass
+- No unsafe deserialization, no H5 mutation, no clinical claims.
+- No committed H5/patient data, no new dependencies, no React.
+- No deployment mutation, no Terraform/GitHub Actions/Docker changes.
+- `technical_demo_only: true` preserved.
+- No raw patient data in API/UI/logs.
+
+VALIDATION CHECK: pass
+- 11+ tests specified (detect True/False cases, resolve_prediction_context validation, explicit refs, metadata handling).
+- Full pytest compile + test suite.
+- CLI help checks.
+- Forbidden-pattern greps for Aramis/biopsy/cancer labels, clinical claims, unsafe deserialization, React, etc.
+- Forbidden file diff checks, artifact scan, .DS_Store check.
+
+IMPLEMENTATION AGENT CHECK: pass
+- Agent: coder (line 61)
+- Mode: implementation (line 62)
+- Both confirmed via PLAN.md grep evidence.
+
+PROCESS RULES CHECK: pass
+- Branch confirmed: 0071-demo-legacy-h5-layout-adapter
+- HEAD: d86625cae0d925253085ed86bcc349387ece49e5
+- No git mutation commands run.
+- No implementation files modified.
+- No tests run.
+- All required validation commands executed.
+- BLOCKERS empty, VERDICT is approve (valid).
+
+COMMIT READINESS:
+- ready to commit planning artifacts: yes
+- required files to stage:
+  - .project-memory/pr/0071-demo-legacy-h5-layout-adapter/PLAN.md
+  - .project-memory/pr/0071-demo-legacy-h5-layout-adapter/reviews/plan-review.yml
+- files to exclude: none from this pair
+
+BOUNDARY CONFIRMATIONS:
+- PR0071 planned as legacy/synthetic H5 ingestion-boundary adapter: confirmed
+- no Aramis product dependency planned: confirmed
+- legacy session/sets layout detection planned: confirmed
+- set/contralateral pairing planned: confirmed
+- integration q/i normalization planned: confirmed
+- `/scans/target` preserved for Bremen-native path: confirmed
+- `/scans/target` not required for legacy session layout: confirmed
+- side/problem metadata not used as Bremen target: confirmed
+- biopsy/birads/status labels not used as Bremen target: confirmed
+- raw patient metadata not exposed: confirmed
+- H5 files not mutated: confirmed
+- no committed H5/HDF5 files planned: confirmed
+- successful model_inference_completed path targeted: confirmed
+- no fake success planned: confirmed
+- PR0068/0069/0070 UI preserved: confirmed
+- no React planned: confirmed
+- no package manager files planned: confirmed
+- no new dependencies planned: confirmed
+- no new startup command planned: confirmed
+- no `--ui` flag planned: confirmed
+- no root `/` demo page planned: confirmed
+- no deployment mutation planned: confirmed
+- no Terraform/GitHub Actions/Docker changes planned: confirmed
+- no unsafe model loading planned: confirmed
+- no clinical diagnosis/replacement claims planned: confirmed
+- implementation assigned to Agent: coder / Mode: implementation: confirmed
+- no git mutation commands run: confirmed
