@@ -285,6 +285,33 @@ def build_feature_table(
                 )
             target_profiles = _extract_session_profiles(f, target_path)
             contralateral_profiles = _extract_session_profiles(f, control_path)
+        elif layout_context is not None and layout_context.layout_name == "matador_raw":
+            # Matador raw layout: read raw 2D arrays, integrate via xrd_preprocessing,
+            # and compute 1D magnitude profiles.
+            target_path = layout_context.target_group_path
+            control_path = layout_context.control_group_path
+            adapter_metadata = layout_context.adapter_metadata
+            if not target_path or not control_path:
+                raise PreprocessingBridgeError(
+                    "Missing target/control group paths for Matador preprocessing"
+                )
+            target_profiles, target_q = _extract_matador_profiles(
+                f, target_path, adapter_metadata
+            )
+            contralateral_profiles, control_q = _extract_matador_profiles(
+                f, control_path, adapter_metadata
+            )
+            # Align q ranges if they differ (must be compatible)
+            if len(target_q) != len(control_q):
+                raise PreprocessingBridgeError(
+                    f"Matador target/control q-axis lengths mismatch: "
+                    f"{len(target_q)} vs {len(control_q)}"
+                )
+            if np.max(np.abs(target_q - control_q)) > 0.01:
+                raise PreprocessingBridgeError(
+                    "Matador target/control q-axes are not compatible "
+                    "for feature computation"
+                )
         else:
             target_profiles = _extract_profiles(f, "target")
             contralateral_profiles = _extract_profiles(f, "contralateral")
@@ -589,6 +616,209 @@ def _extract_session_profiles(
     # Compute magnitude: sqrt(i^2 + q^2)
     magnitude = np.sqrt(i_arr**2 + q_arr**2)
     return [magnitude]
+
+
+def _matador_raw_to_q_i(
+    image: np.ndarray,
+    *,
+    poni_text: str | None = None,
+    npt: int = 100,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Integrate one Matador raw 2D image into q/i profile.
+
+    Thin wrapper around ``xrd_preprocessing.perform_azimuthal_integration``.
+    This is the single external integration boundary — all Matador-specific
+    test mocking targets this function.
+
+    Parameters
+    ----------
+    image : 2D numpy array (the raw diffraction frame).
+    poni_text : PONI calibration text.  Required for PONI-mode
+        integration.  If ``None``, dataframe-mode calibration
+        parameters must be supplied (not yet implemented).
+    npt : Number of radial points for 1D integration (default 100).
+
+    Returns
+    -------
+    (q, intensity) — two 1D numpy arrays of matching length.
+
+    Raises
+    ------
+    PreprocessingBridgeError
+        If ``xrd_preprocessing`` is unavailable, raises an exception,
+        or returns non-finite / empty / mismatched-length profiles.
+    """
+    import pandas as pd
+    import xrd_preprocessing
+
+    # Build a pd.Series row compatible with perform_azimuthal_integration
+    row_data: dict = {
+        "measurement_data": image,
+    }
+    calibration_mode: str
+    if poni_text is not None:
+        row_data["ponifile"] = poni_text
+        calibration_mode = "poni"
+    else:
+        raise PreprocessingBridgeError(
+            "Matador raw integration currently requires a PONI file. "
+            "Dataframe-mode calibration not yet implemented for "
+            "Matador raw containers."
+        )
+
+    row = pd.Series(row_data)
+
+    try:
+        radial, intensity, _sigma_or_az, _dist = \
+            xrd_preprocessing.perform_azimuthal_integration(
+                row,
+                column="measurement_data",
+                npt=npt,
+                mode="1D",
+                calibration_mode=calibration_mode,
+                error_model=None,
+                thickness_adjustment=False,
+                require_thickness_adjustment=False,
+            )
+    except Exception as exc:
+        raise PreprocessingBridgeError(
+            f"xrd_preprocessing integration failed: {exc}"
+        ) from exc
+
+    # Convert and validate
+    q = np.asarray(radial, dtype=np.float64)
+    i_arr = np.asarray(intensity, dtype=np.float64)
+    _validate_q_i_output(q, i_arr)
+    return q, i_arr
+
+
+def _validate_q_i_output(
+    q: np.ndarray, i_arr: np.ndarray,
+) -> None:
+    """Validate q/i integration output (pure function, no external deps).
+
+    Checks:
+    - 1-dimensionality
+    - Matching lengths
+    - Non-empty
+    - Finite values
+    - Strictly increasing q
+
+    Raises PreprocessingBridgeError on any validation failure.
+    """
+    if q.ndim != 1 or i_arr.ndim != 1:
+        raise PreprocessingBridgeError(
+            "Integration output is not 1-dimensional"
+        )
+    if len(q) != len(i_arr):
+        raise PreprocessingBridgeError(
+            f"q ({len(q)}) and intensity ({len(i_arr)}) lengths mismatch"
+        )
+    if len(q) == 0:
+        raise PreprocessingBridgeError("Integration returned empty profiles")
+    if not np.all(np.isfinite(q)) or not np.all(np.isfinite(i_arr)):
+        raise PreprocessingBridgeError(
+            "Integration returned non-finite q or intensity values"
+        )
+    if not np.all(np.diff(q) > 0):
+        raise PreprocessingBridgeError("Integration output q is not strictly increasing")
+
+
+def _extract_matador_profiles(
+    h5_file: h5py.File,
+    group_path: str,
+    adapter_metadata: dict,
+) -> tuple[list[np.ndarray], np.ndarray]:
+    """Read raw 2D image, integrate, return 1D profile.
+
+    For a Matador raw measurement group:
+    1. Reads the 2D measurement dataset at the first 2D dataset found.
+    2. Reads PONI text from a calibration group/dataset.
+    3. Calls ``_matador_raw_to_q_i`` (the external integration wrapper).
+    4. Returns the 1D magnitude profile (sqrt(i^2 + q^2)).
+
+    Parameters
+    ----------
+    h5_file : Open H5 file handle.
+    group_path : Absolute H5 group path containing the raw 2D dataset.
+    adapter_metadata : Adapter metadata dict from ``H5PredictionContext``
+        containing calibration references.
+
+    Returns
+    -------
+    (profiles, q) — list with one 1D profile array and the q axis.
+
+    Raises
+    ------
+    PreprocessingBridgeError
+        On missing data, integration failure, or invalid output.
+    """
+    # Find the 2D measurement dataset inside the group
+    group = h5_file[group_path]
+    dataset_name: str | None = None
+    for key in group.keys():
+        sub = group[key]
+        if isinstance(sub, h5py.Dataset):
+            ndim = len(sub.shape) if hasattr(sub, 'shape') else 0
+            if ndim >= 2:
+                dataset_name = key
+                break
+
+    if dataset_name is None:
+        raise PreprocessingBridgeError(
+            f"No 2D measurement dataset found in {group_path}"
+        )
+
+    image = np.asarray(group[dataset_name][()], dtype=np.float64)
+
+    # Find PONI text — search known calibration locations
+    poni_text: str | None = None
+    calib_refs = adapter_metadata.get("calibration_refs", {})
+
+    # Look for any dataset whose path contains "poni"
+    poni_candidates = [
+        path for path in calib_refs.keys()
+        if "poni" in path.lower()
+    ]
+    if poni_candidates:
+        poni_path = poni_candidates[0]
+        try:
+            raw = h5_file[poni_path][()]
+            if isinstance(raw, bytes):
+                poni_text = raw.decode("utf-8")
+            else:
+                poni_text = str(raw)
+        except Exception:
+            pass
+
+    # If no explicit PONI dataset, search the entire file
+    if poni_text is None:
+        def _poni_visitor(name: str, obj: object) -> None:
+            nonlocal poni_text
+            if poni_text is not None:
+                return
+            if isinstance(obj, h5py.Dataset) and "poni" in name.lower():
+                try:
+                    raw = obj[()]
+                    if isinstance(raw, bytes):
+                        poni_text = raw.decode("utf-8")
+                    else:
+                        poni_text = str(raw)
+                except Exception:
+                    pass
+
+        h5_file.visititems(_poni_visitor)
+
+    if poni_text is None:
+        raise PreprocessingBridgeError(
+            "No PONI calibration text found for Matador integration"
+        )
+
+    q, i_arr = _matador_raw_to_q_i(image, poni_text=poni_text, npt=100)
+
+    # Compute magnitude profile: sqrt(i^2 + q^2)
+    magnitude = np.sqrt(i_arr**2 + q**2)
+    return [magnitude], q
 
 
 def _sigma_rms(

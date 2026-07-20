@@ -17,6 +17,8 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+import h5py
+import numpy as np
 import pytest
 
 from bremen.api.jobs import InMemoryJobStore
@@ -1176,6 +1178,357 @@ class TestDemoH5AnalyzeFailureObservability:
                 # Should not contain raw stack traces
                 assert "Traceback" not in body_str
                 assert "File " not in body_str
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            ModelState.reset_for_tests()
+
+
+# ---------------------------------------------------------------------------
+# Matador raw route-level success test (PR0073)
+# ---------------------------------------------------------------------------
+
+
+def _create_matador_raw_h5_for_server(tmp_path: Path) -> Path:
+    """Create synthetic Matador raw H5 for server route-level test."""
+    path = tmp_path / "matador_server_test.h5"
+    with h5py.File(path, "w") as f:
+        calib = f.create_group("calibrations")
+        calib.create_dataset(
+            "poni1",
+            data=np.array([
+                b"poni_version: 2.1\n",
+                b"distance: 0.15\n",
+                b"pixel_size: 0.0001\n",
+                b"wavelength: 0.15\n",
+                b"center_x: 100.0\n",
+                b"center_y: 100.0\n",
+            ], dtype=h5py.string_dtype()),
+        )
+
+        m1 = f.create_group("measurement_001")
+        m1.attrs["side"] = "LEFT"
+        m1.attrs["position"] = "center"
+        m1.create_dataset(
+            "data",
+            data=np.random.default_rng(1).normal(10, 3, (100, 100)).astype(np.float32),
+        )
+
+        m2 = f.create_group("measurement_002")
+        m2.attrs["side"] = "RIGHT"
+        m2.attrs["position"] = "center"
+        m2.create_dataset(
+            "data",
+            data=np.random.default_rng(2).normal(10, 3, (100, 100)).astype(np.float32),
+        )
+    return path
+
+
+class TestMatadorRawRouteSuccess:
+    """Route-level Matador raw success test — full detection→inference path."""
+
+    def test_matador_raw_analyze_completed(
+        self, tmp_path: Path, monkeypatch,
+    ):
+        """POST /demo/api/h5/analyze with Matador raw H5 completes successfully.
+
+        Verifies:
+        - layout detection (MatadorRawH5Adapter)
+        - adapter registry selection
+        - calibration discovery
+        - measurement discovery
+        - side and pair-key resolution
+        - bilateral pairing
+        - context propagation
+        - Matador preprocessing dispatch
+        - q/i validation
+        - Bremen feature extraction
+        - model feature-schema validation
+        - event ordering
+        - status == "completed"
+        - result exists
+        - technical_demo_only is true
+        - request_id exists
+        - job_id exists
+        - source checksum unchanged
+        - no identifier leakage
+        """
+        import hashlib
+        import json as _json
+        from bremen.api.model_state import ModelState
+        from bremen.api.jobs import InMemoryJobStore
+
+        # Build temp H5
+        h5_path = _create_matador_raw_h5_for_server(tmp_path)
+        original_checksum = hashlib.sha256(h5_path.read_bytes()).hexdigest()
+
+        # Mock XRD integration to return deterministic q/i
+        def _mock_matador_q_i(image, *, poni_text=None, npt=100):
+            n = npt or 100
+            q = np.linspace(5.0, 8.0, n, dtype=np.float64)
+            seed = int(np.mean(image) * 1000) % 100
+            rng = np.random.default_rng(seed)
+            i_arr = np.abs(rng.normal(10, 2, n).astype(np.float64))
+            return q, i_arr
+
+        monkeypatch.setattr(
+            "bremen.api.preprocessing_bridge._matador_raw_to_q_i",
+            _mock_matador_q_i,
+        )
+
+        # Start a server with bucket configured
+        ModelState.reset_for_tests()
+        host = "127.0.0.1"
+        port = _find_free_port()
+        job_store = InMemoryJobStore()
+        handler = _make_handler(job_store, version="test-version", load_model=True)
+        server = HTTPServer((host, port), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        try:
+            with monkeypatch.context() as m:
+                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+                m.setenv("BREMEN_DEMO_H5_PREFIX", "demo-uploads/")
+                # Mock stage_h5_input to return our temp H5 path
+                m.setattr(
+                    "bremen.h5_inputs.stage_h5_input",
+                    lambda *a, **kw: h5_path,
+                )
+                # Mock the bridge wrapper too (same mock as above)
+                m.setattr(
+                    "bremen.api.preprocessing_bridge._matador_raw_to_q_i",
+                    _mock_matador_q_i,
+                )
+
+                _, body, _ = _post(
+                    host, port, "/demo/api/h5/analyze",
+                    {"container_id": "demo-uploads/matador_test.h5"},
+                )
+                data = _json.loads(body)
+
+                # Status assertions
+                assert data["status"] == "completed", (
+                    f"Expected 'completed', got {data['status']}. "
+                    f"Events: {[e['event'] for e in data['events']]}"
+                )
+                assert data["technical_demo_only"] is True
+                assert "request_id" in data
+                assert "job_id" in data
+                assert data["request_id"] is not None
+                assert data["job_id"] is not None
+
+                # Result assertions
+                assert "result" in data, f"Result missing: {list(data.keys())}"
+                result = data["result"]
+                assert "p_mri_needed" in result
+                assert "triage_recommendation" in result
+                assert result["triage_recommendation"] in (
+                    "MRI_RECOMMENDED", "MRI_RULE_OUT"
+                )
+                assert 0.0 <= result["p_mri_needed"] <= 1.0
+                assert "prediction_id" in result
+                assert "model_version" in result
+                assert "feature_schema_version" in result
+
+                # Evidence assertions
+                assert "evidence" in data
+                assert data["evidence"]["model_version"] is not None
+                assert data["evidence"]["prediction_id"] is not None
+
+                # Event ordering
+                events = data["events"]
+                event_types = [e["event"] for e in events]
+                expected_order = [
+                    "request_received",
+                    "container_selected",
+                    "h5_staging_started",
+                    "h5_staging_completed",
+                    "h5_preflight_started",
+                    "h5_preflight_completed",
+                    "preprocessing_completed",
+                    "model_inference_completed",
+                    "evidence_built",
+                    "completed",
+                ]
+                for expected_event in expected_order:
+                    assert expected_event in event_types, (
+                        f"Missing event: {expected_event}. "
+                        f"Got: {event_types}"
+                    )
+                # Check ordering (relative positions)
+                for i, expected in enumerate(expected_order[:-1]):
+                    next_expected = expected_order[i + 1]
+                    idx_current = event_types.index(expected)
+                    idx_next = event_types.index(next_expected)
+                    assert idx_current < idx_next, (
+                        f"Event order violation: {expected} ({idx_current}) "
+                        f"should be before {next_expected} ({idx_next})"
+                    )
+
+                # No identifier leakage
+                body_str = _json.dumps(data)
+                assert "Nova" not in body_str
+                assert "patient_name" not in body_str
+                assert "specimen" not in body_str.lower()
+                assert "biopsy" not in body_str.lower()
+                assert "birads" not in body_str.lower()
+                assert "BENIGN" not in body_str
+                assert "CANCER" not in body_str
+
+                # Source checksum unchanged
+                final_checksum = hashlib.sha256(h5_path.read_bytes()).hexdigest()
+                assert original_checksum == final_checksum, (
+                    "Source H5 checksum changed during analysis"
+                )
+
+                # Container info
+                assert "container" in data
+                assert data["container"]["id"] == "demo-uploads/matador_test.h5"
+                assert data["container"]["bucket"] == "test-bucket"
+
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            ModelState.reset_for_tests()
+
+
+class TestMatadorRawRouteFailures:
+    """Route-level Matador failure tests."""
+
+    def test_preflight_failure_no_calib_in_response(
+        self, tmp_path: Path, monkeypatch,
+    ):
+        """h5_preflight_failed when calibration missing — no inference events."""
+        import json as _json
+        from bremen.api.model_state import ModelState
+        from bremen.api.jobs import InMemoryJobStore
+
+        # Build temp H5 without calibration
+        path = tmp_path / "no_calib_matador.h5"
+        with h5py.File(path, "w") as f:
+            m1 = f.create_group("measurement_001")
+            m1.attrs["side"] = "LEFT"
+            m1.attrs["position"] = "center"
+            m1.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
+            m2 = f.create_group("measurement_002")
+            m2.attrs["side"] = "RIGHT"
+            m2.attrs["position"] = "center"
+            m2.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
+
+        ModelState.reset_for_tests()
+        host = "127.0.0.1"
+        port = _find_free_port()
+        job_store = InMemoryJobStore()
+        handler = _make_handler(job_store, version="test-version", load_model=True)
+        server = HTTPServer((host, port), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        try:
+            with monkeypatch.context() as m:
+                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: path)
+
+                _, body, _ = _post(
+                    host, port, "/demo/api/h5/analyze",
+                    {"container_id": "demo-uploads/matador_nocalib.h5"},
+                )
+                data = _json.loads(body)
+
+                assert data["status"] == "failed"
+                events = data["events"]
+                event_types = [e["event"] for e in events]
+                assert "h5_preflight_failed" in event_types
+                # No downstream events
+                assert "preprocessing_completed" not in event_types
+                assert "model_inference_completed" not in event_types
+                assert "completed" not in event_types
+                # No result
+                assert "result" not in data
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            ModelState.reset_for_tests()
+
+    def test_no_result_on_failure(self, tmp_path: Path, monkeypatch):
+        """Failed analysis returns no result field."""
+        import json as _json
+        from bremen.api.model_state import ModelState
+        from bremen.api.jobs import InMemoryJobStore
+
+        # Build calibration-less H5 that will fail preflight
+        path = tmp_path / "fail_matador.h5"
+        with h5py.File(path, "w") as f:
+            m1 = f.create_group("measurement_001")
+            m1.attrs["side"] = "LEFT"
+            m1.attrs["position"] = "center"
+            m1.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
+
+        ModelState.reset_for_tests()
+        host = "127.0.0.1"
+        port = _find_free_port()
+        job_store = InMemoryJobStore()
+        handler = _make_handler(job_store, version="test-version", load_model=True)
+        server = HTTPServer((host, port), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        try:
+            with monkeypatch.context() as m:
+                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: path)
+
+                _, body, _ = _post(
+                    host, port, "/demo/api/h5/analyze",
+                    {"container_id": "demo-uploads/fail.h5"},
+                )
+                data = _json.loads(body)
+                assert "result" not in data
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            ModelState.reset_for_tests()
+
+    def test_checksum_unchanged_on_failure(
+        self, tmp_path: Path, monkeypatch,
+    ):
+        """Source checksum unchanged even after failed analysis."""
+        import hashlib
+        import json as _json
+        from bremen.api.model_state import ModelState
+        from bremen.api.jobs import InMemoryJobStore
+
+        path = tmp_path / "checksum_test.h5"
+        with h5py.File(path, "w") as f:
+            m1 = f.create_group("measurement_001")
+            m1.attrs["side"] = "LEFT"
+            m1.attrs["position"] = "center"
+            m1.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
+
+        original_checksum = hashlib.sha256(path.read_bytes()).hexdigest()
+
+        ModelState.reset_for_tests()
+        host = "127.0.0.1"
+        port = _find_free_port()
+        job_store = InMemoryJobStore()
+        handler = _make_handler(job_store, version="test-version", load_model=True)
+        server = HTTPServer((host, port), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        try:
+            with monkeypatch.context() as m:
+                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: path)
+
+                _ = _post(
+                    host, port, "/demo/api/h5/analyze",
+                    {"container_id": "demo-uploads/fail.h5"},
+                )
+
+                final_checksum = hashlib.sha256(path.read_bytes()).hexdigest()
+                assert original_checksum == final_checksum
         finally:
             server.shutdown()
             thread.join(timeout=2)

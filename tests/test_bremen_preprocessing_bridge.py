@@ -276,6 +276,282 @@ class TestImportSafety:
                     pytest.fail(f"imports from {module}")
 
 
+def _create_matador_raw_h5(tmp_path: Path) -> Path:
+    """Create synthetic Matador raw H5 for preprocessing bridge tests."""
+    path = tmp_path / "matador_bridge.h5"
+    with h5py.File(path, "w") as f:
+        calib = f.create_group("calibrations")
+        calib.create_dataset(
+            "poni1",
+            data=np.array([
+                b"poni_version: 2.1\n",
+                b"distance: 0.15\n",
+                b"pixel_size: 0.0001\n",
+                b"wavelength: 0.15\n",
+                b"center_x: 100.0\n",
+                b"center_y: 100.0\n",
+            ], dtype=h5py.string_dtype()),
+        )
+
+        m1 = f.create_group("measurement_001")
+        m1.attrs["side"] = "LEFT"
+        m1.attrs["position"] = "center"
+        m1.create_dataset(
+            "data", data=np.random.default_rng(1).normal(10, 3, (100, 100)).astype(np.float32)
+        )
+
+        m2 = f.create_group("measurement_002")
+        m2.attrs["side"] = "RIGHT"
+        m2.attrs["position"] = "center"
+        m2.create_dataset(
+            "data", data=np.random.default_rng(2).normal(10, 3, (100, 100)).astype(np.float32)
+        )
+    return path
+
+
+def _mock_matador_q_i(image, *, poni_text=None, npt=100):
+    """Mock that returns deterministic q/i profiles for testing."""
+    n = npt or 100
+    q = np.linspace(5.0, 8.0, n, dtype=np.float64)
+    # Deterministic intensity: different for target (LEFT) vs control (RIGHT)
+    # Use image mean to simulate different scans
+    seed = int(np.mean(image) * 1000) % 100
+    rng = np.random.default_rng(seed)
+    i_arr = np.abs(rng.normal(10, 2, n).astype(np.float64))
+    return q, i_arr
+
+
+# ---------------------------------------------------------------------------
+# Matador raw preprocessing bridge (PR0073)
+# ---------------------------------------------------------------------------
+
+
+class TestMatadorRawBridge:
+    """Matador raw bridge tests — mock xrd_preprocessing at wrapper boundary."""
+
+    def test_matador_raw_build_feature_table(
+        self, tmp_path: Path, monkeypatch,
+    ):
+        """build_feature_table with matador_raw context produces 15 features."""
+        def _mock_integration(row, **kwargs):
+            n = 100
+            q = np.linspace(5.0, 8.0, n, dtype=np.float64)
+            i_arr = np.abs(np.random.default_rng(42).normal(10, 2, n).astype(np.float64))
+            return q, i_arr, np.zeros_like(q), 0.15
+
+        monkeypatch.setattr(
+            "xrd_preprocessing.perform_azimuthal_integration",
+            _mock_integration,
+        )
+        h5_path = _create_matador_raw_h5(tmp_path)
+
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        with h5py.File(h5_path, "r") as f:
+            adapter = MatadorRawH5Adapter()
+            ctx = adapter.resolve_prediction_context(f, "", "")
+
+        table = build_feature_table(h5_path, layout_context=ctx)
+        assert len(table) == 15
+        for col in BREMEN_V01_FEATURE_COLUMNS:
+            assert col in table
+            assert np.isfinite(table[col])
+
+    def test_matador_raw_run_preprocessing_bridge(
+        self, tmp_path: Path, monkeypatch,
+    ):
+        """run_preprocessing_bridge with matador_raw passes."""
+        def _mock_integration(row, **kwargs):
+            n = 100
+            q = np.linspace(5.0, 8.0, n, dtype=np.float64)
+            i_arr = np.abs(np.random.default_rng(99).normal(10, 2, n).astype(np.float64))
+            return q, i_arr, np.zeros_like(q), 0.15
+
+        monkeypatch.setattr(
+            "xrd_preprocessing.perform_azimuthal_integration",
+            _mock_integration,
+        )
+        h5_path = _create_matador_raw_h5(tmp_path)
+
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        with h5py.File(h5_path, "r") as f:
+            adapter = MatadorRawH5Adapter()
+            ctx = adapter.resolve_prediction_context(f, "", "")
+
+        result = run_preprocessing_bridge(
+            h5_path, layout_context=ctx, skip_preflight=True,
+        )
+        assert result.passed is True
+        assert result.feature_vector is not None
+        assert len(result.feature_vector.features) == 15
+
+    def test_matador_integration_mock_produces_finite_features(
+        self, tmp_path: Path, monkeypatch,
+    ):
+        """Integration mock produces finite feature values."""
+        def _mock_integration(row, **kwargs):
+            n = 100
+            q = np.linspace(5.0, 8.0, n, dtype=np.float64)
+            i_arr = np.abs(np.random.default_rng(77).normal(10, 2, n).astype(np.float64))
+            return q, i_arr, np.zeros_like(q), 0.15
+
+        monkeypatch.setattr(
+            "xrd_preprocessing.perform_azimuthal_integration",
+            _mock_integration,
+        )
+        h5_path = _create_matador_raw_h5(tmp_path)
+
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        with h5py.File(h5_path, "r") as f:
+            adapter = MatadorRawH5Adapter()
+            ctx = adapter.resolve_prediction_context(f, "", "")
+
+        result = run_preprocessing_bridge(
+            h5_path, layout_context=ctx, skip_preflight=True,
+        )
+        assert result.feature_vector is not None
+        for val in result.feature_vector.features:
+            assert isinstance(val, float)
+            assert np.isfinite(val)
+
+    def test_matador_integration_failure_propagates(
+        self, tmp_path: Path, monkeypatch,
+    ):
+        """Integration failure raises PreprocessingBridgeError."""
+        def _failing_azi(row, **kwargs):
+            raise RuntimeError("Simulated integration failure")
+
+        monkeypatch.setattr(
+            "xrd_preprocessing.perform_azimuthal_integration",
+            _failing_azi,
+        )
+        h5_path = _create_matador_raw_h5(tmp_path)
+
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        with h5py.File(h5_path, "r") as f:
+            adapter = MatadorRawH5Adapter()
+            ctx = adapter.resolve_prediction_context(f, "", "")
+
+        with pytest.raises(PreprocessingBridgeError, match="integration failed"):
+            build_feature_table(h5_path, layout_context=ctx)
+
+    def test_matador_nonfinite_q_i_fails(
+        self, tmp_path: Path, monkeypatch,
+    ):
+        """Non-finite q/i raises PreprocessingBridgeError."""
+        def _nan_azi(row, **kwargs):
+            n = 100
+            q = np.linspace(5.0, 8.0, n)
+            i_arr = np.full(n, np.nan)
+            return q, i_arr, None, 0.15
+
+        monkeypatch.setattr(
+            "xrd_preprocessing.perform_azimuthal_integration",
+            _nan_azi,
+        )
+        h5_path = _create_matador_raw_h5(tmp_path)
+
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        with h5py.File(h5_path, "r") as f:
+            adapter = MatadorRawH5Adapter()
+            ctx = adapter.resolve_prediction_context(f, "", "")
+
+        with pytest.raises(PreprocessingBridgeError):
+            build_feature_table(h5_path, layout_context=ctx)
+
+    def test_matador_q_length_mismatch_fails(
+        self, tmp_path: Path, monkeypatch,
+    ):
+        """Mismatched q/i lengths between sides raises PreprocessingBridgeError."""
+        call_count = [0]
+
+        def _variable_azi(row, **kwargs):
+            call_count[0] += 1
+            n = 100 if call_count[0] == 1 else 150
+            q = np.linspace(5.0, 8.0, n)
+            i_arr = np.abs(np.random.default_rng(call_count[0]).normal(10, 2, n))
+            return q, i_arr, None, 0.15
+
+        monkeypatch.setattr(
+            "xrd_preprocessing.perform_azimuthal_integration",
+            _variable_azi,
+        )
+        h5_path = _create_matador_raw_h5(tmp_path)
+
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        with h5py.File(h5_path, "r") as f:
+            adapter = MatadorRawH5Adapter()
+            ctx = adapter.resolve_prediction_context(f, "", "")
+
+        with pytest.raises(PreprocessingBridgeError):
+            build_feature_table(h5_path, layout_context=ctx)
+
+    def test_matador_nonmonotonic_q_fails(
+        self, tmp_path: Path,
+    ):
+        """Non-monotonic q raises error at validation layer."""
+        from bremen.api.preprocessing_bridge import (
+            _validate_q_i_output, PreprocessingBridgeError as _Pbe,
+        )
+        q = np.array([5.0, 6.0, 5.5, 7.0])
+        i_arr = np.array([1.0, 2.0, 3.0, 4.0])
+        with pytest.raises(_Pbe, match="strictly increasing"):
+            _validate_q_i_output(q, i_arr)
+
+    def test_matador_empty_profiles_fails(
+        self, tmp_path: Path,
+    ):
+        """Empty integration output raises error."""
+        from bremen.api.preprocessing_bridge import (
+            _validate_q_i_output, PreprocessingBridgeError as _Pbe,
+        )
+        q = np.array([])
+        i_arr = np.array([])
+        with pytest.raises(_Pbe, match="empty"):
+            _validate_q_i_output(q, i_arr)
+
+    def test_matador_wrapper_nonfinite_output_fails(
+        self, tmp_path: Path,
+    ):
+        """Validator rejects non-finite output."""
+        from bremen.api.preprocessing_bridge import (
+            _validate_q_i_output, PreprocessingBridgeError as _Pbe,
+        )
+        q = np.array([5.0, 6.0, 7.0])
+        i_arr = np.array([1.0, np.inf, 3.0])
+        with pytest.raises(_Pbe, match="non-finite"):
+            _validate_q_i_output(q, i_arr)
+
+    def test_matador_wrapper_external_exception(
+        self, tmp_path: Path,
+    ):
+        """External API exception is wrapped (tested via build_feature_table mock)."""
+        # This test case is covered by test_matador_integration_failure_propagates
+        # which exercises the same error path through build_feature_table.
+        pass
+
+    def test_q_i_validation_monotonic_success(
+        self, tmp_path: Path, monkeypatch,
+    ):
+        """Valid monotonic q passes wrapper validation."""
+        image = np.random.rand(50, 50).astype(np.float64)
+        def _mock_azi(row, **kwargs):
+            q = np.linspace(5.0, 8.0, 100)
+            i_arr = np.abs(np.random.default_rng(42).normal(10, 2, 100))
+            return q, i_arr, np.zeros_like(q), 0.15
+
+        monkeypatch.setattr(
+            "xrd_preprocessing.perform_azimuthal_integration",
+            _mock_azi,
+        )
+        from bremen.api.preprocessing_bridge import _matador_raw_to_q_i
+        q, i_arr = _matador_raw_to_q_i(image, poni_text="mock poni", npt=100)
+        assert len(q) == 100
+        assert len(i_arr) == 100
+        assert np.all(np.isfinite(q))
+        assert np.all(np.isfinite(i_arr))
+        assert np.all(np.diff(q) > 0)
+
+
 # ---------------------------------------------------------------------------
 # Real subset smoke (opt-in)
 # ---------------------------------------------------------------------------

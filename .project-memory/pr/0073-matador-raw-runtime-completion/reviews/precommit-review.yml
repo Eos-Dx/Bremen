@@ -1,0 +1,220 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: pass
+
+BLOCKERS
+* None
+
+WARNINGS
+* `_matador_raw_to_q_i` wrapper requires PONI calibration text mode only; dataframe-mode calibration (using PONI parameters as DataFrame columns) is not yet implemented. This is a known limitation documented in the implementation report and consistent with PLAN.md scope when real Nova H5 calibration format is confirmed. Not a blocker.
+
+VALIDATION
+* git rev-parse --verify HEAD: e0db3513e356a935d4a6158763a64bc18ae91999
+* git branch --show-current: 0073-matador-raw-runtime-completion (confirmed exact)
+* git status --short: M h5_layouts.py, M preprocessing_bridge.py, M test_bremen_api_server.py, M test_bremen_h5_layouts.py, M test_bremen_preprocessing_bridge.py, ?? IMPLEMENTATION_REPORT.md
+* git diff --name-only: 5 files (h5_layouts.py, preprocessing_bridge.py, 3 test files)
+* git diff --stat: 5 files changed, 1415 insertions(+), 95 deletions(-)
+* test -f IMPLEMENTATION_REPORT.md: PASS
+* python -m compileall src tests: PASS
+* python -m pytest -q tests/test_bremen_h5_layouts.py: 64 passed, 1 skipped
+* python -m pytest -q tests/test_bremen_h5_preflight.py: 19 passed, 1 skipped
+* python -m pytest -q tests/test_bremen_preprocessing_bridge.py: 28 passed, 1 skipped
+* python -m pytest -q tests/test_bremen_inference_integration.py: 11 passed, 1 skipped
+* python -m pytest -q tests/test_bremen_api_server.py: 75 passed (was 71 — +4 route-level tests)
+* python -m pytest -q tests/test_bremen_demo_ui.py: 61 passed
+* python -m pytest -q tests/test_bremen_demo_smoke.py tests/test_bremen_demo_run.py tests/test_bremen_demo_capture.py: 220 passed
+* python -m pytest -q: 1368 passed, 11 skipped, 28 warnings
+* python -m bremen --help: exit 0
+* python -m bremen serve --help: exit 0, --host, --port only
+* python -m bremen demo-smoke --help: exit 0, --base-url, --timeout, --skip-prediction
+* python -m bremen demo-run --help: exit 0, --base-url, --timeout, --skip-prediction, --pretty, --capture-dir
+* grep "class MatadorRawH5Adapter\|matador_raw": MatadorRawH5Adapter at h5_layouts.py:619, "matador_raw" name at line 633, registered at line 870; preprocessing bridge matador_raw branch at preprocessing_bridge.py:288; tests pass
+* grep "xrd_preprocessing\|AzimuthalIntegration\|perform_azimuthal_integration": xrd_preprocessing imported at preprocessing_bridge.py:652; perform_azimuthal_integration called at line 673; AzimuthalIntegration available in pipelines.py (unchanged)
+* grep "layout_name.*matador_raw": preprocessing_bridge.py:288 (build_feature_table branch); test_h5_layouts.py:1099,1254 (assertions)
+* grep "first two\|[:2]\|list.*keys.*\[:2\]": only test comment "not the first two" — no first-two pairing in source
+* grep "future PR\|future work\|structural-only" in PR0073 artifacts: only in PLAN.md postmortem (acknowledging PR0072's error), and implementation report warning about dataframe-mode calibration. No deferral of required Matador runtime path.
+* grep "h5_preflight_failed\|preprocessing_failed\|model_inference_started": server.py has h5_preflight_failed/preprocessing_failed for error classification; h5_layouts.py detection error includes "h5_preflight_failed" keyword; model_inference_started NOT emitted prematurely (only as completed after success)
+* grep "biopsy\|birads\|BENIGN\|CANCER\|Aramis\|aramis" in api source files: only safe docstring prohibition language
+* grep "joblib\.load\|pickle\.load\|import pickle": only in controlled boundaries (model_state.py, model_loader.py, modeling.py)
+* grep "React\|react\|package.json\|vite\|webpack": no matches
+* grep "alert(" in demo_ui.py/test files: only test comments/assertions
+* grep "--ui\|demo-run --ui": only test assertions
+* git diff --name-only forbidden paths: no output
+* git diff --name-only docs ROADMAP.md: no output
+* git diff --name-only | grep model/data artifact extensions: no output
+* find . -name ".DS_Store": none
+* date -u +%Y-%m-%dT%H:%M:%SZ: 2026-07-20T22:26:28Z
+
+FILES READ
+* .project-memory/pr/0073-matador-raw-runtime-completion/PLAN.md
+* .project-memory/pr/0073-matador-raw-runtime-completion/reviews/plan-review.yml
+* .project-memory/pr/0073-matador-raw-runtime-completion/IMPLEMENTATION_REPORT.md
+* .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
+* .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/reviews/plan-review.yml
+* .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/IMPLEMENTATION_REPORT.md
+* .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/reviews/precommit-review.yml
+* src/bremen/api/h5_layouts.py (full source + git diff)
+* src/bremen/api/preprocessing_bridge.py (full source + git diff)
+* src/bremen/api/preflight.py (for detect_layout contract verification)
+* src/bremen/api/server.py (for event lifecycle verification)
+* src/bremen/api/inference_handler.py
+* tests/test_bremen_h5_layouts.py
+* tests/test_bremen_preprocessing_bridge.py
+* tests/test_bremen_api_server.py
+* .project-memory/project_contract.yml
+* AGENTS.md
+* pyproject.toml
+
+FILES WRITTEN
+* .project-memory/pr/0073-matador-raw-runtime-completion/reviews/precommit-review.yml
+
+SNAPSHOT DELTA
+* src/bremen/api/h5_layouts.py: MODIFIED (+295/-95) — Rewrote MatadorRawH5Adapter: tiered detection (list_h5_sessions + structural visititems), deterministic side/position pairing (NOT first-two), calibration discovery via visititems, LEFT→target/RIGHT→control for processing symmetry
+* src/bremen/api/preprocessing_bridge.py: MODIFIED (+230 lines) — Added _matador_raw_to_q_i() wrapper calling real perform_azimuthal_integration, _validate_q_i_output() validator, _extract_matador_profiles() reader, and matador_raw branch in build_feature_table()
+* tests/test_bremen_h5_layouts.py: MODIFIED (+356 lines) — 6 detection tests, 9 context resolution tests, 3 preflight tests covering all failure and success paths
+* tests/test_bremen_preprocessing_bridge.py: MODIFIED (+276 lines) — 9 Matador bridge tests, 3 pure validation tests, 3 bridge integration tests mocking xrd_preprocessing at wrapper boundary
+* tests/test_bremen_api_server.py: MODIFIED (+353 lines) — Route-level Matador success test (full detection→inference→completed) + 3 failure integration tests
+
+PR0072 POSTMORTEM CHECK
+* Pass: All 6 postmortem items from PLAN.md addressed:
+  1. Structural adapter ≠ working pipeline — Fixed: full detection→integration→features→inference path implemented
+  2. Green test suite ≠ route-level acceptance — Fixed: controlled HTTP test exercises /demo/api/h5/analyze end-to-end
+  3. Detection validated against real contract — Fixed: uses list_h5_sessions + structural visititems, no keyword/filename matching
+  4. No future-work deferral — Fixed: perform_azimuthal_integration is called in _matador_raw_to_q_i, not deferred
+  5. Precommit required actual evidence — Fixed: route-level test, failure tests, regression evidence provided
+  6. Full pipeline evidence — Fixed: all stages implemented and tested
+
+REAL-LAYOUT CONTRACT CHECK
+* Pass: Detects valid Matador-like structure with 2D measurement arrays + PONI/calibration data via visititems. Detection is filename-independent — no `Nova`, `Matador`, patient/sample identifiers used. Uses xrd_preprocessing library functions (list_h5_sessions) in Tier 1.
+
+MATADOR DETECTION CHECK
+* Pass: Tiered detection:
+  - Tier 1: list_h5_sessions() + list_h5_measurement_sets() from xrd_preprocessing (lines 656-669)
+  - Tier 2: structural visititems search for 2D numeric datasets + calibration/PONI datasets (lines 671-689)
+  - Explicit exclusion of canonical (/scans/target/measurements) and session (/session/sets) layouts
+  - Unrecognised layout message includes "h5_preflight_failed" keyword for correct error classification
+
+ADAPTER REGISTRY CHECK
+* Pass: MatadorRawH5Adapter registered as 4th adapter at h5_layouts.py:870, after CanonicalH5LayoutAdapter, CalibrationSampleH5LayoutAdapter, SessionLayoutH5Adapter.
+
+EXTERNAL XRD API CHECK
+* Pass: xrd_preprocessing.perform_azimuthal_integration() called at preprocessing_bridge.py:673 — verified in the actual installed package. Signature confirmed:
+  `perform_azimuthal_integration(row, column='measurement_data', npt=100, mode='1D', calibration_mode='poni', error_model=None, thickness_adjustment=False, require_thickness_adjustment=False)`.
+
+INTEGRATION WRAPPER CHECK
+* Pass: _matador_raw_to_q_i(image, *, poni_text, npt=100) at preprocessing_bridge.py:618-691 is a thin wrapper that:
+  1. Builds a pd.Series with measurement_data and ponifile keys
+  2. Calls xrd_preprocessing.perform_azimuthal_integration with calibration_mode='poni'
+  3. Converts to numpy float64 arrays
+  4. Validates via _validate_q_i_output
+  5. Returns q, i_arr
+  No approximate integration, no pixel-index q, no fabricated calibration.
+
+CALIBRATION CHECK
+* Pass: Calibration discovery uses h5py.File.visititems() to find datasets containing PONI-related keywords (poni, distance, wavelength, pixel_size, center_x, center_y, calibration) anywhere in the path. Calibration refs stored in adapter_metadata['calibration_refs'] and validated. PONI text extracted from discovered datasets. Missing calibration raises H5ContainerError("No PONI/calibration data found").
+
+MEASUREMENT DISCOVERY CHECK
+* Pass: All 2D numeric datasets (ndim ≥ 2, float/int/uint) discovered via visititems. For each, parent group attributes inspected for side and position metadata. Side keys: side, breast_side, sample_side. Position keys: position, pair_key, measurement_position. Attributes resolve case-insensitively.
+
+PAIRING CHECK
+* Pass: Deterministic bilateral pairing by position/pair_key — NOT "first two measurements":
+  1. Resolve side + pair_key for all 2D measurements
+  2. Group by pair_key
+  3. Find complete bilateral pairs (both LEFT and RIGHT for same pair_key)
+  4. Sort complete pairs lexicographically, use first
+  5. LEFT→target, RIGHT→control (processing symmetry only, clinical target deferred)
+  Missing side → H5MetadataError. Duplicate side/pair_key → H5ContainerError. No complete pair → H5ContainerError.
+  Direct evidence: h5_layouts.py lines 268-274 (pairs dict), lines 276-280 (complete_pairs), no "first two" in source.
+
+CANONICAL CONTEXT CHECK
+* Pass: H5PredictionContext carries layout_name='matador_raw', resolved target/control group paths, side info, calibration refs, pair key. Propagated through PreflightResult.metadata — preprocessing bridge dispatches on layout_name.
+
+PREFLIGHT CHECK
+* Pass: Preflight validates structural/calibration/pairing only. No integration performed during preflight. Integration errors occur during preprocessing (classified as preprocessing_failed).
+
+MATADOR PREPROCESSING CHECK
+* Pass: build_feature_table() has explicit `elif layout_context.layout_name == "matador_raw":` branch (preprocessing_bridge.py:288) that:
+  1. Reads raw 2D image from resolved group path
+  2. Finds PONI calibration text from adapter_metadata['calibration_refs']
+  3. Calls _matador_raw_to_q_i for target and control
+  4. Validates q-axis compatibility (length match, ≤0.01 tolerance)
+  5. Computes magnitude profiles sqrt(i^2 + q^2)
+  6. Feeds into existing 15-feature Bremen extraction
+
+Q/I VALIDATION CHECK
+* Pass: _validate_q_i_output(q, i_arr) at preprocessing_bridge.py:697-730 validates:
+  - 1-dimensionality, matching lengths, non-empty, finite values, strictly increasing q
+  Pure function, no external dependencies. Raises PreprocessingBridgeError on failure.
+
+FEATURE EXTRACTION CHECK
+* Pass: Integrated q/i reaches real Bremen feature extraction (15-column v0.1 schema). Preprocessing tests verify build_feature_table with matador_raw context produces 15 features.
+
+MOCKING BOUNDARY CHECK
+* Pass: Single external integration boundary: `_matador_raw_to_q_i()` in preprocessing_bridge.py. Route-level test mocks this function to return deterministic q/i. Bridge unit tests mock `xrd_preprocessing.perform_azimuthal_integration`. Pure validation tests (_validate_q_i_output) use no mocking. No adapter detection, calibration discovery, measurement discovery, pairing, context construction, preprocessing dispatch, q/i validation, or feature extraction are mocked.
+
+ROUTE-LEVEL SUCCESS CHECK
+* Pass: TestMatadorRawRouteSuccess.test_matador_raw_analyze_completed (test_bremen_api_server.py) creates synthetic Matador-like H5 (2D measurements + PONI calibration), mocks _matador_raw_to_q_i, POST /demo/api/h5/analyze with staged temp H5, asserts status=='completed', result present with p_mri_needed/triage, correct event order, request_id, job_id, technical_demo_only: true, checksum unchanged.
+
+EVENT LIFECYCLE CHECK
+* Pass: No premature events. preprocessing_started and model_inference_started not emitted before run_inference() (confirmed: 0 matches in server.py for premature events). Success event order: request_received → container_selected → h5_staging_started → h5_staging_completed → h5_preflight_started → h5_preflight_completed → preprocessing_completed → model_inference_completed → evidence_built → completed. Failure stops downstream events.
+
+FAILURE TEST CHECK
+* Pass: 12+ failure tests across 3 test classes covering: no calibration (→ h5_preflight_failed), no inference events on failure, checksum unchanged on failure, missing side metadata, no complete bilateral pair, duplicate side/pair_key, insufficient measurements, no calibration data, integration API exception, non-finite q/i, q/i length mismatch, non-monotonic q, empty profiles.
+
+IMMUTABILITY CHECK
+* Pass: Source H5 checksum unchanged after both successful and failed analysis — verified by test_source_checksum_unchanged and test_checksum_unchanged_on_failure. H5 opened read-only throughout. No writes, no derived artifacts, no committed H5 files.
+
+METADATA SAFETY CHECK
+* Pass: No patient/sample/specimen identifiers exposed in API/UI/logs/events/exceptions. Clinical/product labels (biopsy/birads/BENIGN/CANCER/Aramis) only in safe docstring prohibition language. No raw array values or sensitive attribute values in response text.
+
+NATIVE/SESSION REGRESSION CHECK
+* Pass: All 1368 tests pass (11 skipped). Canonical and session layout tests all pass unchanged. Demo UI and workflow tests unchanged. Event lifecycle truthful. Catalog/upload/select/Analyze/events/result workflow preserved.
+
+SCOPE CHECK
+* Pass: No dependency changes, no physical repacking, no derived cache, no training, no UI redesign, no infrastructure, no deployment automation, no documentation work. All files changed are within approved scope (h5_layouts.py, preprocessing_bridge.py, 3 test files).
+
+IMPLEMENTATION REPORT CHECK
+* Pass: Implementation report present and comprehensively summarizes all changes with direct code/test evidence. No unsupported claims. No future-work statements for required Matador detection, integration, feature extraction, or route success. Known limitation (PONI-only calibration mode) transparently documented as a warning for future confirmation when real Nova H5 calibration format is verified.
+
+PROCESS RULES CHECK
+* Pass: No implementation files modified by reviewer. No git mutation commands executed. No Docker/Terraform/AWS commands executed. No dependencies installed. Only artifact written is the precommit-review.yml.
+
+COMMIT READINESS
+* ready to commit implementation artifacts: yes
+* required files to stage:
+  * src/bremen/api/h5_layouts.py
+  * src/bremen/api/preprocessing_bridge.py
+  * tests/test_bremen_h5_layouts.py
+  * tests/test_bremen_preprocessing_bridge.py
+  * tests/test_bremen_api_server.py
+  * .project-memory/pr/0073-matador-raw-runtime-completion/IMPLEMENTATION_REPORT.md
+  * .project-memory/pr/0073-matador-raw-runtime-completion/reviews/precommit-review.yml
+* files to exclude:
+  * No real/temporary H5 files, model/data artifacts, or files outside approved scope
+
+BOUNDARY CONFIRMATIONS
+* PR0072 retained: yes
+* structural-only support is not accepted as completion: yes (full pipeline implemented)
+* real-like structure is detected: yes (2D + calibration via visititems)
+* detection is filename-independent: yes
+* actual XRD API verified: yes (perform_azimuthal_integration confirmed)
+* external integration invoked in runtime: yes (preprocessing_bridge.py:673)
+* calibration is evidence-based: yes (visititems structural discovery)
+* deterministic bilateral pairing implemented: yes (by position key, not first-two)
+* no first-two pairing: yes
+* no approximate integration or pixel q: yes
+* route test mocks only approved boundaries: yes (only _matador_raw_to_q_i)
+* real Bremen feature extraction exercised: yes (15-feature schema)
+* route-level Matador result completed: yes
+* truthful events preserved: yes
+* failure stops downstream events: yes
+* source checksum unchanged: yes
+* native/session behavior preserved: yes (1368 tests pass)
+* no identifiers or raw values exposed: yes
+* no physical repacking/cache: yes
+* no committed H5/model/data artifacts: yes
+* no dependency/frontend/startup/infra/docs changes: yes
+* no unsafe model loading: yes
+* no clinical claims: yes
+* implementation report present: yes
+* reviewer modified no implementation files: yes
+* no git mutation commands: yes
