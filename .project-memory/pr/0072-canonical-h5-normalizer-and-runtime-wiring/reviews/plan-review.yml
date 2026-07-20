@@ -1,0 +1,181 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: approve
+
+BLOCKERS:
+- <none>
+
+WARNINGS:
+- PLAN.md pseudocode for the refactored `run_h5_preflight()` shows `adapter = detect_layout(f)` followed by `if adapter is None: raise H5ContainerError(...)`, but the actual `detect_layout()` function raises `H5ContainerError` directly when no adapter matches (it never returns None). The `if adapter is None` branch is dead code. The coder must adjust the implementation to either catch the exception or rely on the existing raise behavior. This is a minor pseudocode imprecision, not a logic flaw.
+- PLAN.md shows `ctx = adapter.resolve_prediction_context(f, target_scan_ref or "", control_scan_ref or "")` where `target_scan_ref` defaults to `None`. However, `_validate_ref()` in `CanonicalH5LayoutAdapter` rejects empty strings — it requires `t_ref == "target"` and `c_ref == "contralateral"`. When `run_h5_preflight()` is called without explicit refs (the demo route case), the canonical adapter will reject empty strings. The coder must either: (a) pass default refs `("target", "contralateral")` when none provided, or (b) modify `CanonicalH5LayoutAdapter.resolve_prediction_context()` to accept empty/missing refs and default them. The plan does not specify which approach, so the coder should decide during implementation.
+- `MatadorRawH5Adapter` is described as "structural only" with integration via `xrd_preprocessing`. However, the plan's validation checklist includes `python -m pytest -q tests/test_bremen_inference_integration.py` and Test C expects a `completed` result for Matador raw. If the `xrd_preprocessing` library is not available in the test environment, the Matador test will need appropriate mocking. The plan acknowledges this ("with appropriate mocks for external XRD integration library") but the coder should ensure the mock strategy works with the existing test framework.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: aaa6dfd00218e2f2a7844d5e808b19a37ef85056
+- command: git branch --show-current
+  exit code: 0
+  output: 0072-canonical-h5-normalizer-and-runtime-wiring
+- command: git status --short
+  exit code: 0
+  output: "?? .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/"
+- command: test -f .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
+  exit code: 0
+  output: EXISTS
+- command: grep -n "run_h5_preflight\|detect_layout\|legacy path\|two paths\|adapter-based" .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
+  exit code: 0
+  output: 14 matches — preflight rewrite fully specified
+- command: grep -n "premature\|event\|preprocessing_started\|model_inference_started\|lifecycle" .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
+  exit code: 0
+  output: 17 matches — event lifecycle fix documented
+- command: grep -n "MatadorRawH5Adapter\|matador_raw\|Matador raw" .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
+  exit code: 0
+  output: 16 matches — new adapter design specified
+- command: grep -n "preprocessing_bridge\|layout_context\|non-canonical\|session_layout" .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
+  exit code: 0
+  output: 10 matches — bridge generalization covered
+- command: grep -n "technical_demo_only\|clinical\|patient data\|patient_id\|patient_identifier" .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
+  exit code: 0
+  output: 10 matches — safety markers and data protection covered
+- command: grep -n "Aramis\|aramis\|biopsy\|birads\|BENIGN\|CANCER\|diagnosis\|diagnose\|replaces\|replace" .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
+  exit code: 0
+  output: 7 matches — all in forbidden/avoidance context
+- command: grep -n "React\|package manager\|new dependencies\|package.json" .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
+  exit code: 0
+  output: 8 matches — all in forbidden context
+- command: grep -n "Agent: coder" .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
+  exit code: 0
+  output: "60" — implementation agent correctly assigned
+- command: grep -n "Mode: implementation" .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
+  exit code: 0
+  output: "61" — implementation mode correctly assigned
+- command: grep -n "fake success\|no fake" .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
+  exit code: 0
+  output: "432" — no fake success explicitly confirmed
+- command: grep -n "xrd.preprocessing\|xrd_preprocessing\|integrat" .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
+  exit code: 0
+  output: 9 matches — Matador integration boundary acknowledged
+- command: date -u +%Y-%m-%dT%H:%M:%SZ
+  exit code: 0
+  output: 2026-07-20T10:53:12Z
+
+FILES READ:
+- .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
+- src/bremen/api/preflight.py
+- src/bremen/api/inference_handler.py
+- src/bremen/api/server.py
+- src/bremen/api/h5_layouts.py
+- src/bremen/api/preprocessing_bridge.py
+- .project-memory/project_contract.yml
+- AGENTS.md
+
+FILES WRITTEN:
+- .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/reviews/plan-review.yml
+
+SNAPSHOT DELTA:
+- HEAD: aaa6dfd00218e2f2a7844d5e808b19a37ef85056
+- status: ?? .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/
+- diff: (clean — no tracked files modified)
+
+CHECKS:
+- scope: pass
+- plan-review boundary: pass
+- validation strategy: pass
+- safety boundaries: pass
+- drift gate: pass
+- evidence completeness: pass
+- dirty tree: pass
+
+BOUNDARY CONFIRMATIONS:
+- no Docker run: confirmed
+- no pytest run: confirmed
+- no dependency install: confirmed
+- no implementation files edited: confirmed
+- no git mutation commands: confirmed
+
+SCOPE CHECK: pass
+- PLAN focuses on fixing the runtime defect where `run_h5_preflight()` hardcodes `/scans/target` when no explicit refs provided.
+- Three specific changes: (1) universal `detect_layout()` in preflight, (2) event lifecycle fix, (3) MatadorRawH5Adapter.
+- No broad frontend/design, infra, deployment automation, model retraining, Aramis alignment, or multi-tenancy.
+
+PREFLIGHT REWRITE CHECK: pass
+- PLAN requires refactoring `run_h5_preflight()` to use `detect_layout()` for ALL inputs, not just when explicit refs provided.
+- Legacy hardcoded `/scans/target` path removed. CanonicalH5LayoutAdapter returns identical paths for backward compatibility.
+- Session layout H5s now routed through SessionLayoutH5Adapter, eliminating the `Missing /scans/target group` error.
+- Three layouts supported: Bremen-native (canonical), legacy/synthetic (session), Matador raw acquisition (new).
+
+PREPROCESSING BRIDGE GENERALIZATION CHECK: pass
+- PLAN requires `run_preprocessing_bridge()` to build a `layout_context` for ALL non-canonical layouts, not just `calibration_sample`.
+- Bridge context building generalized to check `layout_name != "canonical"` instead of `layout_name == "calibration_sample"`.
+- Session layout already has `_extract_session_profiles()` in build_feature_table() — confirmed present in current code.
+
+EVENT LIFECYCLE CHECK: pass
+- PLAN confirms premature events: `h5_preflight_started`, `preprocessing_started`, `model_inference_started` emitted BEFORE `run_inference()` call in `_handle_demo_h5_analyze()` (source confirmed at server.py lines 984-1000).
+- Fix: remove premature events; emit events only for stages that actually complete.
+- Truthful event sequence specified for all layouts.
+
+MATADOR RAW ADAPTER CHECK: pass
+- PLAN specifies `MatadorRawH5Adapter` as structural-only adapter (detect + resolve_prediction_context).
+- Detection: calibration data AND raw measurements.
+- No approximate radial integration — existing XRD preprocessing reused.
+- No fabricated success if xrd_preprocessing cannot integrate.
+
+SAFETY CHECK: pass
+- No unsafe deserialization, no H5 mutation, no clinical claims.
+- No committed H5/patient data, no new dependencies, no React.
+- No deployment mutation, no Terraform/GitHub Actions/Docker changes.
+- `technical_demo_only: true` preserved.
+- No Aramis runtime/product dependency.
+
+VALIDATION CHECK: pass
+- Controlled HTTP tests for all three layouts (Bremen-native, session, Matador raw).
+- Failure tests for unknown layout, missing contralateral, missing calibration.
+- Premature event absence verification.
+- Full pytest, compile, CLI help checks.
+- Forbidden-pattern greps for premature events, XRD integration boundary, clinical labels, unsafe deserialization, React.
+- Forbidden file diff and artifact checks.
+
+IMPLEMENTATION AGENT CHECK: pass
+- Agent: coder (line 60)
+- Mode: implementation (line 61)
+- Both confirmed via PLAN.md grep evidence.
+
+PROCESS RULES CHECK: pass
+- Branch confirmed: 0072-canonical-h5-normalizer-and-runtime-wiring
+- HEAD: aaa6dfd00218e2f2a7844d5e808b19a37ef85056
+- No git mutation commands run.
+- No implementation files modified.
+- No tests run.
+- All required validation commands executed.
+- BLOCKERS empty, VERDICT is approve (valid).
+
+COMMIT READINESS:
+- ready to commit planning artifacts: yes
+- required files to stage:
+  - .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
+  - .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/reviews/plan-review.yml
+- files to exclude: none from this pair
+
+BOUNDARY CONFIRMATIONS:
+- one PR planned for runtime wiring and in-memory normalization: confirmed
+- no physical H5 repacking planned: confirmed
+- no derived H5 cache planned: confirmed
+- automatic layout detection planned: confirmed
+- one canonical context planned: confirmed
+- native layout preserved: confirmed
+- session layout wired into run_inference without explicit refs: confirmed
+- Matador raw adapter planned: confirmed
+- existing trusted XRD integration reused: confirmed
+- no approximate radial integration planned: confirmed
+- source H5 remains immutable: confirmed
+- correct event ordering planned: confirmed
+- three controlled HTTP success tests planned: confirmed
+- no fake success planned: confirmed
+- no clinical/product labels used as target: confirmed
+- no patient identifiers exposed: confirmed
+- no Aramis runtime/product dependency: confirmed
+- no persisted Matador/Bremen derived artifact: confirmed
+- no React/package/dependency/startup/infra changes: confirmed
+- no unsafe model loading: confirmed
+- implementation assigned to coder: confirmed
+- no git mutation commands run: confirmed

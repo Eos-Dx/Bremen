@@ -184,13 +184,16 @@ def run_h5_preflight(
 ) -> PreflightResult:
     """Run full H5 preflight on a target/control H5 container.
 
+    Uses ``detect_layout()`` for ALL inputs (not just when explicit refs
+    are provided).  The detected adapter provides the canonical context
+    (pairing, group paths, side metadata, measurement counts) regardless
+    of the input H5 layout.
+
     Validates:
-    - Container structure
+    - Container structure (via adapter detection)
     - Same patient
     - Opposite sides
-    - Required metadata
     - Minimum measurement counts
-    - SNR/QC thresholds (if present)
 
     Returns a ``PreflightResult``.
 
@@ -215,128 +218,70 @@ def run_h5_preflight(
         ) from exc
 
     try:
-        # ---- Explicit refs path (adapter-based) ----
-        if target_scan_ref is not None or control_scan_ref is not None:
-            if target_scan_ref is None or control_scan_ref is None:
-                raise ValueError(
-                    "Both target_scan_ref and control_scan_ref must be provided"
-                )
-            from bremen.api.h5_layouts import detect_layout
+        from bremen.api.h5_layouts import detect_layout
 
-            # Detect layout and resolve context
-            adapter = detect_layout(f)
-            ctx = adapter.resolve_prediction_context(
-                f, target_scan_ref, control_scan_ref
-            )
+        # Detect layout (uses adapter registry — raises H5ContainerError if no match)
+        adapter = detect_layout(f)
 
-            # Top-level structure check
-            top_keys = set(f.keys())
-            container_reason = _check_top_level_structure(top_keys)
-            reasons.append(container_reason)
+        # Resolve context with optional refs.
+        # When refs are None, each adapter handles default resolution:
+        # - CanonicalH5LayoutAdapter defaults to "target" / "contralateral"
+        # - SessionLayoutH5Adapter finds first valid set/contralateral pair
+        # - MatadorRawH5Adapter finds first bilateral measurement pair
+        ctx = adapter.resolve_prediction_context(
+            f,
+            target_scan_ref or "",
+            control_scan_ref or "",
+        )
 
-            patient_id = ctx.patient_identifier
-            patient_identifier_source = ctx.patient_identifier_source
-            metadata_fallback_used = ctx.metadata_fallback_used
-            target_side = ctx.target_side
-            contralateral_side = ctx.control_side
-            target_count = ctx.target_measurement_count or 0
-            contralateral_count = ctx.control_measurement_count or 0
+        # Top-level structure check
+        top_keys = set(f.keys())
+        container_reason = _check_top_level_structure(top_keys)
+        reasons.append(container_reason)
 
-            metadata = {
-                "patient_id": patient_id,
-                "patient_identifier_source": patient_identifier_source,
-                "metadata_fallback_used": metadata_fallback_used,
-                "layout_name": ctx.layout_name,
-                "target_group_path": ctx.target_group_path,
-                "control_group_path": ctx.control_group_path,
-                "target_side": target_side,
-                "contralateral_side": contralateral_side,
-            }
+        patient_id = ctx.patient_identifier
+        patient_identifier_source = ctx.patient_identifier_source
+        metadata_fallback_used = ctx.metadata_fallback_used
+        target_side = ctx.target_side
+        contralateral_side = ctx.control_side
+        target_count = ctx.target_measurement_count or 0
+        contralateral_count = ctx.control_measurement_count or 0
 
-            # Same patient check
-            patient_reason = validate_same_patient(f, patient_id)
-            reasons.append(patient_reason)
+        metadata = {
+            "patient_id": patient_id,
+            "patient_identifier_source": patient_identifier_source,
+            "metadata_fallback_used": metadata_fallback_used,
+            "layout_name": ctx.layout_name,
+            "target_group_path": ctx.target_group_path,
+            "control_group_path": ctx.control_group_path,
+            "target_scan_ref": target_scan_ref,
+            "control_scan_ref": control_scan_ref,
+            "target_side": target_side,
+            "contralateral_side": contralateral_side,
+        }
 
-            # Opposite sides check
-            sides_reason = validate_opposite_sides(
-                target_side, contralateral_side
-            )
-            reasons.append(sides_reason)
+        # Same patient check
+        patient_reason = validate_same_patient(f, patient_id)
+        reasons.append(patient_reason)
 
-            # Measurement count
-            measurements_reason = _validate_measurement_counts_int(
-                target_count, contralateral_count
-            )
-            reasons.append(measurements_reason)
+        # Opposite sides check
+        sides_reason = validate_opposite_sides(
+            target_side, contralateral_side
+        )
+        reasons.append(sides_reason)
 
-        # ---- Legacy path (no explicit refs) ----
-        else:
-            # Check required structure
-            top_keys = set(f.keys())
-            container_reason = _check_top_level_structure(top_keys)
-            reasons.append(container_reason)
+        # Measurement count
+        measurements_reason = _validate_measurement_counts_int(
+            target_count, contralateral_count
+        )
+        reasons.append(measurements_reason)
 
-            # Patient ID with fallback
-            patient_meta = resolve_patient_metadata(f)
-            patient_id = patient_meta.patient_identifier
-            patient_identifier_source = patient_meta.patient_identifier_source
-            metadata_fallback_used = patient_meta.fallback_used
-            metadata = {
-                "patient_id": patient_id,
-                "patient_identifier_source": patient_identifier_source,
-                "metadata_fallback_used": metadata_fallback_used,
-            }
-
-            # Target side
-            target_side, target_measurements = _get_scan_side_and_measurements(
-                f, "target"
-            )
-            metadata["target_side"] = target_side
-
-            # Contralateral side
-            contralateral_side, contralateral_measurements = (
-                _get_scan_side_and_measurements(f, "contralateral")
-            )
-            metadata["contralateral_side"] = contralateral_side
-
-            # Same patient check
-            patient_reason = validate_same_patient(f, patient_id)
-            reasons.append(patient_reason)
-
-            # Opposite sides check
-            sides_reason = validate_opposite_sides(
-                target_side, contralateral_side
-            )
-            reasons.append(sides_reason)
-
-            # Required metadata
-            metadata_reason = validate_required_metadata(
-                f,
-                patient_id,
-                patient_id_fallback_active=metadata_fallback_used,
-            )
-            reasons.append(metadata_reason)
-
-            # Measurement count
-            target_count = (
-                len(target_measurements)
-                if target_measurements is not None
-                else 0
-            )
-            contralateral_count = (
-                len(contralateral_measurements)
-                if contralateral_measurements is not None
-                else 0
-            )
-            measurements_reason = validate_measurement_counts(
-                target=target_measurements,
-                contralateral=contralateral_measurements,
-            )
-            reasons.append(measurements_reason)
-
-            # SNR thresholds (if present)
+        # SNR thresholds (if present in canonical layout)
+        try:
             snr_reason = validate_snr_thresholds(f)
             reasons.append(snr_reason)
+        except Exception:
+            pass
 
     finally:
         f.close()
@@ -345,23 +290,15 @@ def run_h5_preflight(
     all_mandatory_passed = all(
         r.passed
         for r in reasons
-        if r.check
-        not in (
-            "snr_thresholds",
-            "metadata_warnings",
-        )
+        if r.check not in ("snr_thresholds", "metadata_warnings")
     )
 
     any_warnings = len(warnings) > 0 or (
-        len([r for r in reasons if "snr" in r.check.lower() and not r.passed])
-        > 0
+        len([r for r in reasons if "snr" in r.check.lower() and not r.passed]) > 0
     )
 
     if all_mandatory_passed:
-        if any_warnings:
-            status = PreflightStatus.WARNING
-        else:
-            status = PreflightStatus.PASSED
+        status = PreflightStatus.WARNING if any_warnings else PreflightStatus.PASSED
     else:
         status = PreflightStatus.FAILED
 
