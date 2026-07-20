@@ -986,20 +986,6 @@ def _handle_demo_h5_analyze(
         "detail": "Running H5 preflight",
     })
 
-    # Preprocessing
-    events.append({
-        "event": "preprocessing_started",
-        "timestamp": _now(),
-        "detail": "Starting preprocessing bridge",
-    })
-
-    # Model inference
-    events.append({
-        "event": "model_inference_started",
-        "timestamp": _now(),
-        "detail": f"Model version: {body_dict.get('model_version', 'current')}",
-    })
-
     try:
         result = run_inference(str(staged_path))
 

@@ -179,12 +179,13 @@ def run_preprocessing_bridge(
     if resolved_context is None and preflight_result is not None:
         meta = preflight_result.metadata or {}
         layout_name = meta.get("layout_name")
-        if layout_name == "calibration_sample":
-            # Build a minimal context from PreflightResult metadata
+        if layout_name and layout_name != "canonical":
+            # Build a minimal context from PreflightResult metadata for
+            # any non-canonical layout (calibration_sample, session_layout, etc.)
             resolved_context = H5PredictionContext(
-                layout_name="calibration_sample",
-                target_scan_ref="",
-                control_scan_ref="",
+                layout_name=layout_name,
+                target_scan_ref=meta.get("target_scan_ref", ""),
+                control_scan_ref=meta.get("control_scan_ref", ""),
                 target_group_path=meta.get("target_group_path", ""),
                 control_group_path=meta.get("control_group_path", ""),
                 target_side=preflight_result.target_side,
