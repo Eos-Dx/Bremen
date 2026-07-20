@@ -274,6 +274,16 @@ def build_feature_table(
                 )
             target_profiles = _extract_calibration_profiles(f, target_path)
             contralateral_profiles = _extract_calibration_profiles(f, control_path)
+        elif layout_context is not None and layout_context.layout_name == "session_layout":
+            # Session layout: read integration/i arrays directly from target/control group paths
+            target_path = layout_context.target_group_path
+            control_path = layout_context.control_group_path
+            if not target_path or not control_path:
+                raise PreprocessingBridgeError(
+                    "Missing target/control group paths for session preprocessing"
+                )
+            target_profiles = _extract_session_profiles(f, target_path)
+            contralateral_profiles = _extract_session_profiles(f, control_path)
         else:
             target_profiles = _extract_profiles(f, "target")
             contralateral_profiles = _extract_profiles(f, "contralateral")
@@ -518,6 +528,66 @@ def _extract_calibration_profiles(
         profiles.append(magnitude)
 
     return profiles
+
+
+def _extract_session_profiles(
+    h5_file: h5py.File,
+    group_path: str,
+) -> list[np.ndarray]:
+    """Read profiles from a session-layout group.
+
+    Reads integration/i and integration/q from the group at
+    ``{group_path}/integration/``, computes magnitude
+    ``sqrt(i^2 + q^2)``, and returns a list with a single 1D profile.
+
+    Parameters
+    ----------
+    h5_file : Open H5 file handle.
+    group_path : Absolute H5 group path to the target or control
+        group (e.g. ``/session/sets/set_001_sample_main``).
+
+    Returns
+    -------
+    List with one 1D numpy array.
+
+    Raises
+    ------
+    PreprocessingBridgeError
+        If integration arrays are missing or invalid.
+    """
+    # Read integration/i
+    i_path = f"{group_path}/integration/i"
+    if i_path not in h5_file:
+        raise PreprocessingBridgeError(
+            "Missing session integration/i"
+        )
+    i_arr = np.asarray(h5_file[i_path][()], dtype=np.float64)
+    if i_arr.ndim != 1:
+        raise PreprocessingBridgeError(
+            "Session integration/i is not a 1D array"
+        )
+
+    # Read integration/q
+    q_path = f"{group_path}/integration/q"
+    if q_path not in h5_file:
+        raise PreprocessingBridgeError(
+            "Missing session integration/q"
+        )
+    q_arr = np.asarray(h5_file[q_path][()], dtype=np.float64)
+    if q_arr.ndim != 1:
+        raise PreprocessingBridgeError(
+            "Session integration/q is not a 1D array"
+        )
+
+    # Validate compatible lengths
+    if len(i_arr) != len(q_arr):
+        raise PreprocessingBridgeError(
+            "Session integration i and q have different lengths"
+        )
+
+    # Compute magnitude: sqrt(i^2 + q^2)
+    magnitude = np.sqrt(i_arr**2 + q_arr**2)
+    return [magnitude]
 
 
 def _sigma_rms(

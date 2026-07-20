@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import h5py
+import numpy as np
 
 
 # ---------------------------------------------------------------------------
@@ -439,8 +440,195 @@ def _find_calibration_group(h5_file: h5py.File) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# Session layout adapter (legacy/synthetic demo H5 containers)
+# ---------------------------------------------------------------------------
+
+
+class SessionLayoutH5Adapter(H5LayoutAdapter):
+    """Adapter for legacy/synthetic session-layout diffraction H5 containers.
+
+    Detects H5 files with ``/session/sets`` structure containing paired
+    ``set_NNN_sample_main`` and ``contralateral_set_NNN_sample_main``
+    groups with ``integration/q`` and ``integration/i`` datasets.
+
+    This adapter does NOT use Aramis product labels, biopsy metadata,
+    or clinical classifications as Bremen prediction targets.
+    """
+
+    name = "session_layout"
+
+    def detect(self, h5_file: h5py.File) -> bool:
+        # Must NOT claim canonical or calibration layouts
+        if "/scans/target/measurements" in h5_file:
+            return False
+        # Must have session/sets
+        if "/session/sets" not in h5_file:
+            return False
+        # Verify at least one target-contralateral pair exists
+        try:
+            groups = list(h5_file["/session/sets"].keys())
+        except Exception:
+            return False
+        for key in groups:
+            if key.startswith("set_") and "_sample_main" in key:
+                contra_key = f"contralateral_{key}"
+                if contra_key in groups:
+                    return True
+        return False
+
+    def resolve_prediction_context(
+        self,
+        h5_file: h5py.File,
+        target_scan_ref: str,
+        control_scan_ref: str,
+    ) -> H5PredictionContext:
+        from bremen.api.preflight import (
+            H5MetadataError,
+            H5ContainerError,
+            H5SideMismatchError,
+            H5PatientMismatchError,
+            resolve_patient_metadata,
+        )
+
+        # Validate refs
+        t_ref = _validate_ref(target_scan_ref, "target_scan_ref")
+        c_ref = _validate_ref(control_scan_ref, "control_scan_ref")
+
+        # If explicit refs provided, use them; otherwise find first pair
+        sets_group = h5_file["/session/sets"]
+        group_keys = list(sets_group.keys())
+
+        target_path: str | None = None
+        control_path: str | None = None
+
+        if t_ref and c_ref:
+            if t_ref in group_keys:
+                target_path = f"/session/sets/{t_ref}"
+            if c_ref in group_keys:
+                control_path = f"/session/sets/{c_ref}"
+        else:
+            for key in sorted(group_keys):
+                if key.startswith("set_") and "_sample_main" in key:
+                    contra_key = f"contralateral_{key}"
+                    if contra_key in group_keys:
+                        target_path = f"/session/sets/{key}"
+                        control_path = f"/session/sets/{contra_key}"
+                        t_ref = key
+                        c_ref = contra_key
+                        break
+
+        if not target_path or not control_path:
+            raise H5ContainerError(
+                "No valid target-controlateral pair found in "
+                "/session/sets"
+            )
+
+        # Validate integration arrays exist and have correct shape
+        for path, label in [(target_path, "target"), (control_path, "control")]:
+            for arr_name in ("integration/q", "integration/i"):
+                arr_full = f"{path}/{arr_name}"
+                if arr_full not in h5_file:
+                    raise H5ContainerError(
+                        f"Missing {arr_full} for {label} scan"
+                    )
+                arr = h5_file[arr_full][:]
+                if not isinstance(arr, (list, tuple, h5py.Dataset, np.ndarray)) or len(arr) == 0:
+                    raise H5ContainerError(
+                        f"Empty or invalid {arr_full} for {label} scan"
+                    )
+
+        # Validate q axes compatibility
+        target_q = np.asarray(h5_file[f"{target_path}/integration/q"][()], dtype=np.float64)
+        control_q = np.asarray(h5_file[f"{control_path}/integration/q"][()], dtype=np.float64)
+        if len(target_q) != len(control_q):
+            raise H5ContainerError(
+                "Target and control q-axis lengths do not match"
+            )
+        if np.max(np.abs(target_q - control_q)) > 0.01:
+            raise H5ContainerError(
+                "Target and control q-axes are not compatible for "
+                "Bremen feature computation"
+            )
+
+        # Patient metadata
+        try:
+            patient_meta = resolve_patient_metadata(h5_file)
+        except Exception:
+            patient_meta = None
+
+        # Side metadata — read from sample_type/side if available
+        # Use safe defaults: "target" / "contralateral"
+        # This adapter intentionally does NOT use biopsy/birads/target_side
+        # labels as prediction targets.
+        target_side: str | None = None
+        control_side: str | None = None
+
+        # Try reading from session/sample/sample_type
+        session_sample_type = _read_sample_metadata_str(
+            h5_file, "/session", "sample/sample_type"
+        )
+        # If session-level sample_type not available, look up via sets group path
+        if session_sample_type is not None:
+            target_side = _breast_type_to_side(session_sample_type)
+            if target_side == "RIGHT":
+                control_side = "LEFT"
+            else:
+                control_side = "RIGHT"
+        else:
+            # Try reading sample_type from target/control group sibling paths
+            # using the parent of the sets group
+            try:
+                t_st = _read_sample_metadata_str(
+                    h5_file, "/session", "sample/sample_type"
+                )
+                if t_st:
+                    target_side = _breast_type_to_side(t_st)
+                    control_side = "LEFT" if target_side == "RIGHT" else "RIGHT"
+            except Exception:
+                pass
+
+        # Measurement count from integration arrays
+        try:
+            target_count = len(np.asarray(h5_file[f"{target_path}/integration/i"][()]))
+        except Exception:
+            target_count = 0
+        try:
+            control_count = len(np.asarray(h5_file[f"{control_path}/integration/i"][()]))
+        except Exception:
+            control_count = 0
+
+        return H5PredictionContext(
+            layout_name=self.name,
+            target_scan_ref=t_ref,
+            control_scan_ref=c_ref,
+            target_group_path=target_path,
+            control_group_path=control_path,
+            target_side=target_side,
+            control_side=control_side,
+            patient_identifier=(
+                patient_meta.patient_identifier if patient_meta else "unknown"
+            ),
+            patient_identifier_source=(
+                patient_meta.patient_identifier_source
+                if patient_meta
+                else "session_layout"
+            ),
+            metadata_fallback_used=(
+                patient_meta.fallback_used if patient_meta else True
+            ),
+            target_measurement_count=target_count,
+            control_measurement_count=control_count,
+            adapter_metadata={
+                "layout_name": self.name,
+                "pairing_method": "set_contralateral_index",
+            },
+        )
+
+
+# ---------------------------------------------------------------------------
 # Register built-in adapters
 # ---------------------------------------------------------------------------
 
 register_adapter(CanonicalH5LayoutAdapter())
 register_adapter(CalibrationSampleH5LayoutAdapter())
+register_adapter(SessionLayoutH5Adapter())
