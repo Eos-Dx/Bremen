@@ -1,0 +1,250 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: approve
+
+BLOCKERS:
+- none
+
+WARNINGS:
+- The exact column names from `list_h5_measurement_sets()` DataFrame remain unknown until real-layout manifest is provided; the plan correctly identifies this as an implementation-time discovery task and does not commit to speculative column names.
+- The validation checks section (line 296) references task-prompt checks generically rather than itemizing each grep/command; acceptable since the task prompt itself is the authoritative validation specification.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: b696b8eba50e71f7a889c910bc0b39b2e6a78c94
+- command: git branch --show-current
+  exit code: 0
+  output: 0073-matador-raw-runtime-completion
+- command: git status --short
+  exit code: 0
+  output: "?? .project-memory/pr/0073-matador-raw-runtime-completion/"
+- command: test -f .project-memory/pr/0073-matador-raw-runtime-completion/PLAN.md
+  exit code: 0
+  output: (exists)
+- command: grep -n "^## Implementation agent" .project-memory/pr/0073-matador-raw-runtime-completion/PLAN.md
+  exit code: 0
+  output: "279:## Implementation agent"
+- command: grep -nE "Agent.*coder" .project-memory/pr/0073-matador-raw-runtime-completion/PLAN.md
+  exit code: 0
+  output: "281:- **Agent**: coder"
+- command: grep -nE "Mode.*implementation" .project-memory/pr/0073-matador-raw-runtime-completion/PLAN.md
+  exit code: 0
+  output: "282:- **Mode**: implementation"
+- command: grep -n "^## Implementation scope" .project-memory/pr/0073-matador-raw-runtime-completion/PLAN.md
+  exit code: 0
+  output: "284:## Implementation scope"
+- command: grep -n "PR0072 Postmortem\|structural adapter\|route-level" .project-memory/pr/0073-matador-raw-runtime-completion/PLAN.md
+  exit code: 0
+  output: (multiple matches — lines 11,13,15,29,30,34,40,44,288,305,314)
+- command: grep -n "structure-only\|attribute names\|no attribute values" .project-memory/pr/0073-matador-raw-runtime-completion/PLAN.md
+  exit code: 0
+  output: (multiple matches — lines 42,46,50,71,308)
+- command: grep -n "MatadorRawH5Adapter\|real-layout\|structural contract" .project-memory/pr/0073-matador-raw-runtime-completion/PLAN.md
+  exit code: 0
+  output: (multiple matches — lines 13,29,40,42,44,88,98,114,288)
+- command: grep -n "xrd_preprocessing\|AzimuthalIntegration\|integration wrapper" .project-memory/pr/0073-matador-raw-runtime-completion/PLAN.md
+  exit code: 0
+  output: (multiple matches — lines 77,80,83,102,124,126,129,158,196,204,225,289)
+- command: grep -n "no approximate\|no pixel-index\|no fabricated" .project-memory/pr/0073-matador-raw-runtime-completion/PLAN.md
+  exit code: 0
+  output: "311:- no approximate integration: yes"
+  "312:- no fabricated calibration or pairing: yes"
+- command: grep -n "/demo/api/h5/analyze\|container_id" .project-memory/pr/0073-matador-raw-runtime-completion/PLAN.md
+  exit code: 0
+  output: "251:3. POST `/demo/api/h5/analyze` via the test server"
+- command: grep -n "checksum\|immutable" .project-memory/pr/0073-matador-raw-runtime-completion/PLAN.md
+  exit code: 0
+  output: "252:4. Assert: ... source checksum unchanged"
+  "316:- source H5 immutable: yes"
+- command: grep -n "cancer_one_patient\|Nova_103" .project-memory/pr/0073-matador-raw-runtime-completion/PLAN.md
+  exit code: 0
+  output: "52:Usage: python export_h5_structure.py /path/to/Nova_103_.h5"
+  "90:1. Human runs `export_h5_structure.py` against `Nova_103_.h5`"
+  "276:- `cancer_one_patient.h5` still completes (session layout)"
+  "277:- `Nova_103_.h5` progresses through ..."
+- command: date -u +%Y-%m-%dT%H:%M:%SZ
+  exit code: 0
+  output: 2026-07-20T15:15:14Z
+
+FILES READ:
+- .project-memory/pr/0073-matador-raw-runtime-completion/PLAN.md
+
+FILES WRITTEN:
+- .project-memory/pr/0073-matador-raw-runtime-completion/reviews/plan-review.yml
+
+PREVIOUS BLOCKER RESOLUTION:
+- Verification: grep confirms "## Implementation agent" at line 279 with "Agent: coder" (line 281) and "Mode: implementation" (line 282), before "## Implementation scope" at line 284.
+- Result: RESOLVED. The dedicated Implementation agent section is now present in the correct position.
+
+TECHNICAL DRIFT CHECK:
+- PR0072 postmortem: retained (lines 11-22, 6 items)
+- Real-layout evidence requirement: retained (lines 42-97, structural contract + manifest workflow)
+- Structure-only H5 inspection boundary: retained ("no dataset values or attribute values," line 50)
+- Evidence-based pairing: retained (side/position metadata pairing, lines 149-153)
+- Actual XRD API verification: retained (lines 178-197, confirmed function signatures)
+- No approximate or fabricated integration: retained (lines 311-312)
+- Complete raw-to-inference path: retained (detection → integration → feature extraction → inference)
+- Route-level Matador success test: retained (lines 247-253, POST /demo/api/h5/analyze)
+- Native/session regression: retained (lines 264-268)
+- Deployed Nova acceptance: retained (lines 274-277)
+- Verdict: PASS — no weakening or removal of critical content detected
+
+PR0072 POSTMORTEM CHECK: pass
+- 6-item postmortem fully present at lines 11-22
+- Each item identifies a specific failure mode from PR0072
+
+CURRENT STATE CHECK: pass
+- Table at lines 28-37 clearly documents which components work and which fail
+- 8 items tracked: detect(), resolve_prediction_context(), preprocessing bridge, XRD integration, route-level test, failure tests, list_h5_measurement_sets, session layout, canonical native path, event lifecycle
+
+H5 INSPECTION BOUNDARY CHECK: pass
+- Structure-only manifest explicitly restricts to "paths, shapes, dtypes, and attribute names"
+- "No dataset values, no attribute values, no patient identifiers" (line 50)
+- Human-run script, not agent-inspected
+- Manual review/redaction required (line 71)
+
+REAL-LAYOUT STRUCTURAL CONTRACT CHECK: pass
+- Known-available structure evidence documented (lines 73-80)
+- Fallback detection using xrd_preprocessing library calls instead of keyword matching
+- `list_h5_sessions()` + `list_h5_measurement_sets()` as primary detection method
+- `visititems` structural fallback documented (lines 108-109)
+
+MATADOR ADAPTER CORRECTION CHECK: pass
+- Tiered detection strategy (native listing → structural fallback)
+- Explicit forbidden patterns: filename, keyword matching, identifiers (lines 106-109)
+- Clear exclusion of canonical/session layouts (lines 117-118)
+- `resolve_prediction_context()` uses measurement_sets DataFrame for deterministic pairing
+
+PAIRING CHECK: pass
+- Bilateral pairing by side/position metadata from measurement_sets DataFrame (line 150)
+- Explicitly not "first two measurements" (line 149)
+- Plan acknowledges column names are unknown until real H5 inspection
+
+XRD API VERIFICATION CHECK: pass
+- Four trusted functions identified with signatures (lines 178-197)
+- `perform_azimuthal_integration` confirmed as the integration call point
+- `AzimuthalIntegration` class documented as pipeline-compatible alternative
+
+SCIENTIFIC SAFETY CHECK: pass
+- No approximate integration allowed (line 311)
+- No fabricated calibration or pairing (line 312)
+- Real XRD API must be called, not mocked at the integration level
+- External integration is the only Matador-specific mock boundary (line 313)
+- Preprocessing validates q/i profiles (finite, matching lengths, compatible q ranges, line 225)
+
+INTEGRATION WRAPPER CHECK: pass
+- Thin wrapper in preprocessing_bridge.py (lines 204-222)
+- Receives H5PredictionContext with layout_name == "matador_raw"
+- Calls perform_azimuthal_integration, returns validated q/i profiles
+- Passes q/i to existing feature extraction logic
+- No architectural changes beyond PR0072
+
+PREFLIGHT/PREPROCESSING RESPONSIBILITY CHECK: pass
+- Preflight: detection, calibration present, raw 2D groups, side metadata, bilateral pairs — no integration (lines 211-218)
+- Preprocessing: load validated images, call perform_azimuthal_integration, validate q/i, compute features (lines 220-227)
+- Integration error → preprocessing_failed, not inference_failed (line 227)
+
+CANONICAL CONTEXT CHECK: pass
+- H5PredictionContext carries layout_name="matador_raw", target_group_path, control_group_path, adapter_metadata (lines 238-240)
+- Preprocessing bridge dispatches based on layout_context
+- No architectural changes needed
+
+ROUTE EVENT CHECK: pass
+- preprocessing_started before integration wrapper (line 244)
+- preprocessing_completed after successful feature extraction
+- preprocessing_failed on integration failure, caught by run_inference()
+- No premature events
+
+CONTROLLED SUCCESS TEST CHECK: pass
+- Temp HDF5 with Matador-like structure (2D arrays + PONI attrs)
+- Mock perform_azimuthal_integration at wrapper boundary
+- POST /demo/api/h5/analyze via test server
+- Assertions: status=completed, result present, correct event order, technical_demo_only, request_id, job_id, source checksum unchanged
+
+FAILURE TEST CHECK: pass
+- Unknown layout → h5_preflight_failed
+- Missing 2D arrays → h5_preflight_failed
+- Integration exception → preprocessing_failed
+- Invalid q/i from mock → preprocessing_failed
+- No patient identifiers in responses
+- No clinical labels as targets
+
+IMMUTABILITY CHECK: pass
+- Source H5 immutable confirmed (line 252, 316)
+- No physical repacking or derived cache mentioned (line 317)
+- Checksum assertion in success test (line 252)
+
+METADATA SAFETY CHECK: pass
+- No patient identifiers in responses (line 261)
+- No clinical labels as Bremen targets (line 262, 321)
+- Structure-only manifest redacts identifiers (line 71)
+
+NATIVE/SESSION REGRESSION CHECK: pass
+- Canonical /scans/target runtime verified (line 265)
+- Session layout /session/sets verified (line 266)
+- Event lifecycle correct (line 267)
+- H5 catalog/upload works (line 268)
+- All existing 1334+ tests pass (line 269)
+
+DEPLOYED ACCEPTANCE CHECK: pass
+- cancer_one_patient.h5 completes (session layout) (line 276)
+- Nova_103_.h5 progresses: h5_preflight_completed → preprocessing_completed → model_inference_completed → completed (line 277)
+
+SCOPE CHECK: pass
+- One focused corrective PR (line 299)
+- 4 files identified for changes (lines 286-293)
+- No new files unless integration wrapper module justified (line 294)
+- No dependency/frontend/startup/infra/docs changes (line 322)
+- No committed H5/model/data artifacts (line 318)
+
+VALIDATION PLAN CHECK: pass
+- References "All git, compile, test suite, CLI help, and grep checks as specified in the task prompt" (line 296)
+- Task-required grep commands enumerated and verified in this review
+
+IMPLEMENTATION AGENT CHECK: pass
+- Dedicated "## Implementation agent" section at line 279
+- "Agent: coder" at line 281
+- "Mode: implementation" at line 282
+- Section appears before "## Implementation scope" at line 284
+
+PROCESS RULES CHECK: pass
+- No git mutation commands
+- No tests, Docker, Terraform, AWS, or dependency installation
+- No real H5 files inspected
+- No PLAN.md or implementation files modified
+- Only review artifact written
+
+COMMIT READINESS:
+- ready to commit planning artifacts: yes
+- required files:
+  - .project-memory/pr/0073-matador-raw-runtime-completion/PLAN.md: present
+  - .project-memory/pr/0073-matador-raw-runtime-completion/reviews/plan-review.yml: written by this review
+- files to exclude: none from this planning pair
+
+BOUNDARY CONFIRMATIONS:
+- dedicated Implementation agent section present: yes (line 279)
+- implementation assigned to coder: yes (line 281)
+- mode is implementation: yes (line 282)
+- corrective PR scope only: yes (line 299)
+- PR0072 retained: yes (lines 11-22, 305)
+- postmortem explicit: yes (6 items)
+- real-layout evidence required: yes (lines 42-97)
+- real H5 not inspected by agents: yes (human-run script)
+- structure-only evidence contains no values: yes (line 50)
+- no filename-based detection: yes (lines 106, 308)
+- evidence-based pairing: yes (side metadata, line 150)
+- actual XRD API must be verified: yes (lines 178-197)
+- no approximate/fabricated integration: yes (lines 311-312)
+- full raw-to-inference path planned: yes
+- external integration is the only Matador-specific mock: yes (line 313)
+- route-level success required: yes (lines 247-253, 314)
+- source H5 immutable: yes (lines 252, 316)
+- native/session regression required: yes (lines 264-269)
+- real Nova deployed acceptance required: yes (lines 274-277)
+- no physical repacking/cache: yes (line 317)
+- no committed H5/model/data: yes (line 318)
+- no identifier exposure: yes (lines 261, 321)
+- no clinical labels as Bremen target: yes (line 262)
+- no dependency/frontend/startup/infra/docs changes: yes (line 322)
+- reviewer modified no planning or implementation files: yes
+- no git mutation commands: yes
