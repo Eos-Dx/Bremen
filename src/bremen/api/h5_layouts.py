@@ -91,7 +91,7 @@ def detect_layout(h5_file: h5py.File) -> H5LayoutAdapter:
             return adapter
     from bremen.api.preflight import H5ContainerError
 
-    raise H5ContainerError("Unrecognised H5 container layout")
+    raise H5ContainerError("Unrecognised H5 container layout — h5_preflight_failed")
 
 
 # ---------------------------------------------------------------------------
@@ -619,13 +619,12 @@ class SessionLayoutH5Adapter(H5LayoutAdapter):
 class MatadorRawH5Adapter(H5LayoutAdapter):
     """Adapter for Matador raw acquisition H5 containers.
 
-    Detects H5 files with calibration groups and raw measurement data
-    (two-dimensional diffraction images).  Discovers calibration data,
-    raw measurement datasets, and pairs bilateral measurements by position.
+    Detects H5 files with raw 2D diffraction images and calibration
+    (PONI) data.  Discover calibration data, raw measurement datasets,
+    and pair bilateral measurements by position.
 
-    This adapter is structural only — the actual 2D-to-1D radial
-    integration is performed by the existing ``xrd_preprocessing``
-    library during the preprocessing bridge phase.
+    The actual 2D-to-1D radial integration is performed via the
+    ``xrd_preprocessing`` library wrapper in the preprocessing bridge.
 
     This adapter does NOT use Aramis product labels, biopsy metadata,
     or clinical classifications as Bremen prediction targets.
@@ -634,23 +633,64 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
     name = "matador_raw"
 
     def detect(self, h5_file: h5py.File) -> bool:
-        # Must NOT claim canonical or session layouts
+        """Detect Matador raw acquisition H5 layout.
+
+        Detection strategy (first match wins):
+
+        1. Explicit exclusions: must NOT be canonical or session layout.
+        2. Tier 1 — native ``list_h5_sessions`` +
+           ``list_h5_measurement_sets`` from ``xrd_preprocessing``.
+        3. Tier 2 — structural ``visititems`` fallback: at least one
+           2D numeric dataset AND at least one calibration/PONI dataset
+           anywhere in the file.
+
+        Detection MUST NOT depend on filename, top-level group-name
+        keyword matching, or product/patient labels.
+        """
+        # --- Explicit exclusions ---
         if "/scans/target/measurements" in h5_file:
             return False
         if "/session/sets" in h5_file:
             return False
-        # Must have calibration data AND raw measurements
-        has_calib = any(
-            key.startswith("calib") or "calibration" in key.lower()
-            for key in h5_file.keys()
-        )
-        has_measurements = any(
-            "measurement" in key.lower() or "measurement" in str(
-                h5_file[key].name
-            ).lower()
-            for key in h5_file.keys()
-        )
-        return has_calib and has_measurements
+
+        # --- Tier 1: xrd_preprocessing native session listing ---
+        try:
+            from xrd_preprocessing import (
+                list_h5_sessions,
+                list_h5_measurement_sets,
+            )
+
+            h5_path = str(h5_file.filename)
+            sessions = list_h5_sessions(h5_path)
+            if sessions is not None and isinstance(sessions, object) and len(sessions) > 0:
+                measurements = list_h5_measurement_sets(h5_path)
+                if measurements is not None and isinstance(measurements, object) and len(measurements) > 0:
+                    return True
+        except Exception:
+            pass
+
+        # --- Tier 2: structural fallback ---
+        found_2d_image = False
+        found_calib_or_poni = False
+
+        def _visitor(name: str, obj: object) -> None:
+            nonlocal found_2d_image, found_calib_or_poni
+            if isinstance(obj, h5py.Dataset):
+                ndim = len(obj.shape) if hasattr(obj, 'shape') else 0
+                dtype_kind = obj.dtype.kind if hasattr(obj, 'dtype') else ''
+                name_lower = name.lower()
+                # 2D numeric image
+                if ndim >= 2 and dtype_kind in ('f', 'i', 'u'):
+                    found_2d_image = True
+                # Calibration / PONI keywords anywhere in the path
+                if any(kw in name_lower for kw in (
+                    'poni', 'distance', 'wavelength', 'pixel_size',
+                    'center_x', 'center_y', 'calibration',
+                )):
+                    found_calib_or_poni = True
+
+        h5_file.visititems(_visitor)
+        return found_2d_image and found_calib_or_poni
 
     def resolve_prediction_context(
         self,
@@ -658,101 +698,163 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
         target_scan_ref: str,
         control_scan_ref: str,
     ) -> H5PredictionContext:
+        """Discover measurements, pair by position/side, resolve context.
+
+        Walks the H5 tree to find all 2D numeric measurement datasets,
+        resolves side and position metadata from group attributes, pairs
+        bilateral measurements by a shared position key, and validates
+        completeness.
+        """
         from bremen.api.preflight import (
             H5MetadataError,
             H5ContainerError,
             resolve_patient_metadata,
         )
 
-        # Detect calibration and measurement groups structurally
-        calib_groups = sorted([
-            key for key in h5_file.keys()
-            if key.startswith("calib") or "calibration" in key.lower()
-        ])
-        if not calib_groups:
-            raise H5ContainerError("No calibration group found")
-
-        measurement_groups = sorted([
-            key for key in h5_file.keys()
-            if "measurement" in key.lower()
-        ])
-        if not measurement_groups:
-            raise H5ContainerError("No measurement groups found")
-
-        # Validate calibration group has ponifile or poni data
-        calib_path = h5_file[calib_groups[0]]
-        # Check for poni data at expected locations
-        poni_found = False
-        for sub_key in calib_path.keys():
-            if "poni" in sub_key.lower():
-                poni_found = True
-                break
-            # Check deeper sub-groups
-            if hasattr(calib_path[sub_key], 'keys'):
-                for deep_key in calib_path[sub_key].keys():
-                    if "poni" in deep_key.lower():
-                        poni_found = True
-                        break
-        if not poni_found:
-            # Accept if any poni-like string in dataset names or attrs
-            calib_path_attrs = set(calib_path.attrs.keys())
-            for attr in calib_path_attrs:
-                if "poni" in attr.lower():
-                    poni_found = True
-                    break
-        if not poni_found:
-            raise H5ContainerError(
-                "No PONI/calibration data found in calibration group"
-            )
-
-        # Discover measurement side and position
+        # ---- Discover 2D measurement datasets and calibration data ----
         measurements: list[dict] = []
-        for mg_name in measurement_groups:
-            mg_path = h5_file[mg_name]
-            # Try to read measurement data arrays
-            # Look for 2D diffraction arrays
-            for sub_key in mg_path.keys():
-                sub = mg_path[sub_key]
-                if isinstance(sub, h5py.Dataset):
-                    if len(sub.shape) >= 2:
-                        measurements.append({
-                            "group": mg_name,
-                            "dataset": sub_key,
-                            "shape": sub.shape,
-                        })
-                elif isinstance(sub, h5py.Group):
-                    for deep_key in sub.keys():
-                        deep_sub = sub[deep_key]
-                        if isinstance(deep_sub, h5py.Dataset) and len(deep_sub.shape) >= 2:
-                            measurements.append({
-                                "group": f"{mg_name}/{sub_key}",
-                                "dataset": deep_key,
-                                "shape": deep_sub.shape,
-                            })
+
+        def _meas_visitor(name: str, obj: object) -> None:
+            if isinstance(obj, h5py.Dataset):
+                ndim = len(obj.shape) if hasattr(obj, 'shape') else 0
+                dtype_kind = obj.dtype.kind if hasattr(obj, 'dtype') else ''
+                if ndim >= 2 and dtype_kind in ('f', 'i', 'u'):
+                    # Walk up to find the containing group
+                    parent_path = "/" + "/".join(name.split("/")[:-1])
+                    parent = h5_file.get(parent_path)
+                    measurements.append({
+                        "dataset_path": name,
+                        "dataset_name": name.split("/")[-1],
+                        "group_path": parent_path,
+                        "group_name": parent_path.rstrip("/").split("/")[-1],
+                        "shape": obj.shape,
+                        "dtype": obj.dtype,
+                        "parent_attrs": dict(parent.attrs) if parent is not None else {},
+                    })
+
+        h5_file.visititems(_meas_visitor)
 
         if len(measurements) < 2:
             raise H5ContainerError(
-                "Insufficient measurements found for bilateral pairing"
+                "Insufficient 2D measurement datasets found for bilateral pairing"
             )
 
-        # Pair first two measurements as target/control
-        target_measurement = measurements[0]
-        control_measurement = measurements[1]
+        # ---- Resolve side and position/pair-key from attributes ----
+        #    Preferred attribute keys (case-insensitive lookup):
+        #    - side: "side", "breast_side", "sample_side"
+        #    - position: "position", "pair_key", "measurement_position"
+        SIDE_ATTR_KEYS = ("side", "breast_side", "sample_side")
+        POS_ATTR_KEYS = ("position", "pair_key", "measurement_position")
 
-        # Patient metadata
+        def _resolve_attr(attrs: dict, keys: tuple[str, ...]) -> str | None:
+            """Case-insensitive attribute lookup."""
+            for k in keys:
+                for ak, av in attrs.items():
+                    if ak.lower() == k.lower():
+                        val = str(av).strip()
+                        return val if val else None
+            return None
+
+        for m in measurements:
+            attrs = m.get("parent_attrs", {})
+            m["side"] = _resolve_attr(attrs, SIDE_ATTR_KEYS)
+            m["pair_key"] = _resolve_attr(attrs, POS_ATTR_KEYS)
+            # If no explicit pair_key, use the dataset name as fallback
+            if m["pair_key"] is None:
+                ds_name = m.get("dataset_name", "")
+                # Try to strip side prefix/suffix to get position
+                ds_lower = ds_name.lower()
+                for side in ("left", "right", "l", "r"):
+                    ds_lower = ds_lower.replace(side, "").strip("_")
+                m["pair_key"] = ds_lower if ds_lower else ds_name
+
+        # ---- Validate all measurements have side ----
+        missing_side = [m["dataset_path"] for m in measurements if not m["side"]]
+        if missing_side:
+            raise H5ContainerError(
+                f"Missing side metadata for measurement(s): {missing_side}"
+            )
+
+        # Normalise sides
+        for m in measurements:
+            side = m["side"].upper()
+            if side in ("LEFT", "L"):
+                m["side"] = "LEFT"
+            elif side in ("RIGHT", "R"):
+                m["side"] = "RIGHT"
+            else:
+                raise H5MetadataError(
+                    f"Unrecognised side value: {m['side']!r} at {m['dataset_path']}"
+                )
+
+        # ---- Pair by position key (NOT first-two) ----
+        pair_keys = {m["pair_key"] for m in measurements}
+        pairs: dict[str, dict[str, dict]] = {}
+        for m in measurements:
+            pk = m["pair_key"]
+            pairs.setdefault(pk, {})
+            if m["side"] in pairs[pk]:
+                raise H5ContainerError(
+                    f"Duplicate side {m['side']!r} for pair_key {pk!r}"
+                )
+            pairs[pk][m["side"]] = m
+
+        # Find the first complete bilateral pair
+        complete_pairs = [
+            (pk, sd) for pk, sd in pairs.items()
+            if "LEFT" in sd and "RIGHT" in sd
+        ]
+        if not complete_pairs:
+            raise H5ContainerError(
+                "No complete bilateral pair (LEFT + RIGHT) found"
+            )
+
+        # Use the first complete pair (lexicographic pair_key order)
+        complete_pairs.sort(key=lambda x: x[0])
+        pair_key, sides = complete_pairs[0]
+        left_m = sides["LEFT"]
+        right_m = sides["RIGHT"]
+
+        # ---- Discover calibration data ----
+        calib_refs: dict[str, str] = {}
+
+        def _calib_visitor(name: str, obj: object) -> None:
+            if isinstance(obj, h5py.Dataset):
+                name_lower = name.lower()
+                if any(kw in name_lower for kw in (
+                    'poni', 'distance', 'wavelength', 'pixel_size',
+                    'center_x', 'center_y',
+                )):
+                    calib_refs[name] = str(obj.dtype)
+
+        h5_file.visititems(_calib_visitor)
+
+        if not calib_refs:
+            raise H5ContainerError(
+                "No PONI/calibration data found"
+            )
+
+        # ---- Patient metadata ----
         try:
             patient_meta = resolve_patient_metadata(h5_file)
         except Exception:
             patient_meta = None
 
+        # ---- Detection target/control mapping ----
+        # In bilateral pairing the clinical target vs control designation
+        # is deferred to the clinician.  We assign LEFT as target and
+        # RIGHT as control for deterministic processing only.
+        target_m = left_m
+        control_m = right_m
+
         return H5PredictionContext(
             layout_name=self.name,
-            target_scan_ref=target_measurement["group"],
-            control_scan_ref=control_measurement["group"],
-            target_group_path=f"/{target_measurement['group']}",
-            control_group_path=f"/{control_measurement['group']}",
-            target_side=None,
-            control_side=None,
+            target_scan_ref=target_m["dataset_path"],
+            control_scan_ref=control_m["dataset_path"],
+            target_group_path=target_m["group_path"],
+            control_group_path=control_m["group_path"],
+            target_side=target_m["side"],
+            control_side=control_m["side"],
             patient_identifier=(
                 patient_meta.patient_identifier if patient_meta else "unknown"
             ),
@@ -768,7 +870,10 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
             control_measurement_count=len(measurements),
             adapter_metadata={
                 "layout_name": self.name,
-                "calibration_group": calib_groups[0],
+                "calibration_refs": calib_refs,
+                "pair_key": pair_key,
+                "target_dataset_path": target_m["dataset_path"],
+                "control_dataset_path": control_m["dataset_path"],
                 "measurement_count": len(measurements),
             },
         )

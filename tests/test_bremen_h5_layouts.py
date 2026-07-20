@@ -925,6 +925,362 @@ class TestNoClinicalLabels:
         assert "cancer" not in source.lower() or "CANCER" in source
 
 
+# ---------------------------------------------------------------------------
+# P. Matador raw acquisition adapter (PR0073)
+# ---------------------------------------------------------------------------
+
+
+def _create_matador_raw_h5(
+    tmp_path: Path,
+    *,
+    include_calib: bool = True,
+    left_side: str = "LEFT",
+    right_side: str = "RIGHT",
+    left_position: str = "center",
+    right_position: str = "center",
+    image_shape: tuple = (50, 50),
+) -> Path:
+    """Create a synthetic Matador raw acquisition H5.
+
+    Structure:
+    - calibrations/poni1 (PONI dataset)
+    - measurement_001/ (LEFT/CENTER 2D image)
+      - data (2D float array)
+      - attrs: side=LEFT, position=center
+    - measurement_002/ (RIGHT/CENTER 2D image)
+      - data (2D float array)
+      - attrs: side=RIGHT, position=center
+    """
+    path = tmp_path / "matador_raw.h5"
+    with h5py.File(path, "w") as f:
+        if include_calib:
+            calib = f.create_group("calibrations")
+            calib.create_dataset(
+                "poni1", data=np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
+            )
+
+        m1 = f.create_group("measurement_001")
+        m1.attrs["side"] = left_side
+        m1.attrs["position"] = left_position
+        m1.create_dataset(
+            "data", data=np.random.rand(*image_shape).astype(np.float32)
+        )
+
+        m2 = f.create_group("measurement_002")
+        m2.attrs["side"] = right_side
+        m2.attrs["position"] = right_position
+        m2.create_dataset(
+            "data", data=np.random.rand(*image_shape).astype(np.float32)
+        )
+
+    return path
+
+
+class TestMatadorRawDetection:
+    """Tests for MatadorRawH5Adapter.detect()."""
+
+    def test_detects_real_like_matador_raw(self, tmp_path: Path):
+        """Detects H5 with 2D images + PONI calibration via structural fallback."""
+        h5_path = _create_matador_raw_h5(tmp_path)
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        adapter = MatadorRawH5Adapter()
+        with h5py.File(h5_path, "r") as f:
+            assert adapter.detect(f) is True
+
+    def test_detect_returns_false_for_canonical(self, tmp_path: Path):
+        """Does NOT claim canonical H5."""
+        h5_path = _create_canonical_h5(tmp_path)
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        adapter = MatadorRawH5Adapter()
+        with h5py.File(h5_path, "r") as f:
+            assert adapter.detect(f) is False
+
+    def test_detect_returns_false_for_session(self, tmp_path: Path):
+        """Does NOT claim session H5."""
+        path = tmp_path / "session.h5"
+        with h5py.File(path, "w") as f:
+            sets = f.create_group("/session/sets")
+            s1 = sets.create_group("set_001_sample_main")
+            s1.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0]))
+            s1.create_dataset("integration/i", data=np.array([0.1, 0.2, 0.3]))
+            c1 = sets.create_group("contralateral_set_001_sample_main")
+            c1.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0]))
+            c1.create_dataset("integration/i", data=np.array([0.4, 0.5, 0.6]))
+
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        adapter = MatadorRawH5Adapter()
+        with h5py.File(path, "r") as f:
+            assert adapter.detect(f) is False
+
+    def test_detect_false_missing_calibration(self, tmp_path: Path):
+        """Without PONI/calibration data, detection returns False."""
+        path = tmp_path / "no_calib.h5"
+        with h5py.File(path, "w") as f:
+            m1 = f.create_group("measurement_001")
+            m1.attrs["side"] = "LEFT"
+            m1.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
+            m2 = f.create_group("measurement_002")
+            m2.attrs["side"] = "RIGHT"
+            m2.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
+
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        adapter = MatadorRawH5Adapter()
+        with h5py.File(path, "r") as f:
+            assert adapter.detect(f) is False
+
+    def test_detect_false_no_2d_image(self, tmp_path: Path):
+        """Without 2D datasets, detection returns False."""
+        path = tmp_path / "no_2d.h5"
+        with h5py.File(path, "w") as f:
+            calib = f.create_group("calibrations")
+            calib.create_dataset("poni1", data=np.array([0.1, 0.2, 0.3]))
+
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        adapter = MatadorRawH5Adapter()
+        with h5py.File(path, "r") as f:
+            assert adapter.detect(f) is False
+
+    def test_detect_false_empty_h5(self, tmp_path: Path):
+        """Empty H5 is not detected."""
+        path = tmp_path / "empty.h5"
+        with h5py.File(path, "w") as f:
+            pass
+
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        adapter = MatadorRawH5Adapter()
+        with h5py.File(path, "r") as f:
+            assert adapter.detect(f) is False
+
+    def test_detect_no_filename_dependence(self, tmp_path: Path):
+        """Detection works regardless of filename."""
+        h5_path = _create_matador_raw_h5(tmp_path)
+        # Rename to something unrelated
+        renamed = tmp_path / "random_name.h5"
+        import shutil
+        shutil.copy(h5_path, renamed)
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        adapter = MatadorRawH5Adapter()
+        with h5py.File(renamed, "r") as f:
+            assert adapter.detect(f) is True
+
+    def test_detect_no_product_name_dependence(self, tmp_path: Path):
+        """Detection does NOT use 'Nova' or 'Matador' in filenames."""
+        # H5 with 2D image but NO Matador/Nova in group names
+        path = tmp_path / "test.h5"
+        with h5py.File(path, "w") as f:
+            calib = f.create_group("calibrations")
+            calib.create_dataset("wavelength", data=np.array([0.1]))
+            g1 = f.create_group("group_A")
+            g1.attrs["side"] = "LEFT"
+            g1.attrs["position"] = "center"
+            g1.create_dataset("image", data=np.random.rand(50, 50).astype(np.float32))
+            g2 = f.create_group("group_B")
+            g2.attrs["side"] = "RIGHT"
+            g2.attrs["position"] = "center"
+            g2.create_dataset("image", data=np.random.rand(50, 50).astype(np.float32))
+
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        adapter = MatadorRawH5Adapter()
+        with h5py.File(path, "r") as f:
+            assert adapter.detect(f) is True
+
+
+class TestMatadorRawContextResolution:
+    """Tests for MatadorRawH5Adapter.resolve_prediction_context()."""
+
+    def test_resolves_bilateral_pair(self, tmp_path: Path):
+        """Resolves LEFT/RIGHT pair by position key."""
+        h5_path = _create_matador_raw_h5(tmp_path)
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        adapter = MatadorRawH5Adapter()
+        with h5py.File(h5_path, "r") as f:
+            ctx = adapter.resolve_prediction_context(f, "", "")
+
+        assert ctx.layout_name == "matador_raw"
+        assert ctx.target_side is not None
+        assert ctx.control_side is not None
+        assert ctx.target_side != ctx.control_side
+        assert "/measurement_001" in ctx.target_group_path or "/measurement_001" in ctx.control_group_path
+        assert "/measurement_002" in ctx.target_group_path or "/measurement_002" in ctx.control_group_path
+        assert ctx.adapter_metadata.get("pair_key") is not None
+        assert ctx.adapter_metadata.get("calibration_refs") is not None
+
+    def test_pairs_by_position_not_first_two(self, tmp_path: Path):
+        """Measurements with different positions pair correctly, not first-two."""
+        path = tmp_path / "multi_pos.h5"
+        with h5py.File(path, "w") as f:
+            calib = f.create_group("calibrations")
+            calib.create_dataset("poni1", data=np.array([0.1, 0.2]))
+            # Position "top": left only
+            m1 = f.create_group("m_top_left")
+            m1.attrs["side"] = "LEFT"
+            m1.attrs["position"] = "top"
+            m1.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
+            # Position "center": both sides (complete pair)
+            m2 = f.create_group("m_center_left")
+            m2.attrs["side"] = "LEFT"
+            m2.attrs["position"] = "center"
+            m2.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
+            m3 = f.create_group("m_center_right")
+            m3.attrs["side"] = "RIGHT"
+            m3.attrs["position"] = "center"
+            m3.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
+
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        adapter = MatadorRawH5Adapter()
+        with h5py.File(path, "r") as f:
+            ctx = adapter.resolve_prediction_context(f, "", "")
+
+        # Should pair by "center" (the complete pair), not the first two
+        assert ctx.adapter_metadata.get("pair_key") == "center"
+
+    def test_fails_missing_side_metadata(self, tmp_path: Path):
+        """Missing side attribute fails."""
+        path = tmp_path / "no_side.h5"
+        with h5py.File(path, "w") as f:
+            calib = f.create_group("calibrations")
+            calib.create_dataset("poni1", data=np.array([0.1, 0.2]))
+            m1 = f.create_group("m1")
+            m1.attrs["position"] = "center"  # no side
+            m1.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
+            m2 = f.create_group("m2")
+            m2.attrs["position"] = "center"  # no side
+            m2.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
+
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        adapter = MatadorRawH5Adapter()
+        with h5py.File(path, "r") as f:
+            with pytest.raises(Exception) as exc_info:
+                adapter.resolve_prediction_context(f, "", "")
+        assert "side" in str(exc_info.value).lower()
+
+    def test_fails_no_complete_bilateral_pair(self, tmp_path: Path):
+        """Only LEFT sides, no RIGHT side, fails."""
+        path = tmp_path / "left_only.h5"
+        with h5py.File(path, "w") as f:
+            calib = f.create_group("calibrations")
+            calib.create_dataset("poni1", data=np.array([0.1, 0.2]))
+            m1 = f.create_group("m1")
+            m1.attrs["side"] = "LEFT"
+            m1.attrs["position"] = "center"
+            m1.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
+            m2 = f.create_group("m2")
+            m2.attrs["side"] = "LEFT"
+            m2.attrs["position"] = "top"  # Different position — unique
+            m2.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
+
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        adapter = MatadorRawH5Adapter()
+        with h5py.File(path, "r") as f:
+            with pytest.raises(Exception) as exc_info:
+                adapter.resolve_prediction_context(f, "", "")
+        assert "bilateral" in str(exc_info.value).lower()
+
+    def test_fails_duplicate_side_same_pair_key(self, tmp_path: Path):
+        """Two LEFT measurements with same pair_key fails."""
+        path = tmp_path / "dup_side.h5"
+        with h5py.File(path, "w") as f:
+            calib = f.create_group("calibrations")
+            calib.create_dataset("poni1", data=np.array([0.1, 0.2]))
+            m1 = f.create_group("m1")
+            m1.attrs["side"] = "LEFT"
+            m1.attrs["position"] = "center"
+            m1.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
+            m2 = f.create_group("m2")
+            m2.attrs["side"] = "LEFT"  # duplicate LEFT for same position
+            m2.attrs["position"] = "center"
+            m2.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
+
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        adapter = MatadorRawH5Adapter()
+        with h5py.File(path, "r") as f:
+            with pytest.raises(Exception) as exc_info:
+                adapter.resolve_prediction_context(f, "", "")
+        assert "duplicate" in str(exc_info.value).lower()
+
+    def test_fails_insufficient_measurements(self, tmp_path: Path):
+        """Only one measurement fails."""
+        path = tmp_path / "one_meas.h5"
+        with h5py.File(path, "w") as f:
+            calib = f.create_group("calibrations")
+            calib.create_dataset("poni1", data=np.array([0.1, 0.2]))
+            m1 = f.create_group("m1")
+            m1.attrs["side"] = "LEFT"
+            m1.attrs["position"] = "center"
+            m1.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
+
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        adapter = MatadorRawH5Adapter()
+        with h5py.File(path, "r") as f:
+            with pytest.raises(Exception) as exc_info:
+                adapter.resolve_prediction_context(f, "", "")
+        assert "Insufficient" in str(exc_info.value)
+
+    def test_fails_no_calibration_data(self, tmp_path: Path):
+        """No PONI/calibration dataset fails resolution."""
+        h5_path = _create_matador_raw_h5(tmp_path, include_calib=False)
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        adapter = MatadorRawH5Adapter()
+        with h5py.File(h5_path, "r") as f:
+            with pytest.raises(Exception) as exc_info:
+                adapter.resolve_prediction_context(f, "", "")
+        assert "calibration" in str(exc_info.value).lower()
+
+    def test_context_excludes_identifiers(self, tmp_path: Path):
+        """Resolved context does not leak identifiers."""
+        h5_path = _create_matador_raw_h5(tmp_path)
+        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        adapter = MatadorRawH5Adapter()
+        with h5py.File(h5_path, "r") as f:
+            ctx = adapter.resolve_prediction_context(f, "", "")
+        # adapter_metadata should not contain raw values
+        meta = ctx.adapter_metadata
+        for val in meta.values():
+            if isinstance(val, str):
+                assert "Nova" not in val
+                assert "patient" not in val.lower()
+        # No patient name/id leakage
+        assert "Nova" not in ctx.patient_identifier
+
+
+class TestMatadorRawPreflight:
+    """Matador raw preflight integration tests."""
+
+    def test_preflight_passes_matador_raw(self, tmp_path: Path):
+        """run_h5_preflight with Matador raw H5 passes."""
+        h5_path = _create_matador_raw_h5(tmp_path)
+        result = run_h5_preflight(h5_path)
+        assert result.passed is True
+        assert result.metadata.get("layout_name") == "matador_raw"
+
+    def test_preflight_fails_no_calibration(self, tmp_path: Path):
+        """Preflight fails when no calibration found."""
+        h5_path = _create_matador_raw_h5(tmp_path, include_calib=False)
+        # Without calibration, detect_layout cannot match any adapter
+        # → H5ContainerError "Unrecognised H5 container layout"
+        with pytest.raises(Exception) as exc_info:
+            run_h5_preflight(h5_path)
+        # Either "Unrecognised" (detection failure) or "calibration"
+        # (adapter resolution failure if detection somehow passes)
+        err_lower = str(exc_info.value).lower()
+        assert "unrecognised" in err_lower or "calibration" in err_lower
+
+    def test_source_checksum_unchanged(self, tmp_path: Path):
+        """Source H5 checksum unchanged after preflight."""
+        import hashlib
+        h5_path = _create_matador_raw_h5(tmp_path)
+        original = hashlib.sha256(h5_path.read_bytes()).hexdigest()
+        result = run_h5_preflight(h5_path)
+        assert result.passed is True
+        final = hashlib.sha256(h5_path.read_bytes()).hexdigest()
+        assert original == final
+
+
+# ---------------------------------------------------------------------------
+# Real-subset smoke (opt-in)
+# ---------------------------------------------------------------------------
+
+
 @pytest.mark.skipif(
     "BREMEN_H5_PREFLIGHT_SMOKE_PATH" not in os.environ,
     reason="BREMEN_H5_PREFLIGHT_SMOKE_PATH not set — skipping real H5 smoke",
