@@ -1,0 +1,202 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: pass
+
+BLOCKERS
+* None
+
+WARNINGS
+* None
+
+VALIDATION
+* git rev-parse --verify HEAD: 4fc379ce602c4dfb79fcd11bb5e4a5e7e85913b9
+* git branch --show-current: 0070-demo-h5-preflight-and-ui-error-fix (actual branch; task prompt suggested 0070-demo-live-rehearsal-h5-ui-fix — reported as-is)
+* git status --short: M src/bremen/api/preflight.py, M src/bremen/demo_ui.py, M tests/test_bremen_demo_ui.py, M tests/test_bremen_h5_sample_metadata.py, ?? IMPLEMENTATION_REPORT.md
+* git diff --name-only: src/bremen/api/preflight.py, src/bremen/demo_ui.py, tests/test_bremen_demo_ui.py, tests/test_bremen_h5_sample_metadata.py
+* git diff --stat: 4 files changed, 124 insertions(+), 22 deletions(-)
+* test -f IMPLEMENTATION_REPORT.md: PASS
+* python -m compileall src tests: PASS (exit 0)
+* python -m pytest -q tests/test_bremen_demo_ui.py: 61 passed
+* python -m pytest -q tests/test_bremen_api_server.py: 71 passed
+* python -m pytest -q tests/test_bremen_demo_smoke.py: 43 passed
+* python -m pytest -q tests/test_bremen_demo_run.py: 41 passed
+* python -m pytest -q tests/test_bremen_demo_capture.py: 37 passed
+* python -m pytest -q tests/test_bremen_api_skeleton.py: 51 passed
+* python -m pytest -q tests/test_bremen_dependency_hygiene.py: 10 passed
+* python -m pytest -q: 1322 passed, 11 skipped, 28 warnings
+* python -m bremen --help: exit 0, lists serve, demo-smoke, demo-run
+* python -m bremen serve --help: exit 0, --host, --port only
+* python -m bremen demo-smoke --help: exit 0, --base-url, --timeout, --skip-prediction
+* python -m bremen demo-run --help: exit 0, --base-url, --timeout, --skip-prediction, --pretty, --capture-dir
+* grep "visititems" src/bremen/api/preflight.py: present at lines 139 (comment) and 160 (h5_file.visititems(_visitor))
+* grep "_walk_for_patient_name" src/bremen/api/preflight.py: 0 matches — function completely removed
+* grep "component not found\|Unable to synchronously open object" src/bremen tests: only test docstring describing fix
+* grep "textContent" src/bremen/demo_ui.py: lines 193, 218, 231, 241, 260, 270, 283, 288; request-id-display at line 283 is guarded: "if (ridEl) ridEl.textContent = data.request_id;"
+* grep "\.exception(" src/bremen/api src/bremen: 3 calls in server.py (lines 574, 1084, 1109) — PR0069 exception logging preserved
+* grep "KeyError" src/bremen tests: only controlled catches (server.py line 1065, test assertions, modeling.py existing code, preflight.py comment)
+* grep "React\|react\|package.json\|vite\|webpack" src/bremen tests: no matches
+* grep "alert(" src/bremen/demo_ui.py tests/test_bremen_demo_ui.py: only test comments/assertions, no alert() in module source
+* grep "--ui\|demo-run --ui" src/bremen tests: only test assertions for rejection of --ui
+* grep "cdn\|unpkg\|jsdelivr\|googleapis\|fontawesome" src/bremen/demo_ui.py tests/test_bremen_demo_ui.py: only test assertions
+* grep "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" src/bremen tests: only prohibition logic and test assertions
+* grep "diagnosis\|diagnose\|replaces MRI\|replace MRI\|replaces biopsy\|replace biopsy\|replaces radiologist\|replace radiologist\|replaces clinician\|replace clinician" src/bremen tests: only safe negation language
+* grep "joblib\.load\|pickle\.load\|import pickle" src/bremen tests: matches in model_state.py/model_loader.py/modeling.py (controlled boundaries) and test assertions — no new unsafe loading
+* git diff --name-only -- .github infra/terraform Dockerfile Dockerfile.training requirements.txt pyproject.toml config/training frontend web ui package.json package-lock.json yarn.lock pnpm-lock.yaml tests/data: no output
+* git diff --name-only -- docs ROADMAP.md: no output
+* git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|npy|npz|tfstate|tfstate\.backup)$": no output
+* find . -name ".DS_Store" -print: none found
+* date -u +%Y-%m-%dT%H:%M:%SZ: 2026-07-20T07:18:40Z
+
+FILES READ
+* .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/PLAN.md
+* .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/reviews/plan-review.yml
+* .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/IMPLEMENTATION_REPORT.md
+* src/bremen/api/preflight.py
+* src/bremen/demo_ui.py
+* tests/test_bremen_demo_ui.py
+* tests/test_bremen_h5_sample_metadata.py
+* .project-memory/project_contract.yml
+* AGENTS.md
+
+FILES WRITTEN
+* .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/reviews/precommit-review.yml
+
+SNAPSHOT DELTA
+* src/bremen/api/preflight.py: MODIFIED — replaced _walk_for_patient_name() manual path reconstruction with h5py.File.visititems() safe recursive traversal; 40 lines changed (+12/-22)
+* src/bremen/demo_ui.py: MODIFIED — guarded request-id-display textContent assignment with null check (var ridEl, if (ridEl)); 3 lines changed (+2/-1)
+* tests/test_bremen_h5_sample_metadata.py: MODIFIED — added 5 new tests for calibration-layout traversal safety (no KeyError, nested session, dot-delimited names, multi-session, missing metadata still raises, ambiguous still rejected), PreflightResult new fields, plus 2 resolver unit tests; 84 lines added
+* tests/test_bremen_demo_ui.py: MODIFIED — added Class 6 UiNullGuard test (test_request_id_display_uses_null_guard); 19 lines added
+* .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/IMPLEMENTATION_REPORT.md: NEW
+
+SCOPE CHECK
+* Pass: Implementation focuses on the two approved live-rehearsal blockers: H5 preflight traversal fix (KeyError) and UI null request-id textContent guard.
+* No broad redesign, deployment automation, infra, multi-tenancy, model profiles, plugins, docs/roadmap, or Aramis alignment.
+* Files changed: preflight.py, demo_ui.py, test_h5_sample_metadata.py, test_demo_ui.py.
+
+H5 PREFLIGHT CHECK
+* Pass: _walk_for_patient_name() completely removed — no longer depends on brittle manual HDF5 path reconstruction.
+* Uses h5py.File.visititems() — standard h5py tree traversal, no manual path construction, no risk of KeyError from nested re-indexing.
+* Calibration-layout-style H5 traversal covered by 5 tests (nested session, dot-delimited names, multi-session) — verified no KeyError.
+* Missing metadata still raises H5MetadataError with safe message.
+* No H5 file mutation, no committed H5 fixtures.
+* Direct diff evidence: old recursive "for key in obj.keys(): path = f\"{prefix}/{key}\"; item = obj[path]" replaced with "h5_file.visititems(_visitor)".
+
+METADATA SAFETY CHECK
+* Pass: No raw patient names/identifiers exposed in API response, UI, logs, or tests (confirmed via grep and log-level assertion in test).
+* Missing/incompatible metadata raises H5MetadataError with safe message (no raw identifiers in error).
+* Patient identifier used internally for metadata resolution only, not logged.
+* Duplicate identical patient_name values accepted (set deduplication naturally handles this).
+
+ANALYZE STAGE CHECK
+* Pass: Preflight failures are no longer collapsed into generic "Unexpected inference error" (PR0069 already removed that string).
+* After this fix, traversal either succeeds or H5MetadataError is raised → wrapped by run_h5_preflight as RuntimeError with "preflight" in message → caught by server.py as h5_preflight_failed.
+- No fake model_inference_completed added.
+- PR0069 exception logging and stage classification (h5_preflight_failed, preprocessing_failed, inference_failed) preserved unchanged.
+
+UI NULL CHECK
+* Pass: request-id-display textContent assignment guarded with null check.
+* Direct code evidence (demo_ui.py lines 282-283):
+  "var ridEl = document.getElementById('request-id-display');"
+  "if (ridEl) ridEl.textContent = data.request_id;"
+* When element exists, textContent is set normally. When element is absent, no crash.
+* Test confirms null guard present (test_request_id_display_uses_null_guard).
+
+UI PRESERVATION CHECK
+* Pass: PR0068/PR0069 polished demo UI fully preserved. Only change to demo_ui.py is the null guard (2 lines added). No layout changes, no alert() regression, all existing demo UI tests pass (61 passed). No workflow removal.
+
+REACT/DEPENDENCY CHECK
+* Pass: No React, package.json, package-lock.json, vite, webpack, pnpm-lock.yaml, yarn.lock added.
+* No CDN/external assets (cdn, unpkg, jsdelivr, googleapis, fontawesome) added.
+* No new dependencies — all changes use existing stdlib + h5py + boto3.
+* No dependency changes (requirements.txt, pyproject.toml unchanged).
+
+STARTUP SIMPLICITY CHECK
+* Pass: No --ui flag added (only test assertions reference --ui as rejected).
+* No new startup command added (bremen --help lists same commands).
+* No root / demo page added (root returns 404).
+* No additional service mode.
+
+SAFETY CHECK
+* Pass: No unsafe deserialization — no new joblib.load/pickle.load.
+* No raw H5 content in logging/responses — patient identifier used for metadata resolution only, not logged.
+* No real patient data committed.
+* No H5 mutation — read-only traversal.
+* No Aramis dependency or product labels.
+* No clinical diagnosis/replacement claims — only safe negation.
+* No deployment mutation.
+* technical_demo_only: true preserved.
+
+PRESERVED BEHAVIOR CHECK
+* Pass: All existing endpoints unchanged — /health, /model/version, /predictions, /predictions/{job_id}, /demo, /demo/api/evidence, /demo/api/h5/containers, /demo/api/h5/analyze.
+* request_id propagation preserved.
+* demo-smoke, demo-run, serve workflows unchanged.
+* Root / still 404.
+* Preflight metadata resolution still works for canonical layout (all existing tests pass).
+
+VALIDATION CHECK
+* Pass: All required validation commands run. All tests pass (1322 passed, 11 skipped).
+* No failures unclassified.
+* Validation commands with relevant output documented above.
+
+IMPLEMENTATION REPORT CHECK
+* Pass: IMPLEMENTATION_REPORT.md present and summarizes:
+  * files changed (4 modified, 1 new)
+  * H5 traversal fix (visititems replacement)
+  * calibration-layout KeyError fix (nested groups, dot-delimited names, multi-session)
+  * metadata safety (no raw identifiers exposed)
+  * Analyze stage classification preserved
+  * UI null guard (null-checked textContent)
+  * UI preservation
+  * safety boundaries
+  * tests run and results (1322 passed, 11 skipped)
+  * warnings (branch name mismatch noted)
+
+PROCESS RULES CHECK
+* Pass: No implementation files modified by reviewer.
+* No git mutation commands (add/commit/push/merge) executed.
+* No Docker/Terraform/AWS commands executed.
+* No dependencies installed.
+* Only artifact written is the precommit-review.yml.
+
+COMMIT READINESS
+* ready to commit implementation artifacts: yes
+* required files to stage:
+  * src/bremen/api/preflight.py
+  * src/bremen/demo_ui.py
+  * tests/test_bremen_h5_sample_metadata.py
+  * tests/test_bremen_demo_ui.py
+  * .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/IMPLEMENTATION_REPORT.md
+  * .project-memory/pr/0070-demo-h5-preflight-and-ui-error-fix/reviews/precommit-review.yml
+* conditionally stage (unchanged, not required for this PR):
+  * tests/test_bremen_api_server.py (unchanged)
+* files to exclude:
+  * No files outside expected implementation scope are present
+
+BOUNDARY CONFIRMATIONS
+* _walk_for_patient_name traversal fixed: yes
+* h5py visititems or safe equivalent used: yes
+* calibration-layout KeyError fixed: yes
+* missing metadata handled safely: yes
+* raw patient metadata not exposed: yes
+* H5 files not mutated: yes
+* no committed H5/HDF5 files: yes
+* Analyze/preflight stage classification preserved or improved: yes
+* no fake success added: yes
+* request-id-display null guard implemented: yes
+* request id display preserved when element exists: yes
+* PR0068/0069 polished UI preserved: yes
+* no alert regression: yes
+* no React added: yes
+* no package manager files added: yes
+* no new dependencies: yes
+* no new startup command: yes
+* no --ui flag: yes
+* no root / demo page: yes
+* no deployment mutation: yes
+* no Terraform/GitHub Actions/Docker changes: yes
+* no unsafe model loading: yes
+* no Aramis dependency: yes
+* no clinical diagnosis/replacement claims: yes (safe negation only)
+* implementation report present: yes
+* no H5/model/tfstate artifacts: yes
+* no implementation files modified by reviewer: yes
+* no git mutation commands: yes

@@ -279,7 +279,8 @@ function analyzeH5() {
       document.getElementById('result-content').innerHTML = renderResult(data);
     }
     if (data.request_id) {
-      document.getElementById('request-id-display').textContent = data.request_id;
+      var ridEl = document.getElementById('request-id-display');
+      if (ridEl) ridEl.textContent = data.request_id;
     }
   })
   .catch(function(err) {

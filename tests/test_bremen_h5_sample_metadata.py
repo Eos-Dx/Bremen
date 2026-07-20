@@ -328,6 +328,90 @@ class TestResolverUnit:
         assert pm.patient_metadata_path is not None
 
 
+# ===================================================================
+# H/I. Calibration-layout traversal (PR0070)
+# ===================================================================
+
+
+class TestCalibrationLayoutTraversal:
+    """Tests that _walk_for_patient_name replacement (visititems)
+    handles calibration-style nested layouts without KeyError."""
+
+    def test_calibration_layout_no_keyerror(self, tmp_path: Path):
+        """Calibration layout with nested session/sample/patient_name
+        does NOT raise KeyError 'component not found'."""
+        path = tmp_path / "calib_nested.h5"
+        with h5py.File(path, "w") as f:
+            calib = f.create_group("/calib_20260128_132622")
+            session = calib.create_group("session")
+            sample = session.create_group("sample")
+            sample.create_dataset("patient_name", data="TestPatient")
+
+        with h5py.File(path, "r") as f:
+            # This must not raise any KeyError
+            pm = resolve_patient_metadata(f)
+        assert pm.patient_identifier == "TestPatient"
+        assert pm.patient_identifier_source == "patient_name_fallback"
+        assert pm.fallback_used is True
+
+    def test_calibration_layout_dot_path_no_keyerror(self, tmp_path: Path):
+        """Calibration layout with dot-delimited sample names
+        (e.g. sample_01.Right) does NOT raise KeyError."""
+        path = tmp_path / "calib_dot_path.h5"
+        with h5py.File(path, "w") as f:
+            calib = f.create_group("/calib_test")
+            s1 = calib.create_group("sample_01.Right")
+            s1.create_dataset("sample/patient_name", data="PatientX")
+
+        with h5py.File(path, "r") as f:
+            pm = resolve_patient_metadata(f)
+        assert pm.patient_identifier == "PatientX"
+
+    def test_calibration_layout_multi_session_no_keyerror(self, tmp_path: Path):
+        """Multiple sessions under calibration group all traversed safely."""
+        path = tmp_path / "calib_multi_session.h5"
+        with h5py.File(path, "w") as f:
+            calib = f.create_group("/calib_01")
+            s1 = calib.create_group("session_1")
+            s1.create_dataset("sample/patient_name", data="PatientY")
+            s2 = calib.create_group("session_2")
+            s2.create_dataset("sample/patient_name", data="PatientY")
+
+        with h5py.File(path, "r") as f:
+            pm = resolve_patient_metadata(f)
+        assert pm.patient_identifier == "PatientY"
+        assert pm.fallback_used is True
+
+    def test_missing_metadata_still_raises(self, tmp_path: Path):
+        """Missing patient_name metadata still raises H5MetadataError
+        after visititems conversion."""
+        path = tmp_path / "no_metadata.h5"
+        with h5py.File(path, "w") as f:
+            calib = f.create_group("/calib_test")
+            calib.create_group("session_01")
+
+        with h5py.File(path, "r") as f:
+            with pytest.raises(H5MetadataError) as exc_info:
+                resolve_patient_metadata(f)
+        assert "Missing patient identifier" in str(exc_info.value)
+
+    def test_ambiguous_names_still_rejected(self, tmp_path: Path):
+        """Genuinely conflicting patient_name values still raise
+        H5MetadataError after visititems conversion."""
+        path = tmp_path / "still_ambiguous.h5"
+        with h5py.File(path, "w") as f:
+            calib = f.create_group("/calib_test")
+            s1 = calib.create_group("sample_01")
+            s1.create_dataset("sample/patient_name", data="PatientA")
+            s2 = calib.create_group("sample_02")
+            s2.create_dataset("sample/patient_name", data="PatientB")
+
+        with h5py.File(path, "r") as f:
+            with pytest.raises(H5MetadataError) as exc_info:
+                resolve_patient_metadata(f)
+        assert "Ambiguous" in str(exc_info.value)
+
+
 # ---------------------------------------------------------------------------
 # PreflightResult new fields
 # ---------------------------------------------------------------------------

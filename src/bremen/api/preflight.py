@@ -136,30 +136,28 @@ def resolve_patient_metadata(h5_file: h5py.File) -> PatientMetadata:
 
     # ---- Fallback path ----
     # Search recursively for datasets ending with /sample/patient_name
+    # using h5py.File.visititems() for safe recursive traversal
+    # (no manual path reconstruction that can raise KeyError on
+    #  calibration-style nested layouts).
     patient_names: list[str] = []
     patient_paths: list[str] = []
 
-    def _walk_for_patient_name(obj: Any, prefix: str) -> None:
-        for key in obj.keys():
-            path = f"{prefix}/{key}" if prefix else f"/{key}"
-            item = obj[path]
-            if isinstance(item, h5py.Group):
-                _walk_for_patient_name(item, path)
-            elif path.endswith("/sample/patient_name"):
-                try:
-                    raw = item[()]
-                    if isinstance(raw, bytes):
-                        val = raw.decode("utf-8")
-                    else:
-                        val = str(raw)
-                    val_stripped = val.strip()
-                    if val_stripped:
-                        patient_names.append(val_stripped)
-                        patient_paths.append(path)
-                except Exception:
-                    pass
+    def _visitor(name: str, item: h5py.Dataset | h5py.Group) -> None:
+        if name.endswith("/sample/patient_name"):
+            try:
+                raw = item[()]
+                if isinstance(raw, bytes):
+                    val = raw.decode("utf-8")
+                else:
+                    val = str(raw)
+                val_stripped = val.strip()
+                if val_stripped:
+                    patient_names.append(val_stripped)
+                    patient_paths.append(f"/{name}")
+            except Exception:
+                pass
 
-    _walk_for_patient_name(h5_file, "")
+    h5_file.visititems(_visitor)
 
     if not patient_names:
         raise H5MetadataError("Missing patient identifier metadata")
