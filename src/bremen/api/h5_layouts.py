@@ -16,6 +16,12 @@ from typing import Any
 import h5py
 import numpy as np
 
+from .xrd_normalization import (
+    CanonicalXRDCase,
+    CanonicalXRDMeasurement,
+    NormalizationError,
+)
+
 
 # ---------------------------------------------------------------------------
 # Core types
@@ -50,6 +56,7 @@ class H5LayoutAdapter(ABC):
     """Abstract base for H5 layout adapters."""
 
     name: str = ""
+    version: str = "v1"
 
     @abstractmethod
     def detect(self, h5_file: h5py.File) -> bool:
@@ -66,6 +73,17 @@ class H5LayoutAdapter(ABC):
 
         Raises H5MetadataError, H5ContainerError, H5SideMismatchError,
         H5PatientMismatchError on validation failure.
+        """
+
+    @abstractmethod
+    def normalize_to_canonical(
+        self, h5_file: h5py.File,
+    ) -> CanonicalXRDCase:
+        """Normalize the H5 container into a canonical XRD case.
+
+        Does NOT select clinical target/control.  Does NOT apply
+        workflow-specific normalization.  Preserves all measurements
+        and positions.
         """
 
 
@@ -136,6 +154,16 @@ def _extract_position_token(dataset_name: str) -> str | None:
     return f"P{matches[0]}"
 
 
+def _resolve_attr_norm(attrs: dict, keys: tuple[str, ...]) -> str | None:
+    """Case-insensitive attribute lookup for normalization."""
+    for k in keys:
+        for ak, av in attrs.items():
+            if ak.lower() == k.lower():
+                val = str(av).strip()
+                return val if val else None
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Canonical layout adapter
 # ---------------------------------------------------------------------------
@@ -148,6 +176,34 @@ class CanonicalH5LayoutAdapter(H5LayoutAdapter):
 
     def detect(self, h5_file: h5py.File) -> bool:
         return "/scans/target/measurements" in h5_file
+
+    def normalize_to_canonical(self, h5_file: h5py.File) -> CanonicalXRDCase:
+        """Canonical layout: reads existing measurements arrays."""
+        import hashlib
+        from pathlib import Path
+        cs = hashlib.sha256(
+            Path(h5_file.filename).read_bytes()
+        ).hexdigest()
+        measurements: list[CanonicalXRDMeasurement] = []
+        for side, label in [("LEFT", "target"), ("RIGHT", "contralateral")]:
+            arr = h5_file[f"/scans/{label}/measurements"][:]
+            arr = np.asarray(arr, dtype=np.float64)
+            if arr.ndim == 1:
+                profiles = [arr]
+            else:
+                profiles = [np.asarray(arr[i], dtype=np.float64) for i in range(arr.shape[0])]
+            for i, profile in enumerate(profiles):
+                q = np.arange(len(profile), dtype=np.float64)
+                measurements.append(CanonicalXRDMeasurement(
+                    side=side, position=f"scan_{i}", q=q, intensity=profile,
+                ))
+        return CanonicalXRDCase(
+            source_layout=self.name,
+            source_layout_version=self.version,
+            source_checksum=cs,
+            calibration_provenance="session_pre_integrated",
+            measurements=tuple(measurements),
+        )
 
     def resolve_prediction_context(
         self,
@@ -223,6 +279,35 @@ class CalibrationSampleH5LayoutAdapter(H5LayoutAdapter):
                 if _has_sample_metadata(calib_group):
                     return True
         return False
+
+    def normalize_to_canonical(self, h5_file: h5py.File) -> CanonicalXRDCase:
+        """Calibration layout: reads existing integration/q and integration/i."""
+        import hashlib
+        from pathlib import Path
+        cs = hashlib.sha256(
+            Path(h5_file.filename).read_bytes()
+        ).hexdigest()
+        ctx = self.resolve_prediction_context(h5_file, "", "")
+        t_q = np.asarray(h5_file[f"{ctx.target_group_path}/integration/q"][()], dtype=np.float64)
+        t_i = np.asarray(h5_file[f"{ctx.target_group_path}/integration/i"][()], dtype=np.float64)
+        c_q = np.asarray(h5_file[f"{ctx.control_group_path}/integration/q"][()], dtype=np.float64)
+        c_i = np.asarray(h5_file[f"{ctx.control_group_path}/integration/i"][()], dtype=np.float64)
+        return CanonicalXRDCase(
+            source_layout=self.name,
+            source_layout_version=self.version,
+            source_checksum=cs,
+            calibration_provenance="session_pre_integrated",
+            measurements=tuple([
+                CanonicalXRDMeasurement(
+                    side=ctx.target_side or "LEFT", position="session",
+                    q=t_q, intensity=t_i,
+                ),
+                CanonicalXRDMeasurement(
+                    side=ctx.control_side or "RIGHT", position="session",
+                    q=c_q, intensity=c_i,
+                ),
+            ]),
+        )
 
     def resolve_prediction_context(
         self,
@@ -483,6 +568,37 @@ class SessionLayoutH5Adapter(H5LayoutAdapter):
                     return True
         return False
 
+    def normalize_to_canonical(self, h5_file: h5py.File) -> CanonicalXRDCase:
+        """Session layout: reads existing integration/q and integration/i."""
+        import hashlib
+        from pathlib import Path
+        cs = hashlib.sha256(
+            Path(h5_file.filename).read_bytes()
+        ).hexdigest()
+        ctx = self.resolve_prediction_context(h5_file, "", "")
+        t_q = np.asarray(h5_file[f"{ctx.target_group_path}/integration/q"][()], dtype=np.float64)
+        t_i = np.asarray(h5_file[f"{ctx.target_group_path}/integration/i"][()], dtype=np.float64)
+        c_q = np.asarray(h5_file[f"{ctx.control_group_path}/integration/q"][()], dtype=np.float64)
+        c_i = np.asarray(h5_file[f"{ctx.control_group_path}/integration/i"][()], dtype=np.float64)
+        target_side = ctx.target_side or "LEFT"
+        control_side = ctx.control_side or "RIGHT"
+        return CanonicalXRDCase(
+            source_layout=self.name,
+            source_layout_version=self.version,
+            source_checksum=cs,
+            calibration_provenance="session_pre_integrated",
+            measurements=tuple([
+                CanonicalXRDMeasurement(
+                    side=target_side, position="session",
+                    q=t_q, intensity=t_i,
+                ),
+                CanonicalXRDMeasurement(
+                    side=control_side, position="session",
+                    q=c_q, intensity=c_i,
+                ),
+            ]),
+        )
+
     def resolve_prediction_context(
         self,
         h5_file: h5py.File,
@@ -724,6 +840,174 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
         h5_file.visititems(_visitor)
         return found_2d_image and found_calib_or_poni
 
+    def normalize_to_canonical(self, h5_file: h5py.File) -> CanonicalXRDCase:
+        """Matador raw: discovers measurements, integrates raw 2D images."""
+        import hashlib
+        import pandas as pd
+        from pathlib import Path
+        from xrd_preprocessing import perform_azimuthal_integration
+        from bremen.api.preflight import H5ContainerError
+
+        cs = hashlib.sha256(Path(h5_file.filename).read_bytes()).hexdigest()
+
+        # Discover calibration subtree and measurements (shared logic)
+        calib_subtree_prefixes: set[str] = set()
+        def _calib_finder(name: str, obj: object) -> None:
+            parts = name.split("/")
+            for i, part in enumerate(parts):
+                if part.lower() in ('calibrations', 'calibration'):
+                    calib_subtree_prefixes.add("/" + "/".join(parts[:i+1]))
+                    return
+        h5_file.visititems(_calib_finder)
+
+        measurements: list[dict] = []
+        def _meas_visitor(name: str, obj: object) -> None:
+            if not isinstance(obj, h5py.Dataset):
+                return
+            ndim = len(obj.shape) if hasattr(obj, 'shape') else 0
+            if not (ndim >= 2 and obj.dtype.kind in ('f', 'i', 'u')):
+                return
+            name_path = "/" + name
+            for prefix in calib_subtree_prefixes:
+                if name_path.startswith(prefix + "/") or name_path == prefix:
+                    return
+            parent_path = "/" + "/".join(name.split("/")[:-1])
+            parent = h5_file.get(parent_path)
+            measurements.append({
+                "dataset_path": name,
+                "dataset_name": name.split("/")[-1],
+                "group_path": parent_path,
+                "parent_attrs": dict(parent.attrs) if parent is not None else {},
+            })
+        h5_file.visititems(_meas_visitor)
+
+        if len(measurements) < 2:
+            raise H5ContainerError("Insufficient measurements for bilateral pairing")
+
+        SIDE_KEYS = ("side", "breast_side", "sample_side", "organSide")
+        for m in measurements:
+            attrs = m["parent_attrs"]
+            m["side"] = _resolve_attr_norm(attrs, SIDE_KEYS)
+            # dataset-name fallback with warning
+            if m["side"] is None:
+                ds_lower = m["dataset_name"].lower()
+                if "left" in ds_lower and "right" not in ds_lower:
+                    m["side"] = "LEFT"
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "bremen.normalization.side_from_dataset_name\t"
+                        "dataset=%s", m["dataset_name"],
+                    )
+                elif "right" in ds_lower and "left" not in ds_lower:
+                    m["side"] = "RIGHT"
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "bremen.normalization.side_from_dataset_name\t"
+                        "dataset=%s", m["dataset_name"],
+                    )
+            m["position"] = _resolve_attr_norm(attrs, ("position", "pair_key"))
+            if m["position"] is None:
+                token = _extract_position_token(m["dataset_name"])
+                m["position"] = token
+
+        # Validate and normalise
+        for m in measurements:
+            if not m["side"]:
+                raise H5ContainerError("Missing side metadata")
+            side = m["side"].upper()
+            if side in ("LEFT", "L"):
+                m["side"] = "LEFT"
+            elif side in ("RIGHT", "R"):
+                m["side"] = "RIGHT"
+            else:
+                raise H5ContainerError("Unrecognised side value")
+            if not m["position"]:
+                raise H5ContainerError("Missing position/pair-key")
+
+        # Find PONI text from calibration subtree group attributes or datasets
+        poni_text: str | None = None
+        for prefix in calib_subtree_prefixes:
+            g = h5_file.get(prefix)
+            if g is not None:
+                # Check group attributes for PONI text
+                if hasattr(g, 'attrs'):
+                    for ak, av in g.attrs.items():
+                        if "poni" in ak.lower():
+                            poni_text = str(av)
+                            break
+                if poni_text is not None:
+                    break
+                # Check child datasets for PONI text
+                if isinstance(g, h5py.Group):
+                    for key in g.keys():
+                        sub = g[key]
+                        if isinstance(sub, h5py.Dataset):
+                            try:
+                                raw = sub[()]
+                                if isinstance(raw, bytes):
+                                    poni_text = raw.decode("utf-8")
+                                elif isinstance(raw, np.ndarray):
+                                    if raw.ndim == 0:
+                                        val = raw[()]
+                                        if isinstance(val, bytes):
+                                            poni_text = val.decode("utf-8")
+                                        else:
+                                            poni_text = str(val)
+                                    else:
+                                        lines: list[str] = []
+                                        for x in raw.flat:
+                                            if isinstance(x, bytes):
+                                                lines.append(x.decode("utf-8"))
+                                            else:
+                                                lines.append(str(x))
+                                        poni_text = "\n".join(lines)
+                                else:
+                                    poni_text = str(raw)
+                                if poni_text:
+                                    break
+                            except Exception:
+                                pass
+                    if poni_text is not None:
+                        break
+        if poni_text is None:
+            raise H5ContainerError("No PONI calibration text found")
+
+        # Integrate each measurement
+        canonical_measurements: list[CanonicalXRDMeasurement] = []
+        for m in measurements:
+            g = h5_file[m["group_path"]]
+            ds_name = None
+            for key in g.keys():
+                sub = g[key]
+                if hasattr(sub, 'shape') and len(sub.shape) >= 2:
+                    ds_name = key
+                    break
+            if ds_name is None:
+                raise H5ContainerError(f"No 2D dataset in {m['group_path']}")
+            image = np.asarray(g[ds_name][()], dtype=np.float64)
+            row = pd.Series({"measurement_data": image, "ponifile": poni_text})
+            try:
+                radial, intensity, _, _ = perform_azimuthal_integration(
+                    row, column="measurement_data", npt=100, mode="1D",
+                    calibration_mode="poni", error_model=None,
+                    thickness_adjustment=False, require_thickness_adjustment=False,
+                )
+            except Exception as exc:
+                raise NormalizationError(f"Integration failed: {exc}") from exc
+            q_arr = np.asarray(radial, dtype=np.float64)
+            i_arr = np.asarray(intensity, dtype=np.float64)
+            canonical_measurements.append(CanonicalXRDMeasurement(
+                side=m["side"], position=m["position"], q=q_arr, intensity=i_arr,
+            ))
+
+        return CanonicalXRDCase(
+            source_layout=self.name,
+            source_layout_version=self.version,
+            source_checksum=cs,
+            calibration_provenance="poni_text",
+            measurements=tuple(canonical_measurements),
+        )
+
     def resolve_prediction_context(
         self,
         h5_file: h5py.File,
@@ -744,21 +1028,18 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
         )
 
         # ---- Phase 1: Discover calibration subtrees ----
-        # Walk the H5 to identify groups/datasets related to calibration.
-        # Record the top-level calibration group path prefixes.
+        # Walk the H5 to identify groups named 'calibrations' or 'calibration'.
+        # Record the exact group subtree prefix for exclusion.
+        # Only the exact calibration subtree is excluded — the
+        # acquisition root must NOT be marked as calibration.
         calib_subtree_prefixes: set[str] = set()
 
         def _calib_finder(name: str, obj: object) -> None:
-            if isinstance(obj, (h5py.Dataset, h5py.Group)):
-                name_lower = name.lower()
-                if any(kw in name_lower for kw in (
-                    'poni', 'calib', 'calibration', 'distance',
-                    'wavelength', 'pixel_size', 'center_x', 'center_y',
-                )):
-                    # Record the containing group path
-                    prefix = "/" + "/".join(name.split("/")[:-1]) if "/" in name else ""
-                    if prefix:
-                        calib_subtree_prefixes.add(prefix)
+            parts = name.split("/")
+            for i, part in enumerate(parts):
+                if part.lower() in ('calibrations', 'calibration'):
+                    calib_subtree_prefixes.add("/" + "/".join(parts[:i+1]))
+                    return
 
         h5_file.visititems(_calib_finder)
 
@@ -891,32 +1172,58 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
                 "No complete bilateral pair (LEFT + RIGHT) found"
             )
 
-        # Exactly one complete pair required — reject ambiguity
+        # Retain all complete pairs — do not reject ambiguous pairs.
+        # The first complete pair is used for backward-compatible
+        # resolve_prediction_context, but all pairs are retained
+        # in normalize_to_canonical.
         if len(complete_pairs) > 1:
-            raise H5ContainerError(
-                "Ambiguous bilateral pair set — multiple complete pairs found"
+            import logging
+            logging.getLogger(__name__).warning(
+                "bremen.layout.matador.ambiguous_pairs	"
+                "pair_count=%s	all_pair_keys=%s",
+                len(complete_pairs),
+                str([pk for pk, _ in complete_pairs]),
             )
 
-        # Use the single complete pair
+        # Use the first complete pair for prediction context
         pair_key, sides = complete_pairs[0]
         left_m = sides["LEFT"]
         right_m = sides["RIGHT"]
 
-        # ---- Discover calibration data ----
+        # ---- Discover calibration data (PONI text) ----
         calib_refs: dict[str, str] = {}
+        poni_text: str | None = None
+        for prefix in calib_subtree_prefixes:
+            g = h5_file.get(prefix)
+            if g is not None and hasattr(g, 'attrs'):
+                for ak, av in g.attrs.items():
+                    if "poni" in ak.lower():
+                        poni_text = str(av)
+                        calib_refs[f"{prefix}/@{ak}"] = "attribute"
+                        break
+            if poni_text is not None:
+                break
 
-        def _calib_visitor(name: str, obj: object) -> None:
-            if isinstance(obj, h5py.Dataset):
-                name_lower = name.lower()
-                if any(kw in name_lower for kw in (
-                    'poni', 'distance', 'wavelength', 'pixel_size',
-                    'center_x', 'center_y',
-                )):
-                    calib_refs[name] = str(obj.dtype)
+        # Fallback: search any dataset with 'poni' in name
+        if poni_text is None:
+            def _poni_visitor(name: str, obj: object) -> None:
+                nonlocal poni_text
+                if poni_text is not None:
+                    return
+                if isinstance(obj, h5py.Dataset) and "poni" in name.lower():
+                    try:
+                        raw = obj[()]
+                        if isinstance(raw, bytes):
+                            poni_text = raw.decode("utf-8")
+                        else:
+                            poni_text = str(raw)
+                        calib_refs[name] = str(obj.dtype)
+                    except Exception:
+                        pass
 
-        h5_file.visititems(_calib_visitor)
+            h5_file.visititems(_poni_visitor)
 
-        if not calib_refs:
+        if not calib_refs and not poni_text:
             raise H5ContainerError(
                 "No PONI/calibration data found"
             )

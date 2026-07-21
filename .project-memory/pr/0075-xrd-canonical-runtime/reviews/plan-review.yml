@@ -1,0 +1,95 @@
+review:
+  status: valid
+  branch: 0075-xrd-canonical-runtime
+  head: 17c8763c51a012a486c3304cbaa6bb514720bf40
+  reviewed_files:
+    - PLAN.md
+    - src/bremen/api/h5_layouts.py
+    - src/bremen/api/model_state.py
+    - src/bremen/api/server.py
+    - src/bremen/api/app.py
+    - src/bremen/api/inference_handler.py
+    - src/bremen/api/preprocessing_bridge.py
+    - src/bremen/inference.py
+    - src/bremen/feature_artifacts.py
+    - .github/workflows/quality.yml
+    - .github/workflows/ecr-publish.yml
+    - .gitignore
+    - /tmp/bremen-xrd-normalization-spike.patch
+    - /tmp/bremen-xrd-spike-report.md
+
+blockers: []
+
+warnings:
+  - id: W001
+    evidence:
+      file: PLAN.md
+      lines: 316-337
+    issue: "Aramis integration mode selection (A/B/C) is deferred to implementation with preference for Option A. This is architecturally sound but the plan provides no boundary tests or timeout specifications for the chosen mode. The CI/CD pipeline lacks gates for subprocess/container health if Option B or C is selected."
+    recommendation: "Add timeout specifications and lifecycle contracts for each integration mode option before implementation."
+  - id: W002
+    evidence:
+      file: PLAN.md
+      lines: 270-276
+    issue: "The spike patch adds a fallback side resolution from dataset name when no attribute is found. The plan states 'Never silently infer side from filenames' which is distinct from dataset-name inference, but the spike introduces fallback logic that could mask missing organSide attributes."
+    recommendation: "Ensure the dataset-name fallback logs a warning when activated so operators can detect metadata gaps. The plan should clarify that filename-based inference is prohibited; dataset-name fallback is acceptable only as a documented intermediate step."
+  - id: W003
+    evidence:
+      file: src/bremen/api/h5_layouts.py
+      lines: 902-909
+    issue: "Current MatadorRawH5Adapter rejects multiple complete bilateral pairs with H5ContainerError. The spike patch changes this to retain all pairs. This is a planned behavioral change but the existing tests (test_ambiguous_multiple_complete_pairs_fails) expect the old rejection behavior and will need updating."
+    recommendation: "Ensure the spike-patch test changes are included in the implementation sequence and that no regression affects single-pair inputs."
+  - id: W004
+    evidence:
+      file: PLAN.md
+      lines: 376-381
+    issue: "Bremen scientific parity tolerances are marked TBD based on training-pipeline output. Without defined tolerances, the scientific certification gate cannot be verified by automated tests."
+    recommendation: "Define numerical tolerances before the scientific certification step is executed. Until then, the readiness.scientifically_certified flag must remain False for Bremen."
+
+confirmed:
+  layers_separated: true
+  canonical_q_intensity_separate: true
+  canonical_layer_workflow_neutral: true
+  organ_side_authoritative: true
+  all_positions_retained: true
+  no_default_p1_selection: true
+  explicit_workflow_selection: true
+  workflow_registry_extensible: true
+  bremen_aramis_isolated: true
+  per_workflow_model_state: true
+  checksum_before_unsafe_load: true
+  no_ensemble_behavior: true
+  partial_success_defined: true
+  per_workflow_readiness: true
+  bremen_parity_required: true
+  aramis_parity_required: true
+  existing_aramis_reused: true
+  private_artifacts_excluded: true
+  existing_cicd_reused: true
+  migration_incremental: true
+
+summary: >
+  PLAN.md provides a safe, bounded, implementable transition from the existing
+  Bremen-specific runtime to a canonical XRD multi-workflow platform with
+  independent Bremen and Aramis providers.  All required architecture layers
+  are separated: H5 layout adaptation, canonical XRD representation,
+  workflow-specific preprocessing, workflow-specific features, and
+  workflow-specific model inference are clearly delineated.  The canonical
+  XRD representation (CanonicalXRDCase/CanonicalXRDMeasurement) is
+  scientifically neutral — q and intensity remain separate, no patient
+  identifiers, no workflow-specific normalization applied in the shared
+  layer.  The workflow registry is extensible (dict-based, not hardcoded
+  if/elif), preventing a two-branch design.  Bremen and Aramis providers
+  are fully isolated with no cross-imports.  Model state is per-workflow,
+  with checksum-before-load guarantees and cross-workflow model rejection.
+  No ensemble behavior, no automatic "run all", no shared verdict, no
+  probability averaging.  Partial success is defined with a clear
+  MultiWorkflowResult envelope.  Readiness is per-workflow with separate
+  platform, normalization, and workflow states.  The existing CI/CD
+  pipeline is reused with minimal additions; existing Bremen endpoints
+  are preserved.  Migration is incremental — existing run_inference is
+  not replaced, new types are additive.  Non-blocking concerns include
+  unspecified Aramis integration timeout/lifecycle contracts, a spike-patch
+  dataset-name side fallback that should log warnings, pending test
+  migration for multiple-pair acceptance, and undefined Bremen parity
+  tolerances that will gate scientific certification.  No blockers found.
