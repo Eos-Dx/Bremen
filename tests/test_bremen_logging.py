@@ -518,14 +518,10 @@ class TestInferenceStageVisibility:
         assert result is not None
 
         # Verify all stage logs present
-        assert "bremen.prediction.h5.received" in caplog.text
-        assert "h5_input_present=true" in caplog.text
-        assert "bremen.prediction.preflight.start" in caplog.text
-        assert "bremen.prediction.preflight.completed" in caplog.text
-        assert "bremen.prediction.preprocessing.start" in caplog.text
-        assert "bremen.prediction.preprocessing.completed" in caplog.text
-        assert "bremen.prediction.inference.start" in caplog.text
-        assert "bremen.prediction.inference.success" in caplog.text
+        assert "runtime.orchestration.started" in caplog.text
+        assert "runtime.normalization.completed" in caplog.text
+        assert "runtime.workflow.resolved" in caplog.text
+        assert "runtime.request.completed" in caplog.text
         assert "bremen.prediction.completed" in caplog.text
 
         # No forbidden fields in logs

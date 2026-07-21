@@ -180,3 +180,35 @@ def _first_mismatch(
         if a != e:
             return i
     return -1 if len(actual) == len(expected) else min(len(actual), len(expected))
+
+
+def adapt_model_package(package: dict) -> dict:
+    """Adapt a real Bremen model package to the runtime-expected format.
+
+    The real package stores ``feature_columns`` and ``threshold`` at root
+    level.  This produces a compatible view without modifying the original
+    dict.  Other root-level fields (``analysis_config``,
+    ``decision_rule``) are preserved as-is.
+
+    After adaptation, the ``portable_logreg`` sub-dict contains all fields
+    needed by ``validate_portable_logreg_model`` and
+    ``predict_proba_portable``.
+
+    Returns the original package unchanged if it already has everything
+    under ``portable_logreg``.
+    """
+    if "portable_logreg" not in package:
+        return package
+    plr = dict(package["portable_logreg"])
+    needs_patch = False
+    if "feature_columns" not in plr and "feature_columns" in package:
+        plr["feature_columns"] = package["feature_columns"]
+        needs_patch = True
+    if "threshold" not in plr and "threshold" in package:
+        plr["threshold"] = package["threshold"]
+        needs_patch = True
+    if needs_patch:
+        patched = dict(package)
+        patched["portable_logreg"] = plr
+        return patched
+    return package

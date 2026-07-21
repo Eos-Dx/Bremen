@@ -281,17 +281,78 @@ class CalibrationSampleH5LayoutAdapter(H5LayoutAdapter):
         return False
 
     def normalize_to_canonical(self, h5_file: h5py.File) -> CanonicalXRDCase:
-        """Calibration layout: reads existing integration/q and integration/i."""
+        """Calibration layout: reads existing integration/q and integration/i.
+
+        Discovers the first calibration group and its two samples,
+        reads integration arrays directly.  Does not require explicit
+        target/control refs for normalization.
+        """
         import hashlib
         from pathlib import Path
+        from bremen.api.preflight import H5ContainerError
+
         cs = hashlib.sha256(
             Path(h5_file.filename).read_bytes()
         ).hexdigest()
-        ctx = self.resolve_prediction_context(h5_file, "", "")
-        t_q = np.asarray(h5_file[f"{ctx.target_group_path}/integration/q"][()], dtype=np.float64)
-        t_i = np.asarray(h5_file[f"{ctx.target_group_path}/integration/i"][()], dtype=np.float64)
-        c_q = np.asarray(h5_file[f"{ctx.control_group_path}/integration/q"][()], dtype=np.float64)
-        c_i = np.asarray(h5_file[f"{ctx.control_group_path}/integration/i"][()], dtype=np.float64)
+
+        # Discover calibration group and its sample keys
+        calib_group_name = _find_calibration_group(h5_file)
+        if calib_group_name is None:
+            raise H5ContainerError("No calibration group found for normalization")
+
+        calib_group = h5_file[calib_group_name]
+        sample_keys = sorted(
+            k for k in calib_group.keys()
+            if k.startswith("sample_")
+        )
+        if len(sample_keys) < 2:
+            raise H5ContainerError(
+                "Insufficient samples in calibration group for normalization"
+            )
+
+        # Use first two samples as target/control
+        target_key = sample_keys[0]
+        control_key = sample_keys[1]
+        target_path = f"/{calib_group_name}/{target_key}"
+        control_path = f"/{calib_group_name}/{control_key}"
+
+        # Read integration arrays from first set of each sample
+        t_sets = sorted(
+            k for k in h5_file[f"{target_path}/sets"].keys()
+            if k.startswith("set_")
+        )
+        c_sets = sorted(
+            k for k in h5_file[f"{control_path}/sets"].keys()
+            if k.startswith("set_")
+        )
+
+        if not t_sets or not c_sets:
+            raise H5ContainerError("No measurement sets for calibration normalization")
+
+        t_set_path = f"{target_path}/sets/{t_sets[0]}"
+        c_set_path = f"{control_path}/sets/{c_sets[0]}"
+
+        t_q = np.asarray(h5_file[f"{t_set_path}/integration/q"][()], dtype=np.float64)
+        t_i = np.asarray(h5_file[f"{t_set_path}/integration/i"][()], dtype=np.float64)
+        c_q = np.asarray(h5_file[f"{c_set_path}/integration/q"][()], dtype=np.float64)
+        c_i = np.asarray(h5_file[f"{c_set_path}/integration/i"][()], dtype=np.float64)
+
+        # Resolve sides from sample_type
+        target_type = _read_sample_metadata_str(h5_file, target_path, "sample/sample_type")
+        control_type = _read_sample_metadata_str(h5_file, control_path, "sample/sample_type")
+        target_side = "LEFT"
+        control_side = "RIGHT"
+        if target_type:
+            try:
+                target_side = _breast_type_to_side(target_type)
+            except Exception:
+                pass
+        if control_type:
+            try:
+                control_side = _breast_type_to_side(control_type)
+            except Exception:
+                pass
+
         return CanonicalXRDCase(
             source_layout=self.name,
             source_layout_version=self.version,
@@ -299,11 +360,11 @@ class CalibrationSampleH5LayoutAdapter(H5LayoutAdapter):
             calibration_provenance="session_pre_integrated",
             measurements=tuple([
                 CanonicalXRDMeasurement(
-                    side=ctx.target_side or "LEFT", position="session",
+                    side=target_side, position="session",
                     q=t_q, intensity=t_i,
                 ),
                 CanonicalXRDMeasurement(
-                    side=ctx.control_side or "RIGHT", position="session",
+                    side=control_side, position="session",
                     q=c_q, intensity=c_i,
                 ),
             ]),
