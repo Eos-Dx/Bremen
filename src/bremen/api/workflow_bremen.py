@@ -125,10 +125,19 @@ class BremenProvider(WorkflowProvider):
         model_checksum: str | None = None,
         model_version: str | None = None,
     ) -> None:
-        self._model_package = model_package
+        self._raw_model_package = model_package
+        self._model_package: dict | None = None
+        if model_package is not None:
+            self._model_package = self._adapt_package(model_package)
         self._model_checksum = model_checksum
         self._model_version = model_version
         self._model_validated = False
+
+    @staticmethod
+    def _adapt_package(package: dict) -> dict:
+        """Apply model-package adaptation inside the provider boundary."""
+        from bremen.inference import adapt_model_package  # noqa: PLC0415
+        return adapt_model_package(package)
 
     # ---- Readiness ----
 
@@ -266,18 +275,37 @@ class BremenProvider(WorkflowProvider):
     # ---- Internal ----
 
     def _validate_model_internal(self) -> bool:
+        import sys as _sys
         if self._model_package is None:
+            print("VALIDATE: model_package is None", file=_sys.stderr)
             return False
 
         plr = self._model_package.get("portable_logreg", {})
+        if not isinstance(plr, dict):
+            print("VALIDATE: plr_not_dict", file=_sys.stderr)
+            return False
+
         for key in ("coef", "imputer_statistics", "scaler_mean",
                     "scaler_scale"):
-            if key not in plr or not isinstance(plr[key], list) or len(plr[key]) != 15:
+            val = plr.get(key)
+            if val is None:
+                _log.debug("bremen.provider.validate.missing_key	key=%s", key)
+                return False
+            if not isinstance(val, list):
+                _log.debug("bremen.provider.validate.not_list	key=%s	type=%s",
+                           key, type(val).__name__)
+                return False
+            if len(val) != 15:
+                _log.debug("bremen.provider.validate.wrong_length	key=%s	len=%s",
+                           key, len(val))
                 return False
         if "intercept" not in plr or not isinstance(plr["intercept"], (int, float)):
+            print(f"VALIDATE: bad_intercept type={type(plr.get("intercept")).__name__}", file=_sys.stderr)
             return False
         if "threshold" not in plr or not isinstance(plr["threshold"], (int, float)):
+            print(f"VALIDATE: bad_threshold type={type(plr.get("threshold")).__name__}", file=_sys.stderr)
             return False
 
         self._model_validated = True
+        print("VALIDATE: SUCCESS", file=_sys.stderr)
         return True

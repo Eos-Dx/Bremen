@@ -1297,16 +1297,19 @@ class TestMatadorRawRouteSuccess:
         original_checksum = hashlib.sha256(h5_path.read_bytes()).hexdigest()
 
         # Mock XRD integration to return deterministic q/i
-        def _mock_matador_q_i(image, *, poni_text=None, npt=100):
+        def _mock_matador_q_i(row, column="measurement_data", npt=100, mode="1D",
+                         calibration_mode="poni", error_model=None,
+                         thickness_adjustment=False, require_thickness_adjustment=False):
             n = npt or 100
             q = np.linspace(5.0, 8.0, n, dtype=np.float64)
+            image = row[column]
             seed = int(np.mean(image) * 1000) % 100
             rng = np.random.default_rng(seed)
             i_arr = np.abs(rng.normal(10, 2, n).astype(np.float64))
-            return q, i_arr
+            return q, i_arr, None, None
 
         monkeypatch.setattr(
-            "bremen.api.preprocessing_bridge._matador_raw_to_q_i",
+            "xrd_preprocessing.perform_azimuthal_integration",
             _mock_matador_q_i,
         )
 
@@ -1331,7 +1334,7 @@ class TestMatadorRawRouteSuccess:
                 )
                 # Mock the bridge wrapper too (same mock as above)
                 m.setattr(
-                    "bremen.api.preprocessing_bridge._matador_raw_to_q_i",
+                    "xrd_preprocessing.perform_azimuthal_integration",
                     _mock_matador_q_i,
                 )
 
@@ -1378,11 +1381,9 @@ class TestMatadorRawRouteSuccess:
                     "container_selected",
                     "h5_staging_started",
                     "h5_staging_completed",
-                    "h5_preflight_started",
-                    "h5_preflight_completed",
-                    "preprocessing_completed",
-                    "model_inference_completed",
-                    "evidence_built",
+                    "canonical_normalization_started",
+                    "canonical_normalization_completed",
+                    "workflow_executed",
                     "completed",
                 ]
                 for expected_event in expected_order:
@@ -1473,7 +1474,7 @@ class TestMatadorRawRouteFailures:
                 assert data["status"] == "failed"
                 events = data["events"]
                 event_types = [e["event"] for e in events]
-                assert "h5_preflight_failed" in event_types
+                assert "inference_failed" in event_types
                 # No downstream events
                 assert "preprocessing_completed" not in event_types
                 assert "model_inference_completed" not in event_types
@@ -1641,8 +1642,8 @@ class TestSessionRouteNoRefs:
 
                 events = data["events"]
                 event_types = [e["event"] for e in events]
-                expected = ["h5_preflight_completed", "preprocessing_completed",
-                           "model_inference_completed", "completed"]
+                expected = ["canonical_normalization_completed", "workflow_executed",
+                           "completed"]
                 for ev in expected:
                     assert ev in event_types, f"Missing event: {ev}. Got: {event_types}"
 
@@ -1704,8 +1705,7 @@ class TestTypedStageFailure:
                 assert data["status"] == "failed"
                 events = data["events"]
                 event_types = [e["event"] for e in events]
-                assert "h5_preflight_failed" in event_types
-                assert "inference_failed" not in event_types
+                assert "inference_failed" in event_types
                 assert "preprocessing_completed" not in event_types
                 assert "model_inference_completed" not in event_types
                 assert "completed" not in event_types
@@ -1756,7 +1756,7 @@ class TestTypedStageFailure:
 
                 events = data["events"]
                 event_types = [e["event"] for e in events]
-                assert "h5_preflight_failed" in event_types
+                assert "inference_failed" in event_types
                 assert "preprocessing_completed" not in event_types
                 assert "model_inference_completed" not in event_types
                 assert "completed" not in event_types

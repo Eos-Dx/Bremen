@@ -212,6 +212,7 @@ def handle_submit_prediction(
 
     try:
         from .inference_handler import run_inference  # noqa: PLC0415
+        from .workflow_orchestrator import run_workflow_request  # noqa: PLC0415
 
         # Determine input_mode for the decision-support report
         input_mode: str | None = None
@@ -220,12 +221,44 @@ def handle_submit_prediction(
         elif request.h5_path:
             input_mode = "h5_path"
 
-        result_dict = run_inference(
+        # Determine workflow_id from request (default "bremen" for compatibility)
+        workflow_id = raw_request.get("workflow_id", "bremen")
+
+        mw_result = run_workflow_request(
             h5_path=resolved_h5_path,
-            patient_id=raw_request.get("patient_id"),
+            workflow_id=workflow_id,
             target_scan_ref=request.target_scan_ref,
             control_scan_ref=request.control_scan_ref,
-            input_mode=input_mode,
+        )
+
+        wf_result = mw_result.workflows.get(workflow_id)
+        if wf_result is None or wf_result.status == "failed":
+            raise RuntimeError(
+                str(wf_result.error) if wf_result and wf_result.error
+                else f"Workflow {workflow_id} execution failed"
+            )
+
+        payload = wf_result.payload or {}
+
+        # Map workflow result to legacy dict shape for CompletedResult
+        result_dict = {
+            "prediction_id": payload.get("prediction_id", ""),
+            "model_version": payload.get("model_version", ""),
+            "model_checksum": payload.get("model_checksum", ""),
+            "feature_schema_version": payload.get("feature_schema_version", "v0.1"),
+            "threshold_version": "v0.1",
+            "threshold_value": float(payload.get("threshold_applied", 0.5)),
+            "qc_status": "passed",
+            "qc_flags": [],
+        }
+
+        # Build decision-support report
+        from .decision_support import build_decision_support_report  # noqa: PLC0415
+        result_dict["decision_support_report"] = build_decision_support_report(
+            result_dict,
+            input_mode=input_mode or "unknown",
+            explicit_refs=request.target_scan_ref is not None,
+            layout_category="canonical",
         )
 
         completed_result = CompletedResult(

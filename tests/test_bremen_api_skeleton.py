@@ -470,31 +470,41 @@ class TestModelVersionReadiness:
 class TestSubmitPrediction:
 
     @staticmethod
-    def _mock_run_inference(
-        h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None,
-        input_mode=None,
+    def _mock_run_workflow_request(
+        h5_path, workflow_id="bremen", *, target_scan_ref=None,
+        control_scan_ref=None, registry=None,
     ):
-        """Fake run_inference that returns a valid result dict."""
-        return {
-            "prediction_id": "mock-pred-001",
-            "model_version": "test-v0.1",
-            "model_checksum": "a" * 64,
-            "feature_schema_version": "v0.1",
-            "threshold_version": "v0.1",
-            "threshold_value": 0.5,
-            "qc_status": "passed",
-            "qc_flags": [],
-            "patient_id": "mock-patient",
-            "p_mri_needed": 0.75,
-            "triage_recommendation": "MRI_RECOMMENDED",
-            "created_at_utc": "2026-01-01T00:00:00",
-        }
+        """Fake run_workflow_request that returns a valid MultiWorkflowResult."""
+        from bremen.api.workflow_provider import MultiWorkflowResult, WorkflowResult
+        return MultiWorkflowResult(
+            request_id="mock-req",
+            job_id="mock-job",
+            normalization_status="completed",
+            source_checksum="a" * 64,
+            requested_workflows=("bremen",),
+            workflows={
+                "bremen": WorkflowResult(
+                    workflow_id="bremen",
+                    status="completed",
+                    payload={
+                        "prediction_id": "mock-pred-001",
+                        "model_version": "test-v0.1",
+                        "model_checksum": "a" * 64,
+                        "feature_schema_version": "v0.1",
+                        "threshold_applied": 0.5,
+                        "probability": 0.75,
+                        "triage_recommendation": "MRI_RECOMMENDED",
+                    },
+                ),
+            },
+            overall_status="completed",
+        )
 
     def test_submit_returns_accepted_with_job_id(self, monkeypatch):
         """handle_submit_prediction returns accepted response with UUID job_id."""
         monkeypatch.setattr(
-            "bremen.api.inference_handler.run_inference",
-            self._mock_run_inference,
+            "bremen.api.workflow_orchestrator.run_workflow_request",
+            self._mock_run_workflow_request,
         )
         _load_synthetic_model(Path("/tmp"))
         store = InMemoryJobStore()
@@ -537,8 +547,8 @@ class TestSubmitPrediction:
     def test_submit_stores_job(self, monkeypatch):
         """The submitted job is stored in the job store."""
         monkeypatch.setattr(
-            "bremen.api.inference_handler.run_inference",
-            self._mock_run_inference,
+            "bremen.api.workflow_orchestrator.run_workflow_request",
+            self._mock_run_workflow_request,
         )
         _load_synthetic_model(Path("/tmp"))
         store = InMemoryJobStore()
@@ -555,8 +565,8 @@ class TestSubmitPrediction:
     def test_submit_has_poll_link(self, monkeypatch):
         """The accepted response includes a poll link."""
         monkeypatch.setattr(
-            "bremen.api.inference_handler.run_inference",
-            self._mock_run_inference,
+            "bremen.api.workflow_orchestrator.run_workflow_request",
+            self._mock_run_workflow_request,
         )
         _load_synthetic_model(Path("/tmp"))
         store = InMemoryJobStore()
@@ -579,31 +589,41 @@ class TestSubmitPrediction:
 class TestGetPrediction:
 
     @staticmethod
-    def _mock_run_inference(
-        h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None,
-        input_mode=None,
+    def _mock_run_workflow_request(
+        h5_path, workflow_id="bremen", *, target_scan_ref=None,
+        control_scan_ref=None, registry=None,
     ):
-        """Fake run_inference that returns a valid result dict."""
-        return {
-            "prediction_id": "mock-pred-002",
-            "model_version": "test-v0.1",
-            "model_checksum": "b" * 64,
-            "feature_schema_version": "v0.1",
-            "threshold_version": "v0.1",
-            "threshold_value": 0.5,
-            "qc_status": "passed",
-            "qc_flags": [],
-            "patient_id": "mock-patient",
-            "p_mri_needed": 0.75,
-            "triage_recommendation": "MRI_RECOMMENDED",
-            "created_at_utc": "2026-01-01T00:00:00",
-        }
+        """Fake run_workflow_request that returns a valid MultiWorkflowResult."""
+        from bremen.api.workflow_provider import MultiWorkflowResult, WorkflowResult
+        return MultiWorkflowResult(
+            request_id="mock-req",
+            job_id="mock-job",
+            normalization_status="completed",
+            source_checksum="b" * 64,
+            requested_workflows=("bremen",),
+            workflows={
+                "bremen": WorkflowResult(
+                    workflow_id="bremen",
+                    status="completed",
+                    payload={
+                        "prediction_id": "mock-pred-002",
+                        "model_version": "test-v0.1",
+                        "model_checksum": "b" * 64,
+                        "feature_schema_version": "v0.1",
+                        "threshold_applied": 0.5,
+                        "probability": 0.75,
+                        "triage_recommendation": "MRI_RECOMMENDED",
+                    },
+                ),
+            },
+            overall_status="completed",
+        )
 
     def test_get_known_job_returns_status(self, monkeypatch):
         """get_prediction for a known job_id returns the job status."""
         monkeypatch.setattr(
-            "bremen.api.inference_handler.run_inference",
-            self._mock_run_inference,
+            "bremen.api.workflow_orchestrator.run_workflow_request",
+            self._mock_run_workflow_request,
         )
         _load_synthetic_model(Path("/tmp"))
         store = InMemoryJobStore()
@@ -626,8 +646,8 @@ class TestGetPrediction:
     def test_get_returns_request_metadata(self, monkeypatch):
         """get_prediction preserves the original request metadata."""
         monkeypatch.setattr(
-            "bremen.api.inference_handler.run_inference",
-            self._mock_run_inference,
+            "bremen.api.workflow_orchestrator.run_workflow_request",
+            self._mock_run_workflow_request,
         )
         _load_synthetic_model(Path("/tmp"))
         store = InMemoryJobStore()
@@ -982,8 +1002,9 @@ class TestImportSafety:
                 "inference_handler.py",
                 "model_state.py",
                 "server.py",  # demo H5 extension validation (PR0067)
+                "workflow_orchestrator.py",  # H5 normalization entry point (PR0076)
             ):
-                continue  # H5-related modules (PR 0037, PR 0044, PR 0045, PR0067)
+                continue  # H5-related modules (PR 0037, PR 0044, PR 0045, PR0067, PR0076)
             content = py_file.read_text(encoding="utf-8")
             for ref in [".h5", ".hdf5", "h5py"]:
                 if ref in content:

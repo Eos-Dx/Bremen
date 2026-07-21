@@ -1,0 +1,78 @@
+review:
+  status: valid
+  branch: 0076-wire-multi-workflow-runtime
+  head: 5af8ab2b10d621b4db93357d7dd039ec80bd84e0
+  reviewed_files:
+    - .project-memory/pr/0076-wire-multi-workflow-runtime/implementation-report.md
+    - src/bremen/api/model_state.py
+    - src/bremen/api/workflow_orchestrator.py
+    - src/bremen/api/inference_handler.py
+    - src/bremen/api/server.py
+    - src/bremen/api/app.py
+    - src/bremen/api/workflow_bremen.py
+    - src/bremen/inference.py
+    - src/bremen/api/h5_layouts.py
+    - tests/test_bremen_api_server.py
+    - tests/test_bremen_api_skeleton.py
+    - tests/test_bremen_inference_integration.py
+    - tests/test_bremen_logging.py
+    - tests/test_bremen_predictions.py
+    - tests/test_bremen_production_smoke.py
+
+blockers: []
+
+warnings: []
+
+confirmed:
+  test_order_root_cause_proven: true
+  production_state_isolation_fixed: true
+  no_test_order_dependency: true
+  no_skip_xfail_or_weakened_assertion: true
+  repeated_execution_deterministic: true
+  full_test_suite_passed: true
+
+tests:
+  failing_test_alone: PASS (1.44s)
+  minimal_ordered_reproduction: PASS (contaminant → target, 2 passed in 1.53s)
+  state_regression: PASS (176 passed, workflow/registry/provider: 186 passed)
+  full_suite: "1495 passed, 0 failed, 11 skipped, 28 warnings"
+  compileall: PASS
+  diff_check: PASS
+  forbidden_artifact_check: PASS
+
+summary: >
+  Test-order interaction fully resolved. Root cause: `ModelState` singleton
+  used `cls._instance` (class variable). When `test_import_succeeds` deleted
+  and reloaded `bremen.api.*` modules, old and new `ModelState` class objects
+  maintained independent, invisible singleton state. Fix: singleton instance
+  is now stored on the `bremen` parent package (never deleted by sub-package
+  reload) via `_store_singleton`/`_load_singleton`/`_clear_singleton` helpers.
+  Both old and new `ModelState` class objects find the same instance. This is
+  a production-safe lifecycle fix — no test-only branches, no skips, no weaker
+  assertions, no reordering, no retries. The minimal ordered reproduction
+  (contaminating test followed by target) passes cleanly in 1.53s. Full suite:
+  1495 passed, 0 failed. All 28 prior architecture confirmations remain valid.
+
+PRECOMMIT REVIEW COMPLETE: yes
+
+STATUS: valid
+
+HEAD: `5af8ab2b10d621b4db93357d7dd039ec80bd84e0`
+
+BRANCH: `0076-wire-multi-workflow-runtime`
+
+ROOT CAUSE VERIFIED: Module-reload split-class syndrome. `ModelState` class-variable singleton was duplicated when `test_import_succeeds` purged and reloaded `bremen.api.*`. Old and new class objects held independent `_instance` state.
+
+STATE ISOLATION VERIFIED: Singleton now stored on `bremen` package attribute (`_bremen_model_state_instance`). The `bremen` parent package survives sub-package reload. Both old and new `ModelState` class objects find the same instance via `_load_singleton()`.
+
+MINIMAL ORDERED REPRODUCTION: PASS — `test_import_succeeds` → `test_end_to_end_synthetic_inference` (2 passed in 1.53s).
+
+REGRESSION TESTS: 176 API/skeleton/predictions/inference/logging/smoke passed; 186 workflow/registry/provider/h5 passed.
+
+FULL SUITE: **1495 passed, 0 failed, 11 skipped**.
+
+BLOCKERS: None
+
+WARNINGS: None
+
+REVIEW ARTIFACT: `.project-memory/pr/0076-wire-multi-workflow-runtime/reviews/precommit-review.yml` updated.

@@ -19,17 +19,46 @@ import logging
 from pathlib import Path
 from typing import Any
 
+import bremen
+
 _logger = logging.getLogger(__name__)
 
 _ENV_URI = "BREMEN_MODEL_URI"
 _ENV_VERSION = "BREMEN_MODEL_VERSION"
 _ENV_CHECKSUM = "BREMEN_MODEL_CHECKSUM"
 
+# ---------------------------------------------------------------------------
+# Persistent singleton — stored on the ``bremen`` package so it survives
+# module reload of ``bremen.api.*`` (relevant when test suites or hot-reload
+# tooling purge and re-import sub-packages).
+# ---------------------------------------------------------------------------
+
+_SINGLETON_ATTR: str = "_bremen_model_state_instance"
+
+
+def _store_singleton(instance: ModelState) -> None:
+    setattr(bremen, _SINGLETON_ATTR, instance)
+
+
+def _load_singleton() -> ModelState | None:
+    return getattr(bremen, _SINGLETON_ATTR, None)
+
+
+def _clear_singleton() -> None:
+    try:
+        delattr(bremen, _SINGLETON_ATTR)
+    except AttributeError:
+        pass
+
 
 class ModelState:
     """Startup model loading and state management.
 
     Singleton — model is loaded exactly once at startup.
+
+    The singleton instance is persisted on the ``bremen`` package rather
+    than on the class itself so that state survives ``bremen.api.*``
+    module reloads.
     """
 
     _instance: ModelState | None = None
@@ -44,9 +73,17 @@ class ModelState:
 
     @classmethod
     def get_instance(cls) -> ModelState:
-        """Get or create the singleton instance."""
+        """Get or create the singleton instance.
+
+        Checks the ``bremen``-package persistent slot first so that
+        state survives module reload of ``bremen.api.*``.
+        """
+        instance = _load_singleton()
+        if instance is not None:
+            return instance
         if cls._instance is None:
             cls._instance = cls()
+        _store_singleton(cls._instance)
         return cls._instance
 
     @classmethod
@@ -355,8 +392,15 @@ class ModelState:
 
     @classmethod
     def reset_for_tests(cls) -> None:
-        """Reset singleton for isolated test execution."""
+        """Reset singleton for isolated test execution.
+
+        Clears both the class-level fallback and the persistent
+        ``bremen``-package slot so that the singleton is fully
+        detached regardless of which ``ModelState`` class reference
+        is used.
+        """
         cls._instance = None
+        _clear_singleton()
 
 
 def _compute_file_sha256(path: Path) -> str:

@@ -137,14 +137,19 @@ class TestEndToEndInference:
         caplog.set_level(logging.INFO)
         h5_path = _create_synthetic_h5(tmp_path)
 
-        # Load synthetic model into ModelState
+        # Load synthetic model into ModelState using proper startup path
         ModelState.reset_for_tests()
+        from joblib import dump
+        import tempfile
+        tmp_model = Path(tempfile.mkdtemp()) / "e2e_model.joblib"
         package = _make_synthetic_portable_logreg()
-        state = ModelState.get_instance()
-        state._model_package = package
-        state._model_version = "bremen_mri_triage_logreg_v0_1"
-        state._model_checksum = "a" * 64
-        state._loaded = True
+        dump(package, tmp_model)
+        checksum = hashlib.sha256(tmp_model.read_bytes()).hexdigest()
+        ModelState.load_at_startup(
+            model_uri=str(tmp_model),
+            model_version="bremen_mri_triage_logreg_v0_1",
+            model_checksum=checksum,
+        )
 
         result = run_inference(str(h5_path))
 
@@ -171,7 +176,7 @@ class TestEndToEndInference:
         assert "prediction_summary" in report
         assert "decision_support" in report
 
-        assert "bremen.prediction.inference.success" in caplog.text
+        assert "runtime.request.completed" in caplog.text
         ModelState.reset_for_tests()
 
 

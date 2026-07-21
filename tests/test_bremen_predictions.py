@@ -67,22 +67,32 @@ def _load_synthetic_model(tmp_path: Path | None = None) -> None:
     )
 
 
-def _valid_mock_result() -> dict:
-    """Return a valid result dict matching what run_inference returns."""
-    return {
-        "prediction_id": "mock-pred-001",
-        "model_version": "test-v0.1",
-        "model_checksum": "a" * 64,
-        "feature_schema_version": "v0.1",
-        "threshold_version": "v0.1",
-        "threshold_value": 0.5,
-        "qc_status": "passed",
-        "qc_flags": [],
-        "patient_id": "mock-patient",
-        "p_mri_needed": 0.75,
-        "triage_recommendation": "MRI_RECOMMENDED",
-        "created_at_utc": "2026-01-01T00:00:00",
-    }
+def _valid_mock_mw_result() -> dict:
+    """Return a valid MultiWorkflowResult mock for orchestrator tests."""
+    from bremen.api.workflow_provider import MultiWorkflowResult, WorkflowResult
+    return MultiWorkflowResult(
+        request_id="mock-req",
+        job_id="mock-job",
+        normalization_status="completed",
+        source_checksum="a" * 64,
+        requested_workflows=("bremen",),
+        workflows={
+            "bremen": WorkflowResult(
+                workflow_id="bremen",
+                status="completed",
+                payload={
+                    "prediction_id": "mock-pred-001",
+                    "model_version": "test-v0.1",
+                    "model_checksum": "a" * 64,
+                    "feature_schema_version": "v0.1",
+                    "threshold_applied": 0.5,
+                    "probability": 0.75,
+                    "triage_recommendation": "MRI_RECOMMENDED",
+                },
+            ),
+        },
+        overall_status="completed",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -185,26 +195,27 @@ class TestPredictionNeverCompletesNull:
 # ---------------------------------------------------------------------------
 
 
-class TestPredictionCallsRunInference:
+class TestPredictionCallsOrchestrator:
     """Verify run_inference is called with the correct h5_path argument."""
 
-    def test_prediction_execution_calls_run_inference_with_h5_path(
+    def test_prediction_execution_calls_orchestrator_with_h5_path(
         self, tmp_path: Path, monkeypatch,
     ):
-        """Monkeypatch run_inference and verify it's called with h5_path."""
+        """Monkeypatch run_workflow_request and verify it's called with h5_path."""
         _load_synthetic_model(tmp_path)
 
         call_args = []
 
-        def mock_run_inference(
-            h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None,
-            input_mode=None,
+        def mock_run_workflow_request(
+            h5_path, workflow_id="bremen", *, target_scan_ref=None,
+            control_scan_ref=None, registry=None,
         ):
-            call_args.append((h5_path, patient_id, target_scan_ref, control_scan_ref))
-            return _valid_mock_result()
+            call_args.append((h5_path, workflow_id, target_scan_ref, control_scan_ref))
+            return _valid_mock_mw_result()
 
         monkeypatch.setattr(
-            "bremen.api.inference_handler.run_inference", mock_run_inference
+            "bremen.api.workflow_orchestrator.run_workflow_request",
+            mock_run_workflow_request,
         )
 
         store = InMemoryJobStore()
@@ -219,18 +230,18 @@ class TestPredictionCallsRunInference:
         )
 
         assert len(call_args) == 1, (
-            f"run_inference was called {len(call_args)} times, expected 1"
+            f"run_workflow_request was called {len(call_args)} times, expected 1"
         )
 
-        actual_h5_path, actual_patient_id, actual_target_ref, actual_control_ref = call_args[0]
+        actual_h5_path, actual_wf_id, actual_target_ref, actual_control_ref = call_args[0]
         assert actual_h5_path == "/tmp/test-input.h5", (
-            f"run_inference received '{actual_h5_path}', "
+            f"run_workflow_request received '{actual_h5_path}', "
             f"expected '/tmp/test-input.h5'"
         )
         assert actual_h5_path != "target", (
-            "run_inference must not receive 'target' as the H5 path"
+            "run_workflow_request must not receive 'target' as the H5 path"
         )
-        assert actual_patient_id is None  # not provided in request
+        assert actual_wf_id == "bremen"
         assert actual_target_ref == "target"
         assert actual_control_ref == "control"
 
@@ -252,20 +263,21 @@ class TestPredictionCallsRunInference:
 class TestPredictionCompletesWithResult:
     """When run_inference succeeds, job should complete with result."""
 
-    def test_prediction_job_completes_with_result_when_run_inference_succeeds(
+    def test_prediction_job_completes_with_result_when_orchestrator_succeeds(
         self, tmp_path: Path, monkeypatch,
     ):
-        """Monkeypatch run_inference to return a valid result."""
+        """Monkeypatch run_workflow_request to return a valid result."""
         _load_synthetic_model(tmp_path)
 
-        def mock_run_inference(
-            h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None,
-            input_mode=None,
+        def mock_run_workflow_request(
+            h5_path, workflow_id="bremen", *, target_scan_ref=None,
+            control_scan_ref=None, registry=None,
         ):
-            return _valid_mock_result()
+            return _valid_mock_mw_result()
 
         monkeypatch.setattr(
-            "bremen.api.inference_handler.run_inference", mock_run_inference
+            "bremen.api.workflow_orchestrator.run_workflow_request",
+            mock_run_workflow_request,
         )
 
         store = InMemoryJobStore()
@@ -417,11 +429,11 @@ class TestPredictionRealH5:
 class TestPredictionS3Uri:
     """Tests for S3 H5 URI input mode."""
 
-    def test_prediction_accepts_s3_h5_uri_and_stages_before_inference(
+    def test_prediction_accepts_s3_h5_uri_and_stages_before_orchestrator(
         self, tmp_path: Path, monkeypatch,
     ):
         """Submit with h5_uri: stage_h5_input returns local path,
-        run_inference is called with staged local path, not S3 URI."""
+        orchestrator is called with staged local path, not S3 URI."""
         _load_synthetic_model(tmp_path)
 
         expected_staged_path = "/tmp/staged-input.h5"
@@ -431,18 +443,19 @@ class TestPredictionS3Uri:
                                  expected_checksum=None, s3_client=None):
             return Path(expected_staged_path)
 
-        def mock_run_inference(
-            h5_path, patient_id=None, target_scan_ref=None, control_scan_ref=None,
-            input_mode=None,
+        def mock_run_workflow_request(
+            h5_path, workflow_id="bremen", *, target_scan_ref=None,
+            control_scan_ref=None, registry=None,
         ):
-            call_args.append((h5_path, patient_id, target_scan_ref, control_scan_ref))
-            return _valid_mock_result()
+            call_args.append((h5_path, workflow_id, target_scan_ref, control_scan_ref))
+            return _valid_mock_mw_result()
 
         monkeypatch.setattr(
             "bremen.h5_inputs.stage_h5_input", mock_stage_h5_input
         )
         monkeypatch.setattr(
-            "bremen.api.inference_handler.run_inference", mock_run_inference
+            "bremen.api.workflow_orchestrator.run_workflow_request",
+            mock_run_workflow_request,
         )
 
         store = InMemoryJobStore()
@@ -457,20 +470,20 @@ class TestPredictionS3Uri:
             store,
         )
 
-        # Verify run_inference was called
+        # Verify orchestrator was called
         assert len(call_args) == 1, (
-            f"run_inference was called {len(call_args)} times, expected 1"
+            f"run_workflow_request was called {len(call_args)} times, expected 1"
         )
 
-        actual_h5_path, actual_patient_id, actual_target_ref, actual_control_ref = call_args[0]
+        actual_h5_path, actual_wf_id, actual_target_ref, actual_control_ref = call_args[0]
         assert actual_h5_path == expected_staged_path, (
-            f"run_inference received '{actual_h5_path}', "
+            f"run_workflow_request received '{actual_h5_path}', "
             f"expected staged path '{expected_staged_path}'"
         )
         assert actual_h5_path != "s3://bucket/test.h5", (
-            "run_inference must not receive S3 URI directly"
+            "run_workflow_request must not receive S3 URI directly"
         )
-        assert actual_patient_id is None
+        assert actual_wf_id == "bremen"
         assert actual_target_ref == "target"
         assert actual_control_ref == "control"
 

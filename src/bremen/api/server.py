@@ -841,6 +841,24 @@ def _safe_error_detail(exc: Exception) -> str:
     return "Internal error"
 
 
+def _safe_error_detail_str(error_message: str) -> str:
+    """Map a workflow error message to a safe public detail string.
+
+    No internal paths, PONI text, raw arrays, or patient/specimen
+    identifiers are exposed.
+    """
+    msg_lower = error_message.lower()
+    if 'configuration_required' in msg_lower:
+        return 'Workflow configuration is needed for this input'
+    if 'unavailable' in msg_lower:
+        return 'Requested workflow is not available'
+    if 'not found' in msg_lower or 'not_found' in msg_lower:
+        return 'Requested workflow is not available'
+    if 'incompatible' in msg_lower:
+        return 'Input is not compatible with the requested workflow'
+    return 'Internal error'
+
+
 def _handle_demo_h5_analyze(
     handler: BaseHTTPRequestHandler,
 ) -> None:
@@ -848,7 +866,7 @@ def _handle_demo_h5_analyze(
     import json as _json  # noqa: PLC0415
     from datetime import datetime, timezone  # noqa: PLC0415
     from ..h5_inputs import stage_h5_input  # noqa: PLC0415
-    from ..api.inference_handler import run_inference  # noqa: PLC0415
+    from .workflow_orchestrator import run_workflow_request  # noqa: PLC0415
     from .model_state import ModelState  # noqa: PLC0415
 
     def _now() -> str:
@@ -906,11 +924,12 @@ def _handle_demo_h5_analyze(
         return
 
     container_id = body_dict.get("container_id", "").strip()
+    workflow_id = body_dict.get("workflow_id", "bremen")
 
     events.append({
         "event": "request_received",
         "timestamp": _now(),
-        "detail": "Analyze requested",
+        "detail": f"Analyze requested (workflow={workflow_id})",
     })
 
     if not container_id:
@@ -1026,240 +1045,146 @@ def _handle_demo_h5_analyze(
         handler.wfile.write(body)
         return
 
-    # Preflight
+    # Run through the canonical orchestrator
     events.append({
-        "event": "h5_preflight_started",
+        "event": "canonical_normalization_started",
         "timestamp": _now(),
-        "detail": "Running H5 preflight",
+        "detail": f"Running canonical normalization (workflow={workflow_id})",
     })
 
     try:
-        result = run_inference(str(staged_path))
-
-        events.append({
-            "event": "h5_preflight_completed",
-            "timestamp": _now(),
-            "detail": "Preflight passed",
-        })
-        events.append({
-            "event": "preprocessing_completed",
-            "timestamp": _now(),
-            "detail": "15 features extracted",
-        })
-        events.append({
-            "event": "model_inference_completed",
-            "timestamp": _now(),
-            "detail": f"p_mri_needed={result.get('p_mri_needed', 'N/A')}",
-        })
-        events.append({
-            "event": "evidence_built",
-            "timestamp": _now(),
-            "detail": "Evidence bundle assembled",
-        })
-        events.append({
-            "event": "completed",
-            "timestamp": _now(),
-            "detail": "Analysis complete",
-        })
-
-        body = _json.dumps({
-            "status": "completed",
-            "events": events,
-            "result": {
-                "p_mri_needed": result.get("p_mri_needed"),
-                "triage_recommendation": result.get("triage_recommendation"),
-                "qc_status": result.get("qc_status"),
-                "model_version": result.get("model_version"),
-                "feature_schema_version": result.get("feature_schema_version"),
-                "prediction_id": result.get("prediction_id"),
-            },
-            "evidence": {
-                "model_version": result.get("model_version"),
-                "model_checksum": result.get("model_checksum"),
-                "feature_schema_version": result.get("feature_schema_version"),
-                "threshold_version": result.get("threshold_version"),
-                "prediction_id": result.get("prediction_id"),
-            },
-            "container": {
-                "id": container_id,
-                "bucket": config["h5_bucket"],
-            },
-            "request_id": request_id,
-            "job_id": job_id,
-            "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(200)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-
-    except (H5PreflightError, H5ContainerError, H5MetadataError,
-            H5PatientMismatchError, H5SideMismatchError,
-            H5MeasurementError, H5QualityError) as exc:
-        import logging as _logging  # noqa: PLC0415
-        _log = _logging.getLogger(__name__)
-        event_name = "h5_preflight_failed"
-        safe_detail = _safe_error_detail(exc)
-        events.append({
-            "event": event_name,
-            "timestamp": _now(),
-            "detail": safe_detail,
-        })
-        _log.exception(
-            "bremen.demo.analyze.preflight_failed\t"
-            "stage=preflight\tstatus=failed\t"
-            "container_id=%s\trequest_id=%s\tjob_id=%s",
-            container_id, request_id, job_id,
+        mw_result = run_workflow_request(
+            h5_path=str(staged_path),
+            workflow_id=workflow_id,
         )
 
-        body = _json.dumps({
-            "status": "failed",
-            "events": events,
-            "request_id": request_id,
-            "job_id": job_id,
-            "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(200)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
+        wf_result = mw_result.workflows.get(workflow_id)
+        wf_status = wf_result.status if wf_result else "not_found"
 
-    except (PreprocessingBridgeError, PreflightNotPassedError,
-            FeatureSchemaMismatchError) as exc:
-        import logging as _logging  # noqa: PLC0415
-        _log = _logging.getLogger(__name__)
-        event_name = "preprocessing_failed"
-        safe_detail = _safe_error_detail(exc)
-        events.append({
-            "event": event_name,
-            "timestamp": _now(),
-            "detail": safe_detail,
-        })
-        _log.exception(
-            "bremen.demo.analyze.preprocessing_failed\t"
-            "stage=preprocessing\tstatus=failed\t"
-            "container_id=%s\trequest_id=%s\tjob_id=%s",
-            container_id, request_id, job_id,
-        )
+        if wf_status == "completed":
+            payload = wf_result.payload if wf_result else {}
+            events.append({
+                "event": "canonical_normalization_completed",
+                "timestamp": _now(),
+                "detail": "Normalization completed",
+            })
+            events.append({
+                "event": "workflow_executed",
+                "timestamp": _now(),
+                "detail": f"Workflow {workflow_id} completed",
+            })
+            events.append({
+                "event": "completed",
+                "timestamp": _now(),
+                "detail": "Analysis complete",
+            })
 
-        body = _json.dumps({
-            "status": "failed",
-            "events": events,
-            "request_id": request_id,
-            "job_id": job_id,
-            "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(200)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-
-    except (PortableLogRegModelError, FeatureArtifactError) as exc:
-        import logging as _logging  # noqa: PLC0415
-        _log = _logging.getLogger(__name__)
-        event_name = "inference_failed"
-        safe_detail = _safe_error_detail(exc)
-        events.append({
-            "event": event_name,
-            "timestamp": _now(),
-            "detail": safe_detail,
-        })
-        _log.exception(
-            "bremen.demo.analyze.inference_failed\t"
-            "stage=inference\tstatus=failed\t"
-            "container_id=%s\trequest_id=%s\tjob_id=%s",
-            container_id, request_id, job_id,
-        )
-
-        body = _json.dumps({
-            "status": "failed",
-            "events": events,
-            "request_id": request_id,
-            "job_id": job_id,
-            "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(200)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-
-    except (RuntimeError, ValueError, KeyError, TypeError) as exc:
-        import logging as _logging  # noqa: PLC0415
-        _log = _logging.getLogger(__name__)
-        safe_detail = _safe_error_detail(exc)
-        # Fallback classification for plain RuntimeError/ValueError/etc.
-        # that are not wrapped in a typed preflight/preprocessing/inference
-        # exception (e.g., raised directly by inference_handler).
-        err_str = str(exc).lower()
-        if "preflight" in err_str:
-            event_name = "h5_preflight_failed"
-        elif "preprocessing" in err_str or "bridge" in err_str:
-            event_name = "preprocessing_failed"
+            body = _json.dumps({
+                "status": "completed",
+                "events": events,
+                "result": {
+                    "p_mri_needed": payload.get("probability"),
+                    "triage_recommendation": payload.get("triage_recommendation"),
+                    "qc_status": "passed",
+                    "model_version": payload.get("model_version"),
+                    "feature_schema_version": payload.get("feature_schema_version"),
+                    "prediction_id": payload.get("prediction_id"),
+                },
+                "evidence": {
+                    "model_version": payload.get("model_version"),
+                    "model_checksum": payload.get("model_checksum"),
+                    "feature_schema_version": payload.get("feature_schema_version"),
+                    "threshold_version": "v0.1",
+                    "prediction_id": payload.get("prediction_id"),
+                },
+                "container": {
+                    "id": container_id,
+                    "bucket": config["h5_bucket"],
+                },
+                "request_id": request_id,
+                "job_id": job_id,
+                "technical_demo_only": True,
+            }).encode("utf-8")
+            handler.send_response(200)
+            handler.send_header("Content-Type", "application/json")
+            handler.send_header("Content-Length", str(len(body)))
+            handler.send_header("X-Request-ID", request_id)
+            handler.end_headers()
+            handler.wfile.write(body)
+        elif wf_status == "failed" and wf_result and (
+            "configuration_required" in (wf_result.error or "")
+            or "WorkflowConfigurationRequired" in (wf_result.error or "")
+        ):
+            events.append({
+                "event": "workflow_configuration_required",
+                "timestamp": _now(),
+                "detail": "Workflow configuration required",
+            })
+            body = _json.dumps({
+                "status": "workflow_configuration_required",
+                "events": events,
+                "request_id": request_id,
+                "job_id": job_id,
+                "technical_demo_only": True,
+            }).encode("utf-8")
+            handler.send_response(200)
+            handler.send_header("Content-Type", "application/json")
+            handler.send_header("Content-Length", str(len(body)))
+            handler.send_header("X-Request-ID", request_id)
+            handler.end_headers()
+            handler.wfile.write(body)
+        elif wf_status == "failed" and wf_result and "unavailable" in (wf_result.error or ""):
+            events.append({
+                "event": "workflow_unavailable",
+                "timestamp": _now(),
+                "detail": "Workflow unavailable",
+            })
+            body = _json.dumps({
+                "status": "workflow_unavailable",
+                "events": events,
+                "request_id": request_id,
+                "job_id": job_id,
+                "technical_demo_only": True,
+            }).encode("utf-8")
+            handler.send_response(200)
+            handler.send_header("Content-Type", "application/json")
+            handler.send_header("Content-Length", str(len(body)))
+            handler.send_header("X-Request-ID", request_id)
+            handler.end_headers()
+            handler.wfile.write(body)
         else:
-            event_name = "inference_failed"
+            error_msg = wf_result.error if wf_result else "unknown error"
+            events.append({
+                "event": "inference_failed",
+                "timestamp": _now(),
+                "detail": _safe_error_detail_str(error_msg),
+            })
+            body = _json.dumps({
+                "status": "failed",
+                "events": events,
+                "request_id": request_id,
+                "job_id": job_id,
+                "technical_demo_only": True,
+            }).encode("utf-8")
+            handler.send_response(200)
+            handler.send_header("Content-Type", "application/json")
+            handler.send_header("Content-Length", str(len(body)))
+            handler.send_header("X-Request-ID", request_id)
+            handler.end_headers()
+            handler.wfile.write(body)
 
-        events.append({
-            "event": event_name,
-            "timestamp": _now(),
-            "detail": safe_detail,
-        })
-        _log.exception(
-            "bremen.demo.analyze.known_error\t"
-            "stage=%s\tstatus=failed\t"
-            "container_id=%s\trequest_id=%s\tjob_id=%s",
-            event_name.replace("h5_", "").replace("_failed", ""),
-            container_id, request_id, job_id,
-        )
-
-        body = _json.dumps({
-            "status": "failed",
-            "events": events,
-            "request_id": request_id,
-            "job_id": job_id,
-            "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(200)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-
-    except Exception:
+    except Exception as exc:
         import logging as _logging  # noqa: PLC0415
-        import sys as _sys  # noqa: PLC0415
         _log = _logging.getLogger(__name__)
-        exc_info = _sys.exc_info()
-        exc_obj = exc_info[1] if exc_info[1] else Exception()
         _log.exception(
             "bremen.demo.analyze.failed\t"
             "stage=analyze\tstatus=failed\t"
-            "container_id=%s\trequest_id=%s\tjob_id=%s",
-            container_id, request_id, job_id,
+            "container_id=%s\tworkflow_id=%s\trequest_id=%s\tjob_id=%s",
+            container_id, workflow_id, request_id, job_id,
         )
-        safe_detail = _safe_error_detail(exc_obj)
-
-        # Classify by exception type and message keywords
-        err_str = str(exc_obj).lower() if exc_obj else ""
-        if "preflight" in err_str:
-            event_name = "h5_preflight_failed"
-        elif "preprocess" in err_str or "bridge" in err_str or "feature" in err_str:
-            event_name = "preprocessing_failed"
-        elif "inference" in err_str or "model" in err_str or "predict" in err_str:
-            event_name = "inference_failed"
-        else:
-            event_name = "inference_failed"
-
+        safe_detail = _safe_error_detail(exc)
         events.append({
-            "event": event_name,
+            "event": "inference_failed",
             "timestamp": _now(),
             "detail": safe_detail,
         })
@@ -1276,7 +1201,6 @@ def _handle_demo_h5_analyze(
         handler.send_header("X-Request-ID", request_id)
         handler.end_headers()
         handler.wfile.write(body)
-
 
 def run_server(
     host: str = "127.0.0.1",

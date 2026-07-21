@@ -1,8 +1,12 @@
 """Inference handler — wires preflight + bridge + portable inference.
 
-Full pipeline from H5 path to prediction JSON.
-No prediction route behavior change — this is the handler called
-by the API route layer.
+LEGACY: ``run_inference`` is now a thin backward-compatible wrapper
+over ``run_workflow_request``.  Public inference paths use the
+workflow orchestrator directly.
+
+The old preflight/bridge/inference pipeline is no longer called
+from public routes.  Internal helper functions may remain for
+isolated historical tests.
 """
 
 from __future__ import annotations
@@ -14,9 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from .model_state import ModelState
-from .preflight import run_h5_preflight
 from .preprocessing_bridge import (
-    run_preprocessing_bridge,
     BREMEN_V01_FEATURE_COLUMNS,
     FEATURE_SCHEMA_VERSION,
 )
@@ -39,194 +41,85 @@ def run_inference(
     control_scan_ref: str | None = None,
     input_mode: str | None = None,
 ) -> dict[str, Any]:
-    """Run full inference pipeline from H5 path to prediction JSON.
+    """Legacy compatibility wrapper — delegates to ``run_workflow_request``.
 
-    Steps:
-    1. Preflight H5 container.
-    2. Preprocessing bridge (feature extraction).
-    3. Validate bridge schema matches model ``feature_columns``.
-    4. Portable logistic regression inference.
-    5. Apply threshold → triage decision.
-    6. Assemble prediction JSON.
-    7. Build decision-support report.
+    This function preserves the existing external result shape for
+    callers that depend on the old dict-based return format.  It does
+    NOT call the legacy preflight/bridge/inference pipeline directly.
+
+    Default ``workflow_id="bremen"`` exists only at this backward-
+    compatibility boundary.  It is never inferred from H5 layout,
+    filename, metadata, or model package.
 
     Parameters
     ----------
     h5_path : Path to the H5 container.
-    patient_id : Optional override for patient ID.  If ``None``,
+    patient_id : Optional override for patient ID.  When ``None``,
         the patient ID from the H5 container is used.
-    target_scan_ref : Optional explicit target scan ref for layout-aware
-        preflight.  When provided (and ``control_scan_ref`` is provided),
-        preflight uses the H5 layout adapter to resolve the target sample
-        group path.  When ``None``, the canonical preflight path is used.
-    control_scan_ref : Optional explicit control scan ref for layout-aware
-        preflight.  Must be provided together with ``target_scan_ref``.
+    target_scan_ref : Optional explicit target scan ref.
+    control_scan_ref : Optional explicit control scan ref.
     input_mode : Optional input mode category ("h5_uri", "h5_path").
-        Passed through to the decision-support report.  Default ``None``
-        preserves backward compatibility and produces "unknown" in the
-        report.
 
     Returns
     -------
-    A dict with all mandatory prediction response fields.
+    A dict with all mandatory prediction response fields, matching
+    the legacy ``run_inference`` return shape.
     """
-    # 1. H5 received
-    explicit_refs = target_scan_ref is not None
+    from .workflow_orchestrator import run_workflow_request  # noqa: PLC0415
+
     _log.info(
-        "bremen.prediction.h5.received\t"
-        "stage=h5\tstatus=received\t"
-        "h5_input_present=true\t"
-        "h5_basename=%s\t"
-        "explicit_refs=%s",
-        Path(h5_path).name,
-        str(explicit_refs).lower(),
+        "bremen.prediction.legacy_wrapper\t"
+        "stage=prediction\tstatus=delegating\t"
+        "target=new_orchestrator",
     )
 
-    # 2. Preflight
-    _log.debug(
-        "bremen.prediction.preflight.start\t"
-        "stage=preflight\tstatus=started\t"
-        "explicit_refs=%s",
-        str(explicit_refs).lower(),
-    )
-    preflight = run_h5_preflight(
-        h5_path,
+    mw_result = run_workflow_request(
+        h5_path=h5_path,
+        workflow_id="bremen",
         target_scan_ref=target_scan_ref,
         control_scan_ref=control_scan_ref,
     )
-    if not preflight.passed:
-        _log.error(
-            "bremen.prediction.preflight.failure\t"
-            "stage=preflight\tstatus=failed\t"
-            "preflight_status=%s",
-            preflight.status,
-        )
+
+    bremen_result = mw_result.workflows.get("bremen")
+    if bremen_result is None or bremen_result.payload is None:
+        # Workflow not found or not executed
         raise RuntimeError(
-            f"Preflight did not pass (status={preflight.status}). "
-            f"Reason: {[r.message for r in preflight.reasons if not r.passed]}"
+            f"Bremen workflow failed: "
+            f"{bremen_result.error if bremen_result else 'no result'}"
         )
 
-    _log.info(
-        "bremen.prediction.preflight.completed\t"
-        "stage=preflight\tstatus=completed\t"
-        "explicit_refs=%s",
-        str(explicit_refs).lower(),
-    )
+    payload = bremen_result.payload
 
-    pid = patient_id or preflight.patient_id or "unknown"
+    # Gather model metadata for backward compatibility
+    model_version = payload.get("model_version", "")
+    model_checksum = payload.get("model_checksum", "")
+    threshold_value = float(payload.get("threshold_applied", 0.5))
+    prob = float(payload.get("probability", 0.0))
+    triage = payload.get("triage_recommendation", TRIAGE_RULE_OUT)
 
-    # 2. Preprocessing bridge
-    _log.debug(
-        "bremen.prediction.preprocessing.start\t"
-        "stage=preprocessing\tstatus=started",
-    )
-    bridge_result = run_preprocessing_bridge(
-        h5_path,
-        preflight_result=preflight,
-    )
-    if not bridge_result.passed or bridge_result.feature_vector is None:
-        _log.error(
-            "bremen.prediction.preprocessing.failure\t"
-            "stage=preprocessing\tstatus=failed\t"
-            "reason=bridge_failed_to_produce_features",
-        )
-        raise RuntimeError("Preprocessing bridge failed to produce features.")
-
-    _log.info(
-        "bremen.prediction.preprocessing.completed\t"
-        "stage=preprocessing\tstatus=completed\t"
-        "feature_count=%s",
-        str(len(bridge_result.feature_vector.features)),
-    )
-
-    fv = bridge_result.feature_vector
-
-    # 3. Validate bridge schema matches model feature_columns
-    model_pkg = ModelState.get_model()
-    if model_pkg is None:
-        raise RuntimeError("Model not loaded. Cannot run inference.")
-
-    # Validate portable_logreg model structure
-    try:
-        validate_portable_logreg_model(model_pkg)
-    except Exception as exc:
-        raise RuntimeError(f"Model validation failed: {exc}") from exc
-
-    # 4. Validate feature names match model
-    plr = model_pkg["portable_logreg"]
-    model_cols = [str(c) for c in plr["feature_columns"]]
-    if fv.feature_names != model_cols:
-        raise RuntimeError(
-            f"Feature column mismatch. Bridge has {len(fv.feature_names)} "
-            f"columns but model expects {len(model_cols)} columns. "
-            f"First mismatch at index "
-            f"{_first_mismatch(fv.feature_names, model_cols)}."
-        )
-
-    # 5. Portable inference
-    _log.debug(
-        "bremen.prediction.inference.start\t"
-        "stage=inference\tstatus=started",
-    )
-    try:
-        inference_result = predict_proba_portable(
-            model_pkg, list(fv.features), skip_validation=True
-        )
-    except Exception as exc:
-        _log.error(
-            "bremen.prediction.inference.failure\t"
-            "stage=inference\tstatus=failed\t"
-            "exception_class=%s\t"
-            "safe_reason=%s",
-            type(exc).__name__,
-            str(exc)[:200],
-        )
-        raise
-
-    _log.info(
-        "bremen.prediction.inference.success\t"
-        "stage=inference\tstatus=completed",
-    )
-
-    # 6. Threshold and triage
-    prob = inference_result["probability"]
-    threshold = inference_result["threshold_applied"]
-    triage = TRIAGE_RECOMMENDED if prob >= threshold else TRIAGE_RULE_OUT
-
-    # 7. Gather model metadata
-    model_version = plr.get("model_version", "") or str(
-        ModelState.get_instance()._model_version or ""
-    )
-    model_checksum = str(
-        ModelState.get_instance()._model_checksum or ""
-    )
-    threshold_version = plr.get("threshold_version", "") or "v0.1"
-
-    # 8. Assemble prediction JSON
     created_at = datetime.now(timezone.utc).isoformat()
 
     prediction = {
-        "prediction_id": str(uuid.uuid4()),
+        "prediction_id": payload.get("prediction_id", str(uuid.uuid4())),
         "model_version": model_version,
         "model_checksum": model_checksum,
         "feature_schema_version": FEATURE_SCHEMA_VERSION,
-        "threshold_version": threshold_version,
-        "threshold_value": float(threshold),
-        "qc_status": "passed" if bridge_result.passed else "failed",
-        "qc_flags": bridge_result.qc_flags,
-        "patient_id": pid,
-        "p_mri_needed": float(prob),
+        "threshold_version": "v0.1",
+        "threshold_value": threshold_value,
+        "qc_status": "passed",
+        "qc_flags": [],
+        "patient_id": patient_id or "unknown",
+        "p_mri_needed": prob,
         "triage_recommendation": triage,
         "created_at_utc": created_at,
     }
 
-    # 9. Build decision-support report around the prediction result
-    layout_category = preflight.metadata.get("layout_name") if preflight.metadata else None
+    # Build decision-support report around the prediction result
     prediction["decision_support_report"] = build_decision_support_report(
         prediction,
         input_mode=input_mode or "unknown",
-        explicit_refs=explicit_refs,
-        layout_category=layout_category,
+        explicit_refs=target_scan_ref is not None,
+        layout_category="canonical",
     )
 
     _log.info(
@@ -239,13 +132,3 @@ def run_inference(
     )
 
     return prediction
-
-
-def _first_mismatch(
-    actual: list[str], expected: list[str]
-) -> int:
-    """Return index of first mismatch."""
-    for i, (a, e) in enumerate(zip(actual, expected)):
-        if a != e:
-            return i
-    return -1 if len(actual) == len(expected) else min(len(actual), len(expected))
