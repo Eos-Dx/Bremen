@@ -8,6 +8,7 @@ different H5 container layouts.  Built-in adapters:
 
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
@@ -113,6 +114,26 @@ def _validate_ref(ref: str | None, label: str) -> str:
     if ".." in stripped:
         raise ValueError(f"{label} contains invalid path characters")
     return stripped
+
+
+def _extract_position_token(dataset_name: str) -> str | None:
+    """Extract a position token like P1, P2, P3 from a dataset name.
+
+    Returns the normalized token (e.g., 'P1') if exactly one
+    P<number> token is found.  Returns ``None`` if no token or
+    multiple conflicting tokens are detected.
+
+    Only matches the pattern ``P`` or ``p`` followed by one or more
+    digits.  Does NOT match patient/sample identifiers or other
+    filename components.
+    """
+    matches = re.findall(r'[Pp](\d+)', dataset_name)
+    if len(matches) == 0:
+        return None
+    if len(matches) > 1:
+        # Multiple conflicting P tokens — cannot disambiguate
+        return None
+    return f"P{matches[0]}"
 
 
 # ---------------------------------------------------------------------------
@@ -476,23 +497,29 @@ class SessionLayoutH5Adapter(H5LayoutAdapter):
             resolve_patient_metadata,
         )
 
-        # Validate refs
-        t_ref = _validate_ref(target_scan_ref, "target_scan_ref")
-        c_ref = _validate_ref(control_scan_ref, "control_scan_ref")
+        # Determine mode: explicit-ref vs automatic pair detection.
+        # Whitespace-only strings count as absent.
+        t_provided = bool(target_scan_ref and target_scan_ref.strip())
+        c_provided = bool(control_scan_ref and control_scan_ref.strip())
 
-        # If explicit refs provided, use them; otherwise find first pair
         sets_group = h5_file["/session/sets"]
         group_keys = list(sets_group.keys())
 
         target_path: str | None = None
         control_path: str | None = None
+        t_ref: str = ""
+        c_ref: str = ""
 
-        if t_ref and c_ref:
+        if t_provided and c_provided:
+            # Validate and use explicit refs
+            t_ref = _validate_ref(target_scan_ref, "target_scan_ref")
+            c_ref = _validate_ref(control_scan_ref, "control_scan_ref")
             if t_ref in group_keys:
                 target_path = f"/session/sets/{t_ref}"
             if c_ref in group_keys:
                 control_path = f"/session/sets/{c_ref}"
-        else:
+        elif not t_provided and not c_provided:
+            # Automatic pair detection — find first valid set/contralateral pair
             for key in sorted(group_keys):
                 if key.startswith("set_") and "_sample_main" in key:
                     contra_key = f"contralateral_{key}"
@@ -502,6 +529,11 @@ class SessionLayoutH5Adapter(H5LayoutAdapter):
                         t_ref = key
                         c_ref = contra_key
                         break
+        else:
+            raise H5ContainerError(
+                "Both target_scan_ref and control_scan_ref must be provided "
+                "together or omitted together"
+            )
 
         if not target_path or not control_path:
             raise H5ContainerError(
@@ -711,26 +743,52 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
             resolve_patient_metadata,
         )
 
-        # ---- Discover 2D measurement datasets and calibration data ----
+        # ---- Phase 1: Discover calibration subtrees ----
+        # Walk the H5 to identify groups/datasets related to calibration.
+        # Record the top-level calibration group path prefixes.
+        calib_subtree_prefixes: set[str] = set()
+
+        def _calib_finder(name: str, obj: object) -> None:
+            if isinstance(obj, (h5py.Dataset, h5py.Group)):
+                name_lower = name.lower()
+                if any(kw in name_lower for kw in (
+                    'poni', 'calib', 'calibration', 'distance',
+                    'wavelength', 'pixel_size', 'center_x', 'center_y',
+                )):
+                    # Record the containing group path
+                    prefix = "/" + "/".join(name.split("/")[:-1]) if "/" in name else ""
+                    if prefix:
+                        calib_subtree_prefixes.add(prefix)
+
+        h5_file.visititems(_calib_finder)
+
+        # ---- Phase 2: Discover measurement datasets (exclude calibration) ----
         measurements: list[dict] = []
 
         def _meas_visitor(name: str, obj: object) -> None:
-            if isinstance(obj, h5py.Dataset):
-                ndim = len(obj.shape) if hasattr(obj, 'shape') else 0
-                dtype_kind = obj.dtype.kind if hasattr(obj, 'dtype') else ''
-                if ndim >= 2 and dtype_kind in ('f', 'i', 'u'):
-                    # Walk up to find the containing group
-                    parent_path = "/" + "/".join(name.split("/")[:-1])
-                    parent = h5_file.get(parent_path)
-                    measurements.append({
-                        "dataset_path": name,
-                        "dataset_name": name.split("/")[-1],
-                        "group_path": parent_path,
-                        "group_name": parent_path.rstrip("/").split("/")[-1],
-                        "shape": obj.shape,
-                        "dtype": obj.dtype,
-                        "parent_attrs": dict(parent.attrs) if parent is not None else {},
-                    })
+            if not isinstance(obj, h5py.Dataset):
+                return
+            ndim = len(obj.shape) if hasattr(obj, 'shape') else 0
+            dtype_kind = obj.dtype.kind if hasattr(obj, 'dtype') else ''
+            if not (ndim >= 2 and dtype_kind in ('f', 'i', 'u')):
+                return
+            # Exclude datasets under calibration subtrees
+            name_path = "/" + name
+            for prefix in calib_subtree_prefixes:
+                if name_path.startswith(prefix + "/") or name_path == prefix:
+                    return
+            # Walk up to find the containing group
+            parent_path = "/" + "/".join(name.split("/")[:-1])
+            parent = h5_file.get(parent_path)
+            measurements.append({
+                "dataset_path": name,
+                "dataset_name": name.split("/")[-1],
+                "group_path": parent_path,
+                "group_name": parent_path.rstrip("/").split("/")[-1],
+                "shape": obj.shape,
+                "dtype": obj.dtype,
+                "parent_attrs": dict(parent.attrs) if parent is not None else {},
+            })
 
         h5_file.visititems(_meas_visitor)
 
@@ -741,9 +799,9 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
 
         # ---- Resolve side and position/pair-key from attributes ----
         #    Preferred attribute keys (case-insensitive lookup):
-        #    - side: "side", "breast_side", "sample_side"
+        #    - side: "side", "breast_side", "sample_side", "organSide"
         #    - position: "position", "pair_key", "measurement_position"
-        SIDE_ATTR_KEYS = ("side", "breast_side", "sample_side")
+        SIDE_ATTR_KEYS = ("side", "breast_side", "sample_side", "organSide")
         POS_ATTR_KEYS = ("position", "pair_key", "measurement_position")
 
         def _resolve_attr(attrs: dict, keys: tuple[str, ...]) -> str | None:
@@ -759,20 +817,18 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
             attrs = m.get("parent_attrs", {})
             m["side"] = _resolve_attr(attrs, SIDE_ATTR_KEYS)
             m["pair_key"] = _resolve_attr(attrs, POS_ATTR_KEYS)
-            # If no explicit pair_key, use the dataset name as fallback
+            # If no explicit pair_key, extract P<number> token from dataset name
             if m["pair_key"] is None:
                 ds_name = m.get("dataset_name", "")
-                # Try to strip side prefix/suffix to get position
-                ds_lower = ds_name.lower()
-                for side in ("left", "right", "l", "r"):
-                    ds_lower = ds_lower.replace(side, "").strip("_")
-                m["pair_key"] = ds_lower if ds_lower else ds_name
+                token = _extract_position_token(ds_name)
+                if token is not None:
+                    m["pair_key"] = token
 
         # ---- Validate all measurements have side ----
         missing_side = [m["dataset_path"] for m in measurements if not m["side"]]
         if missing_side:
             raise H5ContainerError(
-                f"Missing side metadata for measurement(s): {missing_side}"
+                "Missing side metadata for one or more measurements"
             )
 
         # Normalise sides
@@ -784,7 +840,33 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
                 m["side"] = "RIGHT"
             else:
                 raise H5MetadataError(
-                    f"Unrecognised side value: {m['side']!r} at {m['dataset_path']}"
+                    "Unrecognised side value"
+                )
+
+        # ---- Validate all measurements have a valid pair_key ----
+        missing_pair_key = [m["dataset_path"] for m in measurements if not m["pair_key"]]
+        if missing_pair_key:
+            # Check for multiple conflicting P tokens first (more specific error)
+            for m in measurements:
+                if m["pair_key"] is not None:
+                    continue
+                ds_name = m.get("dataset_name", "")
+                matches = re.findall(r'[Pp](\d+)', ds_name)
+                if len(matches) > 1:
+                    raise H5ContainerError(
+                        "Multiple conflicting position tokens in measurement name"
+                    )
+            raise H5ContainerError(
+                "Missing position/pair-key metadata for one or more measurements"
+            )
+
+        # ---- Detect multiple conflicting P tokens ----
+        for m in measurements:
+            ds_name = m.get("dataset_name", "")
+            matches = re.findall(r'[Pp](\d+)', ds_name)
+            if len(matches) > 1:
+                raise H5ContainerError(
+                    "Multiple conflicting position tokens in measurement name"
                 )
 
         # ---- Pair by position key (NOT first-two) ----
@@ -795,11 +877,11 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
             pairs.setdefault(pk, {})
             if m["side"] in pairs[pk]:
                 raise H5ContainerError(
-                    f"Duplicate side {m['side']!r} for pair_key {pk!r}"
+                    f"Duplicate side for pair_key {pk!r}"
                 )
             pairs[pk][m["side"]] = m
 
-        # Find the first complete bilateral pair
+        # Find all complete bilateral pairs
         complete_pairs = [
             (pk, sd) for pk, sd in pairs.items()
             if "LEFT" in sd and "RIGHT" in sd
@@ -809,8 +891,13 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
                 "No complete bilateral pair (LEFT + RIGHT) found"
             )
 
-        # Use the first complete pair (lexicographic pair_key order)
-        complete_pairs.sort(key=lambda x: x[0])
+        # Exactly one complete pair required — reject ambiguity
+        if len(complete_pairs) > 1:
+            raise H5ContainerError(
+                "Ambiguous bilateral pair set — multiple complete pairs found"
+            )
+
+        # Use the single complete pair
         pair_key, sides = complete_pairs[0]
         left_m = sides["LEFT"]
         right_m = sides["RIGHT"]
