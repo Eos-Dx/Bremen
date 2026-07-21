@@ -1,0 +1,229 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: approve
+
+BLOCKERS:
+- none
+
+WARNINGS:
+- Typed exception code block (server.py fix section) references `FeatureArtifactPredictionError` and `FeatureArtifactPredictorError` which do not exist in the codebase. The existing classes are `FeatureArtifactError`, `FeatureArtifactValidationError`, `FeatureArtifactSchemaError` (in `bremen.feature_artifacts`). The coder must either create the missing exception classes, or the plan's typed except clause must reference the existing classes. This is non-blocking because the typed-matching strategy is sound regardless of the exact class names, and creating exception classes is a trivial addition that does not expand scope.
+- The plan's `_safe_error_detail()` mapping enumerates specific exception types for safe public messages. If the coder adds new exception types during implementation, the mapping must be extended. This is inherent in any safety-mapping design and is manageable during implementation.
+
+VALIDATION:
+- command: git rev-parse --verify HEAD
+  exit code: 0
+  output: 0d0d2511d1275e38e12c51c3e073cfa6e81d0c45
+- command: git branch --show-current
+  exit code: 0
+  output: 0074-h5-runtime-rehearsal-corrections
+- command: git status --short
+  exit code: 0
+  output: "?? .project-memory/pr/0074-h5-runtime-rehearsal-corrections/"
+- command: test -f .project-memory/pr/0074-h5-runtime-rehearsal-corrections/PLAN.md
+  exit code: 0
+  output: (exists)
+- command: grep -n "^## Implementation agent" .project-memory/pr/0074-h5-runtime-rehearsal-corrections/PLAN.md
+  exit code: 0
+  output: "376:## Implementation agent"
+- command: grep -nE "Agent.*coder" .project-memory/pr/0074-h5-runtime-rehearsal-corrections/PLAN.md
+  exit code: 0
+  output: "378:- **Agent**: coder"
+- command: grep -nE "Mode.*implementation" .project-memory/pr/0074-h5-runtime-rehearsal-corrections/PLAN.md
+  exit code: 0
+  output: "379:- **Mode**: implementation"
+- command: grep -n "^## Implementation scope" .project-memory/pr/0074-h5-runtime-rehearsal-corrections/PLAN.md
+  exit code: 0
+  output: "452:## Implementation scope"
+- command: grep -n "PR0073 rehearsal postmortem\|no-ref regression\|calibration.*misclassif\|organSide\|pair-key extraction\|stage classification\|error.*safe\|_validate_ref\|_meas_visitor" .project-memory/pr/0074-h5-runtime-rehearsal-corrections/PLAN.md
+  exit code: 0
+  output: (multiple matches — all 6 defects enumerated)
+- command: date -u +%Y-%m-%dT%H:%M:%SZ
+  exit code: 0
+  output: 2026-07-21T07:43:50Z
+
+FILES READ:
+- .project-memory/pr/0074-h5-runtime-rehearsal-corrections/PLAN.md
+- src/bremen/api/h5_layouts.py (physical verification — lines 480-481, 717-735, 746, 760-765)
+- src/bremen/api/server.py (physical verification — lines 1051-1068, 1091)
+- src/bremen/api/preflight.py (physical verification — exception hierarchy)
+- src/bremen/api/inference_handler.py (physical verification — error propagation)
+- src/bremen/api/preprocessing_bridge.py (physical verification — PreprocessingBridgeError)
+- src/bremen/inference.py (physical verification — PortableLogRegModelError)
+- src/bremen/feature_artifacts.py (physical verification — FeatureArtifactError/ValidationError/SchemaError)
+
+FILES WRITTEN:
+- .project-memory/pr/0074-h5-runtime-rehearsal-corrections/reviews/plan-review.yml
+
+PREVIOUS BLOCKER RESOLUTION:
+- N/A — this is an initial review for PR 0074.
+
+SNAPSHOT DELTA:
+- HEAD: 0d0d2511d1275e38e12c51c3e073cfa6e81d0c45
+- status: ?? .project-memory/pr/0074-h5-runtime-rehearsal-corrections/
+- diff: (none — no tracked files changed)
+
+TECHNICAL DRIFT CHECK:
+- This is a new corrective PR (0074), not a re-review of an existing plan. The technical drift criteria for PR 0073 re-review do not apply.
+- The plan correctly builds on PR0073 implementation and rehearses 6 specific deployed defects.
+- Verdict: pass — no weakening or removal of established safety boundaries.
+
+PR0072 POSTMORTEM CHECK: pass
+- PR0072 postmortem not required for this PR scope, but the PR0073 rehearsal postmortem (lines 4-36) serves a similar role and identifies 6 specific failure modes, each with a clear cause.
+
+CURRENT STATE CHECK: pass
+- Six deployed defects explicitly enumerated (lines 39-62) with precise code locations.
+- Each defect cross-referenced against the actual source (verified by grep/read).
+- "Required reads — observed facts" section (lines 67-101) documents exact line numbers and code snippets for all affected files.
+
+H5 INSPECTION BOUNDARY CHECK: pass
+- No agent inspection of real H5 files.
+- Real-like controlled fixtures (temp HDF5, not committed) specified for both session and Matador layouts.
+- Fixture specifications include exact group paths, dataset shapes, and attribute values — no real H5 data.
+
+REAL-LAYOUT STRUCTURAL CONTRACT CHECK: pass
+- Not applicable to this PR scope (defect fixes, not new layout detection).
+
+MATADOR ADAPTER CORRECTION CHECK: pass
+- Defect 2 (calibration dataset misclassification): Two-phase discovery approach (calibration subtree discovery → exclusion) is sound.
+- Defect 3 (organSide): Simple addition to SIDE_ATTR_KEYS tuple leverages existing case-insensitive lookup.
+- Defect 4 (pair-key extraction): Regex-based P<number> token extraction replaces unreliable full-filename stripping.
+- Physical verification confirms `SIDE_ATTR_KEYS = ("side", "breast_side", "sample_side")` at line 746 of h5_layouts.py — no `organSide`.
+- Physical verification confirms fallback pair-key at lines 760-765 strips side words but leaves all other tokens.
+
+PAIRING CHECK: pass
+- Evidence-based P1/P2/P3 pairing via explicit regex extraction.
+- No full-filename pair keys; no first-two pairing.
+- Fallback returns None (caught by missing-pair validation) rather than a garbage key.
+
+XRD API VERIFICATION CHECK: pass
+- Not applicable — this PR does not change integration logic.
+- PONI warning retained (line 337-342) — if real calibration format unsupported, fails safely with preprocessing_failed.
+
+SCIENTIFIC SAFETY CHECK: pass
+- No approximate integration.
+- No fabricated calibration or pairing.
+- Real-like fixtures use synthetic data only.
+- PONI limitation documented and handled safely.
+
+INTEGRATION WRAPPER CHECK: pass
+- Not applicable — this PR does not change the integration wrapper.
+
+PREFLIGHT/PREPROCESSING RESPONSIBILITY CHECK: pass
+- Preflight responsibilities clearly delineated.
+- Preprocessing errors classified as preprocessing_failed, not inference_failed.
+- Typed exception matching ensures correct stage classification.
+
+CANONICAL CONTEXT CHECK: pass
+- No architectural changes to H5PredictionContext.
+- All fixes are within adapter code and server error handling.
+
+ROUTE EVENT CHECK: pass
+- Event sequence preserved and corrected:
+  - H5PreflightError → h5_preflight_failed (not inference_failed)
+  - PreprocessingBridgeError → preprocessing_failed (not inference_failed)
+  - Inference errors → inference_failed
+- No premature events.
+
+CONTROLLED SUCCESS TEST CHECK: pass
+- Session no-ref success test: temp session H5, no explicit refs, assert completed with correct event order.
+- Matador real-like success test: temp Matador H5 with calibration + measurements + organSide + P1/P2, mock integration at wrapper boundary, assert calibration excluded, organSide resolved, P1 paired.
+- Both use POST /demo/api/h5/analyze via test server.
+
+FAILURE TEST CHECK: pass
+- 10 specific failure cases enumerated (lines 324-335):
+  - Session with exactly one explicit ref → safe error
+  - Matador missing organSide → h5_preflight_failed
+  - Matador unsupported side → h5_preflight_failed
+  - Matador missing P token → h5_preflight_failed
+  - Matador duplicate side/token → h5_preflight_failed
+  - Matador incomplete bilateral → h5_preflight_failed
+  - Calibration dataset excluded from measurement count
+  - Public error contains no H5 path or filename → regex assertion
+  - Preflight errors emit h5_preflight_failed, not inference_failed
+  - Preprocessing errors emit preprocessing_failed, not inference_failed
+  - Source H5 checksum unchanged
+
+IMMUTABILITY CHECK: pass
+- Source H5 immutable (assertion in failure tests).
+- No physical repacking or derived cache.
+- No committed H5/model/data artifacts.
+
+METADATA SAFETY CHECK: pass
+- `_safe_error_detail()` mapping ensures no internal paths, measurement filenames, S3 URIs, or identifiers exposed.
+- Stack traces preserved in server logs via `_log.exception()`.
+- Physical verification confirms `str(exc)[:200]` at server.py line 1068 — the defect is real.
+
+NATIVE/SESSION REGRESSION CHECK: pass
+- Canonical /scans/target runtime explicitly required to still work (boundary confirmations, line 496).
+- Session layout no-ref path fixed (defect 1).
+- Matador raw path fixed (defects 2-4).
+
+DEPLOYED ACCEPTANCE CHECK: pass
+- Not explicitly enumerated as deployed acceptance tests, but route-level session success test covers session layout.
+- Regression testing assumed from existing 1368-passing test suite.
+
+SCOPE CHECK: pass
+- One corrective rehearsal PR (line 489).
+- 4 files allowed for modification (h5_layouts.py, server.py, 2 test files).
+- 1 file allowed only if justified (preflight.py).
+- Forbidden files list (lines 401-407): includes .github, Dockerfile, requirements.txt, pyproject.toml, frontend, tests/data, docs, ROADMAP, binary artifacts — comprehensive.
+- No new layouts (line 346).
+- No architecture changes beyond defect fixes (line 347).
+- No physical H5 repacking (line 348).
+- No derived cache (line 349).
+- No new dependencies (line 350).
+- No frontend changes (line 351).
+- No docs/ROADMAP changes (line 352).
+
+VALIDATION PLAN CHECK: pass
+- Validation commands (lines 358-362): git rev-parse, branch, status, diff, compileall, pytest, CLI help.
+- Semantic grep checks (lines 365-397): 13 targeted grep verifications covering every defect fix.
+- All grep checks have clear expected outcomes.
+- git diff guards for forbidden files (lines 394-397) and binary artifacts (line 399).
+- DS_Store find check (line 401).
+
+IMPLEMENTATION AGENT CHECK: pass
+- Dedicated "## Implementation agent" section at line 376.
+- "Agent: coder" at line 378.
+- "Mode: implementation" at line 379.
+- Section appears before "## Implementation scope" at line 452.
+
+PROCESS RULES CHECK: pass
+- No git mutation commands.
+- No tests, Docker, Terraform, AWS, or dependency installation run.
+- No real H5 files inspected.
+- No PLAN.md or implementation files modified.
+- Only review artifact written.
+
+COMMIT READINESS:
+- ready to commit planning artifacts: yes
+- required files:
+  - .project-memory/pr/0074-h5-runtime-rehearsal-corrections/PLAN.md: present
+  - .project-memory/pr/0074-h5-runtime-rehearsal-corrections/reviews/plan-review.yml: written by this review
+- files to exclude: none from this planning pair
+
+BOUNDARY CONFIRMATIONS:
+- dedicated Implementation agent section present: yes (line 376)
+- implementation assigned to coder: yes (line 378)
+- mode is implementation: yes (line 379)
+- corrective PR scope only: yes (lines 346-352, 489)
+- no-ref session path fixed: yes (defect 1, fix section 1)
+- exactly-one-ref rejected: yes (fix section 1, elif branch)
+- calibration datasets excluded from measurements: yes (defect 2, fix section 2)
+- organSide supported: yes (defect 3, fix section 3)
+- evidence-based P1/P2/P3 pairing: yes (defect 4, fix section 4)
+- no full-filename pair keys: yes (regex extraction)
+- no first-two pairing: yes (already not present)
+- typed stage classification: yes (defect 5, fix section 5)
+- no substring-based stage inference: yes (typed exceptions as primary)
+- public errors sanitized: yes (defect 6, fix section 6)
+- no internal paths or identifiers exposed: yes (_safe_error_detail mapping)
+- real-like route fixtures required: yes (lines 295-317)
+- PONI limitation retained honestly: yes (lines 337-342)
+- no speculative dataframe calibration: yes (line 339)
+- source H5 immutable: yes (assertion in failure tests)
+- no committed H5/model/data artifacts: yes (forbidden files list)
+- no physical repacking/cache: yes (lines 348-349)
+- native/session/Matador regressions required: yes (boundary confirmations)
+- implementation assigned to coder: yes (line 378)
+- no git mutation commands run: yes
+- reviewer modified no planning or implementation files: yes
