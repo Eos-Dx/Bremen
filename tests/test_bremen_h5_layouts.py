@@ -1350,12 +1350,17 @@ def _create_real_like_matador_h5(
         calib.create_dataset(
             "poni1",
             data=np.array([
-                b"poni_version: 2.1\n",
-                b"distance: 0.15\n",
-                b"pixel_size: 0.0001\n",
-                b"wavelength: 0.15\n",
-                b"center_x: 100.0\n",
-                b"center_y: 100.0\n",
+                b"poni_version: 2\n",
+                b"Detector: Pilatus 100k\n",
+                b"Detector_config: {\"pixel1\": 0.0001, \"pixel2\": 0.0001, "
+                b"\"max_shape\": [50, 50], \"orientation\": 3}\n",
+                b"Distance: 0.15\n",
+                b"Poni1: 0.025\n",
+                b"Poni2: 0.025\n",
+                b"Rot1: 0.0\n",
+                b"Rot2: 0.0\n",
+                b"Rot3: 0.0\n",
+                b"Wavelength: 1e-10\n",
             ], dtype=h5py.string_dtype()),
         )
         # Optional 2D calibration image — same shape/dtype as measurements
@@ -1557,12 +1562,32 @@ class TestRealLikeMatador:
         err_msg = str(exc_info.value).lower()
         assert "bilateral" in err_msg or "complete" in err_msg
 
-    def test_ambiguous_multiple_complete_pairs_fails(self, tmp_path: Path):
-        """Multiple complete bilateral pairs → ambiguous → fail."""
+    def test_ambiguous_multiple_complete_pairs_retained(self, tmp_path: Path):
+        """Multiple complete bilateral pairs are retained (not rejected).
+
+        The adapter logs a warning and selects the first complete pair
+        for backward-compatible prediction context.  All pairs are
+        available through normalize_to_canonical.
+        """
         path = tmp_path / "ambiguous.h5"
         with h5py.File(path, "w") as f:
             calib = f.create_group("calibrations")
-            calib.create_dataset("poni1", data=np.array([0.1, 0.2, 0.3]))
+            calib.create_dataset(
+                "poni1",
+                data=np.array([
+                    b"poni_version: 2\n",
+                    b"Detector: Pilatus 100k\n",
+                    b"Detector_config: {\"pixel1\": 0.0001, \"pixel2\": 0.0001, "
+                    b"\"max_shape\": [50, 50], \"orientation\": 3}\n",
+                    b"Distance: 0.15\n",
+                    b"Poni1: 0.025\n",
+                    b"Poni2: 0.025\n",
+                    b"Rot1: 0.0\n",
+                    b"Rot2: 0.0\n",
+                    b"Rot3: 0.0\n",
+                    b"Wavelength: 1e-10\n",
+                ], dtype=h5py.string_dtype()),
+            )
             # P1 pair
             m1 = f.create_group("m_P1_left")
             m1.attrs["side"] = "LEFT"
@@ -1581,10 +1606,16 @@ class TestRealLikeMatador:
         from bremen.api.h5_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
-            with pytest.raises(Exception) as exc_info:
-                adapter.resolve_prediction_context(f, "", "")
-        err_msg = str(exc_info.value).lower()
-        assert "ambiguous" in err_msg
+            ctx = adapter.resolve_prediction_context(f, "", "")
+
+        # Context is produced (no exception)
+        assert ctx.layout_name == "matador_raw"
+        assert ctx.adapter_metadata.get("pair_key") is not None
+        # Both complete pairs are accessible via normalize_to_canonical
+        with h5py.File(path, "r") as f:
+            case = adapter.normalize_to_canonical(f)
+        # All 4 measurements retained (P1 LEFT, P1 RIGHT, P2 LEFT, P2 RIGHT)
+        assert len(case.measurements) == 4
 
     def test_missing_organ_side_fails(self, tmp_path: Path):
         """Missing organSide/side attribute → fail."""
