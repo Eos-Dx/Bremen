@@ -69,6 +69,22 @@ from .app import (
 )
 from .jobs import InMemoryJobStore
 from ..demo_config import read_demo_h5_config
+from .preflight import (
+    H5PreflightError,
+    H5ContainerError,
+    H5MetadataError,
+    H5PatientMismatchError,
+    H5SideMismatchError,
+    H5MeasurementError,
+    H5QualityError,
+)
+from .preprocessing_bridge import (
+    PreprocessingBridgeError,
+    PreflightNotPassedError,
+    FeatureSchemaMismatchError,
+)
+from ..inference import PortableLogRegModelError
+from ..feature_artifacts import FeatureArtifactError
 
 logger = logging.getLogger(__name__)
 
@@ -794,6 +810,37 @@ def _handle_demo_h5_containers_upload(
         handler.wfile.write(body)
 
 
+def _safe_error_detail(exc: Exception) -> str:
+    """Map an internal exception to a safe public error detail.
+
+    No internal H5 paths, measurement filenames, S3 URIs,
+    patient/sample identifiers, or attribute values are exposed.
+
+    Returns a finite, generic detail string suitable for API
+    responses.  The full stack trace is preserved in server logs
+    via ``_log.exception()`` for debugging.
+    """
+    if isinstance(exc, (H5ContainerError,)):
+        return "H5 layout metadata is incomplete"
+    if isinstance(exc, (H5MetadataError,)):
+        return "H5 layout metadata is incomplete"
+    if isinstance(exc, (H5PatientMismatchError,)):
+        return "H5 layout metadata is incomplete"
+    if isinstance(exc, (H5SideMismatchError,)):
+        return "Bilateral measurement pairing failed"
+    if isinstance(exc, (H5MeasurementError, H5QualityError,)):
+        return "H5 layout metadata is incomplete"
+    if isinstance(exc, (H5PreflightError,)):
+        return "H5 layout metadata is incomplete"
+    if isinstance(exc, (PreprocessingBridgeError, FeatureSchemaMismatchError,
+                        PreflightNotPassedError)):
+        return "Preprocessing failed"
+    if isinstance(exc, (PortableLogRegModelError, FeatureArtifactError)):
+        return "Model inference failed"
+    # Fallback for unexpected exceptions
+    return "Internal error"
+
+
 def _handle_demo_h5_analyze(
     handler: BaseHTTPRequestHandler,
 ) -> None:
@@ -1048,30 +1095,128 @@ def _handle_demo_h5_analyze(
         handler.end_headers()
         handler.wfile.write(body)
 
+    except (H5PreflightError, H5ContainerError, H5MetadataError,
+            H5PatientMismatchError, H5SideMismatchError,
+            H5MeasurementError, H5QualityError) as exc:
+        import logging as _logging  # noqa: PLC0415
+        _log = _logging.getLogger(__name__)
+        event_name = "h5_preflight_failed"
+        safe_detail = _safe_error_detail(exc)
+        events.append({
+            "event": event_name,
+            "timestamp": _now(),
+            "detail": safe_detail,
+        })
+        _log.exception(
+            "bremen.demo.analyze.preflight_failed\t"
+            "stage=preflight\tstatus=failed\t"
+            "container_id=%s\trequest_id=%s\tjob_id=%s",
+            container_id, request_id, job_id,
+        )
+
+        body = _json.dumps({
+            "status": "failed",
+            "events": events,
+            "request_id": request_id,
+            "job_id": job_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(200)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+
+    except (PreprocessingBridgeError, PreflightNotPassedError,
+            FeatureSchemaMismatchError) as exc:
+        import logging as _logging  # noqa: PLC0415
+        _log = _logging.getLogger(__name__)
+        event_name = "preprocessing_failed"
+        safe_detail = _safe_error_detail(exc)
+        events.append({
+            "event": event_name,
+            "timestamp": _now(),
+            "detail": safe_detail,
+        })
+        _log.exception(
+            "bremen.demo.analyze.preprocessing_failed\t"
+            "stage=preprocessing\tstatus=failed\t"
+            "container_id=%s\trequest_id=%s\tjob_id=%s",
+            container_id, request_id, job_id,
+        )
+
+        body = _json.dumps({
+            "status": "failed",
+            "events": events,
+            "request_id": request_id,
+            "job_id": job_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(200)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+
+    except (PortableLogRegModelError, FeatureArtifactError) as exc:
+        import logging as _logging  # noqa: PLC0415
+        _log = _logging.getLogger(__name__)
+        event_name = "inference_failed"
+        safe_detail = _safe_error_detail(exc)
+        events.append({
+            "event": event_name,
+            "timestamp": _now(),
+            "detail": safe_detail,
+        })
+        _log.exception(
+            "bremen.demo.analyze.inference_failed\t"
+            "stage=inference\tstatus=failed\t"
+            "container_id=%s\trequest_id=%s\tjob_id=%s",
+            container_id, request_id, job_id,
+        )
+
+        body = _json.dumps({
+            "status": "failed",
+            "events": events,
+            "request_id": request_id,
+            "job_id": job_id,
+            "technical_demo_only": True,
+        }).encode("utf-8")
+        handler.send_response(200)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+
     except (RuntimeError, ValueError, KeyError, TypeError) as exc:
         import logging as _logging  # noqa: PLC0415
         _log = _logging.getLogger(__name__)
+        safe_detail = _safe_error_detail(exc)
+        # Fallback classification for plain RuntimeError/ValueError/etc.
+        # that are not wrapped in a typed preflight/preprocessing/inference
+        # exception (e.g., raised directly by inference_handler).
         err_str = str(exc).lower()
         if "preflight" in err_str:
             event_name = "h5_preflight_failed"
-            status_msg = "h5_preflight_failed"
         elif "preprocessing" in err_str or "bridge" in err_str:
             event_name = "preprocessing_failed"
-            status_msg = "preprocessing_failed"
         else:
             event_name = "inference_failed"
-            status_msg = "inference_failed"
 
         events.append({
             "event": event_name,
             "timestamp": _now(),
-            "detail": f"{type(exc).__name__}: {str(exc)[:200]}",
+            "detail": safe_detail,
         })
         _log.exception(
             "bremen.demo.analyze.known_error\t"
             "stage=%s\tstatus=failed\t"
             "container_id=%s\trequest_id=%s\tjob_id=%s",
-            status_msg, container_id, request_id, job_id,
+            event_name.replace("h5_", "").replace("_failed", ""),
+            container_id, request_id, job_id,
         )
 
         body = _json.dumps({
@@ -1092,18 +1237,18 @@ def _handle_demo_h5_analyze(
         import logging as _logging  # noqa: PLC0415
         import sys as _sys  # noqa: PLC0415
         _log = _logging.getLogger(__name__)
+        exc_info = _sys.exc_info()
+        exc_obj = exc_info[1] if exc_info[1] else Exception()
         _log.exception(
             "bremen.demo.analyze.failed\t"
             "stage=analyze\tstatus=failed\t"
             "container_id=%s\trequest_id=%s\tjob_id=%s",
             container_id, request_id, job_id,
         )
-        exc_info = _sys.exc_info()
-        exc_class = exc_info[1].__class__.__name__ if exc_info[1] else "Exception"
-        exc_msg = str(exc_info[1])[:200] if exc_info[1] else "No details"
+        safe_detail = _safe_error_detail(exc_obj)
 
         # Classify by exception type and message keywords
-        err_str = str(exc_info[1]).lower() if exc_info[1] else ""
+        err_str = str(exc_obj).lower() if exc_obj else ""
         if "preflight" in err_str:
             event_name = "h5_preflight_failed"
         elif "preprocess" in err_str or "bridge" in err_str or "feature" in err_str:
@@ -1116,7 +1261,7 @@ def _handle_demo_h5_analyze(
         events.append({
             "event": event_name,
             "timestamp": _now(),
-            "detail": f"{exc_class}: {exc_msg}",
+            "detail": safe_detail,
         })
         body = _json.dumps({
             "status": "failed",

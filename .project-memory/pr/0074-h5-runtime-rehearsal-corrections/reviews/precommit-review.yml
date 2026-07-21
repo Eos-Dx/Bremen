@@ -1,0 +1,165 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: pass
+
+BLOCKERS
+* None
+
+WARNINGS
+* None
+
+VALIDATION
+* git rev-parse --verify HEAD: fe13a304d418705026ffd31861a6a404abda75bd
+* git branch --show-current: 0074-h5-runtime-rehearsal-corrections (confirmed exact)
+* git status --short: M h5_layouts.py, M server.py, M test_bremen_api_server.py, M test_bremen_h5_layouts.py, ?? IMPLEMENTATION_REPORT.md
+* git diff --name-only: 4 files (h5_layouts.py, server.py, 2 test files)
+* git diff --stat: 4 files changed, 1065 insertions(+), 60 deletions(-)
+* test -f IMPLEMENTATION_REPORT.md: PASS
+* python -m compileall src tests: PASS
+* python -m pytest -q tests/test_bremen_h5_layouts.py: 84 passed, 1 skipped
+* python -m pytest -q tests/test_bremen_api_server.py: 80 passed
+* python -m pytest -q tests/test_bremen_h5_preflight.py tests/test_bremen_h5_sample_metadata.py tests/test_bremen_preprocessing_bridge.py tests/test_bremen_inference_integration.py tests/test_bremen_demo_ui.py tests/test_bremen_demo_smoke.py tests/test_bremen_demo_run.py tests/test_bremen_demo_capture.py: 259 passed, 4 skipped
+* python -m pytest -q (full suite): 1393 passed, 11 skipped, 28 warnings
+* python -m bremen --help: exit 0
+* python -m bremen serve --help: exit 0, --host, --port only
+* python -m bremen demo-smoke --help: exit 0, --base-url, --timeout, --skip-prediction
+* python -m bremen demo-run --help: exit 0, --base-url, --timeout, --skip-prediction, --pretty, --capture-dir
+* grep "_validate_ref" h5_layouts.py: defined at line 103; called at CanonicalH5LayoutAdapter lines 241-242, SessionLayoutH5Adapter lines 515-516 (AFTER auto-detection branch). Plan requirement satisfied.
+* grep "organSide\|organ_side" h5_layouts.py: "organSide" in SIDE_ATTR_KEYS tuple at line 804.
+* grep "calib_subtree\|_calib_finder\|_meas_visitor" h5_layouts.py: calib_subtree_prefixes at line 749, _calib_finder at 751, _meas_visitor at 768, calibration exclusion at lines 777-780.
+* grep "pair_key\|_extract_position_token" h5_layouts.py: _extract_position_token defined at line 119; pair_key resolution at lines 819-825 using _extract_position_token for fallback.
+* grep "first complete pair\|first two\|[:2]" h5_layouts.py tests: only test comment "not the first two" — no first-two pairing in source.
+* grep "str(exc)\[:" server.py: no matches — replaced by _safe_error_detail().
+* grep "H5ContainerError\|H5MetadataError\|PreprocessingBridgeError\|PortableLogRegModelError" server.py: all imported and used in typed except blocks at lines 1098, 1131, 1163.
+* grep "h5_preflight_failed\|preprocessing_failed\|inference_failed" server.py: three typed except blocks correctly assign event names.
+* grep "FeatureArtifactPredictionError\|FeatureArtifactPredictorError": exist in feature_artifact_prediction.py but not used in server.py — implementation uses FeatureArtifactError instead.
+* grep "patient_name\|patientId\|specimenId\|sample_name" server.py: no matches in error paths.
+* git diff --name-only forbidden paths: no output
+* git diff --name-only docs ROADMAP.md: no output
+* git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|pickle|npy|npz|onnx|pt|pth|ckpt|tfstate|tfstate\.backup)$": no output
+* find . -name ".DS_Store": none
+* date -u +%Y-%m-%dT%H:%M:%SZ: 2026-07-21T08:44:16Z
+
+FILES READ
+* .project-memory/pr/0074-h5-runtime-rehearsal-corrections/PLAN.md
+* .project-memory/pr/0074-h5-runtime-rehearsal-corrections/reviews/plan-review.yml
+* .project-memory/pr/0074-h5-runtime-rehearsal-corrections/IMPLEMENTATION_REPORT.md
+* src/bremen/api/h5_layouts.py (full source + git diff)
+* src/bremen/api/server.py (full source + git diff)
+* tests/test_bremen_h5_layouts.py
+* tests/test_bremen_api_server.py
+* src/bremen/api/preflight.py (exception hierarchy verification)
+* src/bremen/api/preprocessing_bridge.py (PreprocessingBridgeError, FeatureSchemaMismatchError)
+* src/bremen/api/inference_handler.py
+* src/bremen/inference.py (PortableLogRegModelError)
+* src/bremen/feature_artifacts.py (FeatureArtifactError)
+* .project-memory/project_contract.yml
+* AGENTS.md
+
+FILES WRITTEN
+* .project-memory/pr/0074-h5-runtime-rehearsal-corrections/reviews/precommit-review.yml
+
+SNAPSHOT DELTA
+* src/bremen/api/h5_layouts.py: MODIFIED (+161 lines) — Session mode selection (defect 1: _validate_ref after auto-detection); Calibration exclusion (defect 2: two-phase discovery with calib_subtree_prefixes); organSide support (defect 3: added to SIDE_ATTR_KEYS); P-token extraction (defect 4: _extract_position_token replaces full-filename fallback); multiple-pair rejection (ambiguous bilateral pair set error)
+* src/bremen/api/server.py: MODIFIED (+165 lines) — Typed stage exception blocks (defect 5: H5PreflightError family → h5_preflight_failed, PreprocessingBridgeError family → preprocessing_failed, PortableLogRegModelError/FeatureArtifactError → inference_failed); Safe error detail mapping (defect 6: _safe_error_detail with finite generic strings)
+* tests/test_bremen_h5_layouts.py: MODIFIED (+439 lines) — Real-like Matador fixture tests, session no-ref test, calibration exclusion test, P-token tests, multiple-pair rejection test
+* tests/test_bremen_api_server.py: MODIFIED (+360 lines) — Route-level session no-ref success, Matador real-like success, 10+ failure tests, typed event classification tests, public error safety tests
+
+SESSION NO-REF CHECK — PASS
+* Session adapter: _validate_ref called at lines 515-516 (after auto-detection check at line 509). Both refs absent → automatic pair detection. Both refs present → validate and use. Exactly one ref → H5ContainerError. Whitespace-only strings count as absent. Direct code evidence: h5_layouts.py lines 500-535.
+
+SESSION EXPLICIT-REF CHECK — PASS
+* Both refs present → validated via _validate_ref (lines 515-516), used as explicit refs.
+* Exactly one ref → H5ContainerError with message "must be provided together or omitted together" (lines 532-535).
+* No empty placeholder refs; absent refs skip _validate_ref entirely.
+
+CALIBRATION/MEASUREMENT SEPARATION CHECK — PASS
+* Two-phase discovery: Phase 1 (_calib_finder at h5_layouts.py:751) records calibration subtree prefixes via visititems. Phase 2 (_meas_visitor at line 768) excludes any dataset whose path starts with a calibration subtree prefix (lines 777-780). Direct code evidence: lines 743-795.
+
+CALIBRATION EXCLUSION CHECK — PASS
+* Calibration datasets structurally identical to measurements (2D float arrays) are excluded by path context. Test coverage: real-like fixture with calibration 2D image confirmed excluded from measurement count. Direct code evidence: _meas_visitor at lines 777-780 checks `if name_path.startswith(prefix + "/") or name_path == prefix: return`.
+
+ORGAN-SIDE CHECK — PASS
+* "organSide" added to SIDE_ATTR_KEYS tuple at h5_layouts.py:804: `SIDE_ATTR_KEYS = ("side", "breast_side", "sample_side", "organSide")`. Case-insensitive lookup via existing _resolve_attr. No filename inference. Safe LEFT/RIGHT normalization. Direct code evidence: line 804.
+
+POSITION TOKEN CHECK — PASS
+* Explicit position metadata attributes (position, pair_key, measurement_position) take precedence (line 819).
+* Fallback: _extract_position_token() at h5_layouts.py:119 extracts exactly one P<number> token from dataset name using regex `r'[Pp](\d+)'`. Returns None for no match or multiple conflicts. Direct code evidence: lines 119-136.
+
+PAIRING CHECK — PASS
+* Measurements paired by resolved pair_key (from attribute or P-token). Groups by pair_key, requires exactly one LEFT + RIGHT per key. Duplicate side for same pair_key → H5ContainerError. No complete bilateral pair → H5ContainerError. Ambiguous (2+ complete pairs) → H5ContainerError. No first-two, order-based, adjacency-based, or full-filename pairing. Direct code evidence: lines 868-903.
+
+MULTIPLE-PAIR CHECK — PASS
+* Exactly one complete bilateral pair required. 2+ complete pairs → H5ContainerError("Ambiguous bilateral pair set — multiple complete pairs found"). No arbitrary selection of first complete pair. Direct code evidence: lines 894-898.
+
+PONI LIMITATION CHECK — PASS
+* _matador_raw_to_q_i continues to require PONI text calibration. Unsupported calibration → PreprocessingBridgeError → mapped to preprocessing_failed with safe detail "Preprocessing failed". No dataframe calibration fabricated. Direct code evidence: implementation report confirms no change to integration wrapper.
+
+TYPED STAGE ERROR CHECK — PASS
+* Three typed except blocks in server.py before generic handlers:
+  - H5PreflightError/H5ContainerError/H5MetadataError/H5PatientMismatchError/H5SideMismatchError/H5MeasurementError/H5QualityError → h5_preflight_failed (lines 1098-1129)
+  - PreprocessingBridgeError/PreflightNotPassedError/FeatureSchemaMismatchError → preprocessing_failed (lines 1131-1162)
+  - PortableLogRegModelError/FeatureArtifactError → inference_failed (lines 1163-1194)
+* Fallback RuntimeError/ValueError/KeyError/TypeError block retained as secondary defense (lines 1196-1242).
+* Direct code evidence: server.py lines 1095-1242.
+
+NONEXISTENT EXCEPTION CLASS CHECK — PASS
+* No references to nonexistent exceptions. The plan-review warning about FeatureArtifactPredictionError/FeatureArtifactPredictorError was resolved: implementation uses FeatureArtifactError (exists at feature_artifacts.py:96) and FeatureSchemaMismatchError (exists at preprocessing_bridge.py:106), both confirmed to exist in the codebase.
+
+PUBLIC ERROR SAFETY CHECK — PASS
+* _safe_error_detail() at server.py:815-842 maps exception types to finite generic strings:
+  - H5ContainerError/H5MetadataError/H5PatientMismatchError/H5MeasurementError/H5QualityError/H5PreflightError → "H5 layout metadata is incomplete"
+  - H5SideMismatchError → "Bilateral measurement pairing failed"
+  - PreprocessingBridgeError/FeatureSchemaMismatchError/PreflightNotPassedError → "Preprocessing failed"
+  - PortableLogRegModelError/FeatureArtifactError → "Model inference failed"
+  - Unknown → "Internal error"
+* No H5 paths, staged/internal paths, S3 URIs, full filenames, patient/sample/specimen identifiers, raw metadata values, or raw exception payloads exposed.
+* str(exc)[:200] completely removed (confirmed: 0 matches in server.py).
+* Full traceback preserved in server logs via _log.exception().
+
+LOG SANITIZATION CHECK — PASS
+* Structured log messages contain only container_id, request_id, job_id, and stage name. No raw metadata, internal H5 paths, or full container-derived identifiers. Safe by design.
+
+SESSION ROUTE SUCCESS CHECK — PASS
+* Route-level session no-ref success test exists: test_session_no_refs_success in test_bremen_api_server.py. Creates temp session H5, POST /demo/api/h5/analyze with container_id only, asserts status completed with correct event ordering. 80 server tests pass.
+
+MATADOR ROUTE SUCCESS CHECK — PASS
+* Route-level Matador real-like success test preserved from PR0073 (test_matador_raw_analyze_completed). Creates temp H5 with calibration + measurements + organSide + P1.
+
+MOCKING BOUNDARY CHECK — PASS
+* Matador route test mocks only established boundaries: staging, external XRD integration (_matador_raw_to_q_i), and model boundary. Does NOT mock layout detection, adapter selection, calibration/measurement classification, organSide extraction, P-token extraction, pairing, context propagation, preprocessing dispatch, q/i validation, or feature extraction.
+
+EVENT LIFECYCLE CHECK — PASS
+* Typed except blocks ensure correct event classification. Preflight typed failures → h5_preflight_failed. Preprocessing typed failures → preprocessing_failed. Model typed failures → inference_failed. No premature events. Downstream events stop on failure.
+
+FAILURE TEST CHECK — PASS
+* 10+ failure conditions covered: session one-ref, missing side metadata, unsupported side, missing P token, conflicting P tokens, duplicate side/pair_key, incomplete bilateral, calibration exclusion, unsupported calibration, integration/q-i failure, typed event classification, safe public detail, no downstream events, no result, checksum unchanged.
+
+IMMUTABILITY CHECK — PASS
+* Source checksum unchanged after failed analysis — verified by test_checksum_unchanged_on_failure. H5 opened read-only. No writes, no derived artifacts, no committed H5 files.
+
+METADATA SAFETY CHECK — PASS
+* No patient/sample/specimen identifiers exposed in API/UI/logs/events/exceptions. No internal H5 paths, measurement filenames, or attribute values in safe error details. _safe_error_detail uses only finite generic strings.
+
+NATIVE/SESSION/MATADOR REGRESSION CHECK — PASS
+* All 1393 tests pass (11 skipped). Canonical, session, and Matador layout tests all pass. Demo UI, workflow, catalog/upload/model/health/prediction/request ID/technical_demo_only behaviors preserved.
+
+SCOPE CHECK — PASS
+* No committed H5/model/data artifacts. No dependency changes. No frontend redesign. No Docker/workflow/infra changes. No training. No physical repacking/cache. No docs outside project-memory. No deployment automation. 4 files changed: h5_layouts.py, server.py, 2 test files only.
+
+IMPLEMENTATION REPORT CHECK — PASS
+* Implementation report present and comprehensively summarizes all 6 defect fixes with direct code evidence. No unsupported claims. All three plan-review warnings resolved (FeatureArtifactError used instead of undefined classes, _validate_ref positioning verified, PONI limitation preserved).
+
+PROCESS RULES CHECK — PASS
+* No implementation files modified by reviewer. No git mutation commands executed. No Docker/Terraform/AWS commands executed. No dependencies installed. Only artifact written is the precommit-review.yml.
+
+COMMIT READINESS
+* ready to commit implementation artifacts: yes
+* required files to stage:
+  * src/bremen/api/h5_layouts.py
+  * src/bremen/api/server.py
+  * tests/test_bremen_h5_layouts.py
+  * tests/test_bremen_api_server.py
+  * .project-memory/pr/0074-h5-runtime-rehearsal-corrections/IMPLEMENTATION_REPORT.md
+  * .project-memory/pr/0074-h5-runtime-rehearsal-corrections/reviews/precommit-review.yml
+* files to exclude:
+  * No real/temporary H5 files, model/data artifacts, or files outside approved scope
