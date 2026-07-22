@@ -23,10 +23,11 @@ jsonschema
 tqdm
 
 # Private / platform dependencies
-# container is pinned to feat/v0_3 (same URL that CI uses).
-# G-DEP-1 remains OPEN — re-pin to main is deferred until the
-# container repo merges feat/v0_3 to main.
-container @ git+https://github.com/Eos-Dx/container.git@feat/v0_3-eoscan-session-container
+# container was previously pinned to feat/v0_3-eoscan-session-container while
+# the feature branch awaited merge into container main.  That merge has now
+# occurred; G-DEP-1 is CLOSED.  The dependency now uses the immutable v0.3.0
+# release tag on the merged mainline history.
+container @ git+https://github.com/Eos-Dx/container.git@v0.3.0
 
 # xrd-preprocessing is declared in pyproject.toml as a git+
 # dependency — no local-path replacement needed here.

@@ -1,0 +1,61 @@
+review:
+  status: valid
+  branch: 0080-container-v0-3-0-repin
+  head: 104db50ffdb0180f9aa077afede00ce4e97d22b5
+  direct_to_coder_exception: true
+  reviewed_files:
+    - requirements.txt
+    - ROADMAP.md
+    - tests/test_bremen_dependency_hygiene.py
+
+blockers: []
+
+warnings: []
+
+confirmed:
+  branch_pin_removed: true
+  immutable_tag_pin_used: true
+  tag_exists: true
+  tag_resolved_to_commit: true
+  tag_commit_reachable_from_main: true
+  container_version_confirmed: true
+  version_registry_0_3_confirmed: true
+  g_dep_1_authoritative_register_found: true
+  g_dep_1_closed_in_roadmap: true
+  roadmap_scope_exact: true
+  project_contract_unchanged: true
+  xrd_preprocessing_unchanged: true
+  no_other_dependency_change: true
+  no_runtime_change: true
+  no_test_change: false
+  focused_test_passed: true
+  compileall_passed: true
+  full_suite_executed: true
+  full_suite_passed: true
+  credentials_excluded: true
+  private_artifacts_excluded: true
+
+tests:
+  dependency_hygiene: "10 passed, 0 failed in 0.02s"
+  compileall: "src/ and tests/ -- no syntax errors"
+  full_suite: "1644 passed, 11 skipped, 0 failures in 165.04s"
+  diff_check: "git diff --check -- no whitespace errors"
+  credential_check: "No credentials found in diff"
+  artifact_check: "No forbidden artifacts in diff"
+
+summary: >
+  PR0080 corrected: G-DEP-1 gate closure is now recorded in the
+  authoritative Decision Gate Register (ROADMAP.md) in addition to the
+  requirements.txt pin.  The feat/v0_3-eoscan-session-container branch
+  reference was completely removed from the active dependency URL.
+  The immutable v0.3.0 release tag is used.  The tag was independently
+  verified: it exists, resolves to commit 6af9ab4, is reachable from
+  origin/main, pyproject.toml declares version 0.3.0, and VERSION_REGISTRY
+  at the tag contains 0_3 mapped to container.v0_3.  Three G-DEP-1 entries
+  in ROADMAP.md were changed from OPEN to CLOSED with evidence citing
+  the tag commit, pin, and VERSION_REGISTRY confirmation.  Only the status
+  and evidence fields changed in ROADMAP.md -- no other content.
+  The dependency hygiene test was necessarily updated to assert the new
+  v0.3.0 tag and CLOSED state.  project_contract.yml is unchanged.
+  xrd-preprocessing is unchanged.  No runtime source changed.  Full suite:
+  1644 passed, 0 failed.  No credentials or forbidden artifacts.

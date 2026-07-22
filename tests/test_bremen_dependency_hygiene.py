@@ -78,14 +78,14 @@ def test_container_git_url_if_present():
     )
 
 
-def test_container_uses_feat_v0_3():
-    """Container dependency must use feat/v0_3 (not main) — G-DEP-1 is OPEN."""
+def test_container_uses_immutable_tag():
+    """Container dependency must use immutable v0.3.0 tag — G-DEP-1 is CLOSED."""
     content = REQUIREMENTS.read_text(encoding="utf-8")
     if "container" not in content.lower():
         pytest.skip("No container dependency in requirements.txt")
 
-    assert "feat/v0_3-eoscan-session-container" in content, (
-        "Container dependency must use feat/v0_3-eoscan-session-container, not main"
+    assert "v0.3.0" in content, (
+        "Container dependency must use v0.3.0 tag, not feature branch"
     )
 
 
@@ -119,22 +119,19 @@ def test_g_dep_1_still_present():
     )
 
 
-def test_g_dep_1_remains_open():
-    """G-DEP-1 must remain OPEN (not DECIDED)."""
+def test_g_dep_1_is_closed():
+    """G-DEP-1 must be CLOSED — feature branch merged, v0.3.0 tag exists."""
     content = ROADMAP.read_text(encoding="utf-8")
-    # Find the line containing G-DEP-1 and check it has OPEN
+    # Find the Decision Gate Register row for G-DEP-1 and check it has CLOSED
     found_gate = False
-    found_open = False
+    found_closed = False
     for line in content.splitlines():
         if "G-DEP-1" in line:
             found_gate = True
-            if "OPEN" in line:
-                found_open = True
-            assert "DECIDED" not in line, (
-                f"G-DEP-1 is marked DECIDED: {line}"
-            )
+            if "CLOSED" in line:
+                found_closed = True
     assert found_gate, "G-DEP-1 not found in ROADMAP.md"
-    assert found_open, "G-DEP-1 is not marked OPEN in ROADMAP.md"
+    assert found_closed, "G-DEP-1 is not marked CLOSED in ROADMAP.md"
 
 
 # ---------------------------------------------------------------------------

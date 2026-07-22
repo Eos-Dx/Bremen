@@ -137,7 +137,7 @@ Multi-Workflow Analysis Workspace:
 - PR-0012 — Model artifact lifecycle ADR + runtime deployment gate closure. ADR-0007 formalizes offline training, controlled package, runtime loading, S3 storage, and security boundaries. G-API-1, G-API-2, G-INFRA-1 closed as DECIDED.
 - PR-0019 — API contract + async microservice skeleton. Creates `docs/api_contract.md`, `src/bremen/api/` with route-shaped handlers and in-memory job store.
 - PR-0020 — Cloud-aware config sourcing. Extends `src/bremen/config.py` with `read_cloud_config()` and `CloudConfig` dataclass reading `BREMEN_MODEL_BUCKET`, `BREMEN_MODEL_PREFIX`, `BREMEN_MODEL_VERSION` from environment.
-- PR-0021 — Container dependency hygiene. Removes editable local-path dependencies from `requirements.txt`. Replaces with reproducible git URL pin at `feat/v0_3`. G-DEP-1 remains OPEN.
+- PR-0021 — Container dependency hygiene. Removes editable local-path dependencies from `requirements.txt`. Replaces with reproducible git URL pin at `feat/v0_3`. G-DEP-1 is CLOSED — feat/v0_3 merged into main, immutable v0.3.0 tag exists on mainline history (commit 6af9ab4), requirements.txt re-pinned to v0.3.0, VERSION_REGISTRY confirmed.
 - PR-0022A — Terraform AWS runtime skeleton. `infra/terraform/` with ECR, S3 versioned bucket, ECS Fargate cluster/service/task definition, CloudWatch, scoped IAM roles. Not yet applied.
 - PR-0022B — ECR publish workflow. `.github/workflows/ecr-publish.yml` building and pushing Docker image to ECR on push to main.
 - PR-0022C — ECR workflow credentials hotfix / scoped publisher credentials. Uses scoped IAM user credentials via secrets for ECR authentication (interim operational path; OIDC is the planned long-term approach).
@@ -258,7 +258,7 @@ Product core before infrastructure wrappers.
 | G-CFG-1 | Build in-house vs. adopt existing config-management product | Date-bound (before PR 0024) | Not decided | OPEN | — |
 | G-CFG-2 | Config state history store: DynamoDB vs. other | Date-bound (before config governance PR) | DynamoDB | OPEN | — |
 | G-CFG-3 | Config validation schema: JSON Schema vs. Pydantic vs. custom | Date-bound (before config governance PR) | Not decided | OPEN | — |
-| G-DEP-1 | Container repo merges feat/v0_3 to main | Event-bound (external event) | Re-pin within 5 business days; re-verify VERSION_REGISTRY | OPEN | — |
+| G-DEP-1 | Container repo merges feat/v0_3 to main | Event-bound (external event) | Re-pin within 5 business days; re-verify VERSION_REGISTRY | CLOSED | feat/v0_3 merged into main; immutable v0.3.0 tag exists at commit 6af9ab4; Bremen pins v0.3.0; VERSION_REGISTRY contains 0_3 mapped to container.v0_3 |
 | G-INFRA-1 | Terraform vs. AWS CDK vs. CloudFormation | Date-bound (before PR 0022) | Terraform | DECIDED | Terraform |
 
 Calendar dates in the Product Track may drift and that's expected. What's required is that any slip is recorded with a reason, and no PR silently absorbs scope from an open Decision Gate without that gate first being marked DECIDED.
@@ -346,7 +346,7 @@ sequence):
 |------|-------------|--------|
 | G-CFG-1 | Build vs. adopt config management product | OPEN |
 | G-CFG-2 | Config state history store (DynamoDB or other) | DEFERRED |
-| G-DEP-1 | Container repo merges feat/v0_3 to main | OPEN |
+| G-DEP-1 | Container repo merges feat/v0_3 to main | CLOSED — feat/v0_3 merged into main, v0.3.0 tag at 6af9ab4, Bremen pins v0.3.0 |
 
 **Other roadmap-referenced candidates**:
 
