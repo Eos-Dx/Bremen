@@ -277,12 +277,19 @@ def _make_handler(
                         "result": resp.result,
                         "error": resp.error,
                     }, job_id=job_id)
+
             elif self.path == "/demo":
                 _handle_demo_route(self)
+            elif self.path == "/demo/workspace" or self.path.startswith("/demo/workspace/"):
+                _handle_workspace_route(self)
             elif self.path == "/demo/api/evidence":
                 _handle_demo_evidence_route(self)
             elif self.path == "/demo/api/h5/containers":
                 _handle_demo_h5_containers_list(self)
+            elif self.path == "/demo/api/jobs":
+                _handle_demo_jobs_list(self)
+            elif self.path.startswith("/demo/api/jobs/"):
+                _handle_demo_jobs_route(self)
             else:
                 self._log_and_send_error(
                     f"Not found: {self.path}", status=404,
@@ -297,6 +304,8 @@ def _make_handler(
                 _handle_demo_h5_containers_upload(self)
             elif self.path == "/demo/api/h5/analyze":
                 _handle_demo_h5_analyze(self)
+            elif self.path == "/demo/api/jobs":
+                _handle_demo_jobs_create(self)
             elif self.path == "/predictions":
                 body = self._read_json_body()
                 if body is None:
@@ -1271,3 +1280,78 @@ def run_server(
     except KeyboardInterrupt:
         print("\nShutting down Bremen API server.")
         server.server_close()
+
+# ---------------------------------------------------------------------------
+# Demo workspace route
+# ---------------------------------------------------------------------------
+
+
+def _handle_workspace_route(handler: BaseHTTPRequestHandler) -> None:
+    """Handle GET /demo/workspace — multi-workflow analysis workspace."""
+    import uuid as _uuid  # noqa: PLC0415
+    from ..workspace_ui import build_workspace_page  # noqa: PLC0415
+
+    request_id = handler.headers.get("X-Request-ID") or str(_uuid.uuid4())
+    host_header = handler.headers.get("Host", "localhost")
+    base_url = f"http://{host_header}"
+    path = handler.path
+    job_id = None
+    prefix = "/demo/workspace/"
+    if path.startswith(prefix):
+        job_id = path[len(prefix):].rstrip("/")
+    html = build_workspace_page(base_url=base_url, request_id=request_id, job_id=job_id)
+    body = html.encode("utf-8")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("X-Request-ID", request_id)
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+# ---------------------------------------------------------------------------
+# Demo job API handlers
+# ---------------------------------------------------------------------------
+
+
+def _handle_demo_jobs_list(handler: BaseHTTPRequestHandler) -> None:
+    """Handle GET /demo/api/jobs."""
+    from .job_api_handler import handle_jobs_list  # noqa: PLC0415
+    handle_jobs_list(handler)
+
+
+def _handle_demo_jobs_create(handler: BaseHTTPRequestHandler) -> None:
+    """Handle POST /demo/api/jobs."""
+    from .job_api_handler import handle_jobs_create  # noqa: PLC0415
+    handle_jobs_create(handler)
+
+
+def _handle_demo_jobs_route(handler: BaseHTTPRequestHandler) -> None:
+    """Dispatch /demo/api/jobs/{job_id}/... routes."""
+    import re as _re  # noqa: PLC0415
+    from .job_api_handler import (  # noqa: PLC0415
+        handle_job_get, handle_job_events,
+        handle_job_events_stream, handle_job_reports, handle_job_report,
+    )
+    path = handler.path
+    m = _re.match(r"^/demo/api/jobs/([^/]+)/events/stream$", path)
+    if m:
+        handle_job_events_stream(handler, m.group(1))
+        return
+    m = _re.match(r"^/demo/api/jobs/([^/]+)/events$", path)
+    if m:
+        handle_job_events(handler, m.group(1))
+        return
+    m = _re.match(r"^/demo/api/jobs/([^/]+)/reports/([^/]+)$", path)
+    if m:
+        handle_job_report(handler, m.group(1), m.group(2))
+        return
+    m = _re.match(r"^/demo/api/jobs/([^/]+)/reports$", path)
+    if m:
+        handle_job_reports(handler, m.group(1))
+        return
+    m = _re.match(r"^/demo/api/jobs/([^/]+)$", path)
+    if m:
+        handle_job_get(handler, m.group(1))
+        return
+    handler._log_and_send_error(f"Not found: {path}", status=404)

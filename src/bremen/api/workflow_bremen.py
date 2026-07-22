@@ -4,6 +4,7 @@ First complete provider implementation.  Owns Bremen feature schema,
 model compatibility, threshold, decision rule, and result schema.
 
 PR0075 — multi-workflow runtime foundation.
+PR0077 — structured event emission, removal of unstructured validation output.
 """
 
 from __future__ import annotations
@@ -254,7 +255,13 @@ class BremenProvider(WorkflowProvider):
     # ---- Execute ----
 
     def execute(self, canonical: Any) -> WorkflowResult:
-        """Full execution: compatibility → features → inference."""
+        """Full execution: compatibility → features → inference.
+
+        All structured events are emitted by the orchestrator
+        (``workflow_orchestrator.py``).  This method is a pure
+        domain execution path with no event-store dependency.
+        """
+        # --- Compatibility check ---
         compat = self.validate_compatibility(canonical)
         if not compat.compatible:
             return WorkflowResult(
@@ -262,6 +269,15 @@ class BremenProvider(WorkflowProvider):
                 status="failed",
                 error=f"Incompatible: {compat.reason}",
             )
+
+        if not self._validate_model_internal():
+            return WorkflowResult(
+                workflow_id=self.workflow_id,
+                status="failed",
+                error="Model not ready",
+            )
+
+        # --- Features ---
         try:
             features = self.build_features(canonical)
         except Exception as exc:
@@ -270,42 +286,44 @@ class BremenProvider(WorkflowProvider):
                 status="failed",
                 error=f"Feature construction failed: {exc}",
             )
+
+        # --- Inference ---
         return self.run_inference(features)
 
     # ---- Internal ----
 
     def _validate_model_internal(self) -> bool:
-        import sys as _sys
         if self._model_package is None:
-            print("VALIDATE: model_package is None", file=_sys.stderr)
+            _log.debug("bremen.provider.validate.no_model")
             return False
 
         plr = self._model_package.get("portable_logreg", {})
         if not isinstance(plr, dict):
-            print("VALIDATE: plr_not_dict", file=_sys.stderr)
+            _log.debug("bremen.provider.validate.plr_not_dict")
             return False
 
         for key in ("coef", "imputer_statistics", "scaler_mean",
                     "scaler_scale"):
             val = plr.get(key)
             if val is None:
-                _log.debug("bremen.provider.validate.missing_key	key=%s", key)
+                _log.debug("bremen.provider.validate.missing_key\tkey=%s", key)
                 return False
             if not isinstance(val, list):
-                _log.debug("bremen.provider.validate.not_list	key=%s	type=%s",
+                _log.debug("bremen.provider.validate.not_list\tkey=%s\ttype=%s",
                            key, type(val).__name__)
                 return False
             if len(val) != 15:
-                _log.debug("bremen.provider.validate.wrong_length	key=%s	len=%s",
+                _log.debug("bremen.provider.validate.wrong_length\tkey=%s\tlen=%s",
                            key, len(val))
                 return False
         if "intercept" not in plr or not isinstance(plr["intercept"], (int, float)):
-            print(f"VALIDATE: bad_intercept type={type(plr.get("intercept")).__name__}", file=_sys.stderr)
+            _log.debug("bremen.provider.validate.bad_intercept")
             return False
         if "threshold" not in plr or not isinstance(plr["threshold"], (int, float)):
-            print(f"VALIDATE: bad_threshold type={type(plr.get("threshold")).__name__}", file=_sys.stderr)
+            _log.debug("bremen.provider.validate.bad_threshold")
             return False
 
         self._model_validated = True
-        print("VALIDATE: SUCCESS", file=_sys.stderr)
+        _log.debug("bremen.provider.validate.success\t"
+                   "model_version=%s", self._model_version or "unknown")
         return True

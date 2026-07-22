@@ -4,6 +4,46 @@
 
 No hard calendar dates — use sequence and dependencies.
 
+## Current milestone (PR0077)
+
+Multi-Workflow Analysis Workspace:
+- Structured job events and bounded ephemeral event store
+- SSE live event stream with reconnect
+- Job status API, report metadata API
+- Workflow cards with independent status per workflow
+- Bremen report v0.2 (extended from PR0053 decision_support_report)
+- Aramis report provider boundary (unavailable, typed reason code)
+- Analysis Workspace frontend (timeline, process panel, report/audit tabs)
+- Privacy/redaction controls
+- Audit metadata display
+
+**Status**: Implemented (PR0077)
+
+---
+
+## Next milestone
+
+- Authoritative Aramis runtime integration
+- Aramis report parity
+- Persistent job/event history (database backend)
+- Report access controls
+- PDF/report artifact storage
+- Bremen scientific parity evidence
+- Bremen P1/P2/P3 policy
+
+---
+
+## Later milestone
+
+- Additional workflow providers
+- Long-term audit retention
+- Operational dashboards
+- Cross-version report comparison
+- Certification evidence bundles
+- Role-based report access
+
+---
+
 ## Completed foundation PRs
 
 - PR-0001 — Agent workflow foundation
