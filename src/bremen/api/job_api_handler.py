@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json as _json
 import logging
+import threading
 import time as _time
 import uuid as _uuid
 from datetime import datetime, timezone
@@ -58,30 +59,66 @@ _log = logging.getLogger(__name__)
 _STORE_KEY = "_bremen_workspace_event_store"
 _JOBS_KEY = "_bremen_workspace_jobs"
 _PROVIDERS_KEY = "_bremen_workspace_report_providers"
+_INIT_LOCK_KEY = "_bremen_workspace_init_lock"
+_JOBS_LOCK_KEY = "_bremen_workspace_jobs_lock"
+_PROVIDERS_LOCK_KEY = "_bremen_workspace_providers_lock"
+
+
+def _get_package_lock(key: str) -> threading.Lock:
+    """Return (or create and store) a lock on the bremen package.
+
+    The lock is stored on the package so it survives module reload.
+    Uses a simple pattern since the inner setattr is unlikely to race
+    fatally for locks (two locks are both valid), but adjacent to the
+    double-checked singleton pattern for data objects.
+    """
+    lock = getattr(bremen, key, None)
+    if lock is None:
+        lock = threading.Lock()
+        setattr(bremen, key, lock)
+    return lock
 
 
 def _get_or_create_store():
     s = getattr(bremen, _STORE_KEY, None)
-    if s is None:
+    if s is not None:
+        return s
+    init_lock = _get_package_lock(_INIT_LOCK_KEY)
+    with init_lock:
+        s = getattr(bremen, _STORE_KEY, None)
+        if s is not None:
+            return s
         s = BoundedEventStore()
         setattr(bremen, _STORE_KEY, s)
-    return s
+        return s
 
 
 def _get_or_create_jobs():
     j = getattr(bremen, _JOBS_KEY, None)
-    if j is None:
+    if j is not None:
+        return j
+    init_lock = _get_package_lock(_INIT_LOCK_KEY)
+    with init_lock:
+        j = getattr(bremen, _JOBS_KEY, None)
+        if j is not None:
+            return j
         j = {}
         setattr(bremen, _JOBS_KEY, j)
-    return j
+        return j
 
 
 def _get_or_create_providers():
     p = getattr(bremen, _PROVIDERS_KEY, None)
-    if p is None:
+    if p is not None:
+        return p
+    init_lock = _get_package_lock(_INIT_LOCK_KEY)
+    with init_lock:
+        p = getattr(bremen, _PROVIDERS_KEY, None)
+        if p is not None:
+            return p
         p = {}
         setattr(bremen, _PROVIDERS_KEY, p)
-    return p
+        return p
 
 
 # Module-level references that point to persistent bremen-package objects
@@ -89,14 +126,22 @@ _event_store = _get_or_create_store()
 _jobs = _get_or_create_jobs()
 _report_providers = _get_or_create_providers()
 
+# Thread-safety locks for shared mutable state
+_jobs_lock = _get_package_lock(_JOBS_LOCK_KEY)
+_providers_lock = _get_package_lock(_PROVIDERS_LOCK_KEY)
+
 
 def register_report_provider(provider: ReportProvider) -> None:
     """Register a report provider for a workflow."""
-    _report_providers[provider.workflow_id] = provider
+    with _providers_lock:
+        _report_providers[provider.workflow_id] = provider
 
 
 def _get_report_provider(workflow_id: str) -> ReportProvider | None:
-    return _report_providers.get(workflow_id)
+    # Snapshot providers dict under lock for safe read
+    with _providers_lock:
+        providers = dict(_report_providers)
+    return providers.get(workflow_id)
 
 
 def _register_default_providers() -> None:
@@ -104,10 +149,11 @@ def _register_default_providers() -> None:
     from .report_bremen import BremenReportProvider  # noqa: PLC0415
     from .report_aramis import AramisReportProvider  # noqa: PLC0415
 
-    if "bremen" not in _report_providers:
-        register_report_provider(BremenReportProvider())
-    if "aramis" not in _report_providers:
-        register_report_provider(AramisReportProvider())
+    with _providers_lock:
+        if "bremen" not in _report_providers:
+            _report_providers["bremen"] = BremenReportProvider()
+        if "aramis" not in _report_providers:
+            _report_providers["aramis"] = AramisReportProvider()
 
 
 def _utc_now() -> str:
@@ -145,9 +191,11 @@ def create_analysis_job(
         normalization_summary={},
         requested_workflows=(workflow_id,),
     )
-    _jobs[job_id] = job
+    # Insert job under lock — readers see a consistent initial state
+    with _jobs_lock:
+        _jobs[job_id] = job
 
-    # Run the orchestrator with event capture
+    # Run the orchestrator with event capture (no lock held — may take seconds)
     mw_result = run_workflow_request(
         h5_path=h5_path,
         workflow_id=workflow_id,
@@ -161,31 +209,33 @@ def create_analysis_job(
     now = _utc_now()
 
     if mw_result.normalization_status == "failed":
-        job.overall_status = "failed"
-        job.completed_at = now
+        with _jobs_lock:
+            job.overall_status = "failed"
+            job.completed_at = now
         return job
 
-    job.normalization_summary = {
-        "measurement_count": None,
-        "layout": None,
-    }
+    with _jobs_lock:
+        job.normalization_summary = {
+            "measurement_count": None,
+            "layout": None,
+        }
 
-    if wf_result:
-        if wf_result.status == "completed":
-            job.overall_status = "completed"
-        elif wf_result.status == "failed":
-            job.overall_status = "failed"
+        if wf_result:
+            if wf_result.status == "completed":
+                job.overall_status = "completed"
+            elif wf_result.status == "failed":
+                job.overall_status = "failed"
 
-        job.workflow_runs[workflow_id] = WorkflowRun(
-            workflow_id=workflow_id,
-            status=wf_result.status,
-            result_summary=wf_result.payload or {},
-            failure=wf_result.error,
-        )
+            job.workflow_runs[workflow_id] = WorkflowRun(
+                workflow_id=workflow_id,
+                status=wf_result.status,
+                result_summary=wf_result.payload or {},
+                failure=wf_result.error,
+            )
 
-    job.completed_at = now
+        job.completed_at = now
 
-    # Generate reports
+    # Generate reports (uses providers lock internally)
     _register_default_providers()
     _generate_job_reports(job)
 
@@ -194,11 +244,14 @@ def create_analysis_job(
 
 def get_analysis_job(job_id: str) -> AnalysisJob | None:
     """Return an analysis job by ID, or ``None``."""
-    return _jobs.get(job_id)
+    with _jobs_lock:
+        return _jobs.get(job_id)
 
 
 def list_analysis_jobs() -> list[dict[str, Any]]:
     """Return safe metadata for recent jobs."""
+    with _jobs_lock:
+        jobs_snapshot = list(_jobs.values())
     return [
         {
             "job_id": j.job_id,
@@ -206,7 +259,7 @@ def list_analysis_jobs() -> list[dict[str, Any]]:
             "overall_status": j.overall_status,
             "requested_workflows": list(j.requested_workflows),
         }
-        for j in list(_jobs.values())[-20:]  # most recent 20
+        for j in jobs_snapshot[-20:]  # most recent 20
     ]
 
 
@@ -218,9 +271,13 @@ def get_job_events(job_id: str, since_sequence: int = 0) -> list[dict[str, Any]]
 
 def get_job_reports(job_id: str) -> dict[str, Any]:
     """Return reports for a job, keyed by workflow_id."""
-    job = _jobs.get(job_id)
+    with _jobs_lock:
+        job = _jobs.get(job_id)
     if job is None:
         return {"reports": {}, "job_id": job_id}
+    # Snapshot report data under lock to avoid mutation during iteration
+    with _jobs_lock:
+        reports_snapshot = dict(job.reports)
     return {
         "reports": {
             wid: {
@@ -233,7 +290,7 @@ def get_job_reports(job_id: str) -> dict[str, Any]:
                 "model_version": rm.model_version,
                 "scientifically_certified": rm.scientifically_certified,
             }
-            for wid, rm in job.reports.items()
+            for wid, rm in reports_snapshot.items()
         },
         "job_id": job_id,
     }
@@ -241,7 +298,8 @@ def get_job_reports(job_id: str) -> dict[str, Any]:
 
 def get_job_report(job_id: str, workflow_id: str) -> dict[str, Any]:
     """Return a specific workflow report, or unavailable."""
-    job = _jobs.get(job_id)
+    with _jobs_lock:
+        job = _jobs.get(job_id)
     if job is None:
         return {
             "report": {"status": "job_not_found"},
@@ -250,7 +308,8 @@ def get_job_report(job_id: str, workflow_id: str) -> dict[str, Any]:
         }
 
     provider = _get_report_provider(workflow_id)
-    wf_run = job.workflow_runs.get(workflow_id)
+    with _jobs_lock:
+        wf_run = job.workflow_runs.get(workflow_id)
 
     if provider is None or wf_run is None:
         return {
@@ -277,8 +336,11 @@ def get_job_report(job_id: str, workflow_id: str) -> dict[str, Any]:
 
 
 def _generate_job_reports(job: AnalysisJob) -> None:
-    """Generate reports for all completed workflow runs."""
-    for wid, wf_run in job.workflow_runs.items():
+    """Generate reports for all completed workflow runs.
+
+    Caller must ensure exclusive access to *job.reports*.
+    """
+    for wid, wf_run in list(job.workflow_runs.items()):
         provider = _get_report_provider(wid)
         if provider is None:
             job.reports[wid] = ReportMetadata(
@@ -352,7 +414,8 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
 
 def handle_job_get(handler: BaseHTTPRequestHandler, job_id: str) -> None:
     """Handle GET /demo/api/jobs/{job_id} — get job status."""
-    job = get_analysis_job(job_id)
+    with _jobs_lock:
+        job = _jobs.get(job_id)
     if job is None:
         # Check if job might be known to event store
         if _event_store.has_job(job_id):
@@ -369,9 +432,11 @@ def handle_job_get(handler: BaseHTTPRequestHandler, job_id: str) -> None:
     result["storage_mode"] = _event_store.storage_mode
     result["retention_seconds"] = _event_store.retention_seconds
 
-    # Add execution traces per workflow
+    # Add execution traces per workflow (trace projection reads event store only)
     result["execution_traces"] = {}
-    for wid in job.requested_workflows:
+    with _jobs_lock:
+        requested = list(job.requested_workflows)
+    for wid in requested:
         trace = build_trace_from_events(_event_store, job_id, wid)
         if trace:
             result["execution_traces"][wid] = trace.to_dict()
@@ -431,8 +496,9 @@ def handle_job_events_stream(handler: BaseHTTPRequestHandler, job_id: str) -> No
     poll_interval = 0.1  # fallback re-check after condition wakeup
 
     while _time.monotonic() < deadline:
-        # Check if job has reached a terminal state
-        job = _jobs.get(job_id)
+        # Check if job has reached a terminal state (brief lock)
+        with _jobs_lock:
+            job = _jobs.get(job_id)
         if job and job.overall_status in (
             "completed", "failed", "partial_success",
             "workflow_configuration_required",
@@ -578,5 +644,7 @@ def reset_for_tests() -> None:
     a clean workspace.
     """
     _event_store.reset_for_tests()
-    _jobs.clear()
-    _report_providers.clear()
+    with _jobs_lock:
+        _jobs.clear()
+    with _providers_lock:
+        _report_providers.clear()

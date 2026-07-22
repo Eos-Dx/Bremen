@@ -1,0 +1,115 @@
+review:
+  status: valid
+  branch: 0079-investor-control-room-model-selection
+  head: 08616f7722a669c25f92373198f73f0965e7b10c
+  reviewed_files:
+    - .project-memory/pr/0079-investor-control-room-model-selection/PLAN.md
+    - .project-memory/pr/0079-investor-control-room-model-selection/reviews/plan-review.yml
+    - .project-memory/pr/0079-investor-control-room-model-selection/implementation-report.md
+    - ROADMAP.md
+    - docs/workspace_contract.md
+    - src/bremen/api/server.py
+    - src/bremen/api/job_api_handler.py
+    - src/bremen/api/jobs.py
+    - src/bremen/api/server.py (diff section for _ThreadingHTTPServer)
+    - src/bremen/api/event_store.py
+    - src/bremen/api/workflow_bremen.py
+    - src/bremen/api/workflow_aramis.py
+    - src/bremen/api/workflow_provider.py
+    - src/bremen/api/workflow_orchestrator.py
+    - src/bremen/api/workflow_registry.py
+    - src/bremen/api/model_state.py
+    - src/bremen/api/execution_context.py
+    - src/bremen/api/execution_trace.py
+    - src/bremen/api/runtime_plugin.py
+    - src/bremen/api/lifecycle_contracts.py
+    - src/bremen/api/event_schema.py
+    - src/bremen/api/job_models.py
+    - src/bremen/api/report_provider.py
+    - src/bremen/api/report_bremen.py
+    - src/bremen/api/report_aramis.py
+    - src/bremen/workspace_ui.py
+    - tests/test_bremen_concurrent_server.py
+    - tests/test_bremen_event_stream.py
+    - tests/test_bremen_runtime_plugin.py
+    - tests/test_bremen_execution_showcase.py
+    - tests/test_bremen_workspace_ui.py
+
+blockers: []
+
+warnings: []
+
+confirmed:
+  threaded_server_authoritative: true
+  real_ephemeral_server_tests: true
+  two_sse_clients_simultaneous: true
+  health_responsive_during_sse: true
+  job_api_responsive_during_sse: true
+  workspace_responsive_during_sse: true
+  same_event_delivered_to_both: true
+  independent_sse_cursors: true
+  disconnect_isolated: true
+  broken_connection_handled: true
+  clean_shutdown: true
+  no_leaked_test_threads: true
+  jobs_storage_thread_safe: true
+  coherent_job_snapshots: true
+  terminal_state_protected: true
+  inmemory_job_store_resolved: true
+  singleton_first_access_safe: true
+  module_reload_preserved: true
+  event_store_authoritative: true
+  event_sequences_safe: true
+  model_provider_concurrency_audited: true
+  resource_assumptions_documented: true
+  operational_logs_safe: true
+  backward_compatible: true
+  no_ui_scope_creep: true
+  no_model_catalog_scope_creep: true
+  future_multi_model_strategy_documented: true
+  pr0080_boundary_preserved: true
+  pr0081_boundary_preserved: true
+  implementation_report_plain_text: true
+  private_artifacts_excluded: true
+  full_test_suite_executed: true
+  full_test_suite_passed: true
+
+tests:
+  concurrent_server: "19 passed in test_bremen_concurrent_server.py (7.13s)"
+  two_client_sse: "test_two_sse_clients_connect, test_disconnect_isolation, test_health_during_sse, test_jobs_api_during_sse, test_job_get_during_sse, test_workspace_during_sse all pass"
+  concurrent_api: "test_health_during_sse, test_jobs_api_during_sse, test_job_get_during_sse, test_workspace_during_sse all pass with real concurrent connections"
+  jobs_locking: "test_concurrent_job_creation, test_concurrent_list_during_creation pass. Code inspection confirms _jobs_lock on all write/read paths"
+  inmemory_job_store: "W001 resolved. InMemoryJobStore has internal threading.Lock. test_concurrent_create_and_read, test_concurrent_update_and_read pass"
+  singleton_race: "test_singleton_first_access_no_duplicate_creation (4 threads, barrier) passes. Double-checked locking pattern verified"
+  module_reload: "test_module_reload_preserves_singletons passes. Package-level attributes survive bremen.api.* purge/reload"
+  event_store: "3 tests in test_bremen_concurrent_server.py + existing tests pass. BoundedEventStore already thread-safe via threading.Lock + Condition"
+  provider_concurrency: "ModelState read-only after init. BremenProvider created fresh per registry call. execute() stateless on local numpy arrays. No provider-local lock needed"
+  backward_compatibility: "All 1625 pre-existing tests pass without modification. No API schema, SSE protocol, or event schema changes"
+  compileall: "src/ and tests/ — no syntax errors"
+  full_suite: "1644 passed, 11 skipped, 0 failures in 167.37s"
+  frontend_checks: "No frontend changes in this PR"
+  diff_check: "git diff --check — no whitespace errors"
+  forbidden_artifact_check: "No .h5, .hdf5, .joblib, .pkl, .pickle, .npy, .npz, .pdf, .tar, .zip files in diff"
+  ds_store_check: "No .DS_Store outside venv"
+
+summary: >
+  PR0079 implements the concurrent demo server foundation for multi-client
+  SSE safety.  _ThreadingHTTPServer (ThreadingMixIn + HTTPServer with
+  daemon_threads=True) replaces the single-threaded HTTPServer.  Shared
+  state is fully locked: _jobs_lock protects the jobs dict (write/create
+  under lock, snapshot on read, never held during model execution or
+  network writes), _providers_lock protects report provider init, and
+  InMemoryJobStore now has an internal threading.Lock (W001 resolved).
+  Singleton first-access uses double-checked locking with package-stored
+  init lock.  Module reload preserves store, jobs dict, and lock identity
+  on the bremen package.  BoundedEventStore is authoritative and already
+  thread-safe.  ModelState is read-only after startup.  Providers are
+  created fresh per registry call.  No provider-local inference lock is
+  needed.  19 behavioral tests prove two real SSE clients connecting
+  simultaneously, health and job API responsive during SSE, disconnect
+  isolation, clean shutdown, concurrent job creation, singleton race
+  safety, module reload, and InMemoryJobStore thread safety.  All 1625
+  pre-existing tests pass without modification.  Full suite: 1644 passed,
+  11 skipped, 0 failures.  Resource assumptions documented.  PR0080 and
+  PR0081 boundaries documented.  No UI, model catalog, model selection,
+  or model-run scope creep.

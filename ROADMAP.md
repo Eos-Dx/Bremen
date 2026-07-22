@@ -4,33 +4,69 @@
 
 No hard calendar dates — use sequence and dependencies.
 
-## Current milestone (PR0078)
+## Current milestone (PR0079)
 
-Model Runtime Plugin Tracing and Investor Showcase:
-- Formal WorkflowRuntimePlugin lifecycle contract
-- Execution context with explicit EventSink
-- Typed intermediate contracts (PreparedArtifact, FeatureSet, ModelOutput, etc.)
-- 28 new lifecycle event types (artifact, input, feature validation, output validation)
-- Lifecycle state machine with ordering rules
-- Bremen instrumentation for all lifecycle stages
-- Nova (configuration-required) early-stop trace
-- Aramis unavailable lifecycle boundary
-- Execution trace projection in job API
-- Investor showcase mode (real API, real SSE, live visualization)
-- Investor showcase route: `GET /demo/workspace?view=showcase`
-- Visual pipeline (stage-by-stage layout)
-- Per-model expanded execution cards
-- Stage detail drawer (allowlisted per-stage metadata)
-- Decision visualization (score/threshold where approved)
-- Plugin provenance display
-- Accessibility (keyboard, WCAG AA, reduced motion)
-- Privacy enforcement (extended prohibited-key list)
+Concurrent Demo Server and Multi-Client SSE Safety:
+- ThreadingHTTPServer with daemon threads replaces single-threaded HTTPServer
+- Thread-safe shared-state inventory and locking
+- Package-level singleton initialization with double-checked locking
+- Lock-protected jobs storage (short critical sections, never during execution/SSE)
+- InMemoryJobStore thread safety (W001 resolution)
+- BoundedEventStore concurrency audit (already thread-safe)
+- SSE lifecycle hardening (lock-guarded job reads, independent cursors)
+- Two-client SSE proof via real socket tests
+- Concurrent API responsiveness (health, job API, workspace during SSE)
+- Disconnect isolation, clean shutdown, thread cleanup
+- Model and provider concurrency audit (read-only, no lock needed)
+- Safe operational logging (server mode, connection count, disconnect reason)
+- Multi-model forward architecture documented (not implemented)
+- Deployed concurrency smoke procedure documented
+
+**Status**: Implemented (PR0079)
+
+---
+
+## Previous milestone (PR0078)
+
+Model Runtime Plugin Tracing and Investor Showcase (see above).
 
 **Status**: Implemented (PR0078)
 
 ---
 
-## Previous milestone (PR0077)
+## Next milestone (PR0080)
+
+Bremen Investor Control Room:
+- Default /demo route redesigned with investor layout
+- One real Bremen model (current, no selector needed)
+- Central live pipeline visualization (per-job, single workflow)
+- Docked structured log panel (right panel, SSE-fed)
+- Presentation-quality visual hierarchy
+- Responsive: 3-column on large screens, single-column on mobile
+- Keyboard accessibility, prefers-reduced-motion
+- No model selector — single workflow, single model mode
+- Model provenance metadata displayed from existing trace/report data
+
+**Status**: Planned (not started)
+
+---
+
+## Future milestone (PR0081)
+
+Provider-Owned Model Variants and Independent Model Runs:
+- Provider-owned model variant catalogs
+- Explicit model selection
+- model_variant_id, model_run_id
+- Multiple independent runs of the same workflow_id
+- Per-run event correlation, results, and reports
+- Independent result cards with comparison layout
+- No combined verdict statement
+- Candidate model marking (evaluation_only)
+- Begins only when additional real model configurations are available
+
+**Status**: Planned (not started)
+
+---
 
 Multi-Workflow Analysis Workspace:
 - Structured job events and bounded ephemeral event store
