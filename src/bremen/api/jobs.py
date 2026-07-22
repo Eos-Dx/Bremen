@@ -7,6 +7,7 @@ no concurrency handling beyond basic safety.
 from __future__ import annotations
 
 import logging
+import threading
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -38,11 +39,12 @@ class InMemoryJobStore:
     """In-memory job store.
 
     Stores ``JobRecord`` objects keyed by UUID string.  No persistence,
-    no background worker, no concurrency control.
+    no background worker.  Thread-safe via internal lock.
     """
 
     def __init__(self) -> None:
         self._jobs: dict[str, JobRecord] = {}
+        self._lock = threading.Lock()
 
     def create_job(
         self, request: PredictionRequest | None = None
@@ -68,7 +70,8 @@ class InMemoryJobStore:
             result=None,
             error=None,
         )
-        self._jobs[job_id] = record
+        with self._lock:
+            self._jobs[job_id] = record
         _log.info(
             "bremen.job.created\t"
             "stage=job\tstatus=created\t"
@@ -88,7 +91,8 @@ class InMemoryJobStore:
         -------
         The ``JobRecord`` if found, or ``None``.
         """
-        return self._jobs.get(job_id)
+        with self._lock:
+            return self._jobs.get(job_id)
 
     def update_status(
         self,
@@ -111,13 +115,14 @@ class InMemoryJobStore:
         KeyError
             If *job_id* is not found.
         """
-        record = self._jobs[job_id]
-        record.status = status
-        record.updated_at = _utc_now()
-        if result is not None:
-            record.result = result
-        if error is not None:
-            record.error = error
+        with self._lock:
+            record = self._jobs[job_id]
+            record.status = status
+            record.updated_at = _utc_now()
+            if result is not None:
+                record.result = result
+            if error is not None:
+                record.error = error
         if status == "completed":
             _log.info(
                 "bremen.job.completed\t"
@@ -138,7 +143,8 @@ class InMemoryJobStore:
     @property
     def job_count(self) -> int:
         """Number of jobs currently stored."""
-        return len(self._jobs)
+        with self._lock:
+            return len(self._jobs)
 
 
 def _utc_now() -> str:

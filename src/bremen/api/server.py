@@ -26,6 +26,18 @@ import logging
 import re
 import uuid
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
+
+
+class _ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+    """Thread-per-request HTTP server with daemon threads.
+
+    Threads are daemon so they do not prevent process exit during
+    shutdown.  Each SSE connection lives in its own thread for the
+    stream duration (up to 5 minutes).
+    """
+
+    daemon_threads = True
 from typing import Any
 
 def _load_synthetic_model() -> None:
@@ -1256,11 +1268,12 @@ def run_server(
 
     job_store = InMemoryJobStore()
     handler = _make_handler(job_store, version=version)
-    server = HTTPServer((host, port), handler)
+    server = _ThreadingHTTPServer((host, port), handler)
+    server.allow_reuse_address = True
 
     _log.info(
         "bremen.server.started\tstage=startup\tstatus=completed\t"
-        "host=%s\tport=%s",
+        "host=%s\tport=%s\tserver_mode=threaded\tmax_workers=per-request",
         host, port,
     )
 
@@ -1279,7 +1292,15 @@ def run_server(
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nShutting down Bremen API server.")
+        _log.info(
+            "bremen.server.shutdown\tstage=shutdown\tstatus=started\t"
+            "reason=keyboard_interrupt"
+        )
+        server.shutdown()
         server.server_close()
+        _log.info(
+            "bremen.server.shutdown\tstage=shutdown\tstatus=completed"
+        )
 
 # ---------------------------------------------------------------------------
 # Demo workspace route

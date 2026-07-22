@@ -420,3 +420,162 @@ Per-stage safe key allowlists prevent exposure of sensitive data:
 - Raw q/intensity arrays
 - PONI contents, private paths
 - Patient identifiers
+
+
+## PR0079 — Concurrent Demo Server and Multi-Client SSE Safety
+
+### Threaded Demo Server
+
+| Attribute | Value |
+|-----------|-------|
+| Server class | ThreadingMixIn + HTTPServer (stdlib) |
+| Thread model | Thread-per-request |
+| Daemon threads | True (do not prevent shutdown) |
+| Address reuse | True |
+
+Each HTTP request runs in its own thread.  SSE streams live in dedicated
+threads for up to 5 minutes.  When a stream ends (stream_complete, client
+disconnect, or deadline), its thread is released.  Daemon threads ensure
+server shutdown does not block on active SSE connections.
+
+### Concurrent Request Support
+
+Under a threaded server, all request paths are independently available
+while any number of SSE streams remain open:
+
+- GET /health responds 200
+- GET /demo/api/jobs responds 200 with job list
+- GET /demo/api/jobs/{job_id} responds 200 with job data
+- GET /demo/api/jobs/{job_id}/events responds 200
+- GET /demo/workspace responds 200 with HTML
+- GET /demo/api/jobs/{job_id}/reports responds 200
+
+### SSE Thread-Per-Connection
+
+Each SSE client connection creates a dedicated thread.  Each thread
+maintains an independent cursor (Last-Event-ID).  One client's slow
+or stalled connection does not block another client.  Both clients
+receive the same events from the shared event store.
+
+### Lock-Protected Job Storage
+
+The package-level _jobs dictionary and associated collections are
+protected by threading.Lock (_jobs_lock).  The lock is held only for
+brief dict operations (get, set, snapshot) and is never held during:
+
+- Model execution (run_workflow_request)
+- SSE wait (wait_for_events)
+- Network write (wfile.write)
+- JSON serialization (json.dumps)
+- Report generation
+- Trace projection
+
+Read paths capture snapshots under the lock, then release before
+serialization and network write.  This prevents partially visible
+job state and RuntimeError from concurrent dict mutation during
+iteration.
+
+### InMemoryJobStore Thread Safety
+
+The legacy InMemoryJobStore used by /predictions endpoints is
+thread-safe via internal threading.Lock.  All mutable operations
+(create_job, get_job, update_status, job_count) acquire the lock.
+This resolves plan review warning W001.
+
+### Package-Level Singleton Initialization
+
+Package-persistent state (event store, jobs dict, report providers)
+uses double-checked locking with a package-stored init lock.  This
+prevents first-access races where concurrent request threads could
+both observe a None attribute and create competing singletons.
+The lock itself is stored on the bremen package to survive
+bremen.api.* module purge and re-import.
+
+### Module Reload Behavior
+
+After bremen.api.* module purge and re-import:
+
+- The event store identity survives (stored on bremen package)
+- The jobs dictionary identity survives
+- The jobs lock identity survives
+- The providers lock identity survives
+- New module-level references rebind to the surviving package objects
+
+### Model and Provider Concurrency Audit
+
+ModelState: read-only after server startup.  Model packages are
+immutable dicts read by concurrent inference requests.  No
+concurrent mutation.
+
+BremenProvider: created fresh per registry.build().  No shared
+provider instances between concurrent calls.  execute() reads
+_model_package (read-only) and performs pure computation on local
+numpy arrays.
+
+No provider-local inference lock is needed.
+
+### Supported Resource Assumptions
+
+| Resource | Bound |
+|----------|-------|
+| SSE stream duration | 300 seconds (5 min) |
+| Heartbeat interval | 15 seconds |
+| Max concurrent SSE clients | No hard cap (demo usage: 2-5) |
+| Thread memory | ~8 MB per thread (Linux default) |
+| 50 SSE threads | ~400 MB |
+| App Runner instance | 1 vCPU, 2 GB RAM (typical) |
+
+### Built-in Demo Server Limitations
+
+This server uses Python's built-in http.server module.  It is not
+production-grade.  Known limitations include:
+
+- No connection pooling or keep-alive reuse
+- Thread-per-connection model does not scale to hundreds of
+  long-lived SSE clients
+- No request queue depth management
+- No graceful degradation under overload
+- No TLS termination (expects reverse proxy in production)
+
+### Deployed Concurrency Smoke Procedure
+
+After deployment:
+
+1. Open SSE client A in browser tab 1 (workspace page)
+2. Open SSE client B in browser tab 2 (same job)
+3. Keep both connected
+4. Request /health via curl — must respond 200
+5. Request /demo/api/jobs via curl — must respond 200
+6. Start a demo analysis
+7. Observe same new event in both clients
+8. Close client A tab
+9. Verify client B remains live and receives events
+10. Open workspace in another tab — verify responsiveness
+
+No errors in App Runner logs.
+
+### Multi-Model Forward Strategy (Future Architecture)
+
+Documented for roadmap alignment.  Not implemented in PR0079.
+
+Architecture:
+
+WorkflowRegistry -> WorkflowProvider ->
+  ProviderOwnedModelVariantCatalog -> ModelVariant ->
+  ProviderOwnedArtifactAndConfiguration ->
+  ProviderOwnedRuntimeLifecycle
+
+Future identities:
+- workflow_id, model_variant_id, model_run_id
+
+Future event correlation:
+- job_id, request_id, workflow_id, model_variant_id, model_run_id,
+  event_id, sequence, stage, status
+
+Future guarantees:
+- Multiple variants of the same workflow run independently
+- Results, decisions, and reports attached to model_run_id
+- One variant cannot overwrite another
+- No combined verdict, no score averaging, no automatic promotion
+- Unavailable variants do not silently fall back
+- Bremen and Aramis remain separate providers
