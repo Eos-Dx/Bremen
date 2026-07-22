@@ -4,12 +4,14 @@ Connects canonical XRD normalization, workflow registry, and
 per-workflow provider execution into one public execution path.
 
 PR0076 — wire multi-workflow runtime into public inference paths.
+PR0077 — structured event emission and job model integration.
 """
 
 from __future__ import annotations
 
 import hashlib
 import logging
+import time as _time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,6 +28,10 @@ from .workflow_registry import WorkflowRegistry, WorkflowNotFoundError
 from .xrd_normalization import (
     CanonicalXRDCase,
     NormalizationError,
+)
+from .event_schema import (
+    JobEvent,
+    EventType,
 )
 
 _log = logging.getLogger(__name__)
@@ -105,6 +111,7 @@ def run_workflow_request(
     target_scan_ref: str | None = None,
     control_scan_ref: str | None = None,
     registry: WorkflowRegistry | None = None,
+    event_store: Any = None,  # BoundedEventStore | None
 ) -> MultiWorkflowResult:
     """Normalize an H5 container once, then execute the requested workflow.
 
@@ -121,6 +128,9 @@ def run_workflow_request(
     control_scan_ref : Optional explicit control scan reference.
     registry : Optional pre-built registry.  When ``None``, the
         default registry is built via ``get_default_registry()``.
+    event_store : Optional ``BoundedEventStore`` for structured event
+        emission.  When ``None``, no job events are emitted (only
+        application logging).
 
     Returns
     -------
@@ -129,6 +139,7 @@ def run_workflow_request(
     """
     request_id = str(uuid.uuid4())
     job_id = str(uuid.uuid4())
+    t_start = _time.monotonic()
 
     _log.info(
         "runtime.orchestration.started\t"
@@ -137,7 +148,14 @@ def run_workflow_request(
         workflow_id, request_id, job_id,
     )
 
+    # --- Emit: request accepted ---
+    _emit(event_store, job_id, request_id,
+          EventType.REQUEST_ACCEPTED, "request", "accepted")
+
     # 1. Normalize the H5 exactly once
+    _emit(event_store, job_id, request_id,
+          EventType.NORMALIZATION_STARTED, "normalization", "started")
+
     try:
         canonical = _normalize_h5(h5_path, request_id=request_id)
     except NormalizationError:
@@ -147,6 +165,8 @@ def run_workflow_request(
             "workflow_id=%s\trequest_id=%s\tjob_id=%s",
             workflow_id, request_id, job_id,
         )
+        _emit(event_store, job_id, request_id,
+              EventType.NORMALIZATION_FAILED, "normalization", "failed")
         return MultiWorkflowResult(
             request_id=request_id,
             job_id=job_id,
@@ -163,6 +183,8 @@ def run_workflow_request(
             "workflow_id=%s\trequest_id=%s\tjob_id=%s",
             workflow_id, request_id, job_id,
         )
+        _emit(event_store, job_id, request_id,
+              EventType.NORMALIZATION_FAILED, "normalization", "failed")
         return MultiWorkflowResult(
             request_id=request_id,
             job_id=job_id,
@@ -180,6 +202,13 @@ def run_workflow_request(
         len(canonical.measurements), workflow_id, request_id, job_id,
     )
 
+    _emit(event_store, job_id, request_id,
+          EventType.NORMALIZATION_COMPLETED, "normalization", "completed",
+          details={
+              "measurement_count": len(canonical.measurements),
+              "layout": canonical.source_layout,
+          })
+
     # 2. Resolve provider through registry
     resolved_registry = registry or get_default_registry()
     try:
@@ -191,6 +220,9 @@ def run_workflow_request(
             "workflow_id=%s\trequest_id=%s\tjob_id=%s",
             workflow_id, request_id, job_id,
         )
+        _emit(event_store, job_id, request_id,
+              EventType.WORKFLOW_NOT_FOUND, "workflow", "failed",
+              workflow_id=workflow_id)
         return MultiWorkflowResult(
             request_id=request_id,
             job_id=job_id,
@@ -214,6 +246,16 @@ def run_workflow_request(
         workflow_id, request_id, job_id,
     )
 
+    _emit(event_store, job_id, request_id,
+          EventType.WORKFLOW_RESOLVED, "workflow", "resolved",
+          workflow_id=workflow_id,
+          details={"workflow_id": workflow_id})
+
+    # --- Emit: workflow started ---
+    _emit(event_store, job_id, request_id,
+          EventType.WORKFLOW_STARTED, "workflow", "started",
+          workflow_id=workflow_id)
+
     # 3. Execute the provider
     try:
         wf_result = provider.execute(canonical)
@@ -224,11 +266,23 @@ def run_workflow_request(
             "workflow_id=%s\trequest_id=%s\tjob_id=%s",
             workflow_id, request_id, job_id,
         )
+        _emit(event_store, job_id, request_id,
+              EventType.WORKFLOW_FAILED, "workflow", "failed",
+              workflow_id=workflow_id)
         wf_result = WorkflowResult(
             workflow_id=workflow_id,
             status="failed",
             error=f"Workflow execution failed: {type(exc).__name__}",
         )
+
+    if wf_result.status == "completed":
+        _emit(event_store, job_id, request_id,
+              EventType.WORKFLOW_COMPLETED, "workflow", "completed",
+              workflow_id=workflow_id)
+    else:
+        _emit(event_store, job_id, request_id,
+              EventType.WORKFLOW_FAILED, "workflow", "failed",
+              workflow_id=workflow_id)
 
     overall_status = "completed" if wf_result.status == "completed" else "failed"
 
@@ -238,6 +292,12 @@ def run_workflow_request(
         "workflow_id=%s\toverall_status=%s\trequest_id=%s\tjob_id=%s",
         workflow_id, overall_status, request_id, job_id,
     )
+
+    duration_ms = int((_time.monotonic() - t_start) * 1000)
+    _emit(event_store, job_id, request_id,
+          EventType.REQUEST_COMPLETED, "request", "completed",
+          details={"overall_status": overall_status},
+          duration_ms=duration_ms)
 
     return MultiWorkflowResult(
         request_id=request_id,
@@ -281,3 +341,43 @@ def _normalize_h5(
     validate_canonical_case(case)
 
     return case
+
+
+# ---------------------------------------------------------------------------
+# Internal: event emission helper
+# ---------------------------------------------------------------------------
+
+
+def _emit(
+    store: Any,
+    job_id: str,
+    request_id: str,
+    event_type: EventType,
+    stage: str,
+    status: str,
+    *,
+    workflow_id: str | None = None,
+    duration_ms: int | None = None,
+    details: dict[str, Any] | None = None,
+) -> None:
+    """Emit a structured event to *store* if it is not ``None``."""
+    if store is None:
+        return
+    event = JobEvent(
+        job_id=job_id,
+        request_id=request_id,
+        workflow_id=workflow_id,
+        stage=stage,
+        event_type=event_type.value,
+        status=status,
+        duration_ms=duration_ms,
+        details=details or {},
+    )
+    try:
+        store.append(job_id, event)
+    except Exception:
+        _log.debug(
+            "runtime.event.emit.failed\t"
+            "job_id=%s\tevent_type=%s",
+            job_id, event_type.value,
+        )

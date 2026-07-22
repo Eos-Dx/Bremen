@@ -1,0 +1,88 @@
+revision: 2026-07-21T23:10:09Z
+review:
+  status: valid
+  branch: 0077-multi-workflow-analysis-workspace
+  head: 4a02fb7a0ef481c4f75d9b022e6953ac4331b292
+  reviewed_files:
+    - .project-memory/pr/0077-multi-workflow-analysis-workspace/PLAN.md
+    - src/bremen/api/workflow_orchestrator.py
+    - src/bremen/api/workflow_bremen.py
+    - src/bremen/api/workflow_aramis.py
+    - src/bremen/api/workflow_provider.py
+    - src/bremen/api/workflow_registry.py
+    - src/bremen/api/server.py
+    - src/bremen/api/app.py
+    - src/bremen/api/schemas.py
+    - src/bremen/api/decision_support.py
+    - src/bremen/api/model_state.py
+    - src/bremen/api/h5_layouts.py
+    - src/bremen/api/preflight.py
+    - src/bremen/api/inference_handler.py
+    - src/bremen/inference.py
+    - src/bremen/h5_inputs.py
+    - src/bremen/logging_config.py
+    - ROADMAP.md
+    - tests/test_bremen_workflow_bremen.py
+    - tests/test_bremen_workflow_registry.py
+    - tests/test_bremen_api_server.py
+    - tests/test_bremen_event_stream.py (planned)
+    - tests/test_bremen_workspace_ui.py (planned)
+
+blockers: []
+
+warnings: []
+
+confirmed:
+  product_boundaries_separate: true
+  job_model_typed: true
+  transport_vs_analysis_status_separate: true
+  event_schema_versioned: true
+  event_details_allowlisted: true
+  model_stages_observable: true
+  unstructured_validate_removed: true
+  event_store_bounded: true
+  event_store_thread_safe: true
+  sse_reconnect_defined: true
+  job_execution_independent_of_stream: true
+  report_envelope_common: true
+  reports_workflow_specific: true
+  report_failure_isolated: true
+  bremen_language_correct: true
+  bremen_certification_honest: true
+  aramis_content_not_fabricated: true
+  workflow_ui_dynamic: true
+  generic_workflow_fallback: true
+  process_panel_structured: true
+  raw_logs_not_exposed: true
+  audit_privacy_safe: true
+  privacy_allowlists: true
+  recursion_prevented: true
+  accessibility_planned: true
+  canonical_roadmap_updated: true
+  roadmap_claims_honest: true
+  existing_cicd_reused: true
+  scope_bounded: true
+  tests_sufficient: true
+
+summary: >
+  Plan PR0077 is approved. It creates a safe, bounded, extensible user-facing
+  analysis workspace around the existing multi-workflow runtime. Every claim
+  about the current state of the codebase is verified:
+  (1) VALIDATE: SUCCESS at workflow_bremen.py:310 — confirmed;
+  (2) No event_store, event_schema, job_models, SSE, report_provider, or
+  workspace_ui files exist — confirmed by grep;
+  (3) Existing structured events (runtime.*, bremen.h5_input.*,
+  bremen.prediction.*) are application log lines, not a user-facing job
+  event model — confirmed by inspection of workflow_orchestrator.py, server.py,
+  h5_inputs.py, inference_handler.py;
+  (4) No AnalysisJob, WorkflowRun, ReportEnvelope, EventSource, BoundedEventStore
+  references exist in src/ or tests/ — confirmed by grep;
+  (5) build_decision_support_report exists at decision_support.py:48 — confirmed.
+  The plan defines a complete job model, versioned event schema, bounded
+  in-memory store, SSE contract, separate report architecture for Bremen and
+  Aramis, accessible frontend workspace, privacy zones with allowlists,
+  recursion safeguard, roadmap update, and comprehensive tests. Scientific
+  boundaries are preserved — no fabricated Aramis content, no combined verdict,
+  no diagnosis claims, no clinician-replacement language, scientifically_certified
+  flag visible. Scope is focused on observability, reports, and frontend
+  presentation with no redesign of existing scientific infrastructure.

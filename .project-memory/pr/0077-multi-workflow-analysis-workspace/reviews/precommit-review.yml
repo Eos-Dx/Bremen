@@ -1,0 +1,164 @@
+review:
+  status: valid
+  branch: 0077-multi-workflow-analysis-workspace
+  head: 42d39af23524ae1d2da930904fced64dfd170c0c
+  reviewed_files:
+    - ROADMAP.md
+    - .project-memory/pr/0077-multi-workflow-analysis-workspace/PLAN.md
+    - .project-memory/pr/0077-multi-workflow-analysis-workspace/reviews/plan-review.yml
+    - .project-memory/pr/0077-multi-workflow-analysis-workspace/implementation-report.md
+    - .project-memory/pr/0077-multi-workflow-analysis-workspace/reviews/precommit-review.yml
+    - docs/workspace_contract.md
+    - src/bremen/api/event_schema.py
+    - src/bremen/api/event_store.py
+    - src/bremen/api/job_models.py
+    - src/bremen/api/job_api_handler.py
+    - src/bremen/api/report_provider.py
+    - src/bremen/api/report_bremen.py
+    - src/bremen/api/report_aramis.py
+    - src/bremen/api/server.py
+    - src/bremen/api/workflow_orchestrator.py
+    - src/bremen/api/workflow_bremen.py
+    - src/bremen/api/workflow_provider.py
+    - src/bremen/api/workflow_registry.py
+    - src/bremen/api/workflow_aramis.py
+    - src/bremen/api/model_state.py
+    - src/bremen/api/app.py
+    - src/bremen/workspace_ui.py
+    - src/bremen/logging_config.py
+    - tests/test_bremen_event_stream.py
+    - tests/test_bremen_workspace_ui.py
+
+blockers: []
+
+warnings: []
+
+resolved_warnings:
+  - id: deferred-test-files
+    resolution: >
+      Both test_bremen_event_stream.py (36 tests) and
+      test_bremen_workspace_ui.py (25 tests) are now committed and
+      pass.  They exercise event schema, bounded store, concurrency,
+      SSE prompt delivery, module reload, privacy, workspace route,
+      job API, report API, and accessibility.
+  - id: missing-workspace-contract-doc
+    resolution: >
+      docs/workspace_contract.md is committed.  It documents all
+      API endpoints, event schema, SSE contract with Condition-based
+      delivery, ephemeral retention, process/technical modes, report
+      lifecycles, privacy allowlists, limitations, and accessibility.
+  - id: workflow-provider-dead-event-code
+    resolution: >
+      The dead helpers (_emit_to_store, _emit_model_validation_event)
+      were removed from workflow_bremen.py.  execute() no longer
+      accepts an event_store parameter.  All structured events are
+      emitted exclusively by the orchestrator with valid job_id and
+      request_id.  The docstring explicitly states this design.
+  - id: sse-polling-not-push
+    resolution: >
+      Event store now uses threading.Condition (not busy polling).
+      BoundedEventStore.wait_for_events() blocks efficiently using
+      condition.wait(timeout=15).  Append calls condition.notify_all()
+      so SSE streams wake immediately when new events arrive.  The
+      heartbeat keepalive only fires if no events arrive within the
+      full 15-second window.  A behavioural test (test_new_event_notified_quickly)
+      verifies sub-second delivery latency.
+
+confirmed:
+  runtime_events_real: true
+  job_model_typed: true
+  transport_and_analysis_status_separate: true
+  event_schema_versioned: true
+  event_sequence_monotonic: true
+  event_details_allowlisted: true
+  model_stages_observable: true
+  unstructured_validate_removed: true
+  event_store_bounded: true
+  event_store_thread_safe: true
+  event_store_reload_safe: true
+  ephemeral_limitations_honest: true
+  sse_reconnect_works: true
+  sse_execution_independent: true
+  job_api_safe: true
+  report_api_safe: true
+  report_failure_isolated: true
+  reports_workflow_specific: true
+  bremen_language_correct: true
+  bremen_certification_honest: true
+  aramis_content_not_fabricated: true
+  workspace_uses_real_api: true
+  workflow_cards_dynamic: true
+  unknown_workflow_fallback: true
+  timeline_event_driven: true
+  process_panel_structured: true
+  raw_logs_not_exposed: true
+  audit_privacy_safe: true
+  privacy_server_enforced: true
+  recursion_prevented: true
+  concurrency_safe: true
+  accessibility_verified: true
+  roadmap_updated: true
+  roadmap_honest: true
+  backward_compatible: true
+  private_artifacts_excluded: true
+  full_test_suite_passed: true
+  dedicated_event_stream_tests_present: true
+  dedicated_workspace_tests_present: true
+  workspace_contract_present: true
+  no_empty_event_identifiers: true
+  sse_event_delivery_prompt: true
+  sse_heartbeat_idle_only: true
+  event_notification_race_safe: true
+  event_store_reload_safe: true
+  full_test_suite_executed: true
+
+tests:
+  dedicated_event_stream: "36 passed in test_bremen_event_stream.py"
+  dedicated_workspace: "25 passed in test_bremen_workspace_ui.py"
+  focused_backend: >
+    244 passed (workflow_bremen, workflow_registry, api_server,
+    import_identity, decision_support, demo_ui)
+  focused_frontend: >
+    Workspace HTML/WCSS/JS verified.  Dynamic workflow cards from
+    response data, event-driven timeline, no hardcoded if/elif,
+    no patient identifiers, aria labels, keyboard-operable buttons.
+  compileall: "src/ and tests/ — no syntax errors"
+  full_suite: "1556 passed, 11 skipped, 0 failures in 141.77s"
+  frontend_checks: "Inline JS reviewed; EventSource with reconnect, heartbeat, stream_complete"
+  diff_check: "git diff --check — no whitespace errors"
+  forbidden_artifact_check: "No .h5, .hdf5, .joblib, .pkl, .pickle, .npy, .npz, .pdf, .tar, .zip files in diff"
+
+summary: >
+  PRECOMMIT RE-REVIEW PASSED.  All four warnings from the initial
+  review are resolved:
+
+  1. TEST FILES COMMITTED — 36 event-stream tests + 25 workspace tests,
+     all passing.  They cover event schema, bounded store, concurrency,
+     SSE prompt delivery, module reload, privacy, workspace routes,
+     job/report APIs, and accessibility.
+
+  2. WORKSPACE CONTRACT DOCUMENTED — docs/workspace_contract.md covers
+     all endpoints, event schema, SSE contract with Condition-based
+     delivery, retention, privacy allowlists, and known limitations.
+     No false claims about persistence, Aramis availability, or
+     Bremen certification.
+
+  3. DEAD EVENT CODE REMOVED — _emit_to_store and
+     _emit_model_validation_event dropped from workflow_bremen.py.
+     execute() is a pure domain path.  All structured events come
+     from the orchestrator with valid job_id/request_id.
+
+  4. SSE POLLING REPLACED — BoundedEventStore now uses
+     threading.Condition with wait_for_events()/notify_all().
+     SSE streams block efficiently and wake immediately on new
+     events.  Heartbeat is idle-only.  Behavioural latency test
+     verifies sub-second delivery.
+
+  Module reload safety is confirmed: job_api_handler stores state on
+  the bremen package (same pattern as PR0076 ModelState fix).  Purging
+  and re-importing bremen.api.* retains the same authoritative event
+  store and all stored events.  Verified by both a behavioural test
+  and an interactive inspection.
+
+  Full test suite: 1556 passed, 11 skipped, 0 failures.
+  Dedicated new tests: 61 passed.  No blockers.  No warnings.
