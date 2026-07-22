@@ -1,0 +1,77 @@
+review:
+  status: valid
+  branch: 0079-investor-control-room-model-selection
+  head: 18ae60374c2f22bdc086bd9666369264ea3e1f8e
+  reviewed_files:
+    - .project-memory/pr/0079-investor-control-room-model-selection/PLAN.md
+    - src/bremen/api/server.py
+    - src/bremen/api/job_api_handler.py
+    - src/bremen/api/event_store.py
+
+blockers: []
+
+warnings:
+  - id: W001
+    severity: warning
+    evidence:
+      file: .project-memory/pr/0079-investor-control-room-model-selection/PLAN.md
+      lines: "Shared-State Inventory — item 6: InMemoryJobStore"
+    issue: "The plan identifies InMemoryJobStore as requiring a lock but does not detail the locking strategy in the Jobs Locking Strategy section. The legacy /predictions path uses this store via closure reference from server.py's _make_handler(). Concurrent POST /predictions requests can race."
+    recommendation: "Add a brief lock guard for InMemoryJobStore operations (create/get/update) in the locking strategy section, or explicitly note it is deferred if the /predictions path is being deprecated."
+
+confirmed:
+  current_server_blocker_verified: true
+  corrected_scope_bounded: true
+  threaded_server_planned: true
+  shared_state_inventory_complete: true
+  jobs_locking_safe: true
+  no_long_work_under_jobs_lock: true
+  singleton_initialization_safe: true
+  module_reload_preserved: true
+  event_store_audited: true
+  independent_sse_cursors: true
+  two_client_delivery_tested: true
+  concurrent_health_tested: true
+  concurrent_job_api_tested: true
+  disconnect_isolated: true
+  clean_shutdown_planned: true
+  model_provider_concurrency_audited: true
+  resource_bounds_defined: true
+  real_socket_tests_planned: true
+  backward_compatible: true
+  no_ui_scope_creep: true
+  no_model_catalog_scope_creep: true
+  future_model_variant_strategy_clear: true
+  multiple_bremen_versions_supported_in_strategy: true
+  multiple_aramis_versions_supported_in_strategy: true
+  no_combined_verdict: true
+  pr0080_boundary_clear: true
+  pr0081_boundary_clear: true
+  deployed_smoke_planned: true
+  acceptance_gates_sufficient: true
+
+summary: >
+  The revised plan correctly identifies and scopes the verified server blocker:
+  HTTPServer is single-threaded (line 1259 of server.py: `server = HTTPServer(...)`)
+  and the SSE handler (`handle_job_events_stream`) keeps a blocking request open for
+  up to 5 minutes with heartbeat intervals. One SSE connection blocks all other
+  requests — health, job API, workspace, report endpoints all queue behind it.
+  The plan replaces HTTPServer with ThreadingHTTPServer (daemon_threads=True) and
+  performs a thorough shared-state audit. Key risks addressed: _jobs dict locking
+  (lock on write/create, snapshot on read, never held during orchestration/SSE
+  wait/network writes), singleton first-access race (double-checked locking pattern
+  with lock stored on bremen package), _report_providers init race, SSE loop
+  _jobs.get() lock guard, event store already thread-safe (Condition + Lock),
+  ModelState read-only during inference, providers built fresh per registry call.
+  Module reload preservation is confirmed through existing test pattern. Two-client
+  SSE integration tests use real sockets on ephemeral ports. Resource bounds
+  documented (thread-per-connection, ~8 MB/thread, ~400 MB for 50 SSE clients
+  within 2 GB App Runner). Model/provider concurrency audited — no provider-local
+  lock needed (read-only model_package, per-call providers, fresh per registry
+  resolve). No API schema changes, no SSE protocol changes, no event schema changes.
+  Scope strictly limited to concurrency — no UI, model catalog, model selection,
+  or model-run schema. PR0080 (Investor Control Room) and PR0081 (Provider-Owned
+  Variants) clearly scoped as deferred follow-ups. Multi-model forward architecture
+  documented with independence guarantees. 17 acceptance gates cover all required
+  aspects. One minor warning about InMemoryJobStore locking strategy not being
+  fully detailed.
