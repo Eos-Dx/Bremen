@@ -4,6 +4,49 @@
 
 No hard calendar dates — use sequence and dependencies.
 
+## Current milestone (PR0078)
+
+Model Runtime Plugin Tracing and Investor Showcase:
+- Formal WorkflowRuntimePlugin lifecycle contract
+- Execution context with explicit EventSink
+- Typed intermediate contracts (PreparedArtifact, FeatureSet, ModelOutput, etc.)
+- 28 new lifecycle event types (artifact, input, feature validation, output validation)
+- Lifecycle state machine with ordering rules
+- Bremen instrumentation for all lifecycle stages
+- Nova (configuration-required) early-stop trace
+- Aramis unavailable lifecycle boundary
+- Execution trace projection in job API
+- Investor showcase mode (real API, real SSE, live visualization)
+- Investor showcase route: `GET /demo/workspace?view=showcase`
+- Visual pipeline (stage-by-stage layout)
+- Per-model expanded execution cards
+- Stage detail drawer (allowlisted per-stage metadata)
+- Decision visualization (score/threshold where approved)
+- Plugin provenance display
+- Accessibility (keyboard, WCAG AA, reduced motion)
+- Privacy enforcement (extended prohibited-key list)
+
+**Status**: Implemented (PR0078)
+
+---
+
+## Previous milestone (PR0077)
+
+Multi-Workflow Analysis Workspace:
+- Structured job events and bounded ephemeral event store
+- SSE live event stream with reconnect
+- Job status API, report metadata API
+- Workflow cards with independent status per workflow
+- Bremen report v0.2
+- Aramis report provider boundary
+- Analysis Workspace frontend
+- Privacy/redaction controls
+- Audit metadata display
+
+**Status**: Implemented (PR0077)
+
+---
+
 ## Current milestone (PR0077)
 
 Multi-Workflow Analysis Workspace:

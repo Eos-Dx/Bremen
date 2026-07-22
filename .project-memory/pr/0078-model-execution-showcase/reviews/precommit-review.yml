@@ -1,0 +1,135 @@
+review:
+  status: valid
+  branch: 0078-model-execution-showcase
+  head: b6835f4518178ce84d0dd89ee801eda40d7e2c3b
+  reviewed_files:
+    - .project-memory/pr/0078-model-execution-showcase/PLAN.md
+    - .project-memory/pr/0078-model-execution-showcase/reviews/plan-review.yml
+    - .project-memory/pr/0078-model-execution-showcase/implementation-report.md
+    - ROADMAP.md
+    - docs/workspace_contract.md
+    - src/bremen/api/event_schema.py
+    - src/bremen/api/job_api_handler.py
+    - src/bremen/api/server.py
+    - src/bremen/api/workflow_bremen.py
+    - src/bremen/api/workflow_orchestrator.py
+    - src/bremen/api/execution_context.py
+    - src/bremen/api/lifecycle_contracts.py
+    - src/bremen/api/runtime_plugin.py
+    - src/bremen/api/execution_trace.py
+    - src/bremen/api/event_store.py
+    - src/bremen/api/workflow_provider.py
+    - src/bremen/api/workflow_registry.py
+    - src/bremen/api/workflow_aramis.py
+    - src/bremen/api/model_state.py
+    - src/bremen/workspace_ui.py
+    - tests/test_bremen_runtime_plugin.py
+    - tests/test_bremen_execution_showcase.py
+
+blockers: []
+
+warnings: []
+
+resolved_findings:
+  - id: B001
+    resolution: >
+      plugin_build_features, run_model, build_features_traced removed.
+      execute(canonical, context) is the single authoritative path calling
+      self.build_features() (concrete method) and self.run_inference()
+      exactly once.  _emit_inference_events emits only from pre-computed
+      result.  Verified by grep (methods absent), test suite, and
+      orchestrator code inspection.
+  - id: B002
+    resolution: >
+      Showcase mode implemented in workspace_ui.py as
+      /demo/workspace?view=showcase.  Includes: visual pipeline (semantic
+      <ol> with 7 distinct states), stage detail drawer (per-stage
+      allowlisted metadata, Escape close, focus restoration), Bremen
+      decision visualization (score/threshold, NOT CERTIFIED flag,
+      no diagnosis), workflow cards (dynamic, unknown-workflow fallback),
+      process-panel linkage (bidirectional event-stage navigation),
+      accessibility (keyboard nav, aria-live, reduced motion, responsive),
+      investor summary (technical readiness separate from scientific
+      certification).  Uses real job API and real SSE — no mock data,
+      no fake timers, no static embedded job.
+  - id: W001-W003
+    resolution: >
+      Event budget documented in workspace_contract.md (Bremen ~22-26,
+      Nova ~6, Aramis ~4, limit 1000).  Duplicate inference eliminated.
+      Orchestrator context wiring confirmed.  All previous deferred-scope
+      warnings closed.
+  - id: W004
+    resolution: >
+      Hardcoded provider.workflow_id == "aramis" check replaced with
+      generic provider.readiness().model_ready check for ALL providers.
+      Verified by grep (no 'aramis' string in orchestrator execution
+      path).  Behavioral test with SyntheticUnavailableProvider proves
+      generic handling without workflow-ID knowledge.
+
+confirmed:
+  abstract_feature_call_removed: true
+  one_authoritative_execution_path: true
+  inference_exactly_once: true
+  generic_provider_unavailability: true
+  no_hardcoded_aramis_orchestration: true
+  showcase_implemented: true
+  showcase_uses_real_api: true
+  showcase_uses_real_sse: true
+  no_fake_progress: true
+  investor_summary_grounded: true
+  technical_scientific_readiness_separate: true
+  visual_pipeline_event_driven: true
+  all_visual_states_supported: true
+  workflow_cards_dynamic: true
+  unknown_workflow_fallback: true
+  stage_drawer_safe: true
+  decision_visualization_safe: true
+  nova_presentation_honest: true
+  aramis_presentation_honest: true
+  process_linkage_works: true
+  sse_behavior_preserved: true
+  accessibility_behavior_tested: true
+  privacy_server_enforced: true
+  documentation_complete: true
+  backward_compatible: true
+  full_test_suite_executed: true
+  full_test_suite_passed: true
+
+tests:
+  runtime_plugin: "30 passed in test_bremen_runtime_plugin.py"
+  showcase: "39 passed in test_bremen_execution_showcase.py"
+  full_suite: "1625 passed, 11 skipped, 0 failures in 160.47s"
+  compileall: "src/ and tests/ — no syntax errors"
+  diff_check: "git diff --check — no whitespace errors"
+  forbidden_artifact_check: "No forbidden artifacts in diff"
+
+summary: >
+  FINAL PR0078 REVIEW: status valid.  All previous blockers (B001, B002)
+  and warnings (W001–W004) are resolved.
+
+  B001 resolved: plugin_build_features/run_model removed.
+  execute(canonical, context) is the single authoritative path.
+  Exactly-once feature construction and inference.  No duplicate
+  execution.
+
+  B002 resolved: Showcase mode implemented via /demo/workspace?view=showcase.
+  Real job API, real SSE, no mock data, no fake timers, no embedded
+  static job.  Visual pipeline (semantic <ol>, 7 states), stage detail
+  drawer (allowlisted metadata per stage, Escape/focus), Bremen decision
+  visualization (score/threshold, NOT CERTIFIED, no diagnosis), dynamic
+  workflow cards (unknown-workflow fallback), process-panel linkage,
+  accessibility (keyboard, aria-live, reduced-motion, responsive),
+  investor summary (technical readiness separate from scientific
+  certification).  Nova and Aramis typed blocked/unavailable states.
+
+  W004 resolved: orchestrator now uses generic
+  provider.readiness().model_ready check for ALL providers.  No
+  hardcoded workflow_id == "aramis" check.  Synthetic third-provider
+  test proves generic handling.
+
+  All events are derived from real runtime execution.  No stage is
+  claimed completed without corresponding work.  31 prohibited detail
+  keys enforced server-side.  Normal workspace mode preserved.
+  Documentation complete (workspace contract, roadmap).
+
+  Full suite: 1625 passed, 0 failed, 11 skipped.

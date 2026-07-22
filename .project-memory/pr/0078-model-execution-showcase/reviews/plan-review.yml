@@ -1,0 +1,75 @@
+review:
+  status: valid
+  branch: 0078-model-execution-showcase
+  head: b0ae6cadb45981725b7f0d0a10781bb3ac7d6a9c
+  reviewed_files:
+    - .project-memory/pr/0078-model-execution-showcase/PLAN.md
+
+blockers: []
+
+warnings:
+  - id: W001
+    severity: warning
+    evidence:
+      file: .project-memory/pr/0078-model-execution-showcase/PLAN.md
+      lines: "Expected Files to Change (all sections)"
+    issue: "The plan estimates ~20 events per normal Bremen run, but the described lifecycle has 11 stages × 2 events (started+completed) = 22 minimum, plus input_preparation_failed/report_unavailable/STAGE_SKIPPED pathways. The estimate is close but slightly optimistic for edge cases."
+    recommendation: "Document worst-case event count per run (approximately 26) to set accurate expectations for bounded store sizing."
+
+confirmed:
+  existing_registry_authoritative: true
+  no_second_plugin_registry: true
+  lifecycle_maps_to_real_code: true
+  execution_context_explicit: true
+  no_hidden_event_globals: true
+  intermediate_contracts_safe: true
+  artifact_stages_honest: true
+  feature_contract_observable: true
+  no_feature_value_exposure: true
+  no_weight_exposure: true
+  inference_stages_real: true
+  decision_language_correct: true
+  lifecycle_order_defined: true
+  nova_stops_before_inference: true
+  aramis_stages_not_fabricated: true
+  trace_event_derived: true
+  showcase_uses_real_api: true
+  showcase_uses_real_sse: true
+  no_fake_progress: true
+  visual_states_distinct: true
+  plugin_provenance_safe: true
+  certification_honest: true
+  process_panel_safe: true
+  training_separate: true
+  privacy_server_enforced: true
+  event_volume_bounded: true
+  accessibility_planned: true
+  roadmap_honest: true
+  tests_sufficient: true
+  scope_bounded: true
+
+summary: >
+  PLAN.md is comprehensive, architecturally sound, and contains no blockers. The
+  WorkflowRuntimePlugin contract is correctly scoped as a composable stage layer
+  owned by the provider — not a second registry. The existing WorkflowRegistry
+  remains authoritative, and WorkflowProvider.execute() is preserved for backward
+  compatibility. All lifecycle stages are mapped to real Bremen provider methods
+  (_adapt_package, validate_compatibility, build_features, run_inference, etc.).
+  Execution context is explicit with EventSink protocol, no hidden global state,
+  no patient identifiers. Intermediate contracts expose only safe metadata (counts,
+  versions, validation status) — no feature values, coefficients, raw arrays, or
+  private paths. The checksum_status rule correctly prohibits claiming verification
+  when no trusted checksum is configured. Nova stops before feature generation.
+  Aramis produces only readiness/unavailable — no fabricated stages. The execution
+  trace is event-derived, not a second divergent state machine. The investor showcase
+  uses real API endpoints and real SSE — no mock data, fake timers, or random progress.
+  Visual pipeline has distinct states for active/completed/failed/blocked/not-started
+  with reduced-motion support. Privacy is backend-enforced via extended prohibited-key
+  list. Performance is bounded at stage-level events. Accessibility includes keyboard
+  navigation, WCAG AA contrast, text+icon status, semantic HTML, and responsive layout.
+  Roadmap update is honest — no false claims about training, offline evaluation,
+  or scientific certification. Test coverage targets behavioral verification for
+  lifecycle order, provider isolation, early stops, safe metadata, privacy, and
+  showcase authenticity. Scope is well-bounded — no redesign of normalization,
+  model formulas, training, deployment, CI/CD, or report science. One minor warning
+  about event count estimate precision.

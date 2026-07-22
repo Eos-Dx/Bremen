@@ -280,7 +280,7 @@ def _make_handler(
 
             elif self.path == "/demo":
                 _handle_demo_route(self)
-            elif self.path == "/demo/workspace" or self.path.startswith("/demo/workspace/"):
+            elif self.path == "/demo/workspace" or self.path.startswith("/demo/workspace/") or self.path.startswith("/demo/workspace?"):
                 _handle_workspace_route(self)
             elif self.path == "/demo/api/evidence":
                 _handle_demo_evidence_route(self)

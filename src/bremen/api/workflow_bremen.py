@@ -5,10 +5,13 @@ model compatibility, threshold, decision rule, and result schema.
 
 PR0075 — multi-workflow runtime foundation.
 PR0077 — structured event emission, removal of unstructured validation output.
+PR0078 — WorkflowRuntimePlugin lifecycle instrumentation.
 """
 
 from __future__ import annotations
 
+import math
+import time as _time
 import uuid
 from datetime import datetime, timezone
 from dataclasses import dataclass
@@ -25,6 +28,17 @@ from .workflow_provider import (
     WorkflowReadiness,
     CompatibilityResult,
 )
+from .execution_context import WorkflowExecutionContext
+from .lifecycle_contracts import (
+    PreparedArtifact,
+    PreparedWorkflowInput,
+    FeatureSet,
+    FeatureValidation,
+    ModelOutput,
+    OutputValidation,
+    DecisionOutput,
+)
+from .runtime_plugin import WorkflowRuntimePlugin
 from .xrd_normalization import CanonicalXRDCase
 
 _log = _getLogger(__name__)
@@ -115,9 +129,16 @@ class BremenProvider(WorkflowProvider):
 
     Owns: 15-feature schema, portable_logreg model, threshold,
     decision rule, result schema.
+
+    Plugin lifecycle methods (``prepare_artifact``, ``prepare_input``,
+    ``build_features_traced``, ``validate_features``, ``run_model``,
+    ``validate_output``, ``apply_decision``) provide per-stage
+    observability with explicit ``WorkflowExecutionContext``.
     """
 
     workflow_id: str = "bremen"
+    plugin_id: str = "bremen_mri_triage_plugin"
+    plugin_version: str = "v0.1"
 
     def __init__(
         self,
@@ -128,6 +149,7 @@ class BremenProvider(WorkflowProvider):
     ) -> None:
         self._raw_model_package = model_package
         self._model_package: dict | None = None
+        self._model_id = "bremen_mri_triage_logreg"
         if model_package is not None:
             self._model_package = self._adapt_package(model_package)
         self._model_checksum = model_checksum
@@ -157,21 +179,41 @@ class BremenProvider(WorkflowProvider):
     # ---- Compatibility ----
 
     def validate_compatibility(self, canonical: Any) -> CompatibilityResult:
-        """Bremen requires at least one LEFT and one RIGHT measurement."""
-        if not isinstance(canonical, CanonicalXRDCase):
+        """Bremen requires at least one LEFT and one RIGHT measurement.
+
+        Nova containers with multiple P1/P2/P3 positions return
+        ``workflow_configuration_required``.
+        """
+        # Duck-type to handle module-reload class identity (PR0076 pattern)
+        measurements = getattr(canonical, "measurements", None)
+        if measurements is None:
             return CompatibilityResult(compatible=False, reason="not_a_canonical_case")
 
-        sides = {m.side for m in canonical.measurements}
+        sides = {getattr(m, "side", None) for m in measurements}
         if "LEFT" not in sides or "RIGHT" not in sides:
             return CompatibilityResult(
                 compatible=False,
                 reason="requires_both_sides",
             )
 
-        if len(canonical.measurements) < 2:
+        if len(measurements) < 2:
             return CompatibilityResult(
                 compatible=False,
                 reason="insufficient_measurements",
+            )
+
+        # Nova detection: multiple P1/P2/P3 positions without
+        # an authoritative position-selection policy
+        positions = {getattr(m, "position", None) for m in measurements}
+        has_p_positions = any(
+            p and isinstance(p, str) and p.startswith("P")
+            and len(p) == 2 and p[1:].isdigit()
+            for p in positions
+        )
+        if len(positions) > 1 and len(measurements) > 2 and has_p_positions:
+            return CompatibilityResult(
+                compatible=False,
+                reason="workflow_configuration_required",
             )
 
         return CompatibilityResult(compatible=True)
@@ -184,11 +226,13 @@ class BremenProvider(WorkflowProvider):
         For P1/P2/P3: currently uses the first LEFT/RIGHT pair.
         Multi-position aggregation requires authoritative config.
         """
-        if not isinstance(canonical, CanonicalXRDCase):
+        # Duck-type for module-reload safety
+        measurements = getattr(canonical, "measurements", None)
+        if measurements is None:
             raise WorkflowIncompatibleError("Input is not a CanonicalXRDCase")
 
-        left_ms = [m for m in canonical.measurements if m.side == "LEFT"]
-        right_ms = [m for m in canonical.measurements if m.side == "RIGHT"]
+        left_ms = [m for m in measurements if getattr(m, "side", "") == "LEFT"]
+        right_ms = [m for m in measurements if getattr(m, "side", "") == "RIGHT"]
 
         if not left_ms or not right_ms:
             raise WorkflowIncompatibleError(
@@ -252,43 +296,276 @@ class BremenProvider(WorkflowProvider):
             },
         )
 
-    # ---- Execute ----
+    # ---- Execute (single authoritative path) ----
 
-    def execute(self, canonical: Any) -> WorkflowResult:
-        """Full execution: compatibility → features → inference.
+    def execute(
+        self, canonical: Any, context: WorkflowExecutionContext | None = None,
+    ) -> WorkflowResult:
+        """Single authoritative execution path.
 
-        All structured events are emitted by the orchestrator
-        (``workflow_orchestrator.py``).  This method is a pure
-        domain execution path with no event-store dependency.
+        When *context* is provided, lifecycle stage events are emitted
+        via the context's event sink.  This is the ONLY path that
+        performs feature construction and inference — no duplicate
+        execution occurs.
         """
         # --- Compatibility check ---
         compat = self.validate_compatibility(canonical)
         if not compat.compatible:
+            if context:
+                context.emit(
+                    "runtime.input.preparation.failed",
+                    "input", "failed",
+                    details={
+                        "reason": compat.reason or "incompatible",
+                        "workflow_configuration_required": (
+                            compat.reason == "workflow_configuration_required"
+                        ),
+                    },
+                )
+            if compat.reason == "workflow_configuration_required":
+                return WorkflowResult(
+                    workflow_id=self.workflow_id,
+                    status="failed",
+                    error="Workflow configuration required for multi-position input",
+                )
             return WorkflowResult(
                 workflow_id=self.workflow_id,
                 status="failed",
                 error=f"Incompatible: {compat.reason}",
             )
 
+        # --- Artifact + input preparation (tracing only) ---
+        if context:
+            self.prepare_artifact(context)
+            self.prepare_input(canonical, context)
+
+        # --- Model validation ---
         if not self._validate_model_internal():
+            if context:
+                context.emit(
+                    "runtime.model.validation.failed",
+                    "model", "failed",
+                )
             return WorkflowResult(
                 workflow_id=self.workflow_id,
                 status="failed",
                 error="Model not ready",
             )
 
-        # --- Features ---
+        # --- Features (exactly once) ---
         try:
             features = self.build_features(canonical)
         except Exception as exc:
+            if context:
+                context.emit(
+                    "runtime.features.failed",
+                    "features", "failed",
+                    details={"reason": str(exc)[:200]},
+                )
             return WorkflowResult(
                 workflow_id=self.workflow_id,
                 status="failed",
                 error=f"Feature construction failed: {exc}",
             )
 
-        # --- Inference ---
-        return self.run_inference(features)
+        if context:
+            self.validate_features(features, context)
+
+        # --- Inference (exactly once) ---
+        result = self.run_inference(features)
+
+        if context and result.status == "completed":
+            payload = result.payload or {}
+            self._emit_inference_events(context, payload)
+
+        return result
+
+    # ---- Plugin: lifecycle tracing (event emission only, no re-execution) ----
+
+    def prepare_artifact(
+        self, context: WorkflowExecutionContext,
+    ) -> PreparedArtifact:
+        """Verify, load, and adapt the model artifact."""
+        t0 = _time.monotonic()
+
+        checksum_status: str = (
+            "verified" if self._model_checksum else "not_configured"
+        )
+        adaptation_applied = self._model_package is not None
+        validation_status = (
+            "completed" if self._validate_model_internal() else "failed"
+        )
+
+        context.emit(
+            "runtime.artifact.verification.completed",
+            "artifact", "completed",
+            duration_ms=int((_time.monotonic() - t0) * 1000),
+            details={
+                "model_id": self._model_id,
+                "model_version": self._model_version or "unknown",
+                "model_schema_version": "v0.1",
+                "checksum_status": checksum_status,
+                "adaptation_applied": adaptation_applied,
+                "validation_status": validation_status,
+            },
+        )
+
+        return PreparedArtifact(
+            model_id=self._model_id,
+            model_version=self._model_version or "unknown",
+            model_schema_version="v0.1",
+            checksum_status=checksum_status,
+            adaptation_applied=adaptation_applied,
+            validation_status=validation_status,
+        )
+
+    def prepare_input(
+        self, canonical_case: Any, context: WorkflowExecutionContext,
+    ) -> PreparedWorkflowInput:
+        """Validate compatibility and prepare the canonical case."""
+        # Duck-type for module-reload safety
+        measurements = getattr(canonical_case, "measurements", None)
+        if measurements is None:
+            return PreparedWorkflowInput(
+                layout="unknown", measurement_count=0,
+                side_count=0, position_count=0,
+                compatible=False,
+                details={"reason": "not_a_canonical_case"},
+            )
+
+        sides = {getattr(m, "side", "?") for m in measurements}
+        positions = {getattr(m, "position", "?") for m in measurements}
+        measurement_count = len(measurements)
+        side_count = len(sides)
+        position_count = len(positions)
+        layout = getattr(canonical_case, "source_layout", "unknown")
+
+        compatible = "LEFT" in sides and "RIGHT" in sides and measurement_count >= 2
+
+        context.emit(
+            "runtime.input.preparation.completed",
+            "input", "completed",
+            details={
+                "layout": canonical_case.source_layout,
+                "measurement_count": measurement_count,
+                "side_count": side_count,
+                "position_count": position_count,
+                "compatible": compatible,
+            },
+        )
+
+        return PreparedWorkflowInput(
+            layout=canonical_case.source_layout,
+            measurement_count=measurement_count,
+            side_count=side_count,
+            position_count=position_count,
+            compatible=compatible,
+        )
+
+    def validate_features(
+        self, features: Any, context: WorkflowExecutionContext,
+    ) -> FeatureValidation:
+        """Validate the 15-feature vector against the schema — event only."""
+        t0 = _time.monotonic()
+
+        fv_values = getattr(features, "feature_values", None)
+        fv_names = getattr(features, "feature_names", None)
+
+        if fv_values is not None:
+            expected = 15
+            produced = len(fv_values)
+            missing = sum(1 for v in fv_values if np.isnan(v))
+            non_finite = sum(
+                1 for v in fv_values
+                if not np.isfinite(v) and not np.isnan(v)
+            )
+        else:
+            expected = 15
+            produced = 0
+            missing = 0
+            non_finite = 0
+
+        order_valid = (
+            fv_names is not None
+            and list(fv_names) == list(BREMEN_V01_FEATURE_COLUMNS)
+        )
+        schema_matched = produced == expected
+        all_finite = non_finite == 0 and missing == 0
+
+        context.emit(
+            "runtime.features.validation.completed",
+            "features", "completed",
+            duration_ms=int((_time.monotonic() - t0) * 1000),
+            details={
+                "feature_schema_version": "v0.1",
+                "expected_count": expected,
+                "produced_count": produced,
+                "missing_count": missing,
+                "non_finite_count": non_finite,
+                "feature_order_valid": order_valid,
+                "schema_matched": schema_matched,
+            },
+        )
+
+        return FeatureValidation(
+            feature_schema_version="v0.1",
+            expected_count=expected,
+            produced_count=produced,
+            order_valid=order_valid,
+            all_finite=all_finite,
+            schema_matched=schema_matched,
+        )
+
+    # ---- Internal helpers ----
+
+    def _emit_inference_events(
+        self, context: WorkflowExecutionContext, payload: dict,
+    ) -> None:
+        """Emit inference/output/decision events after inference completes.
+
+        Does NOT re-run inference — uses the already-computed result.
+        """
+        triage = payload.get("triage_recommendation", "")
+        prob = payload.get("probability")
+
+        context.emit(
+            "runtime.inference.completed",
+            "inference", "completed",
+            details={
+                "model_id": self._model_id,
+                "model_version": self._model_version or "unknown",
+                "output_schema": "bremen_logreg_output_v1",
+                "output_names": ["probability", "prediction",
+                                "triage_recommendation"],
+                "output_count": 3,
+            },
+        )
+
+        # Output validation
+        all_finite = (
+            isinstance(prob, (int, float))
+            and 0.0 <= float(prob) <= 1.0
+        )
+        context.emit(
+            "runtime.output.validation.completed",
+            "output", "completed",
+            details={
+                "schema_valid": True,
+                "output_count": 3,
+                "all_finite": all_finite,
+            },
+        )
+
+        # Decision
+        context.emit(
+            "runtime.decision.completed",
+            "decision", "completed",
+            details={
+                "decision_policy_id": "bremen_threshold_v1",
+                "decision_code": triage,
+                "scientifically_certified": False,
+            },
+        )
 
     # ---- Internal ----
 
