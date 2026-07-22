@@ -6,6 +6,7 @@ a monotonic per-job ``sequence``, UTC ``timestamp``, and an allowlisted
 ``details`` mapping.
 
 PR0077 — multi-workflow analysis workspace, event stream, and reports.
+PR0078 — model runtime plugin tracing: 28 new EventType members.
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ SCHEMA_VERSION = "1"
 # ---------------------------------------------------------------------------
 
 _PROHIBITED_DETAIL_KEYS: frozenset[str] = frozenset({
+    # PR0077 keys
     "patient_id",
     "patient_name",
     "operator_id",
@@ -43,6 +45,23 @@ _PROHIBITED_DETAIL_KEYS: frozenset[str] = frozenset({
     "model_coefficients",
     "traceback",
     "exception_object",
+    # PR0078 keys — feature/model internals
+    "feature_value",
+    "feature_values",
+    "raw_feature_vector",
+    "coefficient",
+    "coefficients",
+    "weight",
+    "weights",
+    "intercept",
+    "scaler_mean",
+    "scaler_scale",
+    "imputer_value",
+    "imputer_statistics",
+    "raw_model_output",
+    "model_package",
+    "raw_q",
+    "raw_intensity",
 })
 
 # ---------------------------------------------------------------------------
@@ -53,7 +72,7 @@ _PROHIBITED_DETAIL_KEYS: frozenset[str] = frozenset({
 class EventType(str, Enum):
     """Typed lifecycle events covering the full orchestration path."""
 
-    # Request lifecycle
+    # --- PR0077: request lifecycle ---
     REQUEST_ACCEPTED = "runtime.request.accepted"
 
     # Input staging
@@ -70,36 +89,77 @@ class EventType(str, Enum):
     WORKFLOW_STARTED = "runtime.workflow.started"
     WORKFLOW_NOT_FOUND = "runtime.workflow.not_found"
 
-    # Model loading
+    # Model loading (PR0077)
     MODEL_LOAD_STARTED = "runtime.model.load.started"
     MODEL_LOAD_COMPLETED = "runtime.model.load.completed"
 
-    # Model validation
+    # Model validation (PR0077)
     MODEL_VALIDATION_STARTED = "runtime.model.validation.started"
     MODEL_VALIDATION_COMPLETED = "runtime.model.validation.completed"
 
-    # Features
+    # Features (PR0077)
     FEATURES_STARTED = "runtime.features.started"
     FEATURES_COMPLETED = "runtime.features.completed"
 
-    # Inference
+    # Inference (PR0077)
     INFERENCE_STARTED = "runtime.inference.started"
     INFERENCE_COMPLETED = "runtime.inference.completed"
 
-    # Decision
+    # Decision (PR0077)
     DECISION_STARTED = "runtime.decision.started"
     DECISION_COMPLETED = "runtime.decision.completed"
 
-    # Report
+    # Report (PR0077)
     REPORT_STARTED = "runtime.report.started"
     REPORT_COMPLETED = "runtime.report.completed"
 
-    # Workflow completion
+    # Workflow completion (PR0077)
     WORKFLOW_COMPLETED = "runtime.workflow.completed"
     WORKFLOW_FAILED = "runtime.workflow.failed"
 
-    # Request completion
+    # Request completion (PR0077)
     REQUEST_COMPLETED = "runtime.request.completed"
+
+    # --- PR0078: artifact lifecycle ---
+    ARTIFACT_VERIFICATION_STARTED = "runtime.artifact.verification.started"
+    ARTIFACT_VERIFICATION_COMPLETED = "runtime.artifact.verification.completed"
+    ARTIFACT_VERIFICATION_FAILED = "runtime.artifact.verification.failed"
+
+    ARTIFACT_LOAD_STARTED = "runtime.artifact.load.started"
+    ARTIFACT_LOAD_COMPLETED = "runtime.artifact.load.completed"
+    ARTIFACT_LOAD_FAILED = "runtime.artifact.load.failed"
+
+    ARTIFACT_ADAPTATION_STARTED = "runtime.artifact.adaptation.started"
+    ARTIFACT_ADAPTATION_COMPLETED = "runtime.artifact.adaptation.completed"
+    ARTIFACT_ADAPTATION_FAILED = "runtime.artifact.adaptation.failed"
+
+    MODEL_VALIDATION_FAILED = "runtime.model.validation.failed"
+
+    # --- PR0078: input preparation ---
+    INPUT_PREPARATION_STARTED = "runtime.input.preparation.started"
+    INPUT_PREPARATION_COMPLETED = "runtime.input.preparation.completed"
+    INPUT_PREPARATION_FAILED = "runtime.input.preparation.failed"
+
+    # --- PR0078: feature validation ---
+    FEATURES_VALIDATION_STARTED = "runtime.features.validation.started"
+    FEATURES_VALIDATION_COMPLETED = "runtime.features.validation.completed"
+    FEATURES_VALIDATION_FAILED = "runtime.features.validation.failed"
+
+    # --- PR0078: output validation ---
+    OUTPUT_VALIDATION_STARTED = "runtime.output.validation.started"
+    OUTPUT_VALIDATION_COMPLETED = "runtime.output.validation.completed"
+    OUTPUT_VALIDATION_FAILED = "runtime.output.validation.failed"
+
+    # --- PR0078: inference/decode extensions ---
+    INFERENCE_FAILED = "runtime.inference.failed"
+    DECISION_FAILED = "runtime.decision.failed"
+
+    # --- PR0078: report extensions ---
+    REPORT_FAILED = "runtime.report.failed"
+    REPORT_UNAVAILABLE = "runtime.report.unavailable"
+
+    # --- PR0078: skipped ---
+    STAGE_SKIPPED = "runtime.stage.skipped"
 
 
 # ---------------------------------------------------------------------------

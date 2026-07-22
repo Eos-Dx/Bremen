@@ -45,6 +45,7 @@ from .report_provider import (
 )
 from .workflow_orchestrator import run_workflow_request
 from .workflow_registry import WorkflowRegistry
+from .execution_trace import build_trace_from_events
 
 _log = logging.getLogger(__name__)
 
@@ -367,6 +368,14 @@ def handle_job_get(handler: BaseHTTPRequestHandler, job_id: str) -> None:
     result = job.to_dict()
     result["storage_mode"] = _event_store.storage_mode
     result["retention_seconds"] = _event_store.retention_seconds
+
+    # Add execution traces per workflow
+    result["execution_traces"] = {}
+    for wid in job.requested_workflows:
+        trace = build_trace_from_events(_event_store, job_id, wid)
+        if trace:
+            result["execution_traces"][wid] = trace.to_dict()
+
     _send_json(handler, 200, result)
 
 

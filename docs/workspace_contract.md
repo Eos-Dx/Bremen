@@ -289,3 +289,134 @@ The following must not appear in any API response or workspace HTML:
 - PDF generation is not implemented (JSON reports only)
 - No role-based access controls
 - Maximum 5-minute SSE stream duration per connection
+
+
+## PR0078 — Model Runtime Plugin Lifecycle
+
+### Authoritative Execution Path
+
+The orchestrator constructs a ``WorkflowExecutionContext`` and passes it
+to ``provider.execute(canonical, context)``.  The provider's ``execute()``
+is the single authoritative execution path — feature construction and
+inference each occur exactly once per request.
+
+### Lifecycle Stage Events (Bremen)
+
+```
+artifact_verification → artifact_loaded → artifact_adapted
+→ model_validated → input_prepared → features_produced
+→ features_validated → inference_completed → output_validated
+→ decision_completed → report_completed
+```
+
+Each stage emits a ``started`` and ``completed`` event pair with real
+durations.  No stage can complete without a corresponding start event.
+
+### Nova Early-Stop Trace
+
+Nova containers with multiple P1/P2/P3 positions:
+```
+normalization completed
+→ workflow resolved
+→ input preparation failed (reason: workflow_configuration_required)
+→ workflow final status: workflow_configuration_required
+→ no feature/inference/decision/report events
+```
+
+### Aramis Unavailable Trace
+
+When Aramis runtime is not configured:
+```
+workflow resolved
+→ readiness evaluated (model_ready: false)
+→ workflow unavailable
+→ no artifact/feature/inference/decision/report events
+```
+
+### Event Budget (Measured)
+
+| Workflow | Events per run | Notes |
+|----------|---------------|-------|
+| Bremen (normal) | ~22-26 | 11 stages × 2 events + request overhead |
+| Nova (early stop) | ~6 | Normalization + resolution + failed input preparation |
+| Aramis (unavailable) | ~4 | Normalization + resolution + readiness + failed |
+| Per-job limit | 1000 | Well within workspace bounds |
+
+Supported assumption: one workflow per request (current orchestrator).
+Multi-workflow jobs would multiply linearly but remain well under the
+1000-event-per-job limit with current workflow counts (2-3).
+
+### Generic Unavailable-Provider Handling (W004 Resolution)
+
+The orchestrator uses a generic ``provider.readiness().model_ready`` check
+for ALL providers.  When ``model_ready`` is ``False``, the orchestrator
+returns ``workflow_unavailable`` early — no workflow-id-specific branches.
+This replaces the previous hardcoded ``provider.workflow_id == "aramis"``
+check.  A synthetic unavailable-provider test proves the orchestrator
+handles unavailability generically without knowing the workflow ID.
+
+### Investor Showcase Mode (PR0078)
+
+| Attribute | Value |
+|-----------|-------|
+| Route | `GET /demo/workspace?view=showcase` |
+| Mode | Same workspace route, same real APIs, same SSE stream |
+| Mode detection | JS checks `window.location.search` for `view=showcase` |
+
+Showcase mode provides:
+- **Investor summary header**: Analysis status, input layout, measurement
+  count, requested/completed workflows, models executed, reports available,
+  technical readiness, scientific certification (separate fields)
+- **Visual execution pipeline**: Event-derived semantic `<ol>` of stages with
+  active/completed/failed/blocked/skipped/not_started/unavailable states.
+  Pipeline groups: Input → Canonical XRD → Workflow Plugin → Model Contract
+  → Features → Inference → Decision → Report
+- **Dynamic workflow execution cards**: Workflow name, plugin ID/version,
+  model ID/version, current stage, stage progress, duration, decision status,
+  report status, scientifically_certified flag
+- **Stage detail drawer**: Click a completed/failed/blocked stage to open
+  safe metadata drawer with per-stage allowlisted fields. No feature values,
+  coefficients, weights, intercept, scaler/imputer parameters, raw arrays,
+  or private paths exposed.
+- **Bremen decision visualization**: MRI continuation assessment with score,
+  threshold, decision code, scientifically_certified flag, and
+  technical-demo-only notice. No diagnosis wording, no clinical
+  certification implication.
+- **Nova presentation**: Configuration required on multi-position input.
+  Six measurements retained, P1/P2/P3 positions visible. Inference not
+  started. Decision not produced. Report unavailable.
+- **Aramis presentation**: Workflow unavailable. Model lifecycle not
+  started. Report unavailable. No fabricated stages.
+- **Process-panel linkage**: Click a pipeline stage highlights matching
+  process events. Stage selection scrolls process panel.
+- **Accessibility**: Semantic `<ol>` stage list, buttons for selectable
+  stages, Enter/Space activation, Escape drawer close, focus restoration,
+  visible focus state, `aria-live` region for current stage updates,
+  `prefers-reduced-motion` support, responsive at ~320px and presentation
+  widths. Status communicated via text AND icon, not color alone.
+- **Live SSE behavior**: Uses existing SSE connection. No polling loop.
+  Reconnect via Last-Event-ID. Duplicate events suppressed by
+  event ID/sequence. Terminal job stops active transitions. Expired job
+  renders typed state.
+
+### Stage Drawer Allowlists
+
+Per-stage safe key allowlists prevent exposure of sensitive data:
+
+| Stage category | Allowed keys |
+|----------------|-------------|
+| Feature | feature_schema_version, expected_count, produced_count, missing_count, non_finite_count, feature_order_valid, schema_matched |
+| Artifact/Model | model_id, model_version, model_schema_version, checksum_status, adaptation_applied, validation_status |
+| Inference | model_id, model_version, output_schema, output_names, output_count |
+| Output validation | schema_valid, output_count, all_finite |
+| Decision | decision_policy_id, decision_code, scientifically_certified |
+| Input preparation | layout, measurement_count, side_count, position_count, compatible |
+
+### Data Not Exposed
+
+- Feature values, feature vectors
+- Model coefficients, weights, intercept
+- Scaler/imputer parameters
+- Raw q/intensity arrays
+- PONI contents, private paths
+- Patient identifiers

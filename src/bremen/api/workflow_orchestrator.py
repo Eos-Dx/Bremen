@@ -33,6 +33,7 @@ from .event_schema import (
     JobEvent,
     EventType,
 )
+from .execution_context import WorkflowExecutionContext
 
 _log = logging.getLogger(__name__)
 
@@ -256,9 +257,50 @@ def run_workflow_request(
           EventType.WORKFLOW_STARTED, "workflow", "started",
           workflow_id=workflow_id)
 
-    # 3. Execute the provider
+    # 3. Execute the provider with execution context for tracing
+    # Build event sink if store is provided
+    event_sink = None
+    if event_store is not None:
+        event_sink = lambda ev: event_store.append(job_id, ev)
+
+    context = WorkflowExecutionContext(
+        job_id=job_id,
+        request_id=request_id,
+        workflow_id=workflow_id,
+        event_sink=event_sink,
+        runtime_build_version="dev",
+    )
+
     try:
-        wf_result = provider.execute(canonical)
+        # Generic readiness check — any provider that reports model_ready=False
+        # returns workflow_unavailable.  No workflow-id-specific branches.
+        readiness = provider.readiness()
+        if not readiness.model_ready:
+            _emit(event_store, job_id, request_id,
+                  EventType.WORKFLOW_FAILED, "workflow", "failed",
+                  workflow_id=workflow_id,
+                  details={"reason": "workflow_unavailable",
+                           "model_ready": False})
+            return MultiWorkflowResult(
+                request_id=request_id, job_id=job_id,
+                normalization_status="completed",
+                source_checksum=canonical.source_checksum,
+                requested_workflows=(workflow_id,),
+                workflows={
+                    workflow_id: WorkflowResult(
+                        workflow_id=workflow_id,
+                        status="failed",
+                        error="Workflow unavailable — model not ready",
+                    ),
+                },
+                overall_status="partial_success",
+            )
+
+        # Execute — pass context if provider accepts it
+        try:
+            wf_result = provider.execute(canonical, context)
+        except TypeError:
+            wf_result = provider.execute(canonical)
     except Exception as exc:
         _log.exception(
             "runtime.workflow.failed\t"
@@ -279,12 +321,18 @@ def run_workflow_request(
         _emit(event_store, job_id, request_id,
               EventType.WORKFLOW_COMPLETED, "workflow", "completed",
               workflow_id=workflow_id)
+        overall_status = "completed"
+    elif wf_result.error and ("configuration_required" in (wf_result.error or "") or "config" in (wf_result.error or "").lower()):
+        _emit(event_store, job_id, request_id,
+              EventType.WORKFLOW_FAILED, "workflow", "failed",
+              workflow_id=workflow_id,
+              details={"reason": "workflow_configuration_required"})
+        overall_status = "workflow_configuration_required"
     else:
         _emit(event_store, job_id, request_id,
               EventType.WORKFLOW_FAILED, "workflow", "failed",
               workflow_id=workflow_id)
-
-    overall_status = "completed" if wf_result.status == "completed" else "failed"
+        overall_status = "failed"
 
     _log.info(
         "runtime.request.completed\t"
