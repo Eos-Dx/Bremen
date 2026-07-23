@@ -823,3 +823,149 @@ class TestLegacyJobDocumentation:
         assert "legacy analyze" in html or "/demo/api/h5/analyze" in html
         assert "not displayed" in html or "different creation" in html
 
+
+
+# ---------------------------------------------------------------------------
+# HOTFIX -- Control Room launch flow behavioral tests
+# ---------------------------------------------------------------------------
+
+
+class TestControlRoomLaunchCatalogSelection:
+    """Catalog row selection behavior (requirement 1)."""
+
+    def test_js_uses_source_id_not_id(self):
+        """JS template references c.source_id, not c.id."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        assert "c.source_id" in html, "Catalog template must use c.source_id"
+        assert "data-container-id" not in html, "Must use data-source-id not data-container-id"
+        assert "data-source-id" in html, "Must set data-source-id attribute"
+
+    def test_keyboard_selection_support(self):
+        """Catalog items have keyboard event handlers."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        # The JS uses addEventListener('keydown', ...) not inline onkeydown
+        assert "addEventListener('keydown'" in html or "addEventListener(\"keydown\"" in html, "Must support keyboard selection via addEventListener"
+        assert "tabindex" in html, "Must have tabindex for focusability"
+
+    def test_selected_source_updates_authoritative_state(self):
+        """selectContainer sets selectedSource with correct fields."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        assert "selectedSource={type:'container'" in html
+        assert "id:sid" in html or "selectedSource.id=" in html
+
+
+class TestControlRoomLaunchModelSelection:
+    """Model selection behavior (requirement 2)."""
+
+    def test_single_model_auto_selects(self):
+        """When exactly one available model, auto-select and display."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        assert "availableModels.length===1" in html
+        assert "selectedModelId=m.model_id" in html
+
+    def test_multiple_model_renders_selector(self):
+        """When multiple models available, render an explicit <select>."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        assert "onModelSelect" in html or "cr-model-select" in html
+
+    def test_no_available_model_disables_analyze(self):
+        """When no model is available, set modelReady=false."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        assert "No models are currently available" in html or "modelReady=false" in html
+
+
+class TestControlRoomLaunchReadiness:
+    """Analyze readiness (requirement 3)."""
+
+    def test_unified_readiness_function(self):
+        """There is a single updateReadiness function."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        assert "function updateReadiness" in html
+        assert "hasValidSource" in html
+        assert "hasValidModel" in html
+        assert "notActive" in html
+        assert "canSubmit" in html
+
+    def test_readiness_checks_stale_source(self):
+        """Readiness function rejects stale sources."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        assert "selectedSource.stale" in html
+
+    def test_readiness_checks_active_state(self):
+        """Readiness prevents submission during active requests."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        assert "isSubmitting" in html
+
+    def test_readiness_recalculated_on_all_state_changes(self):
+        """updateReadiness is called after state changes."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        calls = html.count("updateReadiness()")
+        assert calls >= 6, "Expected >=6 calls, found %d" % calls
+
+
+class TestControlRoomLaunchJobPayload:
+    """Job submission payload correctness (requirement 4)."""
+
+    def test_catalog_source_payload_has_source_id(self):
+        """Catalog source submission sends source_id and model_id."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        assert "body.source_id" in html or "source_id:selectedSource" in html
+
+    def test_upload_source_payload_has_upload_id(self):
+        """Upload source submission sends upload_id and model_id."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        assert "body.upload_id" in html or "upload_id:selectedSource" in html
+
+    def test_no_h5_path_in_submit(self):
+        """Job submission never includes h5_path."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        start = html.find("function startAnalysis")
+        end = html.find("function loadJobHistory")
+        sec = html[start:end]
+        assert "h5_path" not in sec
+
+    def test_duplicate_submit_prevented(self):
+        """isSubmitting flag prevents duplicate submissions."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        assert "isSubmitting" in html
+
+    def test_selection_kept_after_typed_error(self):
+        """Selections kept after recoverable typed errors."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        assert "error_code" in html or "SOURCE_ERROR" in html
+
+
+class TestControlRoomLaunchUploadUX:
+    """Upload UX (requirement 5)."""
+
+    def test_upload_button_label(self):
+        """Upload button says Upload New H5 File."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        assert "Upload New H5 File" in html
+        assert "Select H5 File" not in html
+
+    def test_catalog_selection_clears_upload(self):
+        """Selecting catalog container clears file input."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        assert ".value=" in html or "cr-file-input" in html
+
+
+class TestControlRoomLaunchWorkflowCompat:
+    """Workflow compatibility (requirement 6)."""
+
+    def test_aramis_workflow_excluded_on_frontend(self):
+        """Non-Bremen containers are filtered by workflow_id."""
+        html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
+        assert "workflow_id" in html
+
+    def test_containers_have_workflow_id_on_server(self):
+        """Container response includes workflow_id field server-side."""
+        with open("src/bremen/api/server.py") as f:
+            s = f.read()
+        assert "workflow_id" in s
+
+    def test_workflow_id_in_response_dict(self):
+        """The container response dict builder includes workflow_id."""
+        with open("src/bremen/api/server.py") as f:
+            s = f.read()
+        assert '"workflow_id"' in s

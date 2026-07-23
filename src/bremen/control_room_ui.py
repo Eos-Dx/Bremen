@@ -158,8 +158,10 @@ var MAX_EVENTS=200;
 var modelReady=false;
 var modelStatus='unknown';
 var jobState='idle';
+var isSubmitting=false;
 var selectedSource=null; // {type:'container'|'upload', id:'...', filename:'...', size:...}
 var selectedModelId=null;
+var selectedModelWorkflowId='bremen';
 var STAGE_MAP={
   'runtime.request.accepted':'stage-input',
   'runtime.input.preparation.completed':'stage-source',
@@ -190,12 +192,15 @@ function init(){
   if(fileInput){
     fileInput.addEventListener('change',handleFileSelect);
   }
-  // Check if upload is enabled
   var uploadArea=document.getElementById('cr-upload-area');
   if(uploadArea&&uploadArea.dataset.uploadEnabled==='false'){
     uploadArea.classList.add('hidden');
   }
 }
+
+// ============================================================
+// CATALOG SELECTION
+// ============================================================
 
 function loadContainerCatalog(){
   var list=document.getElementById('cr-container-list');
@@ -211,57 +216,88 @@ function loadContainerCatalog(){
       if(data.storage==='list_failed'){
         if(status){status.textContent='Container catalog unavailable. Check storage configuration.';status.className='cr-badge cr-badge-error'}
         if(list){list.innerHTML='<li class="cr-empty">Container catalog unavailable. Check storage configuration.<br><button class="cr-event-panel-btn" onclick="loadContainerCatalog()">Retry</button></li>'}
+        updateReadiness();
         return;
       }
       var containers=data.containers||[];
       if(containers.length===0){
         if(status){status.textContent='No H5 containers found in configured storage.';status.className='cr-badge cr-badge-warn'}
         if(list){list.innerHTML='<li class="cr-empty">No H5 containers found.</li>'}
+        updateReadiness();
         return;
       }
       if(status){status.textContent=containers.length+' container(s) available';status.className='cr-badge cr-badge-info'}
       var html='';
+      var prevSelectedId=selectedSource&&selectedSource.type==='container'?selectedSource.id:null;
+      var prevSelectedStillAvailable=false;
       containers.forEach(function(c){
         var name=c.display_name||c.source_id||'unknown';
         var size=c.size_bytes||0;
         var sizeLabel=size>1048576?(size/1048576).toFixed(1)+' MB':(size>1024?(size/1024).toFixed(1)+' KB':size+' B');
         var modified=c.last_modified?c.last_modified.substring(0,10):'';
-        html+='<li class="cr-container-item" data-container-id="'+c.id+'" onclick="selectContainer(this,\''+c.id+'\',\''+name+'\','+size+')">'+
+        var sid=c.source_id||'';
+        // Workflow compatibility — only Bremen-compatible containers
+        if(c.workflow_id&&c.workflow_id!=='bremen')return;
+        var isPrev=prevSelectedId===sid;
+        if(isPrev){prevSelectedStillAvailable=true}
+        html+='<li class="cr-container-item'+(isPrev?' selected':'')+'" data-source-id="'+sid+'" data-sname="'+name.replace(/'/g,'')+'" data-ssize="'+size+'" tabindex="0" role="button">'+
           '<span class="cr-container-name">'+name+'</span>'+
           '<span class="cr-container-meta">'+sizeLabel+' | '+modified+'</span>'+
           '</li>';
       });
       if(list){list.innerHTML=html}
-      // Preserve visual selection after refresh (W002)
-      if(selectedSource&&selectedSource.type==='container'){
-        var items=list.querySelectorAll('.cr-container-item');
-        items.forEach(function(item){
-          if(item.dataset.sourceId===selectedSource.id){
-            item.classList.add('selected');
+      // Attach event listeners after rendering
+      var items=document.querySelectorAll('.cr-container-item');
+      items.forEach(function(item){
+        item.addEventListener('click',function(){
+          var sid=item.getAttribute('data-source-id');
+          var name=item.getAttribute('data-sname');
+          var size=parseInt(item.getAttribute('data-ssize')||'0');
+          selectContainer(item,sid,name,size);
+        });
+        item.addEventListener('keydown',function(e){
+          if(e.key==='Enter'||e.key===' '){
+            e.preventDefault();
+            var sid=item.getAttribute('data-source-id');
+            var name=item.getAttribute('data-sname');
+            var size=parseInt(item.getAttribute('data-ssize')||'0');
+            selectContainer(item,sid,name,size);
           }
         });
+      });
+      // If previously selected source disappeared, mark it stale
+      if(prevSelectedId&&!prevSelectedStillAvailable){
+        document.getElementById('cr-source-status').textContent='Previously selected container is no longer available. Please select another.';
+        selectedSource.stale=true;
       }
+      updateReadiness();
     }).catch(function(){
       if(status){status.textContent='Container catalog unavailable. Check storage configuration.';status.className='cr-badge cr-badge-error'}
       if(list){list.innerHTML='<li class="cr-empty">Failed to load catalog.<br><button class="cr-event-panel-btn" onclick="loadContainerCatalog()">Retry</button></li>'}
+      updateReadiness();
     });
 }
 
-function selectContainer(el,containerId,filename,size){
+function selectContainer(el,sid,filename,size){
   // Deselect previous
   var items=document.querySelectorAll('.cr-container-item');
   items.forEach(function(i){i.classList.remove('selected')});
   el.classList.add('selected');
-  selectedSource={type:'container',id:containerId,filename:filename,size:size};
+  selectedSource={type:'container',id:sid,filename:filename,size:size,stale:false};
+  // Clear any upload selection
+  document.getElementById('cr-file-input').value='';
   document.getElementById('cr-source-status').textContent='Container: '+filename;
   setState('source_selected');
-  updateAnalyzeButton();
+  updateReadiness();
 }
+
+// ============================================================
+// UPLOAD FLOW
+// ============================================================
 
 function handleFileSelect(){
   var file=document.getElementById('cr-file-input').files[0];
   if(!file)return;
-  // Check file extension
   var name=file.name.toLowerCase();
   if(!name.endsWith('.h5')&&!name.endsWith('.hdf5')){
     document.getElementById('cr-source-status').textContent='Only .h5 and .hdf5 files are accepted.';
@@ -269,25 +305,39 @@ function handleFileSelect(){
     return;
   }
   setState('validating');
-  // Send filename in header for safe display
   var headers=new Headers();
   headers.append('X-H5-Filename',file.name);
   fetch(baseUrl+'/demo/api/stage',{method:'POST',body:file,headers:headers})
     .then(function(r){return r.json()})
     .then(function(data){
       if(data.status==='staged'){
-        selectedSource={type:'upload',id:data.upload_id,filename:data.filename,size:data.size_bytes};
+        // Clear any catalog selection
+        var items=document.querySelectorAll('.cr-container-item');
+        items.forEach(function(i){i.classList.remove('selected')});
+        selectedSource={type:'upload',id:data.upload_id,filename:data.filename,size:data.size_bytes,stale:false};
         document.getElementById('cr-source-status').textContent='Upload ready: '+data.filename;
         setState('ready_to_submit');
       }else{
         document.getElementById('cr-source-status').textContent='Upload failed: '+data.error;
         setState('idle');
+        // Keep source selections after typed error
+        if(data.error_code==='SOURCE_ERROR'||data.error_code==='MISSING_SOURCE'){
+          // Recoverable — keep current selection
+        }else{
+          selectedSource=null;
+        }
       }
+      updateReadiness();
     }).catch(function(){
       document.getElementById('cr-source-status').textContent='Upload failed';
       setState('idle');
+      updateReadiness();
     });
 }
+
+// ============================================================
+// MODEL SELECTION
+// ============================================================
 
 function loadModelCatalog(){
   var info=document.getElementById('cr-model-info');
@@ -300,32 +350,54 @@ function loadModelCatalog(){
         }
         modelReady=false;
         modelStatus='not_configured';
+        selectedModelId=null;
+        updateReadiness();
         return;
       }
       var models=data.models||[];
-      if(models.length===0){
+      // Filter to available models only
+      var availableModels=models.filter(function(m){return m.availability==='available'});
+
+      if(availableModels.length===0){
         if(info){
-          info.innerHTML='<h3>MRI Triage Model</h3><p style="font-size:12px;color:#d29922">No models available.</p>';
+          info.innerHTML='<h3>MRI Triage Model</h3><p style="font-size:12px;color:#d29922">No models are currently available.</p>';
         }
         modelReady=false;
+        selectedModelId=null;
+        updateReadiness();
         return;
       }
-      // Use default model or first available
-      var defaultId=data.default_model_id||models[0].model_id;
-      var selected=models.filter(function(m){return m.model_id===defaultId})[0]||models[0];
-      selectedModelId=selected.model_id;
-      modelReady=selected.availability==='available';
-      modelStatus=selected.availability;
 
-      // Render model info
-      var html='<dl>';
-      html+='<div class="cr-model-field"><dt>Model</dt><dd>'+selected.model_version+'</dd></div>';
-      html+='<div class="cr-model-field"><dt>Feature schema</dt><dd>'+selected.feature_schema_version+'</dd></div>';
-      html+='<div class="cr-model-field"><dt>Decision policy</dt><dd>'+selected.decision_policy_id+' v'+selected.decision_policy_version+'</dd></div>';
-      html+='<div class="cr-model-field"><dt>Status</dt><dd>'+selected.availability+'</dd></div>';
-      html+='</dl>';
-      if(info){
-        info.innerHTML='<h3>MRI Triage Model</h3>'+html;
+      modelReady=true;
+
+      // Single model — auto-select
+      if(availableModels.length===1){
+        var m=availableModels[0];
+        selectedModelId=m.model_id;
+        selectedModelWorkflowId=m.workflow_id||'bremen';
+        var html='<h3>MRI Triage Model</h3><dl>';
+        html+='<div class="cr-model-field"><dt>Model</dt><dd>'+m.model_version+'</dd></div>';
+        html+='<div class="cr-model-field"><dt>Feature schema</dt><dd>'+m.feature_schema_version+'</dd></div>';
+        html+='<div class="cr-model-field"><dt>Decision policy</dt><dd>'+m.decision_policy_id+' v'+m.decision_policy_version+'</dd></div>';
+        html+='<div class="cr-model-field"><dt>Status</dt><dd><span class="cr-badge cr-badge-ready">Available</span></dd></div>';
+        html+='</dl>';
+        if(info){info.innerHTML=html}
+      } else {
+        // Multiple models — render selector
+        var html='<h3>MRI Triage Model</h3>';
+        html+='<select id="cr-model-select" onchange="onModelSelect(this)" style="width:100%;padding:6px;background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;font-size:12px;margin-bottom:8px">';
+        availableModels.forEach(function(m){
+          var sel=m.model_id===selectedModelId?' selected':'';
+          html+='<option value="'+m.model_id+'" data-workflow="'+m.workflow_id+'"'+sel+'>'+m.display_name+'</option>';
+        });
+        html+='</select>';
+        html+='<div style="font-size:11px;color:#8b949e">Select the model for analysis</div>';
+        if(info){info.innerHTML=html}
+        // If no model selected yet, pick first
+        if(!selectedModelId&&availableModels.length>0){
+          selectedModelId=availableModels[0].model_id;
+          selectedModelWorkflowId=availableModels[0].workflow_id||'bremen';
+        }
       }
 
       // Update catalog timestamp
@@ -335,49 +407,117 @@ function loadModelCatalog(){
         tsEl.classList.remove('hidden');
       }
 
-      var hint=document.getElementById('cr-model-hint');
-      if(hint){
-        if(!modelReady){hint.classList.remove('hidden')}else{hint.classList.add('hidden')}
-      }
-      updateAnalyzeButton();
+      updateReadiness();
     }).catch(function(){
       if(info){
         info.innerHTML='<h3>MRI Triage Model</h3><p style="font-size:12px;color:#f85149">Model catalog unavailable.</p>';
       }
       modelReady=false;
+      updateReadiness();
     });
 }
 
-function updateAnalyzeButton(){
-  var btn=document.getElementById('cr-analyze-btn');
-  if(!btn)return;
-  var canSubmit=modelReady && selectedSource!==null &&
-    (selectedSource.type==='container'||selectedSource.type==='upload');
-  btn.disabled=!canSubmit;
+function onModelSelect(sel){
+  selectedModelId=sel.value;
+  var opt=sel.options[sel.selectedIndex];
+  selectedModelWorkflowId=opt.getAttribute('data-workflow')||'bremen';
+  updateReadiness();
 }
 
-function setState(newState){
-  var valid=['idle','source_selected','validating','ready_to_submit','submitting',
-    'job_created','connecting','running','reconnecting','completed',
-    'partial_success','failed','unavailable','expired'];
-  if(valid.indexOf(newState)===-1)return;
-  jobState=newState;
+// ============================================================
+// ANALYZE READINESS — single unified function (requirement 3)
+// ============================================================
+
+function updateReadiness(){
   var btn=document.getElementById('cr-analyze-btn');
-  if(btn){
-    btn.disabled=!(modelReady&&(newState==='ready_to_submit'||newState==='source_selected'));
-    if(newState==='submitting'){btn.textContent='Submitting...';btn.disabled=true}
-  }
-  var label=document.getElementById('cr-status-label');
-  if(label){label.textContent=newState.replace(/_/g,' ')}
-  var dot=document.getElementById('cr-status-dot');
-  if(dot){
-    if(newState==='running'){dot.className='cr-status-dot live'}
-    else if(newState==='connecting'||newState==='reconnecting'){dot.className='cr-status-dot connecting'}
-    else if(newState==='completed'||newState==='ready_to_submit'){dot.className='cr-status-dot live'}
-    else if(newState==='failed'){dot.className='cr-status-dot disconnected'}
-    else{dot.className='cr-status-dot idle'}
+  if(!btn)return;
+
+  var hasValidSource=selectedSource!==null&&
+    selectedSource.id&&
+    !selectedSource.stale;
+  var hasValidModel=selectedModelId!==null&&modelReady;
+  var notActive=!isSubmitting&&jobState!=='submitting'&&jobState!=='connecting'&&
+    jobState!=='running'&&jobState!=='reconnecting';
+  var canSubmit=hasValidSource&&hasValidModel&&notActive;
+
+  btn.disabled=!canSubmit;
+
+  // Update source status
+  var ss=document.getElementById('cr-source-status');
+  if(selectedSource&&selectedSource.stale&&ss){
+    ss.textContent='This source is no longer available. Please select another.';
   }
 }
+
+// ============================================================
+// JOB SUBMISSION (requirement 4)
+// ============================================================
+
+function startAnalysis(){
+  if(isSubmitting)return;
+  if(!selectedSource||!selectedModelId||!modelReady)return;
+  if(selectedSource.stale){
+    document.getElementById('cr-source-status').textContent='Cannot analyze: the selected source is no longer available.';
+    return;
+  }
+
+  isSubmitting=true;
+  setState('submitting');
+  resetPipeline();
+  resetEventPanel();
+  setConnectionState('connecting');
+  updateReadiness();
+
+  var body={workflow_id:selectedModelWorkflowId||'bremen'};
+  body.model_id=selectedModelId;
+
+  // Catalog source: send source_id
+  // Upload source: send upload_id
+  // Never send both (validated server-side)
+  if(selectedSource.type==='container'){
+    body.source_id=selectedSource.id;
+  }else if(selectedSource.type==='upload'){
+    body.upload_id=selectedSource.id;
+  }
+
+  fetch(baseUrl+'/demo/api/jobs',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  }).then(function(r){return r.json()}).then(function(data){
+    var job=data.job||{};
+    var jid=job.job_id||'';
+    if(!jid){
+      isSubmitting=false;
+      updateReadiness();
+      if(data.error){
+        document.getElementById('cr-source-status').textContent='Error: '+data.error;
+        // Keep valid selections after recoverable typed error
+        setConnectionState('idle');
+        setState('failed');
+        return;
+      }
+      setConnectionState('idle');
+      setState('ready_to_submit');
+      return;
+    }
+    currentJobId=jid;
+    setState('job_created');
+    fetchInitialEvents(jid);
+    connectSSE(jid);
+    loadJobHistory();
+    // Reset submission flag after stream completes
+  }).catch(function(){
+    isSubmitting=false;
+    updateReadiness();
+    setConnectionState('idle');
+    setState('ready_to_submit');
+  });
+}
+
+// ============================================================
+// READINESS / STATE
+// ============================================================
 
 function loadReadiness(){
   Promise.all([
@@ -394,6 +534,7 @@ function loadReadiness(){
     setState('unavailable');
   });
 }
+
 function renderReadiness(version,ready,status){
   var html='';
   if(ready){
@@ -410,51 +551,29 @@ function renderReadiness(version,ready,status){
   document.getElementById('cr-readiness').innerHTML=html;
 }
 
-function startAnalysis(){
-  if(jobState!=='ready_to_submit'&&jobState!=='source_selected')return;
-  if(!modelReady||!selectedSource)return;
-  setState('submitting');
-  resetPipeline();
-  resetEventPanel();
-  setConnectionState('connecting');
+function setState(newState){
+  var valid=['idle','source_selected','validating','ready_to_submit','submitting',
+    'job_created','connecting','running','reconnecting','completed',
+    'partial_success','failed','unavailable','expired'];
+  if(valid.indexOf(newState)===-1)return;
+  jobState=newState;
 
-  var body={workflow_id:'bremen'};
-  if(selectedModelId){body.model_id=selectedModelId}
-  if(selectedSource.type==='container'){
-    body.source_id=selectedSource.id;
-  }else if(selectedSource.type==='upload'){
-    body.upload_id=selectedSource.id;
+  var label=document.getElementById('cr-status-label');
+  if(label){label.textContent=newState.replace(/_/g,' ')}
+  var dot=document.getElementById('cr-status-dot');
+  if(dot){
+    if(newState==='running'){dot.className='cr-status-dot live'}
+    else if(newState==='connecting'||newState==='reconnecting'){dot.className='cr-status-dot connecting'}
+    else if(newState==='completed'||newState==='ready_to_submit'){dot.className='cr-status-dot live'}
+    else if(newState==='failed'){dot.className='cr-status-dot disconnected'}
+    else{dot.className='cr-status-dot idle'}
   }
-
-  fetch(baseUrl+'/demo/api/jobs',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(body)
-  }).then(function(r){return r.json()}).then(function(data){
-    var job=data.job||{};
-    var jid=job.job_id||'';
-    if(!jid){
-      // Check for error
-      if(data.error){
-        document.getElementById('cr-source-status').textContent='Error: '+data.error;
-        setConnectionState('idle');
-        setState('failed');
-        return;
-      }
-      setConnectionState('idle');
-      setState('ready_to_submit');
-      return;
-    }
-    currentJobId=jid;
-    setState('job_created');
-    fetchInitialEvents(jid);
-    connectSSE(jid);
-    loadJobHistory();
-  }).catch(function(){
-    setConnectionState('idle');
-    setState('ready_to_submit');
-  });
+  updateReadiness();
 }
+
+// ============================================================
+// JOB HISTORY
+// ============================================================
 
 function loadJobHistory(){
   fetch(baseUrl+'/demo/api/jobs')
@@ -490,9 +609,12 @@ function loadJobHistory(){
 }
 
 function openJob(jobId){
-  // Navigate to workspace deep-link
   window.location.href=baseUrl+'/demo/workspace/'+jobId;
 }
+
+// ============================================================
+// SSE / EVENTS
+// ============================================================
 
 function fetchInitialEvents(jobId){
   fetch(baseUrl+'/demo/api/jobs/'+jobId+'/events')
@@ -503,6 +625,7 @@ function fetchInitialEvents(jobId){
       }
     }).catch(function(){});
 }
+
 function connectSSE(jobId){
   if(eventSource){eventSource.close()}
   eventSource=new EventSource(baseUrl+'/demo/api/jobs/'+jobId+'/events/stream');
@@ -512,6 +635,8 @@ function connectSSE(jobId){
   });
   eventSource.addEventListener('stream_complete',function(){
     setConnectionState('live');
+    isSubmitting=false;
+    updateReadiness();
     fetchDecision(jobId);
     if(eventSource){eventSource.close();eventSource=null}
     setState('completed');
@@ -524,6 +649,7 @@ function connectSSE(jobId){
     }else{setConnectionState('reconnecting');setState('reconnecting')}
   };
 }
+
 function processEvent(ev){
   if(!ev)return;
   if(ev.sequence<=lastSequence)return;
@@ -532,6 +658,7 @@ function processEvent(ev){
   updatePipeline(ev);
   addEventRow(ev);
 }
+
 function updatePipeline(ev){
   var stage=ev.event_type||'';
   var status=ev.status||'';
@@ -556,6 +683,7 @@ function updatePipeline(ev){
   var dur=el.querySelector('.cr-stage-dur');
   if(dur&&ev.duration_ms){dur.textContent=ev.duration_ms+' ms'}
 }
+
 function addEventRow(ev){
   var panel=document.getElementById('cr-event-list');
   if(!panel)return;
@@ -580,6 +708,7 @@ function addEventRow(ev){
   }
   if(autoScroll){panel.scrollTop=panel.scrollHeight}
 }
+
 function resetPipeline(){
   var stages=document.querySelectorAll('.cr-pipeline li');
   stages.forEach(function(s){
@@ -590,12 +719,14 @@ function resetPipeline(){
     if(dur){dur.textContent=''}
   });
 }
+
 function resetEventPanel(){
   var panel=document.getElementById('cr-event-list');
   if(panel){panel.innerHTML='<div class="cr-empty">Analysis events will appear here</div>'}
   eventCache=[];
   lastSequence=0;
 }
+
 function setConnectionState(state){
   var dot=document.getElementById('cr-status-dot');
   if(dot){
@@ -606,6 +737,7 @@ function setConnectionState(state){
     else dot.className='cr-status-dot idle';
   }
 }
+
 function fetchDecision(jobId){
   fetch(baseUrl+'/demo/api/jobs/'+jobId)
     .then(function(r){return r.json()})
@@ -635,6 +767,7 @@ function fetchDecision(jobId){
       loadReport(jobId,rs);
     }).catch(function(){});
 }
+
 function loadReport(jobId,rs){
   fetch(baseUrl+'/demo/api/jobs/'+jobId+'/reports/bremen')
     .then(function(r){return r.json()})
@@ -649,11 +782,17 @@ function loadReport(jobId,rs){
       }
     }).catch(function(){});
 }
+
+// ============================================================
+// UI TOGGLES
+// ============================================================
+
 function toggleAutoScroll(){
   autoScroll=!autoScroll;
   var btn=document.getElementById('cr-autoscroll-btn');
   if(btn){btn.textContent=autoScroll?'Pause':'Follow';btn.className='cr-event-panel-btn'+(autoScroll?' active':'')}
 }
+
 function filterEvents(filter){
   var allBtn=document.getElementById('cr-filter-all');
   var compBtn=document.getElementById('cr-filter-completed');
@@ -669,6 +808,20 @@ function filterEvents(filter){
     else{r.classList.add('hidden')}
   });
 }
+
+// Expose handler functions for inline HTML onclick attributes
+window.loadContainerCatalog=loadContainerCatalog;
+window.selectContainer=selectContainer;
+window.handleFileSelect=handleFileSelect;
+window.loadModelCatalog=loadModelCatalog;
+window.onModelSelect=onModelSelect;
+window.updateReadiness=updateReadiness;
+window.startAnalysis=startAnalysis;
+window.loadJobHistory=loadJobHistory;
+window.openJob=openJob;
+window.toggleAutoScroll=toggleAutoScroll;
+window.filterEvents=filterEvents;
+
 init();
 })();
 </script>
@@ -722,10 +875,10 @@ def build_control_room_page(
     </div>
     <div class="cr-input-area" id="cr-upload-area">
       <div class="cr-section-title" style="margin-bottom:4px">Upload</div>
-      <p style="font-size:11px;color:#8b949e;margin-bottom:8px">Or upload an H5 file directly</p>
+      <p style="font-size:11px;color:#8b949e;margin-bottom:8px">Upload a new H5 file for analysis (existing catalog containers stay selected)</p>
       <input type="file" id="cr-file-input" accept=".h5,.hdf5" style="display:none">
       <button class="cr-btn cr-btn-warn" onclick="document.getElementById('cr-file-input').click()"
-        style="width:100%;margin-bottom:4px">Select H5 File</button>
+        style="width:100%;margin-bottom:4px">Upload New H5 File</button>
       <p id="cr-source-status" style="font-size:11px;color:#8b949e;margin-top:4px">No source selected</p>
     </div>
     <button class="cr-btn" id="cr-analyze-btn" onclick="startAnalysis()" disabled

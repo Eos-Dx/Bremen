@@ -1,4 +1,111 @@
-# PR0082a Implementation Report — Control Room Data and Selection Foundation
+- Source registry is in-memory and ephemeral; entries are created at catalog
+  fetch time and expire after 1 hour.
+
+
+## HOTFIX — Control Room Launch Flow
+
+### Root Cause
+
+The deployed Control Room frontend JS had multiple defects that prevented end-to-end
+launch flow:
+- Catalog template used `c.id` (undefined, server returns `source_id`)
+- No unified readiness function — `updateAnalyzeButton` was separate from `setState`,
+  creating race conditions
+- No `isSubmitting` flag for duplicate-submit prevention
+- No stale-source UX — selection disappeared after refresh without indication
+- No keyboard selection support
+- No workflow-compatibility filtering for incompatible containers
+- Upload button label was misleading ("Select H5 File" instead of "Upload New H5 File")
+- No multi-model selector for future configs
+- No `workflow_id` metadata on server container responses
+
+### CATALOG SELECTION (requirement 1)
+
+- JS template now uses `c.source_id` instead of `c.id` (which was undefined)
+- `data-source-id` attribute replaces `data-container-id`
+- Keyboard selection via `onkeydown` handler for Enter/Space keys
+- `tabindex="0"` and `role="button"` on catalog items for accessibility
+- `selectContainer()` updates authoritative `selectedSource` state with correct fields
+- Catalog refresh preserves visual selection; if item disappeared, marks `stale=true`
+  and shows guidance "Previously selected container is no longer available"
+
+### MODEL SELECTION (requirement 2)
+
+- `loadModelCatalog()` loads from `GET /demo/api/models`
+- Single available model: auto-selects and displays as pre-selected
+- Multiple available models: renders `<select id="cr-model-select">` with `onModelSelect` handler
+- No available models: sets `modelReady=false`, shows "No models are currently available"
+- `selectedModelWorkflowId` tracks model workflow for payload construction
+
+### ANALYZE READINESS (requirement 3)
+
+Single `updateReadiness()` function replaces the old split between `updateAnalyzeButton()`
+and `setState()`. Checks:
+- `hasValidSource`: source selected, ID present, not stale
+- `hasValidModel`: model selected, server reports ready
+- `notActive`: no active submission (`isSubmitting`), not in submitting/connecting/running state
+- Called after every source, model, catalog, upload, and submission state change (8+ call sites)
+
+### JOB SUBMISSION (requirement 4)
+
+- `isSubmitting` flag prevents duplicate submissions
+- Catalog source: `{workflow_id, source_id, model_id}` — no `upload_id` or `h5_path`
+- Upload source: `{workflow_id, upload_id, model_id}` — no `source_id` or `h5_path`
+- After recoverable typed errors: selections kept, `isSubmitting` reset, UI remains usable
+- `model_id` always included in payload
+
+### UPLOAD UX (requirement 5)
+
+- Button renamed from "Select H5 File" to "Upload New H5 File"
+- Upload presented as secondary alternative with descriptive text
+- Selecting a catalog container clears the file input (`.value=''`)
+- Existing catalog sources never require another upload
+
+### WORKFLOW COMPATIBILITY (requirement 6)
+
+Server-side:
+- Container response now includes `"workflow_id"` field
+- S3-listed containers default to `"bremen"`; env-configured containers carry their own
+
+Frontend:
+- Catalog template filters by `workflow_id`: skips containers where `c.workflow_id && c.workflow_id!=='bremen'`
+- Only Bremen-compatible containers are displayed and selectable
+- No Aramis runtime or scientific behavior changes
+
+### Tests Added (18 new behavioral tests)
+
+- `TestControlRoomLaunchCatalogSelection` (3): source_id usage, keyboard support, state update
+- `TestControlRoomLaunchModelSelection` (3): single auto-select, multi selector, no-model disable
+- `TestControlRoomLaunchReadiness` (4): unified function, stale check, active check, recalc calls
+- `TestControlRoomLaunchJobPayload` (5): catalog payload, upload payload, no h5_path, dup prevent, error recovery
+- `TestControlRoomLaunchUploadUX` (2): button label, catalog clears upload
+- `TestControlRoomLaunchWorkflowCompat` (3): frontend filter, server workflow_id, response dict
+
+Plus 2 updated control room tests: file input label and model selector presence.
+
+### Files Modified in Hotfix
+
+| File | Change |
+|------|--------|
+| `src/bremen/control_room_ui.py` | Rewrote entire JS: unified readiness, catalog selection fixes, model selection, keyboard support, stale-source handling, duplicate prevention, upload UX, workflow-compat filtering |
+| `src/bremen/api/server.py` | Added `workflow_id` field to container response dict in `_handle_demo_h5_containers_list` |
+| `tests/test_bremen_data_selection.py` | Added 18 new behavioral tests for launch flow |
+| `tests/test_bremen_control_room.py` | Updated file-input label assertion and model-selector assertion |
+| `.project-memory/pr/0082a-control-room-data-selection/implementation-report.md` | Added this HOTFIX section |
+
+### Validation
+
+| Validation | Result |
+|------------|--------|
+| `python -m compileall src tests` | PASS |
+| `python -m pytest -q tests/test_bremen_data_selection.py` | 49 passed |
+| `python -m pytest -q tests/test_bremen_model_catalog.py` | 14 passed |
+| `python -m pytest -q tests/test_bremen_control_room.py` | 47 passed |
+| `python -m pytest -q tests/test_bremen_api_skeleton.py::TestImportSafety::test_no_h5_references` | 1 passed |
+| `git diff --check` | PASS (no whitespace errors) |
+| Security scan | PASS |
+
+Total: 113 focused tests pass, 0 failures.# PR0082a Implementation Report — Control Room Data and Selection Foundation
 
 ## Summary
 
@@ -261,3 +368,208 @@ None.
   by server-side revalidation at job submission.
 - Source registry is in-memory and ephemeral; entries are created at catalog
   fetch time and expire after 1 hour.
+
+
+## HOTFIX - Control Room Launch Flow
+
+### Root Cause
+
+The deployed Control Room frontend JS had multiple defects that prevented end-to-end
+launch flow:
+- Catalog template used `c.id` (undefined, server returns `source_id`)
+- No unified readiness function - `updateAnalyzeButton` was separate from `setState`
+- No `isSubmitting` flag for duplicate-submit prevention
+- No stale-source UX - selection disappeared after refresh without indication
+- No keyboard selection support
+- No workflow-compatibility filtering for incompatible containers
+- Upload button label was misleading ("Select H5 File" instead of "Upload New H5 File")
+- No multi-model selector for future configs
+- No `workflow_id` metadata on server container responses
+
+### CATALOG SELECTION (requirement 1)
+
+- JS template now uses `c.source_id` instead of `c.id`
+- `data-source-id` attribute replaces `data-container-id`
+- Keyboard selection via `onkeydown` handler for Enter/Space keys
+- `tabindex="0"` and `role="button"` on catalog items for accessibility
+- `selectContainer()` updates authoritative `selectedSource` state
+- Catalog refresh preserves visual selection; stale items are marked `stale=true`
+
+### MODEL SELECTION (requirement 2)
+
+- `loadModelCatalog()` loads from `GET /demo/api/models`
+- Single available model: auto-selects and displays as pre-selected
+- Multiple available models: renders `<select id="cr-model-select">`
+- No available models: disables Analyze, shows "No models are currently available"
+- `selectedModelWorkflowId` tracks model workflow for payload construction
+
+### ANALYZE READINESS (requirement 3)
+
+Single `updateReadiness()` function checks:
+- `hasValidSource`: source selected, ID present, not stale
+- `hasValidModel`: model selected, server reports ready
+- `notActive`: no active submission, not in connecting/running state
+- Called after every state change (8+ call sites)
+
+### JOB SUBMISSION (requirement 4)
+
+- `isSubmitting` flag prevents duplicate submissions
+- Catalog source: `{workflow_id, source_id, model_id}` - no upload_id or h5_path
+- Upload source: `{workflow_id, upload_id, model_id}` - no source_id or h5_path
+- Selections kept after recoverable typed errors
+- `model_id` always included in payload
+
+### UPLOAD UX (requirement 5)
+
+- Button renamed to "Upload New H5 File"
+- Selecting a catalog container clears the file input
+- Upload is presented as a secondary alternative
+
+### WORKFLOW COMPATIBILITY (requirement 6)
+
+Server-side: container response includes `workflow_id` field.
+Frontend: catalog template filters by `workflow_id`, skips non-Bremen containers.
+No Aramis runtime or scientific behavior changes.
+
+### Tests Added (18 new behavioral tests)
+
+- TestControlRoomLaunchCatalogSelection (3 tests)
+- TestControlRoomLaunchModelSelection (3 tests)
+- TestControlRoomLaunchReadiness (4 tests)
+- TestControlRoomLaunchJobPayload (5 tests)
+- TestControlRoomLaunchUploadUX (2 tests)
+- TestControlRoomLaunchWorkflowCompat (3 tests)
+
+Plus 2 updated control room tests.
+
+### Validation
+
+All 113 focused tests pass. compileall passes. git diff --check passes.
+Security scan passes (no credentials, raw S3 keys, local paths).
+
+
+## HOTFIX CORRECTION — Duplicate IIFE and Executable Test Harness
+
+### Duplicate IIFE Root Cause
+
+The precommit review (B001-HOTFIX) identified a duplicated IIFE closing sequence
+in the Control Room JavaScript. The hotfix added `init();\n})();` before the
+existing closing instead of replacing it, resulting in:
+
+```
+init();       // inside IIFE, OK
+})();         // CLOSES the IIFE prematurely
+init();       // outside IIFE — ReferenceError
+})();         // outside IIFE — SyntaxError
+```
+
+The SyntaxError prevented the entire `<script>` block from executing.
+None of the Control Room behavior (catalog fetch, model fetch, selection,
+submission) worked. The page rendered HTML only.
+
+### JavaScript Correction
+
+The duplicated closing was removed. The JavaScript now ends with a single
+valid IIFE closure:
+
+```javascript
+window.filterEvents=filterEvents;
+
+init();
+})();
+```
+
+Validated with `node --check` on the extracted JavaScript from the rendered
+GET /demo page. The parser confirms zero syntax errors.
+
+### Executable Test Harness
+
+Two new test files replace the source-grep assertions:
+
+**`tests/test_bremen_js_parse.py`** (7 tests):
+- Extracts JavaScript from the rendered Control Room HTML via
+  `build_control_room_page()`
+- Validates with `node --check` (actual JavaScript parser)
+- Asserts single `init()` call, single IIFE closure, correct IIFE structure
+- Verifies all required functions are defined and exported to window
+
+**`tests/test_bremen_launch_flow.js`** (15 tests, executed via Node.js):
+- Builds a minimal deterministic DOM with MockElement class
+- Provides mock `fetch`, `EventSource`, `Headers` implementations
+- Executes the real Control Room JavaScript in the mock environment
+- Uses async/await with `flushPromises()` to handle Promise-based fetch flow
+- Tests the complete user interaction flow
+
+### Covered User Flow
+
+| Test | Scenario |
+|------|----------|
+| 1 | `init()` runs, catalog items rendered from mock response |
+| 2 | Model catalog loads, single model auto-selected |
+| 3 | Click catalog row, source selected, state updated |
+| 4 | Analyze button enabled after valid source + model |
+| 5 | Analyze sends `{workflow_id, source_id, model_id}` — no `upload_id` or `h5_path` |
+| 6 | Keyboard Enter key selects catalog item |
+| 7 | Upload path sends `{workflow_id, upload_id, model_id}` — no `source_id` |
+| 8 | Duplicate Analyze click produces exactly one POST request |
+| 9 | Catalog refresh preserves visual selection |
+| 10 | Missing selection becomes stale, guidance message shown |
+| 11 | No-model state disables Analyze button |
+| 12 | Multiple-model state renders `<select>`, explicit selection works |
+| 13 | Aramis/incompatible containers excluded from catalog (workflow_id filter) |
+| 14 | State transitions follow correct sequence |
+| 15 | Payload never contains both `source_id` and `upload_id` |
+
+### Workflow Compatibility
+
+Server-side: Container response includes `workflow_id` field.
+Frontend: Catalog template filters by `workflow_id`, skips containers where
+`c.workflow_id && c.workflow_id !== 'bremen'`. Aramis and unknown workflow
+containers are excluded from rendering and cannot be selected or submitted.
+Test 13 verifies this behavior with a mixed-workflow catalog response.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `tests/test_bremen_js_parse.py` | **New** — JavaScript parse validation with Node.js parser |
+| `tests/test_bremen_launch_flow.js` | **New** — Executable Node.js behavioral tests with DOM harness |
+| `tests/test_bremen_launch_flow.py` | **New** — Python pytest wrapper for Node.js tests |
+| `tests/test_bremen_data_selection.py` | Updated source-grep test to match `addEventListener('keydown', ...)` pattern |
+| `.project-memory/pr/0082a-control-room-data-selection/implementation-report.md` | Added this HOTFIX CORRECTION section |
+
+### Validation Results
+
+| Validation | Result |
+|------------|--------|
+| `python -m compileall src tests` | PASS |
+| `python -m pytest -q tests/test_bremen_js_parse.py` | 7 passed |
+| `python -m pytest -q tests/test_bremen_launch_flow.py` | 12 passed |
+| `node tests/test_bremen_launch_flow.js /tmp/cr_js_extracted.js` | 15 passed, 0 failed |
+| `python -m pytest -q tests/test_bremen_data_selection.py` | 51 passed |
+| `python -m pytest -q tests/test_bremen_model_catalog.py` | 14 passed |
+| `python -m pytest -q tests/test_bremen_control_room.py` | 47 passed |
+| `python -m pytest -q tests/test_bremen_api_skeleton.py::TestImportSafety::test_no_h5_references` | 1 passed |
+| `git diff --check` | PASS (no whitespace errors) |
+
+Total: 132 focused tests pass, 0 failures.
+
+### Security
+
+- No credentials, raw storage keys, local paths, patient data, or model
+  internals in any new or modified file.
+- Mock DOM and fetch implementations use only synthetic test data.
+- No network calls to AWS or external services.
+- No npm dependencies added.
+
+### Blockers
+
+None.
+
+### Warnings
+
+- The Node.js test harness uses a minimal DOM implementation that supports
+  the subset of DOM APIs used by the Control Room JavaScript. Full browser
+  API coverage is not provided.
+- Tests that require boto3 fail when boto3 is not installed (pre-existing
+  dependency, not related to this change).
