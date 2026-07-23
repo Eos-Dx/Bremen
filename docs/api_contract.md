@@ -276,16 +276,37 @@ Does NOT include raw H5 path, full S3 URI, or raw target/control refs.
 Model output fields:
 
 - `p_mri_needed` (float): Probability estimate in [0.0, 1.0]
-- `triage_recommendation` (str): `"MRI_RECOMMENDED"` or
-  `"MRI_RULE_OUT"`
-- `qc_status` (str): `"passed"` or `"failed"`
+- `triage_recommendation` (str): Deprecated compatibility field carrying
+  the canonical decision code (CONTINUE_MRI or MRI_REVIEW_DEFER).
+  New consumers should use `decision_code` instead.
+- `decision_code` (str): Canonical machine-readable decision value.
+  Either "CONTINUE_MRI" or "MRI_REVIEW_DEFER".
+- `decision_display_name` (str): Human-readable controlled display
+  text.  Either "Continue MRI evaluation" or "Defer MRI pending
+  clinician review".
+- `decision_policy_id` (str): "bremen_mri_continuation_threshold".
+- `decision_policy_version` (str): "0.1.0".
+- `qc_status` (str): "passed" or "failed"
 - `qc_flags` (list)
+
+Canonical machine codes:
+- CONTINUE_MRI — score >= threshold, MRI continuation flagged for
+  clinician review.
+- MRI_REVIEW_DEFER — score < threshold, MRI continuation may be
+  deferred subject to clinician review.
+
+Legacy aliases (accepted only at compatibility boundaries, never
+emitted as canonical values):
+- MRI_RECOMMENDED — deprecated alias for CONTINUE_MRI.
+- MRI_RULE_OUT — deprecated alias for MRI_REVIEW_DEFER.
+  Must not be used as public display wording.
 
 ### decision_support
 
 Safe recommendation framing:
 
-- `recommendation` (str): Same value as `triage_recommendation`
+- `recommendation` (str): Same canonical value as `decision_code`
+  (CONTINUE_MRI or MRI_REVIEW_DEFER).
 - `recommendation_label` (str): Human-readable cautionary label
   using "may be recommended" / "may not be indicated" language
 - `caution` (str): Standard decision-support disclaimer stating
@@ -302,6 +323,11 @@ Safe recommendation framing:
 - No replacement of MRI, biopsy, radiologist, clinician, or clinical
   judgment.
 - No clinical validation claim.
+- `MRI_RECOMMENDED` and `MRI_RULE_OUT` are deprecated compatibility
+  aliases; new responses emit CONTINUE_MRI and MRI_REVIEW_DEFER.
+- `triage_recommendation` is deprecated; new consumers must use
+  `decision_code`.
+- Unknown decision codes fail closed.
 - All eight mandatory result fields (`prediction_id`, `model_version`,
   `model_checksum`, `feature_schema_version`, `threshold_version`,
   `threshold_value`, `qc_status`, `qc_flags`) remain at the top level

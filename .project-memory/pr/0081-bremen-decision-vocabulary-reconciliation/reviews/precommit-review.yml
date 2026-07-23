@@ -1,0 +1,190 @@
+review:
+  status: valid
+  branch: 0081-bremen-decision-vocabulary-reconciliation
+  head: 7d59bfd1821f4fc6216a13c7d517e211754f21fd
+  reviewed_files:
+    - .project-memory/decisions/bremen-decision-vocabulary-v0_1.txt
+    - .project-memory/pr/0081-bremen-decision-vocabulary-reconciliation/PLAN.md
+    - .project-memory/pr/0081-bremen-decision-vocabulary-reconciliation/implementation-report.md
+    - .project-memory/pr/0081-bremen-decision-vocabulary-reconciliation/reviews/plan-review.yml
+    - src/bremen/api/decision_contract.py
+    - src/bremen/api/workflow_bremen.py
+    - src/bremen/api/feature_artifact_prediction.py
+    - src/bremen/api/inference_handler.py
+    - src/bremen/api/decision_support.py
+    - src/bremen/api/report_bremen.py
+    - src/bremen/api/lifecycle_contracts.py
+    - src/bremen/api/event_schema.py
+    - src/bremen/api/workflow_provider.py
+    - src/bremen/api/job_api_handler.py
+    - src/bremen/api/job_models.py
+    - src/bremen/api/schemas.py
+    - src/bremen/api/execution_trace.py
+    - src/bremen/api/report_aramis.py
+    - src/bremen/workspace_ui.py
+    - src/bremen/inference.py
+    - tests/test_bremen_decision_vocabulary.py
+    - tests/test_bremen_decision_support_output.py
+    - tests/test_bremen_api_server.py
+    - tests/test_bremen_api_skeleton.py
+    - tests/test_bremen_inference_integration.py
+    - tests/test_bremen_predictions.py
+    - docs/api_contract.md
+    - docs/workspace_contract.md
+    - docs/release_readiness_operator_notes.md
+    - docs/adr/0010-v01-feature-schema-rebaseline.md
+    - ROADMAP.md
+
+approval:
+  status: APPROVED
+  approver_role: Product Owner
+  approval_date: 2026-07-23
+  positive_machine_code: CONTINUE_MRI
+  negative_machine_code: MRI_REVIEW_DEFER
+  decision_policy_id: bremen_mri_continuation_threshold
+  decision_policy_version: 0.1.0
+  legacy_mri_recommended_treatment: deprecated alias for CONTINUE_MRI
+  legacy_mri_rule_out_treatment: deprecated alias for MRI_REVIEW_DEFER
+  legacy_triage_recommendation_treatment: preserved field with canonical value
+
+blockers: []
+
+warnings: []
+
+confirmed:
+  approval_complete: true
+  implementation_matches_approval: true
+  api_contract_canonical_codes_documented: true
+  api_contract_legacy_policy_documented: true
+  workspace_contract_policy_documented: true
+  release_readiness_examples_canonical: true
+  release_readiness_legacy_aliases_explicit: true
+  roadmap_pr0080_container_repin: true
+  roadmap_pr0081_vocabulary_reconciliation: true
+  roadmap_pr0082_investor_control_room: true
+  roadmap_pr0083_xrd_parity: true
+  roadmap_pr0084_contract_investigation: true
+  roadmap_pr0085_model_variants: true
+  no_pr_number_reuse: true
+  no_active_sequence_conflict: true
+  implementation_report_corrections_recorded: true
+  training_source_claims_accurate: true
+  numerical_behavior_unchanged: true
+  runtime_source_unchanged_in_final_correction: true
+  tests_unchanged_in_final_correction: true
+  one_authoritative_decision_source: true
+  decision_output_projection_only: true
+  legacy_compatibility_exact: true
+  event_schema_handled: true
+  workspace_showcase_correct: true
+  bremen_aramis_separate: true
+  documentation_accurate: true
+  full_suite_executed: true
+  full_suite_passed: true
+  credentials_excluded: true
+  private_artifacts_excluded: true
+
+tests:
+  D001_resolved:
+    file: docs/api_contract.md
+    result: resolved
+    details: prediction_summary documents canonical decision_code (CONTINUE_MRI, MRI_REVIEW_DEFER), triage_recommendation as deprecated compatibility field, decision_display_name, decision_policy_id, decision_policy_version. Legacy aliases as compatibility inputs only. Unknown codes fail closed.
+  D002_resolved:
+    file: docs/workspace_contract.md
+    result: resolved
+    details: New PR0081 section documents clinical question, approved machine codes, decision policy identity, canonical decision contract architecture, DecisionOutput relationship, numerical behavior preservation, legacy alias policy, scientific boundaries, Bremen/Aramis separation.
+  D003_resolved:
+    file: ROADMAP.md
+    result: resolved
+    details: PR0081 correctly scoped as Bremen Decision Vocabulary Reconciliation with Implemented status. PR0080 (Investor Control Room) updated with PR0081 dependency. PR0082 added for Provider-Owned Model Variants. Now further corrected in second iteration.
+  D004_resolved:
+    file: docs/release_readiness_operator_notes.md
+    result: resolved
+    details: Section 3 threshold-based triage updated to CONTINUE_MRI / MRI_REVIEW_DEFER with legacy alias documentation. Section 8 example response updated with decision_code, decision_display_name, decision_policy_id, decision_policy_version using canonical CONTINUE_MRI. Section 9 prediction_summary updated with canonical field names. Section 14 triage_recommendation documented as deprecated, decision_code as canonical. No stale current-response examples remain.
+  D005_resolved:
+    file: ROADMAP.md
+    result: resolved
+    details: PR0080 completed as Container v0.3.0 Immutable Re-PIN in foundation PRs. PR0081 is Bremen Decision Vocabulary Reconciliation (Implemented). PR0082 is Bremen Investor Control Room (Next milestone). PR0083 is XRD-Preprocessing Training-Runtime Parity. PR0084 is Bremen Paper-Reference versus Product-Contract Investigation. PR0085 is Provider-Owned Model Variants. No completed PR number reused. No historical PRs renumbered. No conflicting active numbering.
+  decision_contract:
+    file: tests/test_bremen_decision_vocabulary.py
+    result: 43 passed
+    details: Canonical codes, threshold boundaries, legacy aliases, model metadata adapter, to_dict privacy, input validation, no diagnostic wording, Bremen/Aramis separation
+  reports:
+    file: tests/test_bremen_decision_support_output.py
+    result: 38 passed
+    details: Report schema, intended use, limitations, model metadata, input summary, prediction summary, decision support, backward compatibility, safety boundary
+  api_skeleton:
+    file: tests/test_bremen_api_skeleton.py
+    result: 51 passed
+    details: Health, model version, submit prediction, get prediction, InMemoryJobStore, CompletedResult, prediction request validation, import safety
+  inference_integration:
+    file: tests/test_bremen_inference_integration.py
+    result: 11 passed, 1 skipped
+    details: Portable inference, end-to-end inference, model state, health endpoint, real model smoke (skipped)
+  api_server:
+    file: tests/test_bremen_api_server.py
+    result: 80 passed
+    details: Demo H5 analyze, Matador/session routes, failure observability, public error safety, import safety
+  predictions:
+    file: tests/test_bremen_predictions.py
+    result: 10 passed, 2 skipped
+    details: Prediction fails gracefully, never null result, orchestrator call verification, S3 URI staging, input validation, real H5/S3 smoke (skipped)
+  compileall:
+    result: passed
+    details: python -m compileall src tests completed without errors
+  full_suite:
+    result: 1687 passed, 11 skipped, 0 failures
+    details: Full test suite executed with zero failures
+  diff_check:
+    result: passed
+    details: git diff --check returned no whitespace errors
+  secret_check:
+    result: passed
+    details: No github_pat_, ghp_, gho_, ghu_, ghs_, ghr_ credentials in diff
+  artifact_check:
+    result: passed
+    details: No .h5, .hdf5, .joblib, .pkl, .pickle, .npy, .npz, .pdf, .tar, .zip files in diff
+  legacy_classification:
+    result: all occurrences classified
+    details: |
+      docs/adr/0010-v01-feature-schema-rebaseline.md:106 - Historical record
+      docs/workspace_contract.md:591-595 - Canonical codes (correct)
+      docs/workspace_contract.md:621-622 - Numerical behavior (correct)
+      docs/workspace_contract.md:630,633 - Deprecated aliases (correct)
+      docs/api_contract.md:280-287 - Canonical codes (correct)
+      docs/api_contract.md:293-295 - Canonical code descriptions (correct)
+      docs/api_contract.md:300-301 - Deprecated aliases (correct)
+      docs/api_contract.md:326-327 - Deprecated alias policy (correct)
+      docs/release_readiness_operator_notes.md:47,48 - Canonical triage with legacy alias note (correct)
+      docs/release_readiness_operator_notes.md:214-217,223 - Canonical example values (correct)
+      ROADMAP.md:99,102 - Canonical codes and legacy aliases (correct)
+  roadmap_numbering:
+    result: verified
+    details: |
+      PR0080: Completed foundation - Container v0.3.0 Immutable Re-Pin (line 182)
+      PR0081: Future milestone - Bremen Decision Vocabulary Reconciliation, Implemented (line 96-107)
+      PR0082: Next milestone - Bremen Investor Control Room (line 37-53)
+      PR0083: Later milestone - XRD-Preprocessing Training-Runtime Parity (line 55-64)
+      PR0084: Later milestone - Bremen Paper-Reference versus Product-Contract Investigation (line 67-76)
+      PR0085: Later milestone - Provider-Owned Model Variants and Independent Model Runs (line 79-93)
+      No conflicting reuse. No duplicate active PR numbers. Investor Control Room not on PR0080.
+      Provider-Owned Model Variants not on PR0082. No completed PR renumbered.
+
+summary: >
+  Final correction review complete. All five documentation warnings (D001
+  through D005) from the previous iterations are resolved. docs/api_contract.md
+  correctly documents canonical codes and legacy policy. docs/workspace_contract.md
+  has a comprehensive PR0081 section covering the full decision contract,
+  numerical boundary, legacy alias policy, and clinical safety. docs/release_
+  readiness_operator_notes.md now uses canonical CONTINUE_MRI and MRI_REVIEW_DEFER
+  throughout, with legacy aliases correctly scoped as compatibility inputs only
+  and no stale current-response examples. ROADMAP.md has the corrected numbering
+  sequence: PR0080 (Container v0.3.0 Immutable Re-Pin, completed), PR0081
+  (Bremen Decision Vocabulary Reconciliation, implemented), PR0082 (Bremen
+  Investor Control Room, next), PR0083 (XRD-Preprocessing Parity), PR0084
+  (Paper-Reference Investigation), PR0085 (Provider-Owned Model Variants).
+  No completed PR number is reused. No active duplicate scope exists.
+  No runtime or test code changed during the correction. The implementation
+  report records both correction iterations. The full test suite passes 1687
+  tests with zero failures. The approved vocabulary and numerical behavior
+  remain unchanged.

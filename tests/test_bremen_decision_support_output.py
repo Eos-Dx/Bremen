@@ -37,7 +37,7 @@ def _minimal_inference_result(**overrides) -> dict:
         "qc_flags": [],
         "patient_id": "PID-001",
         "p_mri_needed": 0.75,
-        "triage_recommendation": "MRI_RECOMMENDED",
+        "triage_recommendation": "CONTINUE_MRI",
         "created_at_utc": "2026-01-01T00:00:00",
     }
     defaults.update(overrides)
@@ -256,10 +256,10 @@ class TestDecisionSupport:
     def test_report_contains_recommendation(self):
         """Report decision_support includes recommendation matching triage."""
         result = _minimal_inference_result(
-            triage_recommendation="MRI_RECOMMENDED"
+            triage_recommendation="CONTINUE_MRI"
         )
         report = build_decision_support_report(result)
-        assert report["decision_support"]["recommendation"] == "MRI_RECOMMENDED"
+        assert report["decision_support"]["recommendation"] == "CONTINUE_MRI"
 
     def test_report_contains_recommendation_label(self):
         """Report decision_support includes recommendation_label string."""
@@ -306,9 +306,9 @@ class TestDecisionSupport:
         assert "clinician" in caution
 
     def test_rule_out_label_is_safe(self):
-        """MRI_RULE_OUT recommendation_label uses 'may not be indicated'."""
+        """MRI_REVIEW_DEFER recommendation_label uses 'may not be indicated'."""
         result = _minimal_inference_result(
-            triage_recommendation="MRI_RULE_OUT"
+            triage_recommendation="MRI_REVIEW_DEFER"
         )
         report = build_decision_support_report(result)
         label = report["decision_support"]["recommendation_label"].lower()

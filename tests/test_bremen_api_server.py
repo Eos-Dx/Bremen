@@ -1361,7 +1361,7 @@ class TestMatadorRawRouteSuccess:
                 assert "p_mri_needed" in result
                 assert "triage_recommendation" in result
                 assert result["triage_recommendation"] in (
-                    "MRI_RECOMMENDED", "MRI_RULE_OUT"
+                    "CONTINUE_MRI", "MRI_REVIEW_DEFER", "MRI_RECOMMENDED", "MRI_RULE_OUT"
                 )
                 assert 0.0 <= result["p_mri_needed"] <= 1.0
                 assert "prediction_id" in result

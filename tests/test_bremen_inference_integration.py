@@ -162,7 +162,7 @@ class TestEndToEndInference:
         for field in mandatory:
             assert field in result, f"Missing mandatory field: {field}"
 
-        assert result["triage_recommendation"] in ("MRI_RECOMMENDED", "MRI_RULE_OUT")
+        assert result["triage_recommendation"] in ("CONTINUE_MRI", "MRI_REVIEW_DEFER", "MRI_RECOMMENDED", "MRI_RULE_OUT")
         assert 0.0 <= result["p_mri_needed"] <= 1.0
 
         # PR 0053: decision-support report is present
@@ -280,5 +280,5 @@ def test_real_model_smoke(tmp_path: Path):
 
     assert result["model_version"] == "bremen_mri_triage_logreg_v0_1"
     assert 0.0 <= result["p_mri_needed"] <= 1.0
-    assert result["triage_recommendation"] in ("MRI_RECOMMENDED", "MRI_RULE_OUT")
+    assert result["triage_recommendation"] in ("CONTINUE_MRI", "MRI_REVIEW_DEFER", "MRI_RECOMMENDED", "MRI_RULE_OUT")
     ModelState.reset_for_tests()

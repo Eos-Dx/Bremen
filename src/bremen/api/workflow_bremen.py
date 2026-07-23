@@ -40,12 +40,22 @@ from .lifecycle_contracts import (
 )
 from .runtime_plugin import WorkflowRuntimePlugin
 from .xrd_normalization import CanonicalXRDCase
+from .decision_contract import (
+    build_decision,
+    DECISION_POLICY_ID,
+    DECISION_POLICY_VERSION,
+    POSITIVE_MACHINE_CODE,
+    NEGATIVE_MACHINE_CODE,
+    LEGACY_ALIAS_MAP,
+)
 
 _log = _getLogger(__name__)
 
-# Re-export for external callers
-TRIAGE_RECOMMENDED = "MRI_RECOMMENDED"
-TRIAGE_RULE_OUT = "MRI_RULE_OUT"
+# Legacy re-exports for backward compatibility with external callers.
+# New code must use decision_contract.POSITIVE_MACHINE_CODE and
+# decision_contract.NEGATIVE_MACHINE_CODE instead.
+TRIAGE_RECOMMENDED = POSITIVE_MACHINE_CODE
+TRIAGE_RULE_OUT = NEGATIVE_MACHINE_CODE
 
 
 class BremenWorkflowError(Exception):
@@ -279,7 +289,9 @@ class BremenProvider(WorkflowProvider):
         prob = 1.0 / (1.0 + math.exp(-logit))
         threshold = float(plr["threshold"])
         prediction = 1 if prob >= threshold else 0
-        triage = TRIAGE_RECOMMENDED if prob >= threshold else TRIAGE_RULE_OUT
+
+        # Build canonical decision — the single authoritative threshold application
+        decision = build_decision(score=prob, threshold=threshold)
 
         return WorkflowResult(
             workflow_id=self.workflow_id,
@@ -292,7 +304,11 @@ class BremenProvider(WorkflowProvider):
                 "probability": prob,
                 "prediction": prediction,
                 "threshold_applied": threshold,
-                "triage_recommendation": triage,
+                "triage_recommendation": decision.legacy_triage,
+                "decision_code": decision.decision_code,
+                "decision_display_name": decision.decision_display_name,
+                "decision_policy_id": decision.decision_policy_id,
+                "decision_policy_version": decision.decision_policy_version,
             },
         )
 
@@ -525,7 +541,7 @@ class BremenProvider(WorkflowProvider):
 
         Does NOT re-run inference — uses the already-computed result.
         """
-        triage = payload.get("triage_recommendation", "")
+        decision_code = payload.get("decision_code", "")
         prob = payload.get("probability")
 
         context.emit(
@@ -556,13 +572,14 @@ class BremenProvider(WorkflowProvider):
             },
         )
 
-        # Decision
+        # Decision — emits canonical machine code
         context.emit(
             "runtime.decision.completed",
             "decision", "completed",
             details={
-                "decision_policy_id": "bremen_threshold_v1",
-                "decision_code": triage,
+                "decision_policy_id": DECISION_POLICY_ID,
+                "decision_policy_version": DECISION_POLICY_VERSION,
+                "decision_code": decision_code,
                 "scientifically_certified": False,
             },
         )

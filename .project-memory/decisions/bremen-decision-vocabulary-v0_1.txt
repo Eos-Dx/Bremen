@@ -1,0 +1,40 @@
+Decision Status: APPROVED
+Approver Role: Product Owner
+Approval Date: 2026-07-23
+Clinical Question: Should the patient continue to MRI?
+
+Positive Machine Code: CONTINUE_MRI
+Negative Machine Code: MRI_REVIEW_DEFER
+Positive Display Name: Continue MRI evaluation
+Negative Display Name: Defer MRI pending clinician review
+Positive Explanation: The model score meets or exceeds the configured decision threshold. This case is flagged for clinician review regarding continuation to MRI.
+Negative Explanation: The model score is below the configured decision threshold. MRI continuation may be deferred, subject to clinician review and the complete clinical context.
+
+Decision-Policy ID: bremen_mri_continuation_threshold
+Decision-Policy Version: 0.1.0
+
+Legacy MRI_RECOMMENDED Treatment: Accept only as a deprecated compatibility alias for CONTINUE_MRI. Do not emit it in new canonical decision fields.
+Legacy MRI_RULE_OUT Treatment: Accept only as a deprecated compatibility alias for MRI_REVIEW_DEFER. Never use it as public display wording and do not emit it in new canonical decision fields.
+Legacy triage_recommendation Field Treatment: Preserve the field during the compatibility period, populate it with the same canonical machine code as decision_code, mark it deprecated in the API contract, and never return a contradictory value.
+
+Runtime Source Commit: 7d59bfd1821f4fc6216a13c7d517e211754f21fd
+Training-Source Finding: The training pipeline (src/bremen/training/pipeline.py, src/bremen/modeling.py) produces numerical output only (probability, prediction 0/1, threshold). It does not define any decision vocabulary strings. LABEL_MAP in modeling.py maps BENIGN=0, CANCER=1 for research-draft training and is not used by runtime inference. The current MRI vocabulary was a runtime construct originating from PR0039 and never sourced from training labels.
+
+Threshold Source: portable_logreg.threshold float from the model package. Computed during training via threshold calibration. Unchanged by this PR.
+Class-Order Finding: prediction=1 maps to positive (above-threshold). prediction=0 maps to negative (below-threshold). Class order is implicit in the threshold comparison (prob >= threshold -> prediction 1), not in model coefficients. No ambiguity.
+
+Compatibility Policy: Legacy values MRI_RECOMMENDED and MRI_RULE_OUT accepted as aliases at explicit compatibility boundaries (decision_contract.py LEGACY_ALIAS_MAP). Always normalized to canonical codes. Events, API output, and reports always emit canonical codes. Workspace UI accepts both canonical and legacy codes for display purposes. Legacy triage_recommendation field preserved with canonical value. No contradictory fields.
+
+Event Schema Policy: No event schema version bump. The decision_code field in runtime.decision.completed event details carries the canonical value. The field name and structure are unchanged. The valid value set changes from MRI_RECOMMENDED|MRI_RULE_OUT to CONTINUE_MRI|MRI_REVIEW_DEFER. Downstream consumers in the controlled demo environment accept arbitrary string values. The decision_policy_id field changes from "bremen_threshold_v1" to "bremen_mri_continuation_threshold".
+
+Report Wording Policy: MRI continuation assessment uses canonical decision object. Assessment text: "Based on the model output, MRI follow-up may be recommended for this patient." (positive) or "Based on the model output, MRI follow-up may not be indicated for this patient." (negative). No diagnostic wording.
+
+Frontend Wording Policy: Workspace UI reads triage_recommendation (preserved with canonical value) from result summary. CSS class logic updated to accept both CONTINUE_MRI and the legacy MRI_RECOMMENDED for positive styling. Display name from decision contract used where appropriate.
+
+Prohibited Wording: "cancer ruled out", "no disease", "safe discharge", "no biopsy needed", "no further clinical review required", "diagnosis", "malignant", "benign" (in decision context).
+
+Scientific Boundary: Controlled decision support only. Not autonomous medical decision. Not a diagnosis. Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment.
+
+Technical Demo Boundary: scientifically_certified remains false. technical_demo_only remains true. Both prominently displayed in all surfaces.
+
+Open Questions: None. All vocabulary fields approved and implemented.
