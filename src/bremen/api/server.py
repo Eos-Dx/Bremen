@@ -691,11 +691,16 @@ def _handle_demo_h5_containers_list(
                 size_bytes=size,
                 prefix=prefix,
             )
+            # Determine workflow compatibility
+            # S3-listed containers are implicitly Bremen (under configured prefix)
+            # Env-configured containers carry their own workflow_id, default "bremen"
+            wf = item.get("workflow_id", "bremen")
             safe_containers.append({
                 "source_id": source_id,
                 "display_name": filename,
                 "size_bytes": size,
                 "last_modified": last_mod,
+                "workflow_id": wf,
             })
 
         data = {
