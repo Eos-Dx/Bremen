@@ -21,6 +21,7 @@ from .report_provider import (
     REPORT_STATUS_UNAVAILABLE,
     REPORT_STATUS_FAILED,
 )
+from .decision_contract import POSITIVE_MACHINE_CODE, NEGATIVE_MACHINE_CODE
 
 
 # ---------------------------------------------------------------------------
@@ -161,12 +162,12 @@ class BremenReportProvider(ReportProvider):
         mri_assessment = {
             "caution": BREMEN_CAUTION,
         }
-        if triage == "MRI_RECOMMENDED":
+        if triage == POSITIVE_MACHINE_CODE or triage == "MRI_RECOMMENDED":
             mri_assessment["assessment"] = (
                 "Based on the model output, MRI follow-up "
                 "may be recommended for this patient."
             )
-        elif triage == "MRI_RULE_OUT":
+        elif triage == NEGATIVE_MACHINE_CODE or triage == "MRI_RULE_OUT":
             mri_assessment["assessment"] = (
                 "Based on the model output, MRI follow-up "
                 "may not be indicated for this patient."

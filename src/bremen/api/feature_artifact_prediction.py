@@ -27,13 +27,17 @@ from bremen.feature_artifacts import (
 )
 from bremen.inference import predict_proba_portable
 from bremen.api.decision_support import build_decision_support_report
+from bremen.api.decision_contract import (
+    POSITIVE_MACHINE_CODE,
+    NEGATIVE_MACHINE_CODE,
+)
 
 # ---------------------------------------------------------------------------
-# Constants
+# Constants — canonical machine codes
 # ---------------------------------------------------------------------------
 
-TRIAGE_RECOMMENDED = "MRI_RECOMMENDED"
-TRIAGE_RULE_OUT = "MRI_RULE_OUT"
+TRIAGE_RECOMMENDED = POSITIVE_MACHINE_CODE
+TRIAGE_RULE_OUT = NEGATIVE_MACHINE_CODE
 
 # ---------------------------------------------------------------------------
 # Exceptions

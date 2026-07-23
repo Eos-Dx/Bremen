@@ -34,7 +34,7 @@ Model Runtime Plugin Tracing and Investor Showcase (see above).
 
 ---
 
-## Next milestone (PR0080)
+## Next milestone (PR0082)
 
 Bremen Investor Control Room:
 - Default /demo route redesigned with investor layout
@@ -46,12 +46,37 @@ Bremen Investor Control Room:
 - Keyboard accessibility, prefers-reduced-motion
 - No model selector — single workflow, single model mode
 - Model provenance metadata displayed from existing trace/report data
+- Depends on PR0081 vocabulary reconciliation
 
 **Status**: Planned (not started)
 
 ---
 
-## Future milestone (PR0081)
+## Later milestone (PR0083)
+
+XRD-Preprocessing Training-Runtime Parity:
+- Investigate and reconcile the runtime v0.1.5-beta and training
+  v0.1.7-beta difference before any dependency upgrade.
+- Determine the source and impact of the version gap.
+- Produce evidence and recommended action for the dependency boundary.
+
+**Status**: Planned (not started)
+
+---
+
+## Later milestone (PR0084)
+
+Bremen Paper-Reference versus Product-Contract Investigation:
+- Determine which preprocessing contract produced the deployed model.
+- Localize the AUC 0.443 result through bounded QC comparison.
+- Establish product-contract traceability from training output through
+  deployed model to runtime decision.
+
+**Status**: Planned (not started)
+
+---
+
+## Later milestone (PR0085)
 
 Provider-Owned Model Variants and Independent Model Runs:
 - Provider-owned model variant catalogs
@@ -65,6 +90,21 @@ Provider-Owned Model Variants and Independent Model Runs:
 - Begins only when additional real model configurations are available
 
 **Status**: Planned (not started)
+
+---
+
+## Future milestone (PR0081)
+
+Bremen Decision Vocabulary Reconciliation:
+- Approved canonical Bremen decision codes (CONTINUE_MRI / MRI_REVIEW_DEFER)
+- Controlled display vocabulary (Continue MRI evaluation / Defer MRI pending clinician review)
+- Centralized decision projection across runtime, API, events, reports, and workspace surfaces
+- Legacy alias compatibility for MRI_RECOMMENDED and MRI_RULE_OUT
+- All numerical inference behavior preserved
+- Blocks prominent decision presentation in the Investor Control Room
+  (PR0082) until complete
+
+**Status**: Implemented (PR0081)
 
 ---
 
@@ -134,6 +174,15 @@ Multi-Workflow Analysis Workspace:
 - PR-0007 — GHCR Docker smoke publish
 - PR-0008 — Unified Bremen entrypoint
 - PR-0009 — Config discovery/loading
+- PR0079 — Concurrent Demo Server and Multi-Client SSE Safety.  Replaces
+  single-threaded HTTPServer with ThreadingMixIn + HTTPServer.  Thread-safe
+  shared state with lock-protected jobs storage.  Double-checked locking
+  for package-level singletons.  Two-client SSE proof via real socket tests.
+  Model and provider concurrency audit.  See docs/workspace_contract.md.
+- PR0080 — Container v0.3.0 Immutable Re-Pin.  Replaced container dependency
+  pin on feat/v0_3-eoscan-session-container with immutable v0.3.0 release tag.
+  Closed G-DEP-1 after confirming the feature branch was merged into container
+  main and the v0.3.0 tag exists on mainline history.
 - PR-0012 — Model artifact lifecycle ADR + runtime deployment gate closure. ADR-0007 formalizes offline training, controlled package, runtime loading, S3 storage, and security boundaries. G-API-1, G-API-2, G-INFRA-1 closed as DECIDED.
 - PR-0019 — API contract + async microservice skeleton. Creates `docs/api_contract.md`, `src/bremen/api/` with route-shaped handlers and in-memory job store.
 - PR-0020 — Cloud-aware config sourcing. Extends `src/bremen/config.py` with `read_cloud_config()` and `CloudConfig` dataclass reading `BREMEN_MODEL_BUCKET`, `BREMEN_MODEL_PREFIX`, `BREMEN_MODEL_VERSION` from environment.

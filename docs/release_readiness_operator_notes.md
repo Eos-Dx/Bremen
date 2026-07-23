@@ -44,7 +44,10 @@ The current release can:
 - Extract a 15-feature v0.1 vector via the preprocessing bridge.
 - Run portable logistic regression inference (deterministic, no sklearn
   dependency).
-- Apply threshold-based triage: `MRI_RECOMMENDED` / `MRI_RULE_OUT`.
+- Apply threshold-based triage: `CONTINUE_MRI` / `MRI_REVIEW_DEFER`.
+  (Legacy aliases `MRI_RECOMMENDED` and `MRI_RULE_OUT` are accepted
+  as compatibility inputs only and are never emitted as new canonical
+  output.)
 - Return a completed prediction result with a structured decision-support
   report.
 - All computation is deterministic and reproducible (same inputs produce
@@ -208,12 +211,16 @@ Summary:
             },
             "prediction_summary": {
                 "p_mri_needed": 0.75,
-                "triage_recommendation": "MRI_RECOMMENDED",
+                "triage_recommendation": "CONTINUE_MRI",
+                "decision_code": "CONTINUE_MRI",
+                "decision_display_name": "Continue MRI evaluation",
+                "decision_policy_id": "bremen_mri_continuation_threshold",
+                "decision_policy_version": "0.1.0",
                 "qc_status": "passed",
                 "qc_flags": []
             },
             "decision_support": {
-                "recommendation": "MRI_RECOMMENDED",
+                "recommendation": "CONTINUE_MRI",
                 "recommendation_label": "Based on the model output...",
                 "caution": "This is a decision-support recommendation only..."
             }
@@ -245,12 +252,15 @@ result (PR0053). Key expectations:
   or null). Does NOT contain raw H5 path, full S3 URI, or raw
   target/control refs.
 - `prediction_summary`: Contains `p_mri_needed` (float),
-  `triage_recommendation` (enum string), `qc_status`, `qc_flags`. Does
-  NOT contain raw feature values or feature vectors.
-- `decision_support`: Contains `recommendation`, `recommendation_label`
-  (using "may be recommended" / "may not be indicated" language), and
-  `caution`. Does NOT contain diagnosis, cancer, benign, or malignant
-  labels.
+  `triage_recommendation` (deprecated compatibility field carrying the
+  canonical decision code), `decision_code` (canonical machine-readable
+  field — CONTINUE_MRI or MRI_REVIEW_DEFER), `decision_display_name`,
+  `decision_policy_id`, `decision_policy_version`, `qc_status`,
+  `qc_flags`. Does NOT contain raw feature values or feature vectors.
+- `decision_support`: Contains `recommendation` (canonical decision_code
+  value), `recommendation_label` (using "may be recommended" / "may not
+  be indicated" language), and `caution`. Does NOT contain diagnosis,
+  cancer, benign, or malignant labels.
 - No raw patient identifiers, raw checksums, full S3 URIs, raw feature
   values, or diagnosis claims are present in any section of the report.
 
@@ -365,8 +375,9 @@ patient data is associated with the `prediction_id` in logs.
   full patient history, diagnostic workup, MRI, and biopsy.
 - The decision-support report explicitly states these limitations in its
   `intended_use` and `limitations` fields.
-- The term "triage" in `triage_recommendation` refers to decision-support
-  categorisation only — it is not clinical triage.
+- The term "triage" in `triage_recommendation` is a deprecated compatibility
+  field referring to decision-support categorisation only — it is not
+  clinical triage.  New consumers must use `decision_code` instead.
 - The `recommendation_label` uses only "may be recommended" / "may not
   be indicated" language. It never claims clinical necessity or certainty.
 

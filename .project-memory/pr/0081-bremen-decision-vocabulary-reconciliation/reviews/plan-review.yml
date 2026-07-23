@@ -1,0 +1,147 @@
+review:
+  status: valid
+  branch: 0081-bremen-decision-vocabulary-reconciliation
+  head: 4c1e32fd8df02541ac9b04c6e509f858225aa13c
+  reviewed_files:
+    - .project-memory/pr/0081-bremen-decision-vocabulary-reconciliation/PLAN.md
+    - src/bremen/api/workflow_bremen.py
+    - src/bremen/api/feature_artifact_prediction.py
+    - src/bremen/api/inference_handler.py
+    - src/bremen/api/decision_support.py
+    - src/bremen/api/report_bremen.py
+    - src/bremen/api/lifecycle_contracts.py
+    - src/bremen/api/job_api_handler.py
+    - src/bremen/api/event_schema.py
+    - src/bremen/api/workflow_provider.py
+    - src/bremen/api/report_provider.py
+    - src/bremen/inference.py
+    - src/bremen/workspace_ui.py
+    - src/bremen/modeling.py
+    - src/bremen/training/pipeline.py
+    - config/training/bremen_v0_1_train.yaml
+    - docs/api_contract.md
+    - docs/workspace_contract.md
+    - docs/release_readiness_operator_notes.md
+    - .project-memory/pr/0039-inference-integration/PLAN.md
+
+source_refs:
+  bremen_training_pipeline:
+    commit: 4c1e32fd8df02541ac9b04c6e509f858225aa13c (training code embedded in bremen runtime repo)
+    date: 2026-07-22T22:58:11Z
+    files:
+      - src/bremen/training/pipeline.py (numerical output only, no decision vocabulary strings)
+      - src/bremen/modeling.py (LABEL_MAP = {"BENIGN": 0, "CANCER": 1}, legacy research draft)
+      - config/training/bremen_v0_1_train.yaml (label_column: "label", no decision codes)
+    symbols:
+      - LABEL_MAP = {"BENIGN": 0, "CANCER": 1} (modeling.py line 40)
+      - threshold calibration via _calibrate_threshold (pipeline.py)
+      - predict_proba_portable returns probability, prediction (0/1), threshold_applied (inference.py)
+  bremen_runtime:
+    commit: 4c1e32fd8df02541ac9b04c6e509f858225aa13c
+    date: 2026-07-22T22:58:11Z
+    files:
+      - src/bremen/api/workflow_bremen.py (lines 47-48: TRIAGE_RECOMMENDED = "MRI_RECOMMENDED", TRIAGE_RULE_OUT = "MRI_RULE_OUT")
+      - src/bremen/api/feature_artifact_prediction.py (lines 35-36: same constants)
+      - src/bremen/api/inference_handler.py (lines 33-34: same constants)
+      - src/bremen/api/decision_support.py (lines 135, 140: string comparison to MRI_RECOMMENDED/MRI_RULE_OUT)
+      - src/bremen/api/report_bremen.py (lines 164, 169: string comparison to MRI_RECOMMENDED/MRI_RULE_OUT)
+      - src/bremen/api/lifecycle_contracts.py (lines 126-131: DecisionOutput dataclass with decision_policy_id, decision_code)
+      - src/bremen/inference.py (numerical only: probability, prediction 0/1, threshold)
+      - src/bremen/workspace_ui.py (lines 297, 747, 810, 860: reads triage_recommendation from result_summary, line 877: hardcoded comparison triage === 'MRI_RECOMMENDED')
+    symbols:
+      - TRIAGE_RULE_OUT = "MRI_RULE_OUT" (5 runtime files)
+      - TRIAGE_RECOMMENDED = "MRI_RECOMMENDED" (5 runtime files)
+      - decision_code emitted in events via _emit_inference_events (workflow_bremen.py)
+      - DecisionOutput.dataclass (lifecycle_contracts.py)
+
+blockers: []
+
+warnings:
+  - id: W001
+    severity: warning
+    evidence:
+      repository: bremen_runtime
+      ref: 4c1e32fd8df02541ac9b04c6e509f858225aa13c
+      file: src/bremen/api/lifecycle_contracts.py
+      lines: 126-131
+    issue: The plan proposes a new src/bremen/api/decision_contract.py as the single authoritative source for decision vocabulary. However, lifecycle_contracts.py already defines a DecisionOutput dataclass (lines 126-131) with decision_policy_id, decision_code, and scientifically_certified fields. If both exist, the runtime has two authoritative decision types. The relationship between the proposed BremenDecisionContract and the existing DecisionOutput must be documented: DecisionOutput is a downstream event projection, decision_contract.py is the vocabulary and policy source of truth. Without explicit documentation, a future contributor may treat DecisionOutput as the authoritative vocabulary source.
+    recommendation: Document in the PLAN.md or in decision_contract.py itself that DecisionOutput (lifecycle_contracts.py) is an event projection of the decision contract, not an independent vocabulary source. Alternatively, extend DecisionOutput instead of creating a parallel type.
+  - id: W002
+    severity: warning
+    evidence:
+      repository: bremen_runtime
+      ref: 4c1e32fd8df02541ac9b04c6e509f858225aa13c
+      file: src/bremen/workspace_ui.py
+      lines: 877
+    issue: The workspace_ui.py renderBremenDecision function (in _SHOWCASE_JS at line 877) has a hardcoded comparison `(triage === 'MRI_RECOMMENDED' ? 'warn' : 'ready')` for CSS badge class selection. When the positive machine code changes from MRI_RECOMMENDED to CONTINUE_MRI, this comparison will always yield the negative branch (badge-ready / green). The plan mentions updating CSS class logic in workspace_ui.py but does not explicitly identify this specific line. The non-showcase renderJob and renderWorkflowCard functions also read triage_recommendation directly (lines 297, 747, 810).
+    recommendation: Explicitly identify workspace_ui.py line 877's hardcoded MRI_RECOMMENDED comparison as a target for CSS class remapping. Ensure the non-showcase render paths (lines 297, 747, 810) also display the new decision_code or decision_display_name, not only triage_recommendation.
+  - id: W003
+    severity: warning
+    evidence:
+      repository: bremen_runtime
+      ref: 4c1e32fd8df02541ac9b04c6e509f858225aa13c
+      file: src/bremen/api/workflow_bremen.py
+      lines: 277-291
+    issue: The _emit_inference_events method at line 289 emits decision_code = triage in the runtime.decision.completed event. After this PR, the event will emit the canonical code (e.g., CONTINUE_MRI). The event schema version is NOT bumped. Downstream event consumers that treat the decision_code field value as having a fixed enumeration (e.g., MRI_RECOMMENDED | MRI_RULE_OUT) will break silently. The plan states the schema version is not bumped because the field name and structure are unchanged, but the valid value set changes.
+    recommendation: Either bump the event schema version or document the enumeration change as a breaking but accepted deviation given the controlled demo environment. Add a test that verifies event consumers accept the new canonical values.
+
+confirmed:
+  training_vocabulary_grounded: true
+  runtime_vocabulary_grounded: true
+  mri_rule_out_origin_traced: true
+  class_order_verification_required: true
+  threshold_source_verification_required: true
+  scientific_mismatch_stop_condition: true
+  machine_codes_separate_from_display: true
+  human_approval_gate_required: true
+  canonical_codes_not_preapproved: true
+  clinical_boundary_safe: true
+  no_diagnostic_claim: true
+  policy_ownership_clear: true
+  model_metadata_inspected: true
+  backward_compatibility_planned: true
+  no_contradictory_fields: true
+  typed_api_planned: true
+  events_use_authoritative_decision: true
+  reports_use_authoritative_decision: true
+  frontend_scope_bounded: true
+  bremen_aramis_separate: true
+  no_numerical_change: true
+  no_xrd_preprocessing_change: true
+  behavioral_tests_sufficient: true
+  decision_record_planned: true
+  documentation_sufficient: true
+  pr0082_boundary_clear: true
+  scope_bounded: true
+
+summary: >
+  The plan is grounded in independently verified source evidence. Training
+  vocabulary (src/bremen/training/pipeline.py, src/bremen/modeling.py,
+  config/training/bremen_v0_1_train.yaml) produces numerical output only
+  -- probability, prediction 0/1, threshold -- with no decision vocabulary
+  strings. The LABEL_MAP in modeling.py maps BENIGN to 0 and CANCER to 1
+  for research-draft training only and is not used by runtime inference.
+  Runtime vocabulary is defined in five source files (workflow_bremen.py,
+  feature_artifact_prediction.py, inference_handler.py, decision_support.py,
+  report_bremen.py) that hardcode TRIAGE_RECOMMENDED = MRI_RECOMMENDED and
+  TRIAGE_RULE_OUT = MRI_RULE_OUT as string constants. MRI_RULE_OUT is
+  traced to PR0039 planning (line 286) as a runtime-only construct never
+  sourced from training labels or approved through a product decision gate.
+  Class order (prediction=1 -> positive, prediction=0 -> negative) is
+  implicit in the threshold comparison and confirmed stable. Threshold
+  source is the portable_logreg.threshold float in the model package.
+  The plan properly separates machine codes (recommended CONTINUE_MRI and
+  MRI_REVIEW_DEFER) from display text (existing controlled language may be
+  recommended / may not be indicated). Human approval gate requires explicit
+  sign-off on positive machine code, negative machine code, display text,
+  MRI_RULE_OUT compatibility treatment, and decision-policy ID/version.
+  No numerical changes to inference, features, threshold, class order,
+  or probability calculation. Backward compatibility via preserved
+  triage_recommendation field (carrying canonical value during Phase 1)
+  with legacy MRI_RULE_OUT mapped as a deprecated alias. PR0082 (Bremen
+  Investor Control Room) explicitly blocked until vocabulary reconciliation
+  is approved and implemented. Three non-blocking warnings documented:
+  relationship between proposed decision_contract.py and existing
+  DecisionOutput, hardcoded MRI_RECOMMENDED comparison in workspace_ui.py
+  CSS logic, and event schema version policy when decision_code enumeration
+  changes.

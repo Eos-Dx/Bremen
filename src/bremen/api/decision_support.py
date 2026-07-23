@@ -8,6 +8,8 @@ PR 0053: Decision Support Output Wrapper.
 
 from __future__ import annotations
 
+from .decision_contract import POSITIVE_MACHINE_CODE, NEGATIVE_MACHINE_CODE
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -132,12 +134,12 @@ def _build_recommendation_label(triage: str) -> str:
     Uses "may be recommended" / "may not be indicated" language.
     Does not claim diagnosis, clinical validation, or clinical certainty.
     """
-    if triage == "MRI_RECOMMENDED":
+    if triage == POSITIVE_MACHINE_CODE or triage == "MRI_RECOMMENDED":
         return (
             "Based on the model output, MRI follow-up "
             "may be recommended for this patient."
         )
-    if triage == "MRI_RULE_OUT":
+    if triage == NEGATIVE_MACHINE_CODE or triage == "MRI_RULE_OUT":
         return (
             "Based on the model output, MRI follow-up "
             "may not be indicated for this patient."

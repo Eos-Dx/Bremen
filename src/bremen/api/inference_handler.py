@@ -27,11 +27,12 @@ from ..inference import (
     predict_proba_portable,
 )
 from .decision_support import build_decision_support_report
+from .decision_contract import POSITIVE_MACHINE_CODE, NEGATIVE_MACHINE_CODE
 
 _log = _getLogger(__name__)
 
-TRIAGE_RECOMMENDED = "MRI_RECOMMENDED"
-TRIAGE_RULE_OUT = "MRI_RULE_OUT"
+TRIAGE_RECOMMENDED = POSITIVE_MACHINE_CODE
+TRIAGE_RULE_OUT = NEGATIVE_MACHINE_CODE
 
 
 def run_inference(

@@ -579,3 +579,74 @@ Future guarantees:
 - No combined verdict, no score averaging, no automatic promotion
 - Unavailable variants do not silently fall back
 - Bremen and Aramis remain separate providers
+
+
+## PR0081 — Bremen Decision Vocabulary Reconciliation
+
+### Approved Decision Vocabulary
+
+| Attribute | Value |
+|-----------|-------|
+| Clinical question | Should the patient continue to MRI? |
+| Positive machine code | CONTINUE_MRI |
+| Negative machine code | MRI_REVIEW_DEFER |
+| Positive display name | Continue MRI evaluation |
+| Negative display name | Defer MRI pending clinician review |
+| Decision policy ID | bremen_mri_continuation_threshold |
+| Decision policy version | 0.1.0 |
+
+Machine codes and display text are separate.  Machine codes are
+stable, versioned values suitable for API, events, audit, and
+internal use.  Display names and explanations are controlled
+human-readable presentation fields that may change independently.
+
+### Canonical Decision Contract
+
+The authoritative Bremen decision is created exactly once per
+inference run by the provider-owned decision contract
+(decision_contract.BremenDecision).  All downstream surfaces
+(APIs, jobs, events, execution traces, reports, workspace
+projections) consume that authoritative decision.  No surface
+may independently apply thresholds, map labels, or define
+vocabulary.
+
+DecisionOutput (lifecycle_contracts.py) is a downstream event
+projection and does not independently apply thresholds or define
+vocabulary.
+
+### Numerical Behavior
+
+Threshold: portable_logreg.threshold from the model package
+(unmodified).  Comparison: score >= threshold for the positive
+outcome (CONTINUE_MRI).  Score < threshold for the negative
+outcome (MRI_REVIEW_DEFER).  The same prediction 0/1 numerical
+output is unchanged.  No change to probability calculation,
+class order, or threshold value.
+
+### Legacy Alias Policy
+
+Legacy values are compatibility inputs only:
+
+- MRI_RECOMMENDED — deprecated alias for CONTINUE_MRI.  Accepted
+  at explicit compatibility boundaries.  Never emitted as a new
+  canonical decision value.
+- MRI_RULE_OUT — deprecated alias for MRI_REVIEW_DEFER.  Accepted
+  at explicit compatibility boundaries.  Never emitted as a new
+  canonical decision value.  Must not be used as public display
+  wording.
+
+triage_recommendation remains temporarily available as a deprecated
+compatibility field.  It carries the same canonical machine code as
+decision_code.  Both values are always equal.  New consumers must
+use decision_code.
+
+### Scientific Boundaries
+
+Bremen remains controlled MRI continuation decision support.  No
+cancer diagnosis or rule-out claim is permitted.  scientifically_
+certified remains false.  technical_demo_only remains true.
+
+Bremen and Aramis remain scientifically separate.  Aramis decision
+vocabulary is its own contract.  Bremen vocabulary does not affect
+Aramis decision codes, policy identity, threshold, reports, events,
+readiness, or provider behavior.

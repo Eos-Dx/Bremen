@@ -874,7 +874,7 @@ _SHOWCASE_JS = r"""
       '<div class="decision-threshold-marker" style="left:' + threshPct + '%;"></div>' +
       '</div>' +
       '<p><strong>Decision:</strong> <span class="badge badge-' +
-      (triage === 'MRI_RECOMMENDED' ? 'warn' : 'ready') + '">' +
+      (triage === 'CONTINUE_MRI' || triage === 'MRI_RECOMMENDED' ? 'warn' : 'ready') + '">' +
       triage + '</span></p>' +
       '<p style="font-size:12px;color:#888;margin-top:8px;">' +
       '<strong>Scientifically certified:</strong> ' +

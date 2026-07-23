@@ -493,7 +493,7 @@ class TestSubmitPrediction:
                         "feature_schema_version": "v0.1",
                         "threshold_applied": 0.5,
                         "probability": 0.75,
-                        "triage_recommendation": "MRI_RECOMMENDED",
+                        "triage_recommendation": "CONTINUE_MRI",
                     },
                 ),
             },
