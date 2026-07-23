@@ -1,13 +1,10 @@
-"""Bremen Investor Control Room HTML page generator.
+"""Bremen Control Room — product-grade demo.
 
-Produces a self-contained HTML page at GET /demo with:
-- Presentation header with model identity and readiness
-- Central visual execution pipeline (10 stages)
-- Docked structured live event panel (SSE-fed)
-- Decision panel using approved PR0081 vocabulary
-- Report access
+Owns GET /demo/control-room and its deep links.
+Three-column layout with model info, container catalog, pipeline,
+job history, and live events.
 
-PR0082 — Bremen Investor Control Room.
+PR0082b — Bremen Product-Grade Demo Redesign.
 """
 
 from __future__ import annotations
@@ -16,136 +13,158 @@ import json as _json
 from typing import Any
 
 # ---------------------------------------------------------------------------
-# Constants
+# Design tokens (from BREMEN_DESIGN_SPEC_v1.md)
 # ---------------------------------------------------------------------------
 
-_CONTROL_ROOM_CSS = """
+_CSS = """
+:root {
+  --bg-page: #F7F8F8;
+  --bg-surface: #FFFFFF;
+  --text-primary: #16202A;
+  --text-secondary: #5B6570;
+  --accent: #1F6F6B;
+  --border: #E3E7E6;
+  --status-available: #2E7D5B;
+  --status-pending: #B8894A;
+  --status-unconfigured: #9AA3A8;
+  --status-error: #C1483D;
+  --tint-accent: #F1F5F4;
+  --tint-pending: #FBF3E9;
+  --tint-error: #FBEEEC;
+  --radius-card: 10px;
+  --radius-pill: 999px;
+  --shadow-card: 0 1px 2px rgba(22,32,42,0.04), 0 1px 8px rgba(22,32,42,0.03);
+  --fs-32: 32px;
+  --fs-22: 22px;
+  --fs-17: 17px;
+  --fs-14: 14px;
+  --fs-13: 13px;
+  --fs-11: 11px;
+  --sp-4: 4px;
+  --sp-8: 8px;
+  --sp-12: 12px;
+  --sp-16: 16px;
+  --sp-24: 24px;
+  --sp-32: 32px;
+  --sp-48: 48px;
+  --sp-64: 64px;
+}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#0d1117;color:#c9d1d9;line-height:1.6;overflow-x:hidden}
-.cr-header{background:#161b22;border-bottom:1px solid #30363d;padding:12px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
-.cr-title{font-size:20px;font-weight:700;color:#f0f6fc}
-.cr-subtitle{font-size:13px;color:#8b949e}
-.cr-badges{display:flex;gap:8px;flex-wrap:wrap}
-.cr-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
-.cr-badge-ready{background:#1a3329;color:#3fb950;border:1px solid #3fb950}
-.cr-badge-warn{background:#2a2311;color:#d29922;border:1px solid #d29922}
-.cr-badge-info{background:#0d1f3d;color:#58a6ff;border:1px solid #58a6ff}
-.cr-badge-error{background:#2a1518;color:#f85149;border:1px solid #f85149}
-.cr-badge-pending{background:#1d1d2b;color:#8b949e;border:1px solid #8b949e}
-.cr-badge-disabled{background:#161b22;color:#484f58;border:1px solid#30363d}
-.cr-main{display:flex;gap:0;min-height:calc(100vh - 128px);max-width:1600px;margin:0 auto}
-.cr-left{width:260px;min-width:200px;background:#161b22;border-right:1px solid #30363d;padding:16px;display:flex;flex-direction:column;gap:16px;overflow-y:auto}
-.cr-center{flex:1;padding:24px;overflow-y:auto}
-.cr-right{width:400px;min-width:300px;background:#161b22;border-left:1px solid #30363d;padding:16px;display:flex;flex-direction:column;overflow:hidden}
-.cr-section-title{font-size:14px;font-weight:600;color:#f0f6fc;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px}
-.cr-model-card{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:14px}
-.cr-model-card h3{font-size:15px;color:#f0f6fc;margin-bottom:8px}
-.cr-model-field{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px}
-.cr-model-field dt{color:#8b949e}
-.cr-model-field dd{color:#c9d1d9;font-family:monospace;font-size:11px}
-.cr-input-area{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:14px}
-.cr-input-area .cr-btn{width:100%;margin-top:8px}
-.cr-btn{padding:8px 20px;font-size:13px;font-weight:600;cursor:pointer;border:none;border-radius:6px;background:#238636;color:#fff;transition:background 200ms}
-.cr-btn:hover:not(:disabled){background:#2ea043}
-.cr-btn:disabled{background:#21262d;color:#484f58;cursor:not-allowed}
-.cr-btn:focus{outline:3px solid #58a6ff;outline-offset:2px}
-.cr-btn-warn{background:#d29922;color:#0d1117}
-.cr-btn-warn:hover:not(:disabled){background:#e3b341}
-
-.cr-pipeline{position:relative;padding:8px 0}
-.cr-pipeline ol{list-style:none;position:relative}
-.cr-pipeline li{display:flex;align-items:center;gap:12px;padding:10px 16px;border-left:3px solid #21262d;margin-left:20px;position:relative;transition:border-color 300ms}
-.cr-pipeline li:last-child{border-left-color:transparent}
-.cr-pipeline li::before{content:'';position:absolute;left:-11px;top:16px;width:18px;height:18px;border-radius:50%;background:#21262d;border:3px solid #30363d;z-index:1;transition:background 300ms,border-color 300ms}
-.cr-pipeline li.completed{border-left-color:#3fb950}
-.cr-pipeline li.completed::before{background:#1a3329;border-color:#3fb950}
-.cr-pipeline li.active{border-left-color:#58a6ff}
-.cr-pipeline li.active::before{background:#0d1f3d;border-color:#58a6ff;animation:pulse-active 2s infinite}
-.cr-pipeline li.failed{border-left-color:#f85149}
-.cr-pipeline li.failed::before{background:#2a1518;border-color:#f85149}
-.cr-pipeline li.unavailable{border-left-color:#d29922}
-.cr-pipeline li.unavailable::before{background:#2a2311;border-color:#d29922}
-.cr-pipeline li.pending{border-left-color:#21262d}
-.cr-pipeline li.pending::before{background:#0d1117;border-color:#30363d}
-@keyframes pulse-active{0%,100%{border-color:#58a6ff}50%{border-color:#1f6feb}}
-@media(prefers-reduced-motion:reduce){.cr-pipeline li.active::before{animation:none}}
-.cr-stage-label{font-size:13px;color:#c9d1d9;font-weight:500}
-.cr-stage-status{font-size:11px;color:#8b949e;margin-left:auto}
-.cr-stage-icon{font-size:12px;width:18px;text-align:center}
-.cr-stage-icon.completed{color:#3fb950}
-.cr-stage-icon.active{color:#58a6ff}
-.cr-stage-icon.failed{color:#f85149}
-.cr-stage-icon.pending{color:#484f58}
-
-.cr-decision-card{background:#0d1117;border:1px solid #3fb950;border-radius:10px;padding:20px;margin-top:24px}
-.cr-decision-card.negative{border-color:#8b949e}
-.cr-decision-card h2{font-size:18px;color:#f0f6fc;margin-bottom:8px}
-.cr-decision-card .cr-decision-text{font-size:14px;color:#8b949e;margin-bottom:12px}
-.cr-decision-score{display:flex;height:8px;border-radius:4px;background:#21262d;margin:12px 0;overflow:hidden}
-.cr-decision-score-fill{background:#58a6ff;border-radius:4px;transition:width 800ms}
-.cr-decision-threshold-marker{position:absolute;width:2px;height:20px;background:#f85149;top:0}
-.cr-decision-meta{font-size:11px;color:#484f58;margin-top:8px}
-.cr-decision-cert{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:600;background:#2a1518;color:#f85149;border:1px solid #f85149;margin-top:8px}
-
-.cr-event-panel{flex:1;overflow-y:auto;font-size:12px;font-family:monospace}
-.cr-event-row{padding:4px 8px;margin:1px 0;border-left:3px solid #30363d;background:#0d1117;transition:background 150ms}
-.cr-event-row.completed{border-left-color:#3fb950;background:#0d1a14}
-.cr-event-row.failed{border-left-color:#f85149;background:#1a0d0f}
-.cr-event-row.started{border-left-color:#58a6ff;background:#0d1525}
-.cr-event-row span{display:inline-block;margin-right:8px}
-.cr-event-seq{color:#484f58;width:30px}
-.cr-event-type{color:#8b949e;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cr-event-status{font-weight:600}
-.cr-event-status.completed{color:#3fb950}
-.cr-event-status.failed{color:#f85149}
-.cr-event-status.started{color:#58a6ff}
-.cr-event-time{color:#484f58}
-.cr-event-dur{color:#484f58;font-size:10px}
-.cr-event-panel-actions{display:flex;gap:8px;padding:8px 0;border-top:1px solid #30363d}
-.cr-event-panel-btn{font-size:11px;padding:3px 10px;background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:4px;cursor:pointer}
-.cr-event-panel-btn:hover{color:#c9d1d9}
-.cr-event-panel-btn.active{background:#0d1f3d;color:#58a6ff;border-color:#58a6ff}
-
-.cr-empty{color:#484f58;font-size:13px;text-align:center;padding:24px}
-.cr-connecting{color:#d29922;font-size:12px;text-align:center;padding:12px}
-.cr-status-bar{padding:6px 24px;background:#161b22;border-top:1px solid #30363d;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#484f58}
-.cr-status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
-.cr-status-dot.live{background:#3fb950}
-.cr-status-dot.connecting{background:#d29922;animation:pulse-active 2s infinite}
-.cr-status-dot.disconnected{background:#f85149}
-.cr-status-dot.idle{background:#484f58}
-
-.cr-report-link{display:inline-block;padding:6px 16px;background:#0d1f3d;color:#58a6ff;border:1px solid #1f6feb;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;margin-top:8px}
-.cr-report-link:hover{background:#0d2a4d}
-
-.cr-footer{text-align:center;padding:12px;font-size:11px;color:#484f58}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg-page);color:var(--text-primary);line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.cr-page{max-width:1440px;margin:0 auto;padding:var(--sp-32);min-height:100vh;display:flex;flex-direction:column}
+.cr-header{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-16) 0;border-bottom:1px solid var(--border);margin-bottom:var(--sp-24);flex-wrap:wrap;gap:var(--sp-12)}
+.cr-brand{font-size:var(--fs-22);font-weight:600;color:var(--text-primary)}
+.cr-question{font-size:var(--fs-14);color:var(--text-secondary);margin-top:var(--sp-4)}
+.cr-header-right{display:flex;align-items:center;gap:var(--sp-12);flex-wrap:wrap}
+.cr-model-link{font-size:var(--fs-13);color:var(--accent);text-decoration:none}
+.cr-model-link:hover{text-decoration:underline}
+.cr-badge{display:inline-flex;align-items:center;gap:var(--sp-4);padding:2px 10px;border-radius:var(--radius-pill);font-size:var(--fs-11);font-weight:600}
+.cr-badge.available{background:var(--tint-accent);color:var(--status-available)}
+.cr-badge.unavailable{background:var(--tint-pending);color:var(--status-pending)}
+.cr-badge.not_configured{background:var(--tint-error);color:var(--status-error)}
+.cr-badge.pending{background:var(--tint-pending);color:var(--status-pending)}
+.cr-main{display:flex;gap:var(--sp-24);flex:1;min-height:0}
+.cr-left{width:320px;flex-shrink:0;display:flex;flex-direction:column;gap:var(--sp-16)}
+.cr-center{flex:1;min-width:480px;display:flex;flex-direction:column;gap:var(--sp-16)}
+.cr-right{width:360px;flex-shrink:0;display:flex;flex-direction:column;gap:var(--sp-16)}
+.cr-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-card);padding:var(--sp-16)}
+.cr-card-title{font-size:var(--fs-14);font-weight:600;color:var(--text-primary);margin-bottom:var(--sp-12);text-transform:uppercase;letter-spacing:0.3px}
+.cr-card-rail{border-left:3px solid var(--border)}
+.cr-field-table{width:100%}
+.cr-field-row{display:flex;padding:var(--sp-6) 0;font-size:var(--fs-13);border-bottom:1px solid var(--border)}
+.cr-field-row:last-child{border-bottom:none}
+.cr-field-label{width:160px;flex-shrink:0;color:var(--text-secondary);padding-right:var(--sp-16)}
+.cr-field-value{flex:1;color:var(--text-primary);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;font-size:var(--fs-11)}
+.cr-field-value[title]:hover{overflow:visible;white-space:normal;word-break:break-all}
+.cr-container-list{list-style:none;margin:0;padding:0;max-height:240px;overflow-y:auto}
+.cr-container-item{padding:var(--sp-8) var(--sp-12);cursor:pointer;border-bottom:1px solid var(--border);transition:background 150ms;display:flex;flex-direction:column;gap:var(--sp-2);border-left:2px solid transparent}
+.cr-container-item:hover{background:var(--tint-accent)}
+.cr-container-item.selected{border-left-color:var(--accent);background:var(--tint-accent);border:2px solid var(--accent);border-left-width:2px;padding:calc(var(--sp-8) - 1px) calc(var(--sp-12) - 1px)}
+.cr-container-name{font-size:var(--fs-13);color:var(--text-primary);font-weight:500}
+.cr-container-meta{font-size:var(--fs-11);color:var(--text-secondary)}
+.cr-catalog-status{font-size:var(--fs-11);color:var(--text-secondary);margin-bottom:var(--sp-8)}
+.cr-source-status{font-size:var(--fs-11);color:var(--text-secondary);margin-top:var(--sp-4);min-height:16px}
+.cr-source-status.stale{color:var(--status-pending)}
+.cr-upload-area{padding-top:var(--sp-12);border-top:1px solid var(--border);margin-top:var(--sp-8)}
+.cr-upload-label{font-size:var(--fs-13);color:var(--text-secondary);margin-bottom:var(--sp-8)}
+.btn-primary{background:var(--accent);color:#FFFFFF;border:none;border-radius:var(--radius-card);padding:12px 32px;font-size:var(--fs-17);font-weight:600;cursor:pointer;transition:background 150ms;width:100%}
+.btn-primary:hover:not(:disabled){background:var(--accent)}
+.btn-primary:disabled{background:var(--status-unconfigured);cursor:not-allowed}
+.btn-primary:focus{outline:3px solid var(--accent);outline-offset:2px}
+.btn-secondary{background:var(--bg-surface);color:var(--accent);border:1px solid var(--accent);border-radius:var(--radius-card);padding:8px 16px;font-size:var(--fs-13);font-weight:600;cursor:pointer;transition:background 150ms}
+.btn-secondary:hover{background:var(--tint-accent)}
+.btn-secondary:focus{outline:3px solid var(--accent);outline-offset:2px}
+.btn-small{background:none;color:var(--text-secondary);border:1px solid var(--border);border-radius:var(--radius-pill);padding:4px 12px;font-size:var(--fs-11);cursor:pointer;transition:background 150ms}
+.btn-small:hover{background:var(--tint-accent);color:var(--accent)}
+.btn-small.active{background:var(--tint-accent);color:var(--accent);border-color:var(--accent)}
+.cr-pipeline{display:flex;flex-direction:column;gap:0}
+.cr-stage{display:flex;align-items:center;gap:var(--sp-12);padding:var(--sp-10) var(--sp-16);border-left:3px solid var(--border);transition:border-color 300ms,background 300ms;font-size:var(--fs-13)}
+.cr-stage.active{border-left-color:var(--accent);background:var(--tint-accent)}
+.cr-stage.completed{border-left-color:var(--status-available)}
+.cr-stage.failed{border-left-color:var(--status-error);background:var(--tint-error)}
+.cr-stage-icon{width:16px;text-align:center;font-size:var(--fs-13);flex-shrink:0}
+.cr-stage-icon.active{color:var(--accent)}
+.cr-stage-icon.completed{color:var(--status-available)}
+.cr-stage-icon.failed{color:var(--status-error)}
+.cr-stage-icon.pending{color:var(--border)}
+.cr-stage-label{flex:1;color:var(--text-primary)}
+.cr-stage-dur{font-size:var(--fs-11);color:var(--text-secondary);font-family:monospace}
+.cr-decision-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-card);padding:var(--sp-20) var(--sp-24);border-left:3px solid var(--accent);margin-top:var(--sp-8)}
+.cr-decision-headline{font-size:var(--fs-22);font-weight:600;color:var(--text-primary);margin-bottom:var(--sp-4)}
+.cr-decision-code{font-size:var(--fs-13);color:var(--text-secondary);font-family:monospace;margin-bottom:var(--sp-12)}
+.cr-decision-score{display:flex;align-items:center;gap:var(--sp-12);margin-bottom:var(--sp-8)}
+.cr-score-bar{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden;position:relative}
+.cr-score-fill{height:100%;background:var(--accent);border-radius:4px;transition:width 500ms}
+.cr-score-threshold{position:absolute;top:-2px;width:2px;height:12px;background:var(--status-error)}
+.cr-score-label{font-size:var(--fs-13);color:var(--text-secondary);white-space:nowrap}
+.cr-decision-meta{font-size:var(--fs-11);color:var(--text-secondary);margin-top:var(--sp-4)}
+.cr-report-link{display:inline-block;padding:8px 20px;background:var(--accent);color:#FFFFFF;border:none;border-radius:var(--radius-card);font-size:var(--fs-14);font-weight:600;text-decoration:none;cursor:pointer;margin-top:var(--sp-12);transition:background 150ms}
+.cr-report-link:hover{background:var(--accent)}
+.cr-history-list{max-height:280px;overflow-y:auto}
+.cr-history-item{padding:var(--sp-8) var(--sp-12);cursor:pointer;border-bottom:1px solid var(--border);transition:background 150ms;border-left:2px solid transparent;font-size:var(--fs-13)}
+.cr-history-item:hover{background:var(--tint-accent)}
+.cr-history-item.completed{border-left-color:var(--status-available)}
+.cr-history-item.failed{border-left-color:var(--status-error)}
+.cr-history-item.running{border-left-color:var(--accent)}
+.cr-history-header{display:flex;align-items:center;gap:var(--sp-6);margin-bottom:var(--sp-2)}
+.cr-history-id{color:var(--text-secondary);font-family:monospace;font-size:var(--fs-11)}
+.cr-history-time{color:var(--text-secondary);font-size:var(--fs-11);margin-left:auto}
+.cr-history-detail{color:var(--text-primary);font-weight:500;font-size:var(--fs-13)}
+.cr-history-meta{color:var(--text-secondary);font-size:var(--fs-11)}
+.cr-event-panel{display:flex;flex-direction:column;flex:1;min-height:0}
+.cr-event-empty{height:120px;display:flex;align-items:center;justify-content:center;font-size:var(--fs-13);color:var(--text-secondary);text-align:center;padding:var(--sp-16)}
+.cr-event-list{flex:1;overflow-y:auto;min-height:0}
+.cr-event-row{display:flex;align-items:center;gap:var(--sp-8);padding:var(--sp-6) var(--sp-8);margin:1px 0;border-left:2px solid var(--border);font-size:var(--fs-11);font-family:monospace;transition:background 150ms}
+.cr-event-row.completed{border-left-color:var(--status-available);background:var(--tint-accent)}
+.cr-event-row.failed{border-left-color:var(--status-error);background:var(--tint-error)}
+.cr-event-row.active{border-left-color:var(--accent);background:var(--tint-accent)}
+.cr-event-seq{color:var(--text-secondary);width:24px;flex-shrink:0}
+.cr-event-type{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary)}
+.cr-event-status{font-weight:600;font-size:var(--fs-11)}
+.cr-event-status.completed{color:var(--status-available)}
+.cr-event-status.failed{color:var(--status-error)}
+.cr-event-status.active{color:var(--accent)}
+.cr-event-time{color:var(--text-secondary);flex-shrink:0}
+.cr-event-dur{color:var(--text-secondary);font-size:var(--fs-11);flex-shrink:0}
+.cr-event-actions{display:flex;gap:var(--sp-8);padding:var(--sp-8) 0;border-top:1px solid var(--border);flex-wrap:wrap}
+.cr-empty{color:var(--text-secondary);font-size:var(--fs-13);text-align:center;padding:var(--sp-16)}
+.cr-status-bar{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-8) 0;border-top:1px solid var(--border);margin-top:var(--sp-16);font-size:var(--fs-11);color:var(--text-secondary)}
+.cr-status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:var(--sp-4)}
+.cr-status-dot.live{background:var(--status-available)}
+.cr-status-dot.connecting{background:var(--status-pending)}
+.cr-status-dot.disconnected{background:var(--status-error)}
+.cr-status-dot.idle{background:var(--border)}
+.cr-footer{text-align:center;padding:var(--sp-16) 0;font-size:var(--fs-11);color:var(--text-secondary);border-top:1px solid var(--border);margin-top:var(--sp-24)}
+.cr-footer a{color:var(--accent);text-decoration:none}
 .hidden{display:none}
-
-@media(max-width:1024px){.cr-main{flex-wrap:wrap}.cr-right{width:100%;border-left:none;border-top:1px solid #30363d;max-height:400px}.cr-left{width:100%;border-right:none;border-bottom:1px solid #30363d}}
-@media(max-width:768px){.cr-header{flex-direction:column;align-items:flex-start}.cr-center{padding:16px}.cr-pipeline li{margin-left:12px;padding:8px 12px}}
-.cr-container-list{list-style:none;margin:0;padding:0;max-height:240px;overflow-y:auto;font-size:12px}
-.cr-container-item{padding:8px 12px;cursor:pointer;border-bottom:1px solid #21262d;transition:background 150ms}
-.cr-container-item:hover{background:#1c2128}
-.cr-container-item.selected{background:#0d1f3d;border-left:3px solid #58a6ff}
-.cr-container-name{display:block;color:#c9d1d9;font-weight:500}
-.cr-container-meta{display:block;color:#484f58;font-size:10px;margin-top:2px}
-.cr-catalog-refresh{padding:4px 0}
-.cr-history-item{padding:8px 12px;cursor:pointer;border-bottom:1px solid #21262d;transition:background 150ms;font-size:11px}
-.cr-history-item:hover{background:#1c2128}
-.cr-history-header{display:flex;align-items:center;gap:6px;margin-bottom:2px}
-.cr-history-id{color:#8b949e;font-family:monospace;font-size:10px}
-.cr-history-time{color:#484f58;font-size:10px;margin-left:auto}
-.cr-history-detail{color:#c9d1d9;font-weight:500}
-.cr-history-meta{color:#484f58;font-size:10px}
-.cr-status-indicator{display:inline-block;width:6px;height:6px;border-radius:50%}
-.cr-status-indicator.completed{background:#3fb950}
-.cr-status-indicator.failed{background:#f85149}
-.cr-status-indicator.running{background:#58a6ff}
-.cr-status-indicator.pending{background:#d29922}
-
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.cr-status-dot.connecting{animation:pulse 1.5s infinite}
+@media(prefers-reduced-motion:reduce){.cr-status-dot.connecting{animation:none}.cr-score-fill{transition:none}}
+@media(max-width:1024px){.cr-main{flex-direction:column}.cr-left{width:100%}.cr-center{min-width:0}.cr-right{width:100%}.cr-page{padding:var(--sp-16)}}
+@media(max-width:768px){.cr-page{padding:var(--sp-12)}.cr-header{flex-direction:column;align-items:flex-start}}
 """
 
-_CONTROL_ROOM_JS = r"""
+_JS = r"""
 <script>
 (function(){
 var baseUrl='__BASE_URL__';
@@ -159,7 +178,7 @@ var modelReady=false;
 var modelStatus='unknown';
 var jobState='idle';
 var isSubmitting=false;
-var selectedSource=null; // {type:'container'|'upload', id:'...', filename:'...', size:...}
+var selectedSource=null;
 var selectedModelId=null;
 var selectedModelWorkflowId='bremen';
 var STAGE_MAP={
@@ -184,6 +203,11 @@ var FAIL_MAP={
 };
 
 function init(){
+  var params=new URLSearchParams(window.location.search);
+  var urlModelId=params.get('model_id');
+  var urlWorkflowId=params.get('workflow_id');
+  if(urlModelId){selectedModelId=urlModelId}
+  if(urlWorkflowId){selectedModelWorkflowId=urlWorkflowId}
   loadReadiness();
   loadContainerCatalog();
   loadModelCatalog();
@@ -198,10 +222,6 @@ function init(){
   }
 }
 
-// ============================================================
-// CATALOG SELECTION
-// ============================================================
-
 function loadContainerCatalog(){
   var list=document.getElementById('cr-container-list');
   var status=document.getElementById('cr-catalog-status');
@@ -209,24 +229,25 @@ function loadContainerCatalog(){
     .then(function(r){return r.json()})
     .then(function(data){
       if(data.storage==='not_configured'){
-        if(status){status.textContent='H5 storage not configured. Set BREMEN_DEMO_H5_BUCKET to enable container selection.';status.className='cr-badge cr-badge-warn'}
+        if(status){status.textContent='H5 storage not configured.';status.className='cr-badge not_configured'}
         if(list){list.innerHTML='<li class="cr-empty">H5 storage not configured.</li>'}
+        updateReadiness();
         return;
       }
       if(data.storage==='list_failed'){
-        if(status){status.textContent='Container catalog unavailable. Check storage configuration.';status.className='cr-badge cr-badge-error'}
-        if(list){list.innerHTML='<li class="cr-empty">Container catalog unavailable. Check storage configuration.<br><button class="cr-event-panel-btn" onclick="loadContainerCatalog()">Retry</button></li>'}
+        if(status){status.textContent='Catalog unavailable.';status.className='cr-badge unavailable'}
+        if(list){list.innerHTML='<li class="cr-empty">Catalog unavailable.<br><button class="btn-small" onclick="loadContainerCatalog()" style="margin-top:8px">Retry</button></li>'}
         updateReadiness();
         return;
       }
       var containers=data.containers||[];
       if(containers.length===0){
-        if(status){status.textContent='No H5 containers found in configured storage.';status.className='cr-badge cr-badge-warn'}
+        if(status){status.textContent='No containers found.';status.className='cr-badge unavailable'}
         if(list){list.innerHTML='<li class="cr-empty">No H5 containers found.</li>'}
         updateReadiness();
         return;
       }
-      if(status){status.textContent=containers.length+' container(s) available';status.className='cr-badge cr-badge-info'}
+      if(status){status.textContent=containers.length+' container(s)';status.className='cr-badge available'}
       var html='';
       var prevSelectedId=selectedSource&&selectedSource.type==='container'?selectedSource.id:null;
       var prevSelectedStillAvailable=false;
@@ -236,17 +257,14 @@ function loadContainerCatalog(){
         var sizeLabel=size>1048576?(size/1048576).toFixed(1)+' MB':(size>1024?(size/1024).toFixed(1)+' KB':size+' B');
         var modified=c.last_modified?c.last_modified.substring(0,10):'';
         var sid=c.source_id||'';
-        // Workflow compatibility — only Bremen-compatible containers
-        if(c.workflow_id&&c.workflow_id!=='bremen')return;
         var isPrev=prevSelectedId===sid;
         if(isPrev){prevSelectedStillAvailable=true}
-        html+='<li class="cr-container-item'+(isPrev?' selected':'')+'" data-source-id="'+sid+'" data-sname="'+name.replace(/'/g,'')+'" data-ssize="'+size+'" tabindex="0" role="button">'+
+        html+='<li class="cr-container-item'+(isPrev?' selected':'')+'" data-source-id="'+sid+'" data-sname="'+name.replace(/\'/g,'')+'" data-ssize="'+size+'" tabindex="0" role="button" aria-current="'+(isPrev?'true':'false')+'">'+
           '<span class="cr-container-name">'+name+'</span>'+
           '<span class="cr-container-meta">'+sizeLabel+' | '+modified+'</span>'+
           '</li>';
       });
       if(list){list.innerHTML=html}
-      // Attach event listeners after rendering
       var items=document.querySelectorAll('.cr-container-item');
       items.forEach(function(item){
         item.addEventListener('click',function(){
@@ -265,42 +283,39 @@ function loadContainerCatalog(){
           }
         });
       });
-      // If previously selected source disappeared, mark it stale
       if(prevSelectedId&&!prevSelectedStillAvailable){
-        document.getElementById('cr-source-status').textContent='Previously selected container is no longer available. Please select another.';
+        var ss=document.getElementById('cr-source-status');
+        if(ss){ss.textContent='Previously selected container is no longer available. Please select another.';ss.className='cr-source-status stale'}
         selectedSource.stale=true;
       }
       updateReadiness();
     }).catch(function(){
-      if(status){status.textContent='Container catalog unavailable. Check storage configuration.';status.className='cr-badge cr-badge-error'}
-      if(list){list.innerHTML='<li class="cr-empty">Failed to load catalog.<br><button class="cr-event-panel-btn" onclick="loadContainerCatalog()">Retry</button></li>'}
+      if(status){status.textContent='Catalog unavailable.';status.className='cr-badge unavailable'}
+      if(list){list.innerHTML='<li class="cr-empty">Failed to load catalog.<br><button class="btn-small" onclick="loadContainerCatalog()" style="margin-top:8px">Retry</button></li>'}
       updateReadiness();
     });
 }
 
 function selectContainer(el,sid,filename,size){
-  // Deselect previous
   var items=document.querySelectorAll('.cr-container-item');
-  items.forEach(function(i){i.classList.remove('selected')});
+  items.forEach(function(i){i.classList.remove('selected');i.setAttribute('aria-current','false')});
   el.classList.add('selected');
+  el.setAttribute('aria-current','true');
   selectedSource={type:'container',id:sid,filename:filename,size:size,stale:false};
-  // Clear any upload selection
   document.getElementById('cr-file-input').value='';
-  document.getElementById('cr-source-status').textContent='Container: '+filename;
+  var ss=document.getElementById('cr-source-status');
+  if(ss){ss.textContent='Container: '+filename;ss.className='cr-source-status'}
   setState('source_selected');
   updateReadiness();
 }
-
-// ============================================================
-// UPLOAD FLOW
-// ============================================================
 
 function handleFileSelect(){
   var file=document.getElementById('cr-file-input').files[0];
   if(!file)return;
   var name=file.name.toLowerCase();
   if(!name.endsWith('.h5')&&!name.endsWith('.hdf5')){
-    document.getElementById('cr-source-status').textContent='Only .h5 and .hdf5 files are accepted.';
+    var ss=document.getElementById('cr-source-status');
+    if(ss){ss.textContent='Only .h5 and .hdf5 files are accepted.';ss.className='cr-source-status stale'}
     setState('idle');
     return;
   }
@@ -311,33 +326,29 @@ function handleFileSelect(){
     .then(function(r){return r.json()})
     .then(function(data){
       if(data.status==='staged'){
-        // Clear any catalog selection
         var items=document.querySelectorAll('.cr-container-item');
-        items.forEach(function(i){i.classList.remove('selected')});
+        items.forEach(function(i){i.classList.remove('selected');i.setAttribute('aria-current','false')});
         selectedSource={type:'upload',id:data.upload_id,filename:data.filename,size:data.size_bytes,stale:false};
-        document.getElementById('cr-source-status').textContent='Upload ready: '+data.filename;
+        var ss=document.getElementById('cr-source-status');
+        if(ss){ss.textContent='Upload ready: '+data.filename;ss.className='cr-source-status'}
         setState('ready_to_submit');
       }else{
-        document.getElementById('cr-source-status').textContent='Upload failed: '+data.error;
+        var ss=document.getElementById('cr-source-status');
+        if(ss){ss.textContent='Upload failed: '+data.error;ss.className='cr-source-status stale'}
         setState('idle');
-        // Keep source selections after typed error
         if(data.error_code==='SOURCE_ERROR'||data.error_code==='MISSING_SOURCE'){
-          // Recoverable — keep current selection
         }else{
           selectedSource=null;
         }
       }
       updateReadiness();
     }).catch(function(){
-      document.getElementById('cr-source-status').textContent='Upload failed';
+      var ss=document.getElementById('cr-source-status');
+      if(ss){ss.textContent='Upload failed';ss.className='cr-source-status stale'}
       setState('idle');
       updateReadiness();
     });
 }
-
-// ============================================================
-// MODEL SELECTION
-// ============================================================
 
 function loadModelCatalog(){
   var info=document.getElementById('cr-model-info');
@@ -345,9 +356,7 @@ function loadModelCatalog(){
     .then(function(r){return r.json()})
     .then(function(data){
       if(data.status==='not_configured'){
-        if(info){
-          info.innerHTML='<h3>MRI Triage Model</h3><p style="font-size:12px;color:#d29922">No Bremen model is configured. Analysis is unavailable. Configure BREMEN_MODEL_URI to enable model execution.</p>';
-        }
+        if(info){info.innerHTML='<div class="cr-field-row"><div class="cr-field-label">Status</div><div class="cr-field-value" style="white-space:normal">No model configured</div></div>'}
         modelReady=false;
         modelStatus='not_configured';
         selectedModelId=null;
@@ -355,63 +364,47 @@ function loadModelCatalog(){
         return;
       }
       var models=data.models||[];
-      // Filter to available models only
       var availableModels=models.filter(function(m){return m.availability==='available'});
-
       if(availableModels.length===0){
-        if(info){
-          info.innerHTML='<h3>MRI Triage Model</h3><p style="font-size:12px;color:#d29922">No models are currently available.</p>';
-        }
+        if(info){info.innerHTML='<div class="cr-field-row"><div class="cr-field-label">Status</div><div class="cr-field-value" style="white-space:normal">No models available</div></div>'}
         modelReady=false;
         selectedModelId=null;
         updateReadiness();
         return;
       }
-
       modelReady=true;
-
-      // Single model — auto-select
       if(availableModels.length===1){
         var m=availableModels[0];
         selectedModelId=m.model_id;
         selectedModelWorkflowId=m.workflow_id||'bremen';
-        var html='<h3>MRI Triage Model</h3><dl>';
-        html+='<div class="cr-model-field"><dt>Model</dt><dd>'+m.model_version+'</dd></div>';
-        html+='<div class="cr-model-field"><dt>Feature schema</dt><dd>'+m.feature_schema_version+'</dd></div>';
-        html+='<div class="cr-model-field"><dt>Decision policy</dt><dd>'+m.decision_policy_id+' v'+m.decision_policy_version+'</dd></div>';
-        html+='<div class="cr-model-field"><dt>Status</dt><dd><span class="cr-badge cr-badge-ready">Available</span></dd></div>';
-        html+='</dl>';
+        var html='';
+        html+='<div class="cr-field-row"><div class="cr-field-label">Model</div><div class="cr-field-value" title="'+(m.display_name||m.model_id)+'">'+(m.display_name||m.model_id)+'</div></div>';
+        html+='<div class="cr-field-row"><div class="cr-field-label">Version</div><div class="cr-field-value" title="'+(m.model_version||'')+'">'+(m.model_version||'')+'</div></div>';
+        html+='<div class="cr-field-row"><div class="cr-field-label">Feature schema</div><div class="cr-field-value" title="'+(m.feature_schema_version||'')+'">'+(m.feature_schema_version||'')+'</div></div>';
+        html+='<div class="cr-field-row"><div class="cr-field-label">Decision policy</div><div class="cr-field-value" title="'+(m.decision_policy_id||'')+' v'+(m.decision_policy_version||'')+'">'+(m.decision_policy_id||'')+' v'+(m.decision_policy_version||'')+'</div></div>';
+        html+='<div class="cr-field-row"><div class="cr-field-label">Status</div><div class="cr-field-value"><span class="cr-badge available">Available</span></div></div>';
         if(info){info.innerHTML=html}
-      } else {
-        // Multiple models — render selector
-        var html='<h3>MRI Triage Model</h3>';
-        html+='<select id="cr-model-select" onchange="onModelSelect(this)" style="width:100%;padding:6px;background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;font-size:12px;margin-bottom:8px">';
+      }else{
+        var html='<div class="cr-field-row"><div class="cr-field-label">Model</div><div class="cr-field-value"><select id="cr-model-select" onchange="onModelSelect(this)" style="width:100%;padding:4px 8px;background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border);border-radius:4px;font-size:var(--fs-11)">';
         availableModels.forEach(function(m){
           var sel=m.model_id===selectedModelId?' selected':'';
-          html+='<option value="'+m.model_id+'" data-workflow="'+m.workflow_id+'"'+sel+'>'+m.display_name+'</option>';
+          html+='<option value="'+m.model_id+'" data-workflow="'+(m.workflow_id||'bremen')+'"'+sel+'>'+(m.display_name||m.model_id)+'</option>';
         });
-        html+='</select>';
-        html+='<div style="font-size:11px;color:#8b949e">Select the model for analysis</div>';
+        html+='</select></div></div>';
         if(info){info.innerHTML=html}
-        // If no model selected yet, pick first
         if(!selectedModelId&&availableModels.length>0){
           selectedModelId=availableModels[0].model_id;
           selectedModelWorkflowId=availableModels[0].workflow_id||'bremen';
         }
       }
-
-      // Update catalog timestamp
       var tsEl=document.getElementById('cr-catalog-ts');
       if(tsEl&&data.catalog_timestamp){
         tsEl.textContent='Catalog: '+data.catalog_timestamp.substring(0,19).replace('T',' ');
         tsEl.classList.remove('hidden');
       }
-
       updateReadiness();
     }).catch(function(){
-      if(info){
-        info.innerHTML='<h3>MRI Triage Model</h3><p style="font-size:12px;color:#f85149">Model catalog unavailable.</p>';
-      }
+      if(info){info.innerHTML='<div class="cr-field-row"><div class="cr-field-label">Status</div><div class="cr-field-value" style="white-space:normal;color:var(--status-error)">Catalog unavailable</div></div>'}
       modelReady=false;
       updateReadiness();
     });
@@ -424,62 +417,42 @@ function onModelSelect(sel){
   updateReadiness();
 }
 
-// ============================================================
-// ANALYZE READINESS — single unified function (requirement 3)
-// ============================================================
-
 function updateReadiness(){
   var btn=document.getElementById('cr-analyze-btn');
   if(!btn)return;
-
-  var hasValidSource=selectedSource!==null&&
-    selectedSource.id&&
-    !selectedSource.stale;
+  var hasValidSource=selectedSource!==null&&selectedSource.id&&!selectedSource.stale;
   var hasValidModel=selectedModelId!==null&&modelReady;
-  var notActive=!isSubmitting&&jobState!=='submitting'&&jobState!=='connecting'&&
-    jobState!=='running'&&jobState!=='reconnecting';
+  var notActive=!isSubmitting&&jobState!=='submitting'&&jobState!=='connecting'&&jobState!=='running'&&jobState!=='reconnecting';
   var canSubmit=hasValidSource&&hasValidModel&&notActive;
-
   btn.disabled=!canSubmit;
-
-  // Update source status
   var ss=document.getElementById('cr-source-status');
   if(selectedSource&&selectedSource.stale&&ss){
     ss.textContent='This source is no longer available. Please select another.';
+    ss.className='cr-source-status stale';
   }
 }
-
-// ============================================================
-// JOB SUBMISSION (requirement 4)
-// ============================================================
 
 function startAnalysis(){
   if(isSubmitting)return;
   if(!selectedSource||!selectedModelId||!modelReady)return;
   if(selectedSource.stale){
-    document.getElementById('cr-source-status').textContent='Cannot analyze: the selected source is no longer available.';
+    var ss=document.getElementById('cr-source-status');
+    if(ss){ss.textContent='Cannot analyze: the selected source is no longer available.';ss.className='cr-source-status stale'}
     return;
   }
-
   isSubmitting=true;
   setState('submitting');
   resetPipeline();
   resetEventPanel();
   setConnectionState('connecting');
   updateReadiness();
-
   var body={workflow_id:selectedModelWorkflowId||'bremen'};
   body.model_id=selectedModelId;
-
-  // Catalog source: send source_id
-  // Upload source: send upload_id
-  // Never send both (validated server-side)
   if(selectedSource.type==='container'){
     body.source_id=selectedSource.id;
   }else if(selectedSource.type==='upload'){
     body.upload_id=selectedSource.id;
   }
-
   fetch(baseUrl+'/demo/api/jobs',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -491,8 +464,8 @@ function startAnalysis(){
       isSubmitting=false;
       updateReadiness();
       if(data.error){
-        document.getElementById('cr-source-status').textContent='Error: '+data.error;
-        // Keep valid selections after recoverable typed error
+        var ss=document.getElementById('cr-source-status');
+        if(ss){ss.textContent='Error: '+data.error;ss.className='cr-source-status stale'}
         setConnectionState('idle');
         setState('failed');
         return;
@@ -506,7 +479,6 @@ function startAnalysis(){
     fetchInitialEvents(jid);
     connectSSE(jid);
     loadJobHistory();
-    // Reset submission flag after stream completes
   }).catch(function(){
     isSubmitting=false;
     updateReadiness();
@@ -514,10 +486,6 @@ function startAnalysis(){
     setState('ready_to_submit');
   });
 }
-
-// ============================================================
-// READINESS / STATE
-// ============================================================
 
 function loadReadiness(){
   Promise.all([
@@ -530,34 +498,26 @@ function loadReadiness(){
     modelStatus=version.model_status||'unknown';
     renderReadiness(version,modelReady,modelStatus);
   }).catch(function(){
-    document.getElementById('cr-readiness').innerHTML='<span class="cr-badge cr-badge-error">Cannot reach server</span>';
+    document.getElementById('cr-readiness').innerHTML='<span class="cr-badge unavailable">Cannot reach server</span>';
     setState('unavailable');
   });
 }
 
 function renderReadiness(version,ready,status){
   var html='';
-  if(ready){
-    html+='<span class="cr-badge cr-badge-ready" role="status">Model Ready</span> ';
-  }else if(status==='not_configured'){
-    html+='<span class="cr-badge cr-badge-warn" role="status">Model Not Configured</span> ';
-  }else if(status==='error'){
-    html+='<span class="cr-badge cr-badge-error" role="status">Model Error</span> ';
-  }else{
-    html+='<span class="cr-badge cr-badge-pending" role="status">Model Loading</span> ';
-  }
-  html+='<span class="cr-badge cr-badge-pending" role="status">Scientific certification: pending</span> ';
-  html+='<span class="cr-badge cr-badge-disabled" role="status">Technical demo only</span>';
+  if(ready){html+='<span class="cr-badge available">Model Ready</span>'}
+  else if(status==='not_configured'){html+='<span class="cr-badge not_configured">Not Configured</span>'}
+  else if(status==='error'){html+='<span class="cr-badge unavailable">Model Error</span>'}
+  else{html+='<span class="cr-badge pending">Loading</span>'}
+  html+='<span class="cr-badge pending">Certification: pending</span>';
+  html+='<span class="cr-badge not_configured">Technical demo only</span>';
   document.getElementById('cr-readiness').innerHTML=html;
 }
 
 function setState(newState){
-  var valid=['idle','source_selected','validating','ready_to_submit','submitting',
-    'job_created','connecting','running','reconnecting','completed',
-    'partial_success','failed','unavailable','expired'];
+  var valid=['idle','source_selected','validating','ready_to_submit','submitting','job_created','connecting','running','reconnecting','completed','partial_success','failed','unavailable','expired'];
   if(valid.indexOf(newState)===-1)return;
   jobState=newState;
-
   var label=document.getElementById('cr-status-label');
   if(label){label.textContent=newState.replace(/_/g,' ')}
   var dot=document.getElementById('cr-status-dot');
@@ -571,10 +531,6 @@ function setState(newState){
   updateReadiness();
 }
 
-// ============================================================
-// JOB HISTORY
-// ============================================================
-
 function loadJobHistory(){
   fetch(baseUrl+'/demo/api/jobs')
     .then(function(r){return r.json()})
@@ -583,7 +539,7 @@ function loadJobHistory(){
       var list=document.getElementById('cr-job-list');
       if(!list)return;
       if(jobs.length===0){
-        list.innerHTML='<div class="cr-empty" style="padding:12px">No analysis jobs yet.</div>';
+        list.innerHTML='<div class="cr-empty">No analysis jobs yet.</div>';
         return;
       }
       var html='';
@@ -593,14 +549,11 @@ function loadJobHistory(){
         var ts=j.created_at?j.created_at.substring(11,19):'';
         var decision=j.decision_display_name||j.triage_recommendation||'';
         var model=j.model_id||'';
-        var source=j.source_display_name||'';
         var reportAvail=j.report_available?'&#128196; ':'';
-        html+='<div class="cr-history-item" onclick="openJob(\''+j.job_id+'\')">'+
-          '<div class="cr-history-header"><span class="cr-status-indicator '+status+'"></span>'+
-          '<span class="cr-history-id">'+j.job_id.substring(0,8)+'</span>'+
+        html+='<div class="cr-history-item '+status+'" onclick="openJob(\''+j.job_id+'\')">'+
+          '<div class="cr-history-header"><span class="cr-history-id">'+j.job_id.substring(0,8)+'</span>'+
           '<span class="cr-history-time">'+ts+'</span></div>'+
-          '<div class="cr-history-detail">'+reportAvail+
-          (decision?decision:(status=='completed'?'Completed':status))+'</div>'+
+          '<div class="cr-history-detail">'+reportAvail+(decision?decision:(status==='completed'?'Completed':status))+'</div>'+
           '<div class="cr-history-meta">'+(model?'Model: '+model.substring(0,16):'')+'</div>'+
           '</div>';
       });
@@ -609,20 +562,14 @@ function loadJobHistory(){
 }
 
 function openJob(jobId){
-  window.location.href=baseUrl+'/demo/workspace/'+jobId;
+  window.location.href=baseUrl+'/demo/report/'+jobId;
 }
-
-// ============================================================
-// SSE / EVENTS
-// ============================================================
 
 function fetchInitialEvents(jobId){
   fetch(baseUrl+'/demo/api/jobs/'+jobId+'/events')
     .then(function(r){return r.json()})
     .then(function(data){
-      if(data.events){
-        data.events.forEach(function(ev){processEvent(ev)});
-      }
+      if(data.events){data.events.forEach(function(ev){processEvent(ev)})}
     }).catch(function(){});
 }
 
@@ -668,17 +615,17 @@ function updatePipeline(ev){
   if(!el)return;
   var isFail=FAIL_MAP[stage]!==undefined;
   if(isFail||status==='failed'){
-    el.className='failed';
-    el.querySelector('.cr-stage-icon').textContent=String.fromCharCode(10007);
-    el.querySelector('.cr-stage-icon').className='cr-stage-icon failed';
+    el.className='cr-stage failed';
+    var icon=el.querySelector('.cr-stage-icon');
+    if(icon){icon.textContent='\\u2717';icon.className='cr-stage-icon failed'}
   }else if(status==='completed'){
-    el.className='completed';
-    el.querySelector('.cr-stage-icon').textContent=String.fromCharCode(10003);
-    el.querySelector('.cr-stage-icon').className='cr-stage-icon completed';
+    el.className='cr-stage completed';
+    var icon=el.querySelector('.cr-stage-icon');
+    if(icon){icon.textContent='\\u2713';icon.className='cr-stage-icon completed'}
   }else if(status==='started'||status==='resolved'){
-    el.className='active';
-    el.querySelector('.cr-stage-icon').textContent=String.fromCharCode(9679);
-    el.querySelector('.cr-stage-icon').className='cr-stage-icon active';
+    el.className='cr-stage active';
+    var icon=el.querySelector('.cr-stage-icon');
+    if(icon){icon.textContent='\\u25CF';icon.className='cr-stage-icon active'}
   }
   var dur=el.querySelector('.cr-stage-dur');
   if(dur&&ev.duration_ms){dur.textContent=ev.duration_ms+' ms'}
@@ -691,7 +638,7 @@ function addEventRow(ev){
   var cls='cr-event-row';
   if(status==='completed')cls+=' completed';
   else if(status==='failed')cls+=' failed';
-  else if(status==='started'||status==='resolved')cls+=' started';
+  else if(status==='started'||status==='resolved')cls+=' active';
   var ts=ev.timestamp?ev.timestamp.substring(11,19):'';
   var typeLabel=ev.event_type||'';
   if(typeLabel.length>40)typeLabel=typeLabel.substring(0,37)+'...';
@@ -703,18 +650,16 @@ function addEventRow(ev){
     '<span class="cr-event-time">'+ts+'</span>'+
     (ev.duration_ms?'<span class="cr-event-dur">'+ev.duration_ms+'ms</span>':'');
   panel.appendChild(div);
-  while(panel.children.length>MAX_EVENTS){
-    panel.removeChild(panel.firstChild);
-  }
+  while(panel.children.length>MAX_EVENTS){panel.removeChild(panel.firstChild)}
   if(autoScroll){panel.scrollTop=panel.scrollHeight}
 }
 
 function resetPipeline(){
-  var stages=document.querySelectorAll('.cr-pipeline li');
+  var stages=document.querySelectorAll('.cr-stage');
   stages.forEach(function(s){
-    s.className='pending';
+    s.className='cr-stage';
     var icon=s.querySelector('.cr-stage-icon');
-    if(icon){icon.textContent=String.fromCharCode(9679);icon.className='cr-stage-icon pending'}
+    if(icon){icon.textContent='\\u25CF';icon.className='cr-stage-icon pending'}
     var dur=s.querySelector('.cr-stage-dur');
     if(dur){dur.textContent=''}
   });
@@ -722,7 +667,7 @@ function resetPipeline(){
 
 function resetEventPanel(){
   var panel=document.getElementById('cr-event-list');
-  if(panel){panel.innerHTML='<div class="cr-empty">Analysis events will appear here</div>'}
+  if(panel){panel.innerHTML=''}
   eventCache=[];
   lastSequence=0;
 }
@@ -752,54 +697,35 @@ function fetchDecision(jobId){
       var thresh=rs.threshold_applied!==undefined?rs.threshold_applied:null;
       var card=document.getElementById('cr-decision-card');
       if(!card)return;
-      card.className='cr-decision-card'+(code==='MRI_REVIEW_DEFER'?' negative':'');
-      card.innerHTML='<h2 role="alert">'+name+'</h2>'+
-        '<div class="cr-decision-text">'+code+'</div>'+
-        (prob!==null&&thresh!==null?
-          '<div style="position:relative">'+
-          '<div class="cr-decision-score"><div class="cr-decision-score-fill" style="width:'+(Math.min(100,Math.max(0,prob*100)))+'%"></div></div>'+
-          '<div class="cr-decision-threshold-marker" style="left:'+(Math.min(100,Math.max(0,thresh*100)))+'%;"></div>'+
-          '<div class="cr-decision-meta">Score: '+prob.toFixed(3)+' | Threshold: '+thresh.toFixed(3)+'</div></div>':'')+
-        '<div class="cr-decision-meta">Policy: '+policy+'</div>'+
-        '<span class="cr-decision-cert">Scientific certification: pending</span> '+
-        '<span class="cr-badge cr-badge-disabled" style="margin-left:4px">Technical demo only</span>';
-      card.classList.remove('hidden');
-      loadReport(jobId,rs);
-    }).catch(function(){});
-}
-
-function loadReport(jobId,rs){
-  fetch(baseUrl+'/demo/api/jobs/'+jobId+'/reports/bremen')
-    .then(function(r){return r.json()})
-    .then(function(data){
-      var rpt=data.report||{};
-      if(rpt.status==='available'){
-        var link=document.getElementById('cr-report-link');
-        if(link){
-          link.classList.remove('hidden');
-          link.textContent='View Bremen Report (v'+ (rpt.report_schema_version||'')+')';
-        }
+      var html='<div class="cr-decision-headline">'+name+'</div>';
+      html+='<div class="cr-decision-code">'+code+'</div>';
+      if(prob!==null&&thresh!==null){
+        var pct=Math.min(100,Math.max(0,prob*100));
+        var threshPct=Math.min(100,Math.max(0,thresh*100));
+        html+='<div class="cr-decision-score"><div class="cr-score-bar"><div class="cr-score-fill" style="width:'+pct+'%"></div><div class="cr-score-threshold" style="left:'+threshPct+'%"></div></div><span class="cr-score-label">Score: '+prob.toFixed(3)+'</span></div>';
       }
+      html+='<div class="cr-decision-meta">Policy: '+policy+'</div>';
+      html+='<span class="cr-badge pending">Certification: pending</span>';
+      html+='<span class="cr-badge not_configured" style="margin-left:4px">Technical demo only</span>';
+      html+='<br><a class="cr-report-link" href="'+baseUrl+'/demo/report/'+jobId+'" target="_blank" rel="noopener">Open report</a>';
+      card.innerHTML=html;
+      card.classList.remove('hidden');
     }).catch(function(){});
 }
-
-// ============================================================
-// UI TOGGLES
-// ============================================================
 
 function toggleAutoScroll(){
   autoScroll=!autoScroll;
   var btn=document.getElementById('cr-autoscroll-btn');
-  if(btn){btn.textContent=autoScroll?'Pause':'Follow';btn.className='cr-event-panel-btn'+(autoScroll?' active':'')}
+  if(btn){btn.textContent=autoScroll?'Pause':'Follow';btn.className='btn-small'+(autoScroll?' active':'')}
 }
 
 function filterEvents(filter){
   var allBtn=document.getElementById('cr-filter-all');
   var compBtn=document.getElementById('cr-filter-completed');
   var failBtn=document.getElementById('cr-filter-failed');
-  if(allBtn){allBtn.className='cr-event-panel-btn'+(filter==='all'?' active':'');allBtn.setAttribute('aria-pressed',filter==='all'?'true':'false')}
-  if(compBtn){compBtn.className='cr-event-panel-btn'+(filter==='completed'?' active':'');compBtn.setAttribute('aria-pressed',filter==='completed'?'true':'false')}
-  if(failBtn){failBtn.className='cr-event-panel-btn'+(filter==='failed'?' active':'');failBtn.setAttribute('aria-pressed',filter==='failed'?'true':'false')}
+  if(allBtn){allBtn.className='btn-small'+(filter==='all'?' active':'');allBtn.setAttribute('aria-pressed',filter==='all'?'true':'false')}
+  if(compBtn){compBtn.className='btn-small'+(filter==='completed'?' active':'');compBtn.setAttribute('aria-pressed',filter==='completed'?'true':'false')}
+  if(failBtn){failBtn.className='btn-small'+(filter==='failed'?' active':'');failBtn.setAttribute('aria-pressed',filter==='failed'?'true':'false')}
   var rows=document.querySelectorAll('.cr-event-row');
   rows.forEach(function(r){
     if(filter==='all'){r.classList.remove('hidden')}
@@ -809,7 +735,6 @@ function filterEvents(filter){
   });
 }
 
-// Expose handler functions for inline HTML onclick attributes
 window.loadContainerCatalog=loadContainerCatalog;
 window.selectContainer=selectContainer;
 window.handleFileSelect=handleFileSelect;
@@ -832,163 +757,170 @@ def build_control_room_page(
     base_url: str = "http://localhost:8000",
     request_id: str = "",
 ) -> str:
-    """Build the Bremen Investor Control Room HTML page.
+    """Build the Bremen Control Room HTML page.
 
-    This page is the default experience at GET /demo.
-    It renders one real configured Bremen model through the existing
-    job API, SSE endpoint, decision contract, and report provider.
+    Parameters
+    ----------
+    base_url : Base URL of the service.
+    request_id : Request ID for correlation.
+
+    Returns
+    -------
+    A complete HTML5 document as a string.
     """
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bremen Investor Control Room</title>
-<style>{_CONTROL_ROOM_CSS}</style>
+<title>Bremen Control Room — MRI Triage Decision Support</title>
+<style>{_CSS}</style>
 </head>
 <body>
-
-<div class="cr-header">
-  <div>
-    <div class="cr-title">Bremen</div>
-    <div class="cr-subtitle">Should the patient continue to MRI?</div>
+<div class="cr-page">
+  <div class="cr-header">
+    <div>
+      <div class="cr-brand">Bremen</div>
+      <div class="cr-question">Should the patient continue to MRI?</div>
+    </div>
+    <div class="cr-header-right">
+      <a href="/demo" class="cr-model-link" id="cr-model-link">Change model</a>
+      <div class="cr-badges" id="cr-readiness">
+        <span class="cr-badge pending">Checking...</span>
+      </div>
+    </div>
   </div>
-  <div class="cr-badges" id="cr-readiness">
-    <span class="cr-badge cr-badge-pending">Checking readiness...</span>
+
+  <div class="cr-main">
+    <!-- Left column: 320px -->
+    <div class="cr-left">
+      <div class="cr-card">
+        <div class="cr-card-title">Model</div>
+        <div class="cr-field-table" id="cr-model-info">
+          <div class="cr-field-row"><div class="cr-field-label">Status</div><div class="cr-field-value" style="white-space:normal">Loading...</div></div>
+        </div>
+      </div>
+
+      <div class="cr-card">
+        <div class="cr-card-title">Container Catalog</div>
+        <div id="cr-catalog-status" class="cr-catalog-status">Loading...</div>
+        <ul class="cr-container-list" id="cr-container-list" role="list" aria-label="Available containers">
+          <li class="cr-empty">Loading containers...</li>
+        </ul>
+        <div style="margin-top:var(--sp-8)">
+          <button class="btn-small" onclick="loadContainerCatalog()" style="width:100%">Refresh Catalog</button>
+        </div>
+      </div>
+
+      <div class="cr-card">
+        <div class="cr-card-title">Source</div>
+        <div class="cr-upload-area" id="cr-upload-area">
+          <div class="cr-upload-label">Upload a new H5 file for analysis</div>
+          <input type="file" id="cr-file-input" accept=".h5,.hdf5" style="display:none">
+          <button class="btn-secondary" onclick="document.getElementById('cr-file-input').click()" style="width:100%;margin-bottom:var(--sp-8)">Upload New H5 File</button>
+          <p id="cr-source-status" class="cr-source-status">No source selected</p>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="cr-analyze-btn" onclick="startAnalysis()" disabled aria-label="Start analysis">Analyze</button>
+    </div>
+
+    <!-- Center column: flexible -->
+    <div class="cr-center">
+      <div class="cr-card cr-card-rail">
+        <div class="cr-card-title">Execution Pipeline</div>
+        <div class="cr-pipeline" role="list" aria-label="Execution stages">
+          <div class="cr-stage" id="stage-input">
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-label">Input accepted</span>
+            <span class="cr-stage-dur"></span>
+          </div>
+          <div class="cr-stage" id="stage-source">
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-label">Source validated</span>
+            <span class="cr-stage-dur"></span>
+          </div>
+          <div class="cr-stage" id="stage-xrd">
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-label">Canonical XRD created</span>
+            <span class="cr-stage-dur"></span>
+          </div>
+          <div class="cr-stage" id="stage-workflow">
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-label">Bremen workflow resolved</span>
+            <span class="cr-stage-dur"></span>
+          </div>
+          <div class="cr-stage" id="stage-artifact">
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-label">Model artifact prepared</span>
+            <span class="cr-stage-dur"></span>
+          </div>
+          <div class="cr-stage" id="stage-features">
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-label">Feature contract validated</span>
+            <span class="cr-stage-dur"></span>
+          </div>
+          <div class="cr-stage" id="stage-inference">
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-label">Inference completed</span>
+            <span class="cr-stage-dur"></span>
+          </div>
+          <div class="cr-stage" id="stage-decision">
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-label">Decision policy applied</span>
+            <span class="cr-stage-dur"></span>
+          </div>
+          <div class="cr-stage" id="stage-report">
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-label">Report generated</span>
+            <span class="cr-stage-dur"></span>
+          </div>
+          <div class="cr-stage" id="stage-complete">
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-label">Analysis complete</span>
+            <span class="cr-stage-dur"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="cr-decision-card hidden" id="cr-decision-card"></div>
+    </div>
+
+    <!-- Right column: 360px -->
+    <div class="cr-right">
+      <div class="cr-card">
+        <div class="cr-card-title">Job History</div>
+        <div class="cr-history-list" id="cr-job-list">
+          <div class="cr-empty">Loading job history...</div>
+        </div>
+      </div>
+
+      <div class="cr-card" style="flex:1;display:flex;flex-direction:column;min-height:0">
+        <div class="cr-card-title">Live Events <span id="cr-catalog-ts" class="hidden" style="font-weight:400;font-size:var(--fs-11);color:var(--text-secondary);text-transform:none;letter-spacing:0">Catalog: loading</span></div>
+        <div class="cr-event-panel">
+          <div class="cr-event-empty" id="cr-event-empty">Analysis events will appear here</div>
+          <div class="cr-event-list" id="cr-event-list" role="log" aria-live="polite" aria-atomic="false"></div>
+        </div>
+        <div class="cr-event-actions">
+          <button class="btn-small active" id="cr-filter-all" onclick="filterEvents('all')" aria-pressed="true">All</button>
+          <button class="btn-small" id="cr-filter-completed" onclick="filterEvents('completed')" aria-pressed="false">Completed</button>
+          <button class="btn-small" id="cr-filter-failed" onclick="filterEvents('failed')" aria-pressed="false">Failed</button>
+          <button class="btn-small active" id="cr-autoscroll-btn" onclick="toggleAutoScroll()" style="margin-left:auto">Pause</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cr-status-bar">
+    <span><span class="cr-status-dot idle" id="cr-status-dot"></span><span id="cr-status-label">Idle</span></span>
+    <span><a href="/demo/workspace" style="color:var(--accent);text-decoration:none">Workspace</a> &middot; Technical demo only</span>
+  </div>
+
+  <div class="cr-footer">
+    Bremen — MRI triage decision support. Not clinically validated.
+    Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment.
   </div>
 </div>
-
-<div class="cr-main">
-  <div class="cr-left">
-    <div class="cr-section-title">Bremen Workflow</div>
-    <div class="cr-model-card" id="cr-model-info">
-      <h3>MRI Triage Model</h3>
-      <p style="font-size:12px;color:#8b949e">Loading model details...</p>
-    </div>
-    <div class="cr-section-title" style="margin-top:8px">Container Catalog</div>
-    <div id="cr-catalog-status" class="cr-badge cr-badge-pending" style="font-size:11px;margin-bottom:8px">Loading catalog...</div>
-    <ol class="cr-container-list" id="cr-container-list">
-      <li style="font-size:11px;color:#8b949e;padding:8px;text-align:center">Loading containers...</li>
-    </ol>
-    <div class="cr-catalog-refresh">
-      <button class="cr-event-panel-btn" onclick="loadContainerCatalog()" style="width:100%">Refresh Catalog</button>
-    </div>
-    <div class="cr-input-area" id="cr-upload-area">
-      <div class="cr-section-title" style="margin-bottom:4px">Upload</div>
-      <p style="font-size:11px;color:#8b949e;margin-bottom:8px">Upload a new H5 file for analysis (existing catalog containers stay selected)</p>
-      <input type="file" id="cr-file-input" accept=".h5,.hdf5" style="display:none">
-      <button class="cr-btn cr-btn-warn" onclick="document.getElementById('cr-file-input').click()"
-        style="width:100%;margin-bottom:4px">Upload New H5 File</button>
-      <p id="cr-source-status" style="font-size:11px;color:#8b949e;margin-top:4px">No source selected</p>
-    </div>
-    <button class="cr-btn" id="cr-analyze-btn" onclick="startAnalysis()" disabled
-      aria-label="Start analysis">Analyze</button>
-    <p id="cr-model-hint" style="font-size:11px;color:#d29922;margin-top:8px">Model must be configured by the deployment operator</p>
-    <div style="font-size:10px;color:#484f58;margin-top:8px">
-      <p>Structured jobs created via POST /demo/api/jobs appear here. Legacy analyze jobs (POST /demo/api/h5/analyze) use a separate internal path and are not displayed in this history panel.</p>
-    </div>
-  </div>
-
-  <div class="cr-center">
-    <div class="cr-section-title">Execution Pipeline</div>
-    <div class="cr-pipeline">
-      <ol role="list" aria-label="Execution stages">
-        <li class="pending" id="stage-input">
-          <span class="cr-stage-icon pending">&#9679;</span>
-          <span class="cr-stage-label">Input accepted</span>
-          <span class="cr-stage-dur cr-stage-status"></span>
-        </li>
-        <li class="pending" id="stage-source">
-          <span class="cr-stage-icon pending">&#9679;</span>
-          <span class="cr-stage-label">Source validated</span>
-          <span class="cr-stage-dur cr-stage-status"></span>
-        </li>
-        <li class="pending" id="stage-xrd">
-          <span class="cr-stage-icon pending">&#9679;</span>
-          <span class="cr-stage-label">Canonical XRD created</span>
-          <span class="cr-stage-dur cr-stage-status"></span>
-        </li>
-        <li class="pending" id="stage-workflow">
-          <span class="cr-stage-icon pending">&#9679;</span>
-          <span class="cr-stage-label">Bremen workflow resolved</span>
-          <span class="cr-stage-dur cr-stage-status"></span>
-        </li>
-        <li class="pending" id="stage-artifact">
-          <span class="cr-stage-icon pending">&#9679;</span>
-          <span class="cr-stage-label">Model artifact prepared</span>
-          <span class="cr-stage-dur cr-stage-status"></span>
-        </li>
-        <li class="pending" id="stage-features">
-          <span class="cr-stage-icon pending">&#9679;</span>
-          <span class="cr-stage-label">Feature contract validated</span>
-          <span class="cr-stage-dur cr-stage-status"></span>
-        </li>
-        <li class="pending" id="stage-inference">
-          <span class="cr-stage-icon pending">&#9679;</span>
-          <span class="cr-stage-label">Inference completed</span>
-          <span class="cr-stage-dur cr-stage-status"></span>
-        </li>
-        <li class="pending" id="stage-decision">
-          <span class="cr-stage-icon pending">&#9679;</span>
-          <span class="cr-stage-label">Decision policy applied</span>
-          <span class="cr-stage-dur cr-stage-status"></span>
-        </li>
-        <li class="pending" id="stage-report">
-          <span class="cr-stage-icon pending">&#9679;</span>
-          <span class="cr-stage-label">Report generated</span>
-          <span class="cr-stage-dur cr-stage-status"></span>
-        </li>
-        <li class="pending" id="stage-complete">
-          <span class="cr-stage-icon pending">&#9679;</span>
-          <span class="cr-stage-label">Analysis complete</span>
-          <span class="cr-stage-dur cr-stage-status"></span>
-        </li>
-      </ol>
-    </div>
-
-    <div class="cr-decision-card hidden" id="cr-decision-card">
-    </div>
-
-    <div style="margin-top:16px">
-      <a class="cr-report-link hidden" id="cr-report-link" href="#" target="_blank" rel="noopener">View Report</a>
-    </div>
-  </div>
-
-  <div class="cr-right">
-    <div class="cr-section-title">Job History</div>
-    <div id="cr-job-list" style="overflow-y:auto;flex:0 0 auto;max-height:200px;border-bottom:1px solid #30363d;margin-bottom:8px">
-      <div class="cr-empty" style="padding:12px">Loading job history...</div>
-    </div>
-    <div class="cr-section-title">Live Events <span id="cr-catalog-ts" class="hidden" style="font-size:10px;color:#484f58;text-transform:none;letter-spacing:0">Catalog: loading</span></div>
-    <div class="cr-event-panel" id="cr-event-list" aria-live="polite" aria-atomic="false">
-      <div class="cr-empty">Analysis events will appear here</div>
-    </div>
-    <div class="cr-event-panel-actions">
-      <button class="cr-event-panel-btn active" id="cr-filter-all" onclick="filterEvents('all')"
-        aria-pressed="true" aria-label="Show all events">All</button>
-      <button class="cr-event-panel-btn" id="cr-filter-completed" onclick="filterEvents('completed')"
-        aria-pressed="false" aria-label="Show completed events only">Completed</button>
-      <button class="cr-event-panel-btn" id="cr-filter-failed" onclick="filterEvents('failed')"
-        aria-pressed="false" aria-label="Show failed events only">Failed</button>
-      <button class="cr-event-panel-btn active" id="cr-autoscroll-btn" onclick="toggleAutoScroll()" style="margin-left:auto">Pause</button>
-    </div>
-  </div>
-</div>
-
-<div class="cr-status-bar">
-  <span><span class="cr-status-dot idle" id="cr-status-dot"></span>
-    <span id="cr-status-label">Idle</span></span>
-  <span>
-    <a href="/demo/workspace" style="color:#58a6ff;text-decoration:none;font-size:11px">Workspace</a>
-    &nbsp;|&nbsp;
-    <span style="color:#484f58">Technical demo only &mdash; not a clinical result.</span>
-  </span>
-</div>
-
-<div class="cr-footer">
-  Bremen Investor Control Room &mdash; Not clinically validated. Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment.
-</div>
-
-{_CONTROL_ROOM_JS.replace('__BASE_URL__', base_url)}
+{_JS.replace("__BASE_URL__", base_url)}
 </body>
 </html>"""

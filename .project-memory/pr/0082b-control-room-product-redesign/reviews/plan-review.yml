@@ -1,0 +1,349 @@
+review:
+  status: valid
+  branch: 0082b-control-room-product-redesign
+  head: 082b384d5379b920aa3f69013ecc57ce20d8d5d3
+  reviewed_files:
+    - .project-memory/pr/0082b-control-room-product-redesign/PLAN.md
+    - src/bremen/api/server.py
+    - src/bremen/control_room_ui.py
+    - src/bremen/workspace_ui.py
+
+blockers: []
+
+warnings:
+  - id: W001
+    evidence:
+      file: .project-memory/pr/0082b-control-room-product-redesign/PLAN.md
+      lines: Control Room - Live Events section
+    issue: The Live Events empty state uses fixed height 120px, not min-height. The parent flex container must enable flex-grow expansion when events arrive. The PLAN correctly specifies this but implementation must ensure no layout shift occurs when transitioning from 120px fixed to expanded.
+    recommendation: Use height: 120px on the collapsed event container within a flex column where the event list has flex-grow: 1. Verify zero layout shift when the first event arrives.
+
+  - id: W002
+    evidence:
+      file: .project-memory/pr/0082b-control-room-product-redesign/PLAN.md
+      lines: Container catalog section
+    issue: The PLAN states server-side validation is the only gate for containers. No frontend filename-pattern filtering may exist. Unsupported extensions, missing objects, and oversize conditions are server-rejected errors, not frontend decisions.
+    recommendation: Verify the control room frontend JavaScript does not inspect filename extensions or patterns for the container catalog. Only server-provided workflow_id filtering is permitted (from source_registry).
+
+  - id: W003
+    evidence:
+      file: .project-memory/pr/0082b-control-room-product-redesign/PLAN.md
+      lines: Testing section
+    issue: Mechanical validation testing should include whole-word race and ethnicity scanning of all rendered text, approved hex value validation, approved rgba shadow value validation, check for no package.json or npm dependencies, and verification that no model identity (model_id) is derived from BREMEN_MODEL_URI. The PLAN's testing section does not explicitly enumerate these mechanical checks.
+    recommendation: Add mechanical validation assertions to the test suite: scan rendered HTML for prohibited hex values, verify only the two approved rgba shadow values, verify whole-word race/ethnicity prohibited terms absent, verify no package.json or frontend framework exists, verify model_id originates from GET /demo/api/models not from environment variable parsing.
+
+  - id: W004
+    evidence:
+      file: .project-memory/pr/0082b-control-room-product-redesign/PLAN.md
+      lines: DESIGN SPEC COMMIT section
+    issue: BREMEN_DESIGN_SPEC_v1.md is planned to be committed under docs/design/ during this PR but does not currently exist. The PLAN correctly states it is the authoritative source and will be committed. Implementation must not begin until the design spec is committed and all token values verified against it.
+    recommendation: Commit BREMEN_DESIGN_SPEC_v1.md as the first file of the PR implementation. Verify all PLAN tokens match the committed spec before implementing any UI component.
+
+design_source_of_truth:
+  document: BREMEN_DESIGN_SPEC_v1.md
+  path: docs/design/BREMEN_DESIGN_SPEC_v1.md
+  committed_during_pr: true
+  plan_treated_as_exact: true
+  all_implementation_must_derive_from_spec: true
+
+design_corrections:
+  field_value_gap_16px: true
+  disabled_card_opacity_on_content_only: true
+  status_rail_full_opacity_when_disabled: true
+  only_two_approved_rgba_shadows: true
+  live_events_120px_fixed_empty_state: true
+  live_events_expands_on_events: true
+
+model_contract:
+  source: GET /demo/api/models (PR0082a)
+  field: model_id
+  no_ModelVariant: true
+  no_model_variant_id: true
+  no_list_model_variants: true
+  no_workflow_model_endpoints: true
+  no_fabricated_model_cards: true
+  no_promotion: true
+  no_comparison: true
+  no_multiple_model_execution: true
+  no_PR0085_architecture: true
+  one_model_per_job: true
+  real_configured_only: true
+  unavailable_shown_disabled_with_reason: true
+  model_id_url_persistent: true
+  model_id_refresh_safe: true
+
+privacy:
+  no_BREMEN_MODEL_URI_exposure: true
+  no_S3_URI_exposure: true
+  no_bucket_name_exposure: true
+  no_object_key_exposure: true
+  no_environment_value_exposure: true
+  no_local_path_exposure: true
+  no_private_artifact_location_exposure: true
+  no_model_parameters_exposure: true
+  technical_trace_safe_stage_metadata_only: true
+  technical_trace_label_status_duration_only: true
+
+container_boundary:
+  no_filename_inference: true
+  no_display_name_filtering: true
+  aramis_named_containers_preserved: true
+  server_validation_only_gate: true
+  unsupported_extensions_are_server_errors: true
+  missing_objects_are_server_errors: true
+  oversize_conditions_are_server_errors: true
+  no_frontend_extension_or_pattern_filter: true
+
+backend_scope:
+  no_sensitivity_added: true
+  no_specificity_added: true
+  no_manifest_schema_changes: true
+  no_new_scientific_metrics: true
+  no_new_report_semantics: true
+  no_reliability_invented: true
+  no_data_quality_invented: true
+  reliability_only_when_in_report_api: true
+  unchanged_job_api: true
+  unchanged_model_api: true
+  unchanged_sse: true
+  unchanged_decision_contract: true
+  unchanged_report_api: true
+  unchanged_health_api: true
+
+page_ownership:
+  start_page_ui: "GET /demo"
+  control_room_ui: "GET /demo/control-room and deep links"
+  report_ui: "GET /demo/report/{job_id}"
+  workspace_ui: "preserved legacy technical workspace"
+  server: "minimal route dispatch changes only"
+  no_conflicting_ownership: true
+
+route_contract:
+  dispatch_order:
+    - "GET /health exact"
+    - "GET /model/version exact"
+    - "GET /predictions and /predictions/{uuid}"
+    - "GET /demo exact (start_page_ui)"
+    - "GET /demo/control-room and /demo/control-room/{job_id} (control_room_ui)"
+    - "GET /demo/report/{job_id} (report_ui)"
+    - "GET /demo/workspace and /demo/workspace/{job_id} (workspace_ui, preserved)"
+    - "GET /demo/api/* (unchanged)"
+    - "fallback 404"
+  all_api_routes_preserved: true
+  no_silent_route_removal: true
+
+start_page:
+  route: GET /demo
+  owner: start_page_ui.py
+  real_model_catalog: true
+  radio_card_selection: true
+  single_available_pre_selected: true
+  multiple_requires_user_pick: true
+  unavailable_greyed_disabled_with_reason: true
+  zero_models_informative_message: true
+  model_id_url_persistent: true
+  model_id_refresh_safe: true
+  no_hardcoded_model_cards: true
+  no_ModelVariant: true
+
+control_room:
+  route: GET /demo/control-room
+  owner: control_room_ui.py
+  desktop_left_column: 320px
+  desktop_center_column: flexible minimum 480px
+  desktop_right_column: 360px
+  job_history_max_height: 280px
+  job_history_independent_scroll: true
+  live_events_empty_state: 120px fixed height
+  live_events_expansion: flex-grow on event arrival
+  pipeline_terminal_reconciliation: true
+  no_fake_progress: true
+  no_frontend_generated_decisions: true
+  no_fake_events: true
+  pipeline_stages: 10
+  pipeline_active_accent_rail: true
+  pipeline_completed_green_rail: true
+  pipeline_failed_red_rail: true
+
+report_page:
+  route: GET /demo/report/{job_id}
+  owner: report_ui.py
+  pr0081_display_vocabulary: true
+  machine_code_not_primary_headline: true
+  score_only_when_authoritative: true
+  no_invented_reliability: true
+  no_invented_data_quality: true
+  no_sensitivity_specificity: true
+  technical_demo_notice_visible: true
+  certification_boundary_visible: true
+  field_value_16px_gap: true
+  technical_trace_safe_values_only: true
+  no_external_internal_tabs: true
+
+design_token_compliance:
+  base_colors:
+    - "#F7F8F8"
+    - "#FFFFFF"
+    - "#16202A"
+    - "#5B6570"
+    - "#1F6F6B"
+    - "#E3E7E6"
+  status_colors:
+    - "#2E7D5B"
+    - "#B8894A"
+    - "#9AA3A8"
+    - "#C1483D"
+  tint_colors:
+    - "#F1F5F4"
+    - "#FBF3E9"
+    - "#FBEEEC"
+  typography_sizes:
+    - 32
+    - 22
+    - 17
+    - 14
+    - 13
+    - 11
+  spacing_values:
+    - 4
+    - 8
+    - 12
+    - 16
+    - 24
+    - 32
+    - 48
+    - 64
+  card_radius: 10px
+  pill_radius: 999px
+  start_button_radius: 10px
+  card_shadow: "0 1px 2px rgba(22,32,42,0.04), 0 1px 8px rgba(22,32,42,0.03)"
+  state_card_rails: 3px
+  event_history_rails: 2px
+  field_label_column: 160px
+  field_value_gap: 16px
+  disabled_content_opacity_reduced: true
+  disabled_status_rail_full_opacity: true
+  no_additional_hex_values: true
+  no_gradients: true
+  no_github_palette: true
+  no_excluded_typography: true
+  no_excluded_spacing: true
+  no_excluded_radii: true
+
+live_events:
+  collapsed_empty_height: 120px
+  height_type: fixed (not min-height)
+  expansion_mechanism: flex-grow from parent flex container
+  event_rows_status_rail: 2px
+  max_dom_rows: 200
+  auto_scroll_enabled: true
+  pause_on_manual_scroll: true
+  follow_latest_button: true
+  no_full_page_rerender_on_heartbeat: true
+
+pipeline_terminal_state:
+  completed_job: all stages show completed including Analysis complete
+  failed_job: failed stage shown, subsequent stages as not_started
+  no_fake_completion: true
+  reconcilation_with_job_overall_status: true
+
+responsive_design:
+  desktop: "1440px+, three-column, 32px padding"
+  tablet: "768-1439px, vertical stack, full-width, 16px padding"
+  mobile: "below 768px, vertical stack, 12px padding, reduced type scale and pipeline"
+  no_horizontal_overflow: true
+
+accessibility:
+  keyboard_operable_model_cards: true
+  radio_semantics_role_radio_and_radiogroup: true
+  aria_checked_and_aria_current: true
+  visible_focus_3px_outline: true
+  non_color_status_labels: true
+  aria_live_polite_on_events: true
+  role_alert_on_decision_summary: true
+  prefers_reduced_motion: true
+  semantic_headings_h1_h2_h3: true
+  pipeline_ol_role_list: true
+  container_ul: true
+  event_feed_div_role_log: true
+  field_value_dl_dt_dd: true
+  wcag_aa_contrast_with_approved_colors: true
+
+test_strategy:
+  start_page_model_selection: true
+  url_persistence: true
+  control_room_launch_readiness: true
+  container_selection: true
+  pipeline_terminal_reconciliation: true
+  live_events_empty_and_expanded: true
+  job_reopening: true
+  report_loading_available_unavailable_failed: true
+  technical_trace_expansion: true
+  keyboard_operation: true
+  responsive_structure: true
+  privacy_safe_output: true
+  legacy_routes: true
+  no_source_grep_only_for_interaction: true
+  executable_browser_behavior_using_node_harness: true
+
+mechanical_validation:
+  approved_hex_values_only: true
+  approved_rgba_shadow_values_only: true
+  whole_word_race_ethnicity_scan: true
+  no_package_json_or_npm: true
+  no_frontend_framework: true
+  no_model_identity_from_BREMEN_MODEL_URI: true
+
+legacy_compatibility:
+  GET /health: preserved
+  GET /model/version: preserved
+  POST /predictions: preserved
+  GET /predictions/{uuid}: preserved
+  GET /demo/workspace: preserved
+  GET /demo/workspace/{job_id}: preserved
+  ALL /demo/api/*: preserved
+  SSE protocol: preserved
+  report routes: preserved
+  no_breaking_changes: true
+
+scope_control:
+  no_model_science_changes: true
+  no_preprocessing_changes: true
+  no_XRD_dependency_changes: true
+  no_threshold_changes: true
+  no_decision_vocabulary_changes: true
+  no_training_changes: true
+  no_Aramis_scientific_changes: true
+  no_manifest_metric_additions: true
+  no_PR0083_scope: true
+  no_PR0084_scope: true
+  no_PR0085_scope: true
+  no_React: true
+  no_npm: true
+  no_CSS_framework: true
+  no_frontend_build_step: true
+
+summary: |
+  PLAN verified against all designer clarifications. BREMEN_DESIGN_SPEC_v1.md is
+  acknowledged as the visual source of truth to be committed under docs/design/
+  during this PR. All design tokens are locked: 6 base colors (#F7F8F8, #FFFFFF,
+  #16202A, #5B6570, #1F6F6B, #E3E7E6), 4 status colors (#2E7D5B, #B8894A,
+  #9AA3A8, #C1483D), 3 tint colors (#F1F5F4, #FBF3E9, #FBEEEC). No GitHub
+  palette, no additional colors, no gradients. Typography uses exactly 6 sizes
+  (32, 22, 17, 14, 13, 11). Spacing uses 8 values (4, 8, 12, 16, 24, 32, 48,
+  64). Cards 10px radius, pills 999px, Start button 10px. Only two approved
+  rgba(22,32,42) shadow values. 3px card rails, 2px event/history rails. 16px
+  field/value gap. Disabled card content opacity reduced, status rail full
+  opacity. Live Events 120px fixed empty state, flex-grow expansion. Model
+  contract is real PR0082a model_id only -- no ModelVariant, model_variant_id,
+  list_model_variants, workflow model endpoints, promotion, comparison, or
+  PR0085. Technical Trace exposes only safe stage metadata. No BREMEN_MODEL_URI,
+  S3 URIs, bucket names, object keys, environment values, or local paths. No
+  filename-based container filtering. No sensitivity, specificity, fabricated
+  reliability, or data-quality captions. Page ownership explicit: start_page_ui
+  owns /demo, control_room_ui owns /demo/control-room, report_ui owns
+  /demo/report/{job_id}, workspace_ui is legacy, server.py minimal dispatch.
+  Route dispatch ordering defined to prevent conflicts. Testing requires
+  executable browser behavior with Node harness, plus mechanical validation
+  for hex values, shadow values, race/ethnicity scan, no npm/framework, and no
+  model identity from BREMEN_MODEL_URI. Four non-blocking warnings.

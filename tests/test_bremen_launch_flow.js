@@ -1007,13 +1007,13 @@ async function runAllTests() {
     if (typeof window.onModelSelect === "function") window.onModelSelect(modelSelect);
   });
 
-  // ---- Test 13: Workflow compatibility ----
-  await test("Aramis/incompatible containers are excluded from catalog", async () => {
+  // ---- Test 13: All containers preserved (no frontend filtering) ----
+  await test("All server containers are rendered without frontend filtering", async () => {
     _resetGlobals();
     const doc = buildControlRoomDom();
     setupGlobalMocks();
     setupMockResponses();
-    // Override container catalog with mixed workflows AFTER setupMockResponses
+    // Override container catalog with mixed workflows
     _setMockFetchResponse("http://localhost:8000/demo/api/h5/containers", {
       storage: "configured",
       containers: [
@@ -1029,8 +1029,8 @@ async function runAllTests() {
 
     const list = document.getElementById("cr-container-list");
     const items = list.querySelectorAll(".cr-container-item");
-    assert(items.length === 1, "Only 1 Bremen container should be rendered");
-    assertEqual(items[0].getAttribute("data-source-id"), "bremen-001", "Only the Bremen container should be in the list");
+    // All 3 containers should be rendered (no frontend workflow filtering)
+    assert(items.length === 3, "All 3 containers should be rendered");
   });
 
   // ---- Test 14: State transitions ----

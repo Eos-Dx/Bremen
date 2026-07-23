@@ -291,7 +291,11 @@ def _make_handler(
                     }, job_id=job_id)
 
             elif self.path == "/demo":
+                _handle_start_page_route(self)
+            elif self.path == "/demo/control-room" or self.path.startswith("/demo/control-room/"):
                 _handle_control_room_route(self)
+            elif self.path.startswith("/demo/report/"):
+                _handle_report_route(self)
             elif self.path == "/demo/workspace" or self.path.startswith("/demo/workspace/") or self.path.startswith("/demo/workspace?"):
                 _handle_workspace_route(self)
             elif self.path == "/demo/api/models":
@@ -1374,6 +1378,59 @@ def run_server(
         _log.info(
             "bremen.server.shutdown\tstage=shutdown\tstatus=completed"
         )
+
+# ---------------------------------------------------------------------------
+# Start page route
+# ---------------------------------------------------------------------------
+
+
+def _handle_start_page_route(handler: BaseHTTPRequestHandler) -> None:
+    """Handle GET /demo — Bremen Start page with model selection."""
+    import uuid as _uuid  # noqa: PLC0415
+    from ..start_page_ui import build_start_page  # noqa: PLC0415
+
+    request_id = handler.headers.get("X-Request-ID") or str(_uuid.uuid4())
+    host_header = handler.headers.get("Host", "localhost")
+    forwarded_proto = handler.headers.get("X-Forwarded-Proto", "http")
+    base_url = f"{forwarded_proto}://{host_header}"
+    html = build_start_page(base_url=base_url)
+    body = html.encode("utf-8")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("X-Request-ID", request_id)
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+# ---------------------------------------------------------------------------
+# Report page route
+# ---------------------------------------------------------------------------
+
+
+def _handle_report_route(handler: BaseHTTPRequestHandler) -> None:
+    """Handle GET /demo/report/{job_id} — product-grade Report page."""
+    import uuid as _uuid  # noqa: PLC0415
+    from ..report_ui import build_report_page  # noqa: PLC0415
+
+    request_id = handler.headers.get("X-Request-ID") or str(_uuid.uuid4())
+    host_header = handler.headers.get("Host", "localhost")
+    forwarded_proto = handler.headers.get("X-Forwarded-Proto", "http")
+    base_url = f"{forwarded_proto}://{host_header}"
+    path = handler.path
+    job_id = ""
+    prefix = "/demo/report/"
+    if path.startswith(prefix):
+        job_id = path[len(prefix):].rstrip("/")
+    html = build_report_page(base_url=base_url, job_id=job_id)
+    body = html.encode("utf-8")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("X-Request-ID", request_id)
+    handler.end_headers()
+    handler.wfile.write(body)
+
 
 # ---------------------------------------------------------------------------
 # Demo workspace route

@@ -304,7 +304,7 @@ class TestControlRoomLaunchFlow:
         )
 
         output = result.stdout
-        assert "PASS: Aramis/incompatible containers are excluded from catalog" in output, (
+        assert "PASS: All server containers are rendered without frontend filtering" in output, (
             "Workflow compat test did not pass"
         )
 
