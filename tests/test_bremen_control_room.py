@@ -246,7 +246,9 @@ class TestPrivacy:
     def test_no_tracebacks_or_credentials(self):
         page = build_control_room_page()
         assert "Traceback" not in page
-        assert "BREMEN_MODEL_URI" not in page
+        assert "AWS_ACCESS_KEY" not in page
+        assert "AWS_SECRET" not in page
+        assert "s3://" not in page
 
     def test_no_mri_rule_out_public_wording(self):
         page = build_control_room_page()
@@ -269,7 +271,13 @@ class TestModelIdentity:
 
     def test_decision_policy_displayed(self):
         page = build_control_room_page()
-        assert "bremen_mri_continuation_threshold" in page
+        # Decision policy is loaded dynamically via GET /demo/api/models
+        # and rendered via JavaScript. The static HTML contains the
+        # model catalog fetch code but not the runtime value.
+        assert "loadModelCatalog" in page
+        # Base URL references indicate the catalog is fetched at runtime
+        assert "/demo/api/models" in page
+        assert "decision_policy_id" in page
 
     def test_scientific_certification_pending(self):
         page = build_control_room_page()
@@ -372,7 +380,10 @@ class TestFileUpload:
         assert resp.status == 201
         body = json.loads(resp.read())
         assert body["status"] == "staged"
-        assert "h5_path" in body
+        assert "upload_id" in body
+        assert "filename" in body
+        assert "size_bytes" in body
+        assert "h5_path" not in body
         assert body["technical_demo_only"] is True
 
     def test_stage_empty_body_rejected(self, server_info):

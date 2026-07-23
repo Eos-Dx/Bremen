@@ -123,6 +123,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 
 @media(max-width:1024px){.cr-main{flex-wrap:wrap}.cr-right{width:100%;border-left:none;border-top:1px solid #30363d;max-height:400px}.cr-left{width:100%;border-right:none;border-bottom:1px solid #30363d}}
 @media(max-width:768px){.cr-header{flex-direction:column;align-items:flex-start}.cr-center{padding:16px}.cr-pipeline li{margin-left:12px;padding:8px 12px}}
+.cr-container-list{list-style:none;margin:0;padding:0;max-height:240px;overflow-y:auto;font-size:12px}
+.cr-container-item{padding:8px 12px;cursor:pointer;border-bottom:1px solid #21262d;transition:background 150ms}
+.cr-container-item:hover{background:#1c2128}
+.cr-container-item.selected{background:#0d1f3d;border-left:3px solid #58a6ff}
+.cr-container-name{display:block;color:#c9d1d9;font-weight:500}
+.cr-container-meta{display:block;color:#484f58;font-size:10px;margin-top:2px}
+.cr-catalog-refresh{padding:4px 0}
+.cr-history-item{padding:8px 12px;cursor:pointer;border-bottom:1px solid #21262d;transition:background 150ms;font-size:11px}
+.cr-history-item:hover{background:#1c2128}
+.cr-history-header{display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.cr-history-id{color:#8b949e;font-family:monospace;font-size:10px}
+.cr-history-time{color:#484f58;font-size:10px;margin-left:auto}
+.cr-history-detail{color:#c9d1d9;font-weight:500}
+.cr-history-meta{color:#484f58;font-size:10px}
+.cr-status-indicator{display:inline-block;width:6px;height:6px;border-radius:50%}
+.cr-status-indicator.completed{background:#3fb950}
+.cr-status-indicator.failed{background:#f85149}
+.cr-status-indicator.running{background:#58a6ff}
+.cr-status-indicator.pending{background:#d29922}
+
 """
 
 _CONTROL_ROOM_JS = r"""
@@ -138,7 +158,8 @@ var MAX_EVENTS=200;
 var modelReady=false;
 var modelStatus='unknown';
 var jobState='idle';
-var stagedPath=null;
+var selectedSource=null; // {type:'container'|'upload', id:'...', filename:'...', size:...}
+var selectedModelId=null;
 var STAGE_MAP={
   'runtime.request.accepted':'stage-input',
   'runtime.input.preparation.completed':'stage-source',
@@ -162,31 +183,179 @@ var FAIL_MAP={
 
 function init(){
   loadReadiness();
+  loadContainerCatalog();
+  loadModelCatalog();
+  loadJobHistory();
   var fileInput=document.getElementById('cr-file-input');
   if(fileInput){
     fileInput.addEventListener('change',handleFileSelect);
   }
+  // Check if upload is enabled
+  var uploadArea=document.getElementById('cr-upload-area');
+  if(uploadArea&&uploadArea.dataset.uploadEnabled==='false'){
+    uploadArea.classList.add('hidden');
+  }
 }
+
+function loadContainerCatalog(){
+  var list=document.getElementById('cr-container-list');
+  var status=document.getElementById('cr-catalog-status');
+  fetch(baseUrl+'/demo/api/h5/containers')
+    .then(function(r){return r.json()})
+    .then(function(data){
+      if(data.storage==='not_configured'){
+        if(status){status.textContent='H5 storage not configured. Set BREMEN_DEMO_H5_BUCKET to enable container selection.';status.className='cr-badge cr-badge-warn'}
+        if(list){list.innerHTML='<li class="cr-empty">H5 storage not configured.</li>'}
+        return;
+      }
+      if(data.storage==='list_failed'){
+        if(status){status.textContent='Container catalog unavailable. Check storage configuration.';status.className='cr-badge cr-badge-error'}
+        if(list){list.innerHTML='<li class="cr-empty">Container catalog unavailable. Check storage configuration.<br><button class="cr-event-panel-btn" onclick="loadContainerCatalog()">Retry</button></li>'}
+        return;
+      }
+      var containers=data.containers||[];
+      if(containers.length===0){
+        if(status){status.textContent='No H5 containers found in configured storage.';status.className='cr-badge cr-badge-warn'}
+        if(list){list.innerHTML='<li class="cr-empty">No H5 containers found.</li>'}
+        return;
+      }
+      if(status){status.textContent=containers.length+' container(s) available';status.className='cr-badge cr-badge-info'}
+      var html='';
+      containers.forEach(function(c){
+        var name=c.display_name||c.source_id||'unknown';
+        var size=c.size_bytes||0;
+        var sizeLabel=size>1048576?(size/1048576).toFixed(1)+' MB':(size>1024?(size/1024).toFixed(1)+' KB':size+' B');
+        var modified=c.last_modified?c.last_modified.substring(0,10):'';
+        html+='<li class="cr-container-item" data-container-id="'+c.id+'" onclick="selectContainer(this,\''+c.id+'\',\''+name+'\','+size+')">'+
+          '<span class="cr-container-name">'+name+'</span>'+
+          '<span class="cr-container-meta">'+sizeLabel+' | '+modified+'</span>'+
+          '</li>';
+      });
+      if(list){list.innerHTML=html}
+      // Preserve visual selection after refresh (W002)
+      if(selectedSource&&selectedSource.type==='container'){
+        var items=list.querySelectorAll('.cr-container-item');
+        items.forEach(function(item){
+          if(item.dataset.sourceId===selectedSource.id){
+            item.classList.add('selected');
+          }
+        });
+      }
+    }).catch(function(){
+      if(status){status.textContent='Container catalog unavailable. Check storage configuration.';status.className='cr-badge cr-badge-error'}
+      if(list){list.innerHTML='<li class="cr-empty">Failed to load catalog.<br><button class="cr-event-panel-btn" onclick="loadContainerCatalog()">Retry</button></li>'}
+    });
+}
+
+function selectContainer(el,containerId,filename,size){
+  // Deselect previous
+  var items=document.querySelectorAll('.cr-container-item');
+  items.forEach(function(i){i.classList.remove('selected')});
+  el.classList.add('selected');
+  selectedSource={type:'container',id:containerId,filename:filename,size:size};
+  document.getElementById('cr-source-status').textContent='Container: '+filename;
+  setState('source_selected');
+  updateAnalyzeButton();
+}
+
 function handleFileSelect(){
   var file=document.getElementById('cr-file-input').files[0];
   if(!file)return;
+  // Check file extension
+  var name=file.name.toLowerCase();
+  if(!name.endsWith('.h5')&&!name.endsWith('.hdf5')){
+    document.getElementById('cr-source-status').textContent='Only .h5 and .hdf5 files are accepted.';
+    setState('idle');
+    return;
+  }
   setState('validating');
-  fetch(baseUrl+'/demo/api/stage',{method:'POST',body:file})
+  // Send filename in header for safe display
+  var headers=new Headers();
+  headers.append('X-H5-Filename',file.name);
+  fetch(baseUrl+'/demo/api/stage',{method:'POST',body:file,headers:headers})
     .then(function(r){return r.json()})
     .then(function(data){
       if(data.status==='staged'){
-        stagedPath=data.h5_path;
-        document.getElementById('cr-source-status').textContent='Ready: '+file.name;
+        selectedSource={type:'upload',id:data.upload_id,filename:data.filename,size:data.size_bytes};
+        document.getElementById('cr-source-status').textContent='Upload ready: '+data.filename;
         setState('ready_to_submit');
       }else{
-        document.getElementById('cr-source-status').textContent='Invalid';
+        document.getElementById('cr-source-status').textContent='Upload failed: '+data.error;
         setState('idle');
       }
     }).catch(function(){
-      document.getElementById('cr-source-status').textContent='Failed';
+      document.getElementById('cr-source-status').textContent='Upload failed';
       setState('idle');
     });
 }
+
+function loadModelCatalog(){
+  var info=document.getElementById('cr-model-info');
+  fetch(baseUrl+'/demo/api/models')
+    .then(function(r){return r.json()})
+    .then(function(data){
+      if(data.status==='not_configured'){
+        if(info){
+          info.innerHTML='<h3>MRI Triage Model</h3><p style="font-size:12px;color:#d29922">No Bremen model is configured. Analysis is unavailable. Configure BREMEN_MODEL_URI to enable model execution.</p>';
+        }
+        modelReady=false;
+        modelStatus='not_configured';
+        return;
+      }
+      var models=data.models||[];
+      if(models.length===0){
+        if(info){
+          info.innerHTML='<h3>MRI Triage Model</h3><p style="font-size:12px;color:#d29922">No models available.</p>';
+        }
+        modelReady=false;
+        return;
+      }
+      // Use default model or first available
+      var defaultId=data.default_model_id||models[0].model_id;
+      var selected=models.filter(function(m){return m.model_id===defaultId})[0]||models[0];
+      selectedModelId=selected.model_id;
+      modelReady=selected.availability==='available';
+      modelStatus=selected.availability;
+
+      // Render model info
+      var html='<dl>';
+      html+='<div class="cr-model-field"><dt>Model</dt><dd>'+selected.model_version+'</dd></div>';
+      html+='<div class="cr-model-field"><dt>Feature schema</dt><dd>'+selected.feature_schema_version+'</dd></div>';
+      html+='<div class="cr-model-field"><dt>Decision policy</dt><dd>'+selected.decision_policy_id+' v'+selected.decision_policy_version+'</dd></div>';
+      html+='<div class="cr-model-field"><dt>Status</dt><dd>'+selected.availability+'</dd></div>';
+      html+='</dl>';
+      if(info){
+        info.innerHTML='<h3>MRI Triage Model</h3>'+html;
+      }
+
+      // Update catalog timestamp
+      var tsEl=document.getElementById('cr-catalog-ts');
+      if(tsEl&&data.catalog_timestamp){
+        tsEl.textContent='Catalog: '+data.catalog_timestamp.substring(0,19).replace('T',' ');
+        tsEl.classList.remove('hidden');
+      }
+
+      var hint=document.getElementById('cr-model-hint');
+      if(hint){
+        if(!modelReady){hint.classList.remove('hidden')}else{hint.classList.add('hidden')}
+      }
+      updateAnalyzeButton();
+    }).catch(function(){
+      if(info){
+        info.innerHTML='<h3>MRI Triage Model</h3><p style="font-size:12px;color:#f85149">Model catalog unavailable.</p>';
+      }
+      modelReady=false;
+    });
+}
+
+function updateAnalyzeButton(){
+  var btn=document.getElementById('cr-analyze-btn');
+  if(!btn)return;
+  var canSubmit=modelReady && selectedSource!==null &&
+    (selectedSource.type==='container'||selectedSource.type==='upload');
+  btn.disabled=!canSubmit;
+}
+
 function setState(newState){
   var valid=['idle','source_selected','validating','ready_to_submit','submitting',
     'job_created','connecting','running','reconnecting','completed',
@@ -195,7 +364,7 @@ function setState(newState){
   jobState=newState;
   var btn=document.getElementById('cr-analyze-btn');
   if(btn){
-    btn.disabled=!(modelReady&&newState==='ready_to_submit');
+    btn.disabled=!(modelReady&&(newState==='ready_to_submit'||newState==='source_selected'));
     if(newState==='submitting'){btn.textContent='Submitting...';btn.disabled=true}
   }
   var label=document.getElementById('cr-status-label');
@@ -205,6 +374,7 @@ function setState(newState){
     if(newState==='running'){dot.className='cr-status-dot live'}
     else if(newState==='connecting'||newState==='reconnecting'){dot.className='cr-status-dot connecting'}
     else if(newState==='completed'||newState==='ready_to_submit'){dot.className='cr-status-dot live'}
+    else if(newState==='failed'){dot.className='cr-status-dot disconnected'}
     else{dot.className='cr-status-dot idle'}
   }
 }
@@ -221,6 +391,7 @@ function loadReadiness(){
     renderReadiness(version,modelReady,modelStatus);
   }).catch(function(){
     document.getElementById('cr-readiness').innerHTML='<span class="cr-badge cr-badge-error">Cannot reach server</span>';
+    setState('unavailable');
   });
 }
 function renderReadiness(version,ready,status){
@@ -237,37 +408,39 @@ function renderReadiness(version,ready,status){
   html+='<span class="cr-badge cr-badge-pending" role="status">Scientific certification: pending</span> ';
   html+='<span class="cr-badge cr-badge-disabled" role="status">Technical demo only</span>';
   document.getElementById('cr-readiness').innerHTML=html;
-
-  var info=document.getElementById('cr-model-info');
-  if(info){
-    var v=version.model_version||'unknown';
-    var fs=version.feature_schema_version||'v0.1';
-    info.innerHTML='<dl>'+
-      '<div class="cr-model-field"><dt>Model</dt><dd>'+v+'</dd></div>'+
-      '<div class="cr-model-field"><dt>Feature schema</dt><dd>'+fs+'</dd></div>'+
-      '<div class="cr-model-field"><dt>Decision policy</dt><dd>bremen_mri_continuation_threshold v0.1.0</dd></div>'+
-      '</dl>';
-  }
-
-  var hint=document.getElementById('cr-model-hint');
-  if(hint){if(!ready){hint.classList.remove('hidden')}else{hint.classList.add('hidden')}}
-  setState(jobState);
 }
+
 function startAnalysis(){
-  if(jobState!=='ready_to_submit'||!modelReady||!stagedPath)return;
+  if(jobState!=='ready_to_submit'&&jobState!=='source_selected')return;
+  if(!modelReady||!selectedSource)return;
   setState('submitting');
   resetPipeline();
   resetEventPanel();
   setConnectionState('connecting');
 
+  var body={workflow_id:'bremen'};
+  if(selectedModelId){body.model_id=selectedModelId}
+  if(selectedSource.type==='container'){
+    body.source_id=selectedSource.id;
+  }else if(selectedSource.type==='upload'){
+    body.upload_id=selectedSource.id;
+  }
+
   fetch(baseUrl+'/demo/api/jobs',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({workflow_id:'bremen',h5_path:stagedPath})
+    body:JSON.stringify(body)
   }).then(function(r){return r.json()}).then(function(data){
     var job=data.job||{};
     var jid=job.job_id||'';
     if(!jid){
+      // Check for error
+      if(data.error){
+        document.getElementById('cr-source-status').textContent='Error: '+data.error;
+        setConnectionState('idle');
+        setState('failed');
+        return;
+      }
       setConnectionState('idle');
       setState('ready_to_submit');
       return;
@@ -276,11 +449,51 @@ function startAnalysis(){
     setState('job_created');
     fetchInitialEvents(jid);
     connectSSE(jid);
+    loadJobHistory();
   }).catch(function(){
     setConnectionState('idle');
     setState('ready_to_submit');
   });
 }
+
+function loadJobHistory(){
+  fetch(baseUrl+'/demo/api/jobs')
+    .then(function(r){return r.json()})
+    .then(function(data){
+      var jobs=data.jobs||[];
+      var list=document.getElementById('cr-job-list');
+      if(!list)return;
+      if(jobs.length===0){
+        list.innerHTML='<div class="cr-empty" style="padding:12px">No analysis jobs yet.</div>';
+        return;
+      }
+      var html='';
+      var MAX_HISTORY=10;
+      jobs.slice(0,MAX_HISTORY).forEach(function(j){
+        var status=j.overall_status||'unknown';
+        var ts=j.created_at?j.created_at.substring(11,19):'';
+        var decision=j.decision_display_name||j.triage_recommendation||'';
+        var model=j.model_id||'';
+        var source=j.source_display_name||'';
+        var reportAvail=j.report_available?'&#128196; ':'';
+        html+='<div class="cr-history-item" onclick="openJob(\''+j.job_id+'\')">'+
+          '<div class="cr-history-header"><span class="cr-status-indicator '+status+'"></span>'+
+          '<span class="cr-history-id">'+j.job_id.substring(0,8)+'</span>'+
+          '<span class="cr-history-time">'+ts+'</span></div>'+
+          '<div class="cr-history-detail">'+reportAvail+
+          (decision?decision:(status=='completed'?'Completed':status))+'</div>'+
+          '<div class="cr-history-meta">'+(model?'Model: '+model.substring(0,16):'')+'</div>'+
+          '</div>';
+      });
+      list.innerHTML=html;
+    }).catch(function(){});
+}
+
+function openJob(jobId){
+  // Navigate to workspace deep-link
+  window.location.href=baseUrl+'/demo/workspace/'+jobId;
+}
+
 function fetchInitialEvents(jobId){
   fetch(baseUrl+'/demo/api/jobs/'+jobId+'/events')
     .then(function(r){return r.json()})
@@ -302,6 +515,7 @@ function connectSSE(jobId){
     fetchDecision(jobId);
     if(eventSource){eventSource.close();eventSource=null}
     setState('completed');
+    loadJobHistory();
   });
   eventSource.onopen=function(){setConnectionState('live');setState('running')};
   eventSource.onerror=function(){
@@ -498,21 +712,27 @@ def build_control_room_page(
       <h3>MRI Triage Model</h3>
       <p style="font-size:12px;color:#8b949e">Loading model details...</p>
     </div>
-    <div class="cr-input-area">
-      <div class="cr-section-title" style="margin-bottom:4px">Analysis</div>
-      <p style="font-size:11px;color:#8b949e;margin-bottom:8px">Run a controlled Bremen analysis using the configured model</p>
-      <div style="margin-bottom:8px">
+    <div class="cr-section-title" style="margin-top:8px">Container Catalog</div>
+    <div id="cr-catalog-status" class="cr-badge cr-badge-pending" style="font-size:11px;margin-bottom:8px">Loading catalog...</div>
+    <ol class="cr-container-list" id="cr-container-list">
+      <li style="font-size:11px;color:#8b949e;padding:8px;text-align:center">Loading containers...</li>
+    </ol>
+    <div class="cr-catalog-refresh">
+      <button class="cr-event-panel-btn" onclick="loadContainerCatalog()" style="width:100%">Refresh Catalog</button>
+    </div>
+    <div class="cr-input-area" id="cr-upload-area">
+      <div class="cr-section-title" style="margin-bottom:4px">Upload</div>
+      <p style="font-size:11px;color:#8b949e;margin-bottom:8px">Or upload an H5 file directly</p>
       <input type="file" id="cr-file-input" accept=".h5,.hdf5" style="display:none">
       <button class="cr-btn cr-btn-warn" onclick="document.getElementById('cr-file-input').click()"
         style="width:100%;margin-bottom:4px">Select H5 File</button>
       <p id="cr-source-status" style="font-size:11px;color:#8b949e;margin-top:4px">No source selected</p>
-      </div>
-      <button class="cr-btn" id="cr-analyze-btn" onclick="startAnalysis()" disabled
-        aria-label="Start analysis">Analyze</button>
-      <p id="cr-model-hint" style="font-size:11px;color:#d29922;margin-top:8px">Model must be configured by the deployment operator</p>
     </div>
+    <button class="cr-btn" id="cr-analyze-btn" onclick="startAnalysis()" disabled
+      aria-label="Start analysis">Analyze</button>
+    <p id="cr-model-hint" style="font-size:11px;color:#d29922;margin-top:8px">Model must be configured by the deployment operator</p>
     <div style="font-size:10px;color:#484f58;margin-top:8px">
-      <p>Jobs created via legacy analyze endpoint are not imported into this job list.</p>
+      <p>Structured jobs created via POST /demo/api/jobs appear here. Legacy analyze jobs (POST /demo/api/h5/analyze) use a separate internal path and are not displayed in this history panel.</p>
     </div>
   </div>
 
@@ -582,7 +802,11 @@ def build_control_room_page(
   </div>
 
   <div class="cr-right">
-    <div class="cr-section-title">Live Events</div>
+    <div class="cr-section-title">Job History</div>
+    <div id="cr-job-list" style="overflow-y:auto;flex:0 0 auto;max-height:200px;border-bottom:1px solid #30363d;margin-bottom:8px">
+      <div class="cr-empty" style="padding:12px">Loading job history...</div>
+    </div>
+    <div class="cr-section-title">Live Events <span id="cr-catalog-ts" class="hidden" style="font-size:10px;color:#484f58;text-transform:none;letter-spacing:0">Catalog: loading</span></div>
     <div class="cr-event-panel" id="cr-event-list" aria-live="polite" aria-atomic="false">
       <div class="cr-empty">Analysis events will appear here</div>
     </div>

@@ -383,47 +383,106 @@ patient data is associated with the `prediction_id` in logs.
 
 ---
 
-## 15. Investor Control Room (PR0082)
+## 15. Investor Control Room (PR0082a)
 
 The default GET /demo route renders the Bremen Investor Control Room.
 GET /demo/workspace remains available for the legacy workspace.
 
-The Control Room operator flow:
+### Data Selection and Model Catalog (PR0082a)
 
-1. Open GET /demo in a browser.
-2. Verify model readiness: header badges show "Model Ready" (green)
-   or "Model Not Configured" (yellow).  Scientific certification is
-   always "pending" (red).
-3. Select an H5 file using the "Select H5 File" button.  The file is
-   uploaded to POST /demo/api/stage and staged to a temporary location.
-4. When the source status shows "Ready", click Analyze.  The button is
-   disabled until both the model is ready and a source is selected.
-5. Observe the ten-stage execution pipeline update in real time as
-   authoritative events arrive.
-6. Observe the docked structured event panel (right side) receiving
-   live SSE events.
-7. When the job completes, the decision panel displays the canonical
-   CONTINUE_MRI or MRI_REVIEW_DEFER result.
-8. Click "View Bremen Report" to access the real generated report.
+The Control Room now supports three source-selection paths:
 
-Operator guidance for common states:
+1. **Container Catalog** (primary): Lists available H5 containers from
+   the configured S3 bucket/prefix.  Containers are filtered to H5/HDF5
+   extensions only, limited to 100 items, sorted newest-first, and
+   oversized objects excluded.  Selecting a container stores an opaque
+   ``source_id`` — never an S3 key — which is resolved server-side at
+   job submission.
 
-Model Not Configured: The Analyze button is disabled.  The operator
-must configure BREMEN_MODEL_URI, BREMEN_MODEL_VERSION, and
-BREMEN_MODEL_CHECKSUM and redeploy.  No environment-variable values,
-URIs, paths, or credentials are displayed in the UI.
+2. **File Upload** (secondary, when enabled): Users upload an H5 file
+   directly.  The POST /demo/api/stage endpoint returns an opaque
+   ``upload_id`` — never a local filesystem path — and the staged file
+   is stored in an in-memory uploads registry.  The uploaded file is
+   consumed by the first job referencing it and cannot be reused.
 
-Source Upload Failed: Check that the H5 file is valid and under the
-file size limit.  Retry the upload.
+3. **Container Catalog Refresh**: A refresh button re-fetches the
+   container list without silently clearing the current selection.
+   If the selected container disappears from the refreshed list, the
+   selection becomes stale and job creation returns a typed error.
 
-Analysis Failed: The pipeline shows the failed stage.  The event
-panel shows the failure event.  Check server logs for safe error
-categories.
+### Model Catalog
 
-Legacy Analyze Jobs: Jobs created through POST /demo/api/h5/analyze
-use a separate workflow and are not imported into the structured
-Control Room job list.  The Control Room footer documents this
-limitation.
+The new GET /demo/api/models endpoint returns the server-owned model
+catalog with catalog_timestamp and safe model metadata.  The Control
+Room fetches this endpoint on page load and renders the available
+model information.  With the current single-model configuration, the
+model is pre-selected as the default.
+
+### Job Request Contract
+
+The new Control Room job request uses ``model_id``, ``source_id``,
+or ``upload_id`` instead of the legacy ``h5_path``:
+
+```json
+{
+  "workflow_id": "bremen",
+  "model_id": "bremen-current",
+  "source_id": "container-key-from-catalog",
+  "upload_id": null
+}
+```
+
+Legacy ``h5_path`` and ``container_id`` fields remain supported for
+backward compatibility with the existing workspace.
+
+### Job History Panel
+
+The right panel now includes a Job History section showing recent
+jobs with decision display, model_id, source name, and report
+availability.  Clicking a historical job navigates to the workspace
+deep link.
+
+### Model Identity Propagation
+
+The selected model_id is propagated through:
+- Job record (input_summary.model_id)
+- WorkflowRun.model_identity
+- WorkflowResult payload
+- Report metadata
+- Job API responses
+
+### Operator guidance for controlled failure states
+
+**Container catalog unavailable**: "Container catalog unavailable. Check
+storage configuration." with retry button.
+
+**No containers found**: "No H5 containers found in configured storage."
+
+**Storage not configured**: "H5 storage not configured. Set
+BREMEN_DEMO_H5_BUCKET to enable container selection."
+
+**Model catalog unavailable**: "Model catalog unavailable."
+
+**Model not configured**: "No Bremen model is configured. Analysis is
+unavailable. Configure BREMEN_MODEL_URI to enable model execution."
+
+**Model unavailable**: "The selected model is not ready. Model status:
+{status}."
+
+**Source disappears**: "The selected source is no longer available.
+Please select another container or re-upload."
+
+**Upload too large**: "File exceeds maximum upload size of {max_bytes}."
+
+**Upload invalid format**: "Only .h5 and .hdf5 files are accepted."
+
+### Upload Registry Lifecycle
+
+Uploaded files are stored in an in-memory registry (_staged_uploads).
+Each upload is consumed exactly once by a job.  Expired uploads
+(older than 1 hour) are cleaned up automatically.  If the server
+restarts, unconsumed uploads are lost.  This is acceptable for a
+technical demo.
 
 ---
 

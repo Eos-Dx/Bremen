@@ -1003,8 +1003,19 @@ class TestImportSafety:
                 "model_state.py",
                 "server.py",  # demo H5 extension validation (PR0067)
                 "workflow_orchestrator.py",  # H5 normalization entry point (PR0076)
+                "job_api_handler.py",  # PR0082a: source resolution orchestrator —
+                                       # manages h5_path attribute on StagedUpload
+                                       # and calls stage_h5_input from h5_inputs.py.
+                                       # These are integration-boundary references,
+                                       # not scientific H5 operations.
+                "source_registry.py",  # PR0082a: opaque source registry —
+                                       # validates H5 extension server-side and
+                                       # constructs S3 URIs for staging.
+                                       # Extension check strings are format-validation
+                                       # constants, not scientific H5 logic.
             ):
-                continue  # H5-related modules (PR 0037, PR 0044, PR 0045, PR0067, PR0076)
+                continue  # H5-related modules (PR 0037, PR 0044, PR 0045, PR0067,
+                          # PR0076, PR0082a)
             content = py_file.read_text(encoding="utf-8")
             for ref in [".h5", ".hdf5", "h5py"]:
                 if ref in content:
