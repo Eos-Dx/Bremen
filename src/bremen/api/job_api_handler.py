@@ -239,6 +239,25 @@ def create_analysis_job(
     _register_default_providers()
     _generate_job_reports(job)
 
+    # Emit report-completed event only when at least one report is available
+    for wid, rm in job.reports.items():
+        if rm.status == REPORT_STATUS_AVAILABLE:
+            evt = JobEvent(
+                job_id=job_id,
+                request_id=request_id,
+                workflow_id=wid,
+                stage="report",
+                event_type="runtime.report.completed",
+                status="completed",
+                details={
+                    "report_id": rm.report_id,
+                    "report_schema_version": rm.report_schema_version,
+                    "report_status": rm.status,
+                },
+            )
+            _event_store.append(job_id, evt)
+            break  # one report-completed per job
+
     return job
 
 

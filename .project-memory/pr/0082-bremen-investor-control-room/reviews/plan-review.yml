@@ -1,0 +1,122 @@
+review:
+  status: valid
+  branch: 0082-bremen-investor-control-room
+  head: e622b5e1900f352acf11d8c7a0b32b0316800345
+  reviewed_files:
+    - .project-memory/pr/0082-bremen-investor-control-room/PLAN.md
+    - src/bremen/api/server.py
+    - src/bremen/demo_ui.py
+    - src/bremen/workspace_ui.py
+    - src/bremen/api/decision_contract.py
+    - src/bremen/api/model_state.py
+    - src/bremen/api/job_api_handler.py
+    - src/bremen/api/workflow_orchestrator.py
+    - src/bremen/api/event_store.py
+    - src/bremen/api/event_schema.py
+    - src/bremen/api/workflow_bremen.py
+    - src/bremen/api/lifecycle_contracts.py
+    - src/bremen/api/report_bremen.py
+    - src/bremen/api/report_provider.py
+    - src/bremen/api/runtime_plugin.py
+    - src/bremen/api/execution_trace.py
+    - tests/test_bremen_workspace_ui.py
+    - tests/test_bremen_concurrent_server.py
+    - tests/test_bremen_event_stream.py
+    - tests/test_bremen_decision_vocabulary.py
+    - tests/test_bremen_runtime_plugin.py
+    - docs/workspace_contract.md
+    - ROADMAP.md
+
+source_inventory:
+  default_route: GET /demo dispatched by do_GET to _handle_demo_route in server.py which calls build_demo_html_page from demo_ui.py
+  workspace_ui: GET /demo/workspace and /demo/workspace/{job_id} dispatched by _handle_workspace_route, uses workspace_ui.py build_workspace_page
+  showcase_ui: ?view=showcase query parameter detected by JS in workspace_ui.py _SHOWCASE_JS block
+  job_api: POST /demo/api/jobs -> _handle_demo_jobs_create -> handle_jobs_create in job_api_handler.py; GET /demo/api/jobs -> handle_jobs_list
+  workflow_execution: run_workflow_request in workflow_orchestrator.py, dispatching to BremenProvider.execute
+  event_history: GET /demo/api/jobs/{job_id}/events -> handle_job_events in job_api_handler.py, reads from BoundedEventStore
+  sse: GET /demo/api/jobs/{job_id}/events/stream -> handle_job_events_stream, uses BoundedEventStore with Condition wait
+  report_api: GET /demo/api/jobs/{job_id}/reports/{workflow_id} -> handle_job_report in job_api_handler.py, dispatches to BremenReportProvider
+  readiness: GET /health returns model_ready field; GET /model/version returns model_status field; ModelState.is_ready()
+  decision_contract: decision_contract.py defines CONTINUE_MRI / MRI_REVIEW_DEFER, bremen_mri_continuation_threshold, v0.1.0, build_decision()
+
+blockers: []
+
+warnings:
+  - id: W001
+    evidence:
+      file: .project-memory/pr/0082-bremen-investor-control-room/PLAN.md
+      lines: plan pipeline section
+    issue: Plan's 10 visual pipeline stages do not exactly match the existing BREMEN_STAGE_ORDER (11 items) from runtime_plugin.py. The plan defines its own user-facing stage grouping (e.g. "Source validated", "Canonical XRD created") that differ from the internal stage IDs (artifact_verification, artifact_loaded, etc.)
+    recommendation: Clarify that the 10-stage visual pipeline is a user-facing grouping of authoritative events, not a replacement of BREMEN_STAGE_ORDER. Confirm the internal lifecycle state machine remains unchanged.
+  - id: W002
+    evidence:
+      file: .project-memory/pr/0082-bremen-investor-control-room/PLAN.md
+      lines: warn section
+    issue: Jobs created via the old /demo/api/h5/analyze endpoint bypass the structured _jobs store and will not appear in the Control Room job list. The plan acknowledges this and documents it in workspace_contract.md updates, which is acceptable but may surprise operators migrating from the old UI.
+    recommendation: Document this migration limitation prominently so operators understand that historical jobs from the old analyze endpoint are not visible in the new Control Room.
+  - id: W003
+    evidence:
+      file: .project-memory/pr/0082-bremen-investor-control-room/PLAN.md
+      lines: full plan
+    issue: The plan relies on the configured BREMEN_MODEL_URI being available at deployment time. If unset, the Control Room shows an informative message rather than a full execution experience. This is acknowledged as acceptable demo behavior but could be confusing if the Control Room is shown as the default route without a ready model.
+    recommendation: Consider adding a visible indicator when model is not_configured that guides operators to set BREMEN_MODEL_URI, rather than showing a non-functional Analyze button.
+
+confirmed:
+  current_source_grounded: true
+  default_experience_changed: true
+  existing_routes_preserved: true
+  real_execution_path_traced: true
+  one_real_bremen_model: true
+  no_model_selector: true
+  no_fake_model: true
+  authoritative_pipeline_stages: true
+  no_fake_progress: true
+  event_panel_visible_by_default: true
+  event_panel_real_sse: true
+  history_replay_defined: true
+  monotonic_ordering_defined: true
+  duplicate_suppression_defined: true
+  reconnect_cursor_defined: true
+  heartbeat_defined: true
+  terminal_state_defined: true
+  browser_event_retention_bounded: true
+  multi_client_sse_preserved: true
+  canonical_decision_codes: true
+  no_mri_rule_out_public_wording: true
+  no_frontend_threshold_logic: true
+  report_uses_authoritative_decision: true
+  technical_readiness_separate: true
+  scientific_certification_separate: true
+  technical_demo_boundary: true
+  frontend_state_machine_explicit: true
+  backend_changes_minimal: true
+  api_compatibility_preserved: true
+  privacy_allowlist: true
+  accessibility_complete: true
+  performance_bounds: true
+  bremen_aramis_separate: true
+  no_xrd_parity_scope: true
+  no_auc_scope: true
+  no_model_variant_scope: true
+  behavioral_tests_sufficient: true
+  visual_acceptance_objective: true
+  documentation_sufficient: true
+  scope_bounded: true
+
+summary: |
+  PLAN.md for PR0082 presents a thorough, well-grounded plan for replacing the
+  current /demo route with a real-time Investor Control Room. It is fully
+  grounded in current committed source code (server.py routes, demo_ui.py,
+  workspace_ui.py, job_api_handler.py, decision_contract.py, event_store.py,
+  event_schema.py, runtime_plugin.py, etc.). The plan preserves all existing
+  API routes, keeps /demo/workspace accessible for backward compatibility,
+  uses exactly one real Bremen model from ModelState with no selector, traces
+  a complete real execution path from browser action through SSE event delivery
+  to decision and report creation, enforces PR0081 canonical decision vocabulary,
+  separates technical readiness from scientific certification, specifies
+  explicit frontend state transitions, bounds DOM growth at 200 events,
+  requires behavioral tests for all key interactions, and clearly walls off
+  PR0083, PR0084, and PR0085 scope. No blockers found. Three non-blocking
+  warnings identified regarding visual stage grouping alignment with
+  BREMEN_STAGE_ORDER, legacy API migration visibility, and unconfigured model
+  state UX.

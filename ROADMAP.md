@@ -4,25 +4,33 @@
 
 No hard calendar dates — use sequence and dependencies.
 
-## Current milestone (PR0079)
+## Current milestone (PR0082)
 
-Concurrent Demo Server and Multi-Client SSE Safety:
-- ThreadingHTTPServer with daemon threads replaces single-threaded HTTPServer
-- Thread-safe shared-state inventory and locking
-- Package-level singleton initialization with double-checked locking
-- Lock-protected jobs storage (short critical sections, never during execution/SSE)
-- InMemoryJobStore thread safety (W001 resolution)
-- BoundedEventStore concurrency audit (already thread-safe)
-- SSE lifecycle hardening (lock-guarded job reads, independent cursors)
-- Two-client SSE proof via real socket tests
-- Concurrent API responsiveness (health, job API, workspace during SSE)
-- Disconnect isolation, clean shutdown, thread cleanup
-- Model and provider concurrency audit (read-only, no lock needed)
-- Safe operational logging (server mode, connection count, disconnect reason)
-- Multi-model forward architecture documented (not implemented)
-- Deployed concurrency smoke procedure documented
+Bremen Investor Control Room:
+- GET /demo renders the Investor Control Room as the default experience
+- GET /demo/workspace preserved for backward compatibility
+- Real H5 file upload via POST /demo/api/stage, then structured job creation
+  through POST /demo/api/jobs
+- Ten-stage visual pipeline as projection over authoritative events
+  (does not replace BREMEN_STAGE_ORDER)
+- Docked structured live event panel with real SSE, history replay,
+  monotonic ordering, duplicate suppression, reconnect, terminal handling,
+  200-row DOM bound
+- Explicit fourteen-state frontend lifecycle model
+- Approved PR0081 canonical decision vocabulary (CONTINUE_MRI /
+  MRI_REVIEW_DEFER, bremen_mri_continuation_threshold v0.1.0)
+- Real Bremen report access through existing report endpoint
+- Technical readiness and scientific certification as separate visible
+  badges; model-unconfigured state disables Analyze with safe guidance
+- Legacy analyze-job limitation documented (jobs via POST /demo/api/h5/analyze
+  not imported into structured Control Room job list)
+- Exactly one real Bremen model, no model selector
+- Accessibility: semantic pipeline, aria-pressed event filters, keyboard-
+  operable controls, visible focus, controlled aria-live, reduced motion
+- Privacy: no patient identifiers, model internals, paths, tracebacks, or
+  credentials in rendered HTML
 
-**Status**: Implemented (PR0079)
+**Status**: Implemented (PR0082)
 
 ---
 

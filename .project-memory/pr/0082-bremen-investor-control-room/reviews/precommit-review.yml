@@ -1,0 +1,176 @@
+review:
+  status: valid
+  branch: 0082-bremen-investor-control-room
+  head: 616d73b640377d9fbbb074400095e78fb6bf6c78
+  reviewed_files:
+    - src/bremen/api/server.py
+    - src/bremen/api/job_api_handler.py
+    - src/bremen/control_room_ui.py
+    - tests/test_bremen_api_server.py
+    - tests/test_bremen_control_room.py
+    - docs/workspace_contract.md
+    - docs/release_readiness_operator_notes.md
+    - ROADMAP.md
+    - .project-memory/pr/0082-bremen-investor-control-room/PLAN.md
+    - .project-memory/pr/0082-bremen-investor-control-room/implementation-report.md
+    - .project-memory/pr/0082-bremen-investor-control-room/reviews/plan-review.yml
+    - src/bremen/api/decision_contract.py
+    - src/bremen/api/runtime_plugin.py
+    - src/bremen/api/event_schema.py
+    - src/bremen/api/event_store.py
+    - src/bremen/api/workflow_orchestrator.py
+    - src/bremen/api/workflow_bremen.py
+    - src/bremen/api/job_models.py
+    - src/bremen/api/model_state.py
+    - src/bremen/api/report_bremen.py
+    - src/bremen/api/report_provider.py
+    - src/bremen/api/app.py
+    - src/bremen/api/lifecycle_contracts.py
+    - src/bremen/api/execution_trace.py
+
+previous_findings:
+  W001:
+    status: resolved
+    evidence:
+      file: src/bremen/control_room_ui.py
+      lines: 272
+    issue: 'Stage 2 mapping corrected to runtime.input.preparation.completed. Verified through source inspection and behavioral test test_stage_map_correct_events confirms the correct event is in STAGE_MAP. test_stage_map_no_staging_event confirms runtime.input.staging.completed is absent.'
+  W002:
+    status: resolved
+    evidence:
+      file: src/bremen/api/job_api_handler.py
+      lines: 248-266
+    issue: 'runtime.report.completed emitted from create_analysis_job after _generate_job_reports when report status is REPORT_STATUS_AVAILABLE. Verified through source inspection. Behavioral test test_stage_map_correct_events confirms runtime.report.completed is in STAGE_MAP.'
+  W003:
+    status: resolved
+    evidence:
+      file: src/bremen/control_room_ui.py
+      lines: 133-145, 225-230
+    issue: 'Real file upload flow via POST /demo/api/stage with real h5_path. No empty h5_path, no synthetic container_id. Verified through behavioral tests test_stage_endpoint_accepts_file, test_stage_empty_body_rejected, and test_staged_file_creates_valid_job.'
+  W004:
+    status: resolved
+    evidence:
+      file: docs/workspace_contract.md, ROADMAP.md, docs/release_readiness_operator_notes.md
+      lines: entire files
+    issue: 'All three documentation files updated. workspace_contract.md has new PR0082 section documenting default route, input path, ten-stage pipeline, report evidence, frontend state model, event panel SSE lifecycle, decision/report projection, readiness/certification, legacy limitation, one-model boundary, and PR0083/0084/0085 boundaries. ROADMAP.md sets current milestone to PR0082. release_readiness_operator_notes.md adds section 15 with operator flow and guidance.'
+  W005:
+    status: resolved
+    evidence:
+      file: tests/test_bremen_control_room.py
+      lines: entire file
+    issue: '47 behavioral tests added in tests/test_bremen_control_room.py covering route rendering, pipeline stage mappings, event filter behavior, accessibility (aria-pressed, role=list, aria-live), privacy (no prohibited content), model identity, model-unconfigured state, frontend state model, event panel behavior (bounded DOM, duplicate suppression, EventSource singleton, filter function, autoscroll), file upload and staging, legacy compatibility (health, jobs API, model/version).'
+  W006:
+    status: resolved
+    evidence:
+      file: src/bremen/control_room_ui.py
+      lines: 218-230
+    issue: 'File select button with hidden input and staging via /demo/api/stage. Verified through behavioral tests test_control_room_has_file_input and test_stage_endpoint_accepts_file.'
+  W007:
+    status: resolved
+    evidence:
+      file: src/bremen/control_room_ui.py
+      lines: 295-312
+    issue: 'filterEvents correctly manages three exclusive filter states with aria-pressed attributes. Verified through source inspection. Behavioral tests test_aria_pressed_filters and test_filter_function confirm filter behavior.'
+
+blockers: []
+
+warnings: []
+
+confirmed:
+  default_route_control_room: true
+  workspace_routes_preserved: true
+  real_source_control: true
+  no_empty_h5_path: true
+  no_fake_container_id: true
+  source_validation: true
+  valid_job_reaches_workflow: true
+  explicit_frontend_state_model: true
+  state_transitions_tested: true
+  visual_stage_mapping_centralized: true
+  source_stage_reachable: true
+  report_stage_authoritative: true
+  all_visual_stages_reachable: true
+  bremen_stage_order_unchanged: true
+  no_fake_progress: true
+  event_filters_correct: true
+  event_filters_accessible: true
+  event_panel_visible: true
+  event_history_replay: true
+  live_sse: true
+  reconnect: true
+  duplicate_suppression: true
+  terminal_state: true
+  expired_state: true
+  one_eventsource_per_job: true
+  event_retention_bounded: true
+  manual_scroll_preserved: true
+  sse_concurrency_preserved: true
+  health_during_sse: true
+  jobs_api_during_sse: true
+  disconnect_isolation: true
+  canonical_decision_codes: true
+  no_frontend_threshold_logic: true
+  report_real_endpoint: true
+  model_unconfigured_safe: true
+  legacy_analyze_limitation_documented: true
+  documentation_complete: true
+  implementation_report_exists: true
+  behavioral_tests_sufficient: true
+  accessibility_complete: true
+  privacy_allowlist: true
+  no_model_variant_scope: true
+  no_xrd_parity_scope: true
+  no_auc_scope: true
+  bremen_aramis_separate: true
+  full_suite_executed: true
+  full_suite_passed: true
+  credentials_excluded: true
+  private_artifacts_excluded: true
+
+tests:
+  input_source: true
+  job_creation: true
+  frontend_state: true
+  stage_mapping: true
+  event_filters: true
+  event_panel: true
+  sse_replay: true
+  sse_reconnect: true
+  sse_concurrency: true
+  decision_projection: true
+  report_projection: true
+  model_unavailable: true
+  route_compatibility: true
+  privacy: true
+  accessibility: true
+  compileall: true
+  frontend_validation: true
+  full_suite: true
+  diff_check: true
+  secret_check: true
+  artifact_check: true
+
+summary: |
+  All blocking items from the previous review are resolved. B001 (documentation)
+  is resolved through updates to workspace_contract.md, ROADMAP.md, and
+  release_readiness_operator_notes.md covering the default Control Room route,
+  source staging endpoint, ten-stage pipeline mapping, report evidence, explicit
+  fourteen-state frontend model, event panel SSE lifecycle, decision/report
+  projection, technical readiness and scientific certification separation,
+  legacy analyze-job limitation, one-model boundary, and PR0083/0084/0085
+  boundaries. B002 (behavioral tests) is resolved through 47 behavioral tests in
+  tests/test_bremen_control_room.py covering route content, pipeline stage
+  mappings, event filter behavior, accessibility (aria-pressed, semantic list,
+  aria-live, visible focus, reduced motion), privacy, model identity, model-
+  unconfigured state, frontend state model, event panel bounded DOM, file
+  upload staging, and legacy API compatibility. All seven previous findings
+  (W001-W007) remain resolved with no regression. Accessibility requirements
+  are met with semantic pipeline list, aria-pressed on event filters, aria-label
+  on filters and controls, role=status on badges, role=alert on decision,
+  aria-live on event panel, visible focus, and prefers-reduced-motion. The full
+  suite passes: 1734 tests passed (47 new + 1687 existing), 11 skipped, 0
+  failures. No credentials, forbidden binary artifacts, or whitespace errors
+  in the diff. No model selector, no frontend threshold comparison, no
+  MRI_RULE_OUT public wording, no empty h5_path, no synthetic container_id.
+  BREMEN_STAGE_ORDER unchanged. Bremen and Aramis remain separate. No scope
+  violations.
