@@ -1,0 +1,44 @@
+review:
+  status: valid
+  branch: 0081a-fix-forwarded-proto-base-url
+  head: 27dd11c11c10f88fd004584025606cb2d07332b1
+  direct_to_coder_exception: true
+  reviewed_files:
+    - src/bremen/api/server.py
+
+blockers: []
+
+warnings: []
+
+confirmed:
+  all_http_hardcoded_occurrences_removed: true
+  x_forwarded_proto_used_at_every_site: true
+  occurrence_count_matches_pre_fix_diff: true
+  default_fallback_still_http: true
+  demo_ui_unchanged: true
+  workspace_ui_unchanged: true
+  no_unrelated_files_changed: true
+  compileall_passed: true
+  focused_test_passed: true
+  full_suite_passed: true
+  credentials_excluded: true
+  forbidden_artifacts_excluded: true
+  end_to_end_https_check_not_performed_in_sandbox: true
+
+tests:
+  api_server_focused: "80 passed in 40.69s"
+  compileall: "passed (no errors)"
+  full_suite: "1734 passed, 11 skipped, 0 failures in 175.86s"
+
+summary: |
+  The fix correctly replaces all four hardcoded http://{host_header}
+  base_url assignments in src/bremen/api/server.py with a version that
+  reads the X-Forwarded-Proto header, defaulting to "http" when absent.
+  The four affected routes are _handle_demo_route, _handle_demo_evidence_route,
+  _handle_workspace_route, and _handle_control_room_route. No unrelated
+  files were modified. Client-side files (demo_ui.py, workspace_ui.py) are
+  untouched. The default fallback remains "http" for local/dev environments
+  without a reverse proxy. All tests pass: compileall clean, 80/80 focused
+  API server tests pass, full suite 1734/1734 passed with 0 failures. No
+  credentials or forbidden artifacts in the diff. End-to-end HTTPS
+  verification requires a human deploy and browser check.

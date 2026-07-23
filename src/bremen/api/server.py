@@ -440,7 +440,8 @@ def _handle_demo_route(handler: BaseHTTPRequestHandler) -> None:
 
     request_id = handler.headers.get("X-Request-ID") or str(_uuid.uuid4())
     host_header = handler.headers.get("Host", "localhost")
-    base_url = f"http://{host_header}"
+    forwarded_proto = handler.headers.get("X-Forwarded-Proto", "http")
+    base_url = f"{forwarded_proto}://{host_header}"
 
     # ---- Determine actual model state from ModelState ----
     model_pkg = ModelState.get_model()
@@ -500,7 +501,8 @@ def _handle_demo_evidence_route(handler: BaseHTTPRequestHandler) -> None:
 
     request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())
     host_header = handler.headers.get("Host", "localhost")
-    base_url = f"http://{host_header}"
+    forwarded_proto = handler.headers.get("X-Forwarded-Proto", "http")
+    base_url = f"{forwarded_proto}://{host_header}"
 
     evidence = build_demo_evidence_bundle(
         base_url=base_url,
@@ -1316,7 +1318,8 @@ def _handle_workspace_route(handler: BaseHTTPRequestHandler) -> None:
 
     request_id = handler.headers.get("X-Request-ID") or str(_uuid.uuid4())
     host_header = handler.headers.get("Host", "localhost")
-    base_url = f"http://{host_header}"
+    forwarded_proto = handler.headers.get("X-Forwarded-Proto", "http")
+    base_url = f"{forwarded_proto}://{host_header}"
     path = handler.path
     job_id = None
     prefix = "/demo/workspace/"
@@ -1339,7 +1342,8 @@ def _handle_control_room_route(handler: BaseHTTPRequestHandler) -> None:
 
     request_id = handler.headers.get("X-Request-ID") or str(_uuid.uuid4())
     host_header = handler.headers.get("Host", "localhost")
-    base_url = f"http://{host_header}"
+    forwarded_proto = handler.headers.get("X-Forwarded-Proto", "http")
+    base_url = f"{forwarded_proto}://{host_header}"
     html = build_control_room_page(base_url=base_url, request_id=request_id)
     body = html.encode("utf-8")
     handler.send_response(200)
