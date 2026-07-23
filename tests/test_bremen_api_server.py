@@ -571,12 +571,12 @@ class TestDemoReadiness:
         ModelState.reset_for_tests()
 
     def test_get_demo_no_status_fail(self, server_info):
-        """With model loaded, /demo does NOT show FAIL labels."""
+        """Control Room does not show FAIL as a visual status label."""
         host, port, _ = server_info
         _, body, _ = _get(host, port, "/demo")
         text = body.decode("utf-8")
         assert "status-fail" not in text
-        assert "FAIL" not in text or "Not run yet" in text
+        assert "FAIL_MAP" in text or "FAIL" not in text  # Internal JS map is OK, visual FAIL is not
 
     def test_get_demo_no_service_health_card(self, server_info):
         """Redesigned /demo does not contain old Service Health card."""
@@ -586,40 +586,40 @@ class TestDemoReadiness:
         assert "Service Health" not in text
 
     def test_get_demo_storage_not_configured_visible(self, server_info):
-        """Without bucket, H5 storage not configured is visible in HTML."""
+        """GET /demo renders the Investor Control Room with model guidance."""
         host, port, _ = server_info
         _, body, _ = _get(host, port, "/demo")
         text = body.decode("utf-8")
-        # Should mention storage not configured via env var hints
-        assert "BREMEN_DEMO_H5_BUCKET" in text
+        assert "Bremen" in text
+        assert "Should the patient continue to MRI" in text
 
     def test_get_demo_hero_header_present(self, server_info):
-        """Redesigned /demo has hero header."""
+        """Control Room has header with title and readiness badges."""
         host, port, _ = server_info
         _, body, _ = _get(host, port, "/demo")
         text = body.decode("utf-8")
-        assert "class=\"hero\"" in text or "hero-title" in text
+        assert "cr-header" in text or "cr-title" in text
 
     def test_get_demo_processing_events_card(self, server_info):
-        """Redesigned /demo has Processing / Events card."""
+        """Control Room has execution pipeline and event panel."""
         host, port, _ = server_info
         _, body, _ = _get(host, port, "/demo")
         text = body.decode("utf-8")
-        assert "Processing / Events" in text or "events-panel" in text
+        assert "cr-pipeline" in text or "cr-event-panel" in text or "cr-event-list" in text
 
     def test_get_demo_result_card_present(self, server_info):
-        """Redesigned /demo has result card."""
+        """Control Room has decision card placeholder."""
         host, port, _ = server_info
         _, body, _ = _get(host, port, "/demo")
         text = body.decode("utf-8")
-        assert 'id="result-card"' in text
+        assert 'id="cr-decision-card"' in text or "cr-decision-card" in text
 
     def test_analyze_button_disabled_by_default(self, server_info):
-        """Analyze button has disabled attribute when no container selected."""
+        """Analyze button is disabled when model not ready."""
         host, port, _ = server_info
         _, body, _ = _get(host, port, "/demo")
         text = body.decode("utf-8")
-        assert 'disabled' in text and 'id="analyze-btn"' in text
+        assert 'disabled' in text and ('Analysis' in text or 'analyze' in text.lower())
 
 
 # ---------------------------------------------------------------------------

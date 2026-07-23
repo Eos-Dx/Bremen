@@ -383,7 +383,51 @@ patient data is associated with the `prediction_id` in logs.
 
 ---
 
-## 15. Non-Goals
+## 15. Investor Control Room (PR0082)
+
+The default GET /demo route renders the Bremen Investor Control Room.
+GET /demo/workspace remains available for the legacy workspace.
+
+The Control Room operator flow:
+
+1. Open GET /demo in a browser.
+2. Verify model readiness: header badges show "Model Ready" (green)
+   or "Model Not Configured" (yellow).  Scientific certification is
+   always "pending" (red).
+3. Select an H5 file using the "Select H5 File" button.  The file is
+   uploaded to POST /demo/api/stage and staged to a temporary location.
+4. When the source status shows "Ready", click Analyze.  The button is
+   disabled until both the model is ready and a source is selected.
+5. Observe the ten-stage execution pipeline update in real time as
+   authoritative events arrive.
+6. Observe the docked structured event panel (right side) receiving
+   live SSE events.
+7. When the job completes, the decision panel displays the canonical
+   CONTINUE_MRI or MRI_REVIEW_DEFER result.
+8. Click "View Bremen Report" to access the real generated report.
+
+Operator guidance for common states:
+
+Model Not Configured: The Analyze button is disabled.  The operator
+must configure BREMEN_MODEL_URI, BREMEN_MODEL_VERSION, and
+BREMEN_MODEL_CHECKSUM and redeploy.  No environment-variable values,
+URIs, paths, or credentials are displayed in the UI.
+
+Source Upload Failed: Check that the H5 file is valid and under the
+file size limit.  Retry the upload.
+
+Analysis Failed: The pipeline shows the failed stage.  The event
+panel shows the failure event.  Check server logs for safe error
+categories.
+
+Legacy Analyze Jobs: Jobs created through POST /demo/api/h5/analyze
+use a separate workflow and are not imported into the structured
+Control Room job list.  The Control Room footer documents this
+limitation.
+
+---
+
+## 16. Non-Goals
 
 This release does not include:
 
@@ -398,7 +442,7 @@ This release does not include:
 
 ---
 
-## 16. Release Readiness Sign-Off Checklist
+## 17. Release Readiness Sign-Off Checklist
 
 Before marking a Bremen deployment release as ready, complete the
 following checks:

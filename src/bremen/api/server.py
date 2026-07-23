@@ -291,7 +291,7 @@ def _make_handler(
                     }, job_id=job_id)
 
             elif self.path == "/demo":
-                _handle_demo_route(self)
+                _handle_control_room_route(self)
             elif self.path == "/demo/workspace" or self.path.startswith("/demo/workspace/") or self.path.startswith("/demo/workspace?"):
                 _handle_workspace_route(self)
             elif self.path == "/demo/api/evidence":
@@ -314,6 +314,8 @@ def _make_handler(
 
             if self.path == "/demo/api/h5/containers":
                 _handle_demo_h5_containers_upload(self)
+            elif self.path == "/demo/api/stage":
+                _handle_demo_stage(self)
             elif self.path == "/demo/api/h5/analyze":
                 _handle_demo_h5_analyze(self)
             elif self.path == "/demo/api/jobs":
@@ -1324,6 +1326,69 @@ def _handle_workspace_route(handler: BaseHTTPRequestHandler) -> None:
     body = html.encode("utf-8")
     handler.send_response(200)
     handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("X-Request-ID", request_id)
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def _handle_control_room_route(handler: BaseHTTPRequestHandler) -> None:
+    """Handle GET /demo — Bremen Investor Control Room."""
+    import uuid as _uuid  # noqa: PLC0415
+    from ..control_room_ui import build_control_room_page  # noqa: PLC0415
+
+    request_id = handler.headers.get("X-Request-ID") or str(_uuid.uuid4())
+    host_header = handler.headers.get("Host", "localhost")
+    base_url = f"http://{host_header}"
+    html = build_control_room_page(base_url=base_url, request_id=request_id)
+    body = html.encode("utf-8")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("X-Request-ID", request_id)
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def _handle_demo_stage(handler: BaseHTTPRequestHandler) -> None:
+    """Handle POST /demo/api/stage — accept a demo H5 file, stage it
+    locally, and return a safe h5_path for job creation.
+    """
+    import json as _json  # noqa: PLC0415
+    import os as _os  # noqa: PLC0415
+    import tempfile  # noqa: PLC0415
+    import uuid as _uuid  # noqa: PLC0415
+
+    request_id = handler.headers.get("X-Request-ID") or str(_uuid.uuid4())
+    content_length = int(handler.headers.get("Content-Length", 0))
+    if content_length == 0:
+        body = _json.dumps({
+            "status": "rejected",
+            "error": "Empty body",
+            "request_id": request_id,
+        }).encode("utf-8")
+        handler.send_response(400)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("X-Request-ID", request_id)
+        handler.end_headers()
+        handler.wfile.write(body)
+        return
+
+    raw = handler.rfile.read(content_length)
+    suffix = ".h5"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tf:
+        tf.write(raw)
+        staged_path = tf.name
+
+    body = _json.dumps({
+        "status": "staged",
+        "h5_path": staged_path,
+        "size_bytes": content_length,
+        "request_id": request_id,
+        "technical_demo_only": True,
+    }).encode("utf-8")
+    handler.send_response(201)
+    handler.send_header("Content-Type", "application/json")
     handler.send_header("Content-Length", str(len(body)))
     handler.send_header("X-Request-ID", request_id)
     handler.end_headers()

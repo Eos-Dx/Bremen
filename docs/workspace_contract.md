@@ -650,3 +650,104 @@ Bremen and Aramis remain scientifically separate.  Aramis decision
 vocabulary is its own contract.  Bremen vocabulary does not affect
 Aramis decision codes, policy identity, threshold, reports, events,
 readiness, or provider behavior.
+
+
+## PR0082 — Bremen Investor Control Room
+
+### Default Route
+
+GET /demo renders the Bremen Investor Control Room.  GET /demo/workspace
+remains available for the legacy multi-workflow analysis workspace.
+All existing API routes, response schemas, and status codes are preserved.
+
+### Real Input Path
+
+The Control Room accepts H5 files via a "Select H5 File" button.
+The file is uploaded to POST /demo/api/stage, which stages it to a
+temporary location and returns a safe h5_path.  The frontend then
+creates a structured job through POST /demo/api/jobs using the
+returned h5_path.  The browser never sees server-side paths.
+
+### Ten-Stage Visual Pipeline
+
+The Control Room renders ten user-facing pipeline stages as
+presentation projections over authoritative events.  The ten stages
+and their event mappings are:
+
+Input accepted: runtime.request.accepted
+Source validated: runtime.input.preparation.completed
+Canonical XRD created: runtime.normalization.completed
+Bremen workflow resolved: runtime.workflow.resolved
+Model artifact prepared: runtime.artifact.verification.completed or
+  runtime.model.validation.completed
+Feature contract validated: runtime.features.validation.completed
+Inference completed: runtime.inference.completed
+Decision policy applied: runtime.decision.completed
+Report generated: runtime.report.completed
+Analysis complete: runtime.request.completed
+
+These visual stages do not replace BREMEN_STAGE_ORDER
+(runtime_plugin.py).  BREMEN_STAGE_ORDER remains the authoritative
+internal lifecycle ordering.
+
+### Report Stage Evidence
+
+runtime.report.completed is emitted from create_analysis_job after
+_generate_job_reports completes and at least one report has status
+REPORT_STATUS_AVAILABLE.  The event carries report_id,
+report_schema_version, and report_status.
+
+### Explicit Frontend State Model
+
+The Control Room uses an explicit fourteen-state lifecycle:
+idle, source_selected, validating, ready_to_submit, submitting,
+job_created, connecting, running, reconnecting, completed,
+partial_success, failed, unavailable, expired.
+
+The setState function validates allowed states and drives Analyze
+button enablement, connection indicator, pipeline state, source
+controls, result visibility, and report availability.
+
+### Event Panel
+
+The docked structured event panel uses real SSE with replay, monotonic
+sequence ordering, duplicate suppression (sequence <= lastSequence),
+reconnect (browser Last-Event-ID), and terminal handling (stream_complete).
+The DOM is bounded at 200 event rows.  Event filters (All, Completed,
+Failed) manage exclusive visibility states with aria-pressed semantics.
+
+### Decision and Report
+
+Decision panel reads decision_code from workflow result_summary.  No
+threshold comparison is performed in JavaScript.  CSS state is derived
+from decision_code comparison.  Report link appears when report status
+is available.
+
+### Technical Readiness and Scientific Certification
+
+Technical readiness and scientific certification are separate badges.
+Technical readiness reflects /health model_ready and /model/version
+model_status.  Scientific certification remains "pending" with a red
+badge.  The model-unconfigured state disables Analyze and shows safe
+operator guidance.  No environment-variable values, URIs, paths,
+credentials, or tracebacks are displayed.
+
+### Legacy Analyze-Job Limitation
+
+Jobs created through POST /demo/api/h5/analyze bypass the structured
+_jobs store and are not imported into the Control Room job list.  The
+legacy endpoint is preserved for backward compatibility.  This
+limitation is documented in the Control Room footer.
+
+### One Real Bremen Model
+
+Exactly one real configured Bremen model is displayed.  No model
+selector exists.  No second variant is listed.  Model metadata is
+read from ModelState.
+
+### PR0083, PR0084, PR0085 Boundaries
+
+PR0083 owns XRD preprocessing training-runtime parity investigation.
+PR0084 owns paper-reference versus product-contract investigation.
+PR0085 owns provider-owned model variants and independent model
+runs.  None are implemented in PR0082.
