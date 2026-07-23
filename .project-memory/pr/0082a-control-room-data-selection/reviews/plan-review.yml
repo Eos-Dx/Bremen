@@ -1,0 +1,173 @@
+review:
+  status: blocked
+  branch: 0082a-control-room-data-selection
+  head: cfae8448e928cce0e6d16865b08f3429aeb7d9ee
+  reviewed_files:
+    - .project-memory/pr/0082a-control-room-data-selection/PLAN.md
+    - src/bremen/api/server.py
+    - src/bremen/api/job_api_handler.py
+    - src/bremen/api/job_models.py
+    - src/bremen/api/model_state.py
+    - src/bremen/api/workflow_provider.py
+    - src/bremen/api/workflow_orchestrator.py
+    - src/bremen/api/workflow_bremen.py
+    - src/bremen/api/report_provider.py
+    - src/bremen/api/report_bremen.py
+    - src/bremen/api/decision_contract.py
+    - src/bremen/h5_inputs.py
+    - src/bremen/demo_config.py
+    - src/bremen/control_room_ui.py
+    - ROADMAP.md
+    - docs/workspace_contract.md
+    - docs/api_contract.md
+    - docs/release_readiness_operator_notes.md
+
+source_inventory:
+  control_room: _handle_control_room_route in server.py, build_control_room_page in control_room_ui.py
+  workspace: _handle_workspace_route in server.py, build_workspace_page in workspace_ui.py
+  input_staging: stage_h5_input in h5_inputs.py for S3 sources; _handle_demo_stage in server.py for file uploads (returns raw h5_path as temp path)
+  jobs: _handle_demo_jobs_create -> handle_jobs_create in job_api_handler.py -> create_analysis_job
+  job_history: list_analysis_jobs() and get_analysis_job() in job_api_handler.py
+  events: get_job_events() and BoundedEventStore in job_api_handler.py and event_store.py
+  sse: handle_job_events_stream in job_api_handler.py, uses BoundedEventStore Condition-based wait
+  reports: handle_job_reports, handle_job_report in job_api_handler.py, BremenReportProvider in report_bremen.py
+  model_state: ModelState singleton in model_state.py, is_ready(), get_model(), get_instance()
+  provider_execution: BremenProvider.execute in workflow_bremen.py, dispatched from run_workflow_request in workflow_orchestrator.py
+  config_loading: read_demo_h5_config in demo_config.py, reads BREMEN_DEMO_H5_BUCKET, BREMEN_DEMO_H5_PREFIX, BREMEN_DEMO_H5_ALLOW_UPLOAD, BREMEN_DEMO_H5_MAX_BYTES
+  storage_access: _list_s3_containers and _handle_demo_h5_containers_list in server.py, uses boto3 with deployment IAM credential chain
+
+blockers:
+  - id: B001
+    severity: blocker
+    evidence:
+      file: .project-memory/pr/0082a-control-room-data-selection/PLAN.md
+      lines: Source identity section
+    issue: |
+      Source identity for S3 catalog objects uses the existing S3 key (the id
+      field from GET /demo/api/h5/containers) as source_id. The PLAN states the
+      the browser selects a container by its id, sends it as source_id, and the
+      server reconstructs s3://{bucket}/{prefix}{source_id}. This is not opaque.
+      The browser receives and submits a reversible storage identifier (the S3
+      key), not a server-generated opaque token.
+    required_change: |
+      Replace the S3-key-as-source_id design with a server-generated opaque
+      source_id created at selection time. The browser must receive and submit
+      only the opaque source_id. The server must maintain a server-side mapping
+      from source_id to bucket/object-key pair, revalidate at job submission
+      against current bucket and prefix configuration, and reject unknown,
+      stale, tampered, or expired identifiers. The S3 key must not leave the
+      server in any new public Control Room contract.
+
+  - id: B002
+    severity: blocker
+    evidence:
+      file: .project-memory/pr/0082a-control-room-data-selection/PLAN.md
+      lines: Upload path section and backward compatibility section
+    issue: |
+      The PLAN preserves h5_path in the POST /demo/api/stage response
+      ("response extended with upload_id, h5_path kept for compat") and in the
+      POST /demo/api/jobs request body ("existing h5_path and container_id
+      fields preserved as legacy compat inputs"). The new Control Room upload
+      contract must return upload_id and safe metadata only. It must not return
+      a filesystem path (h5_path) to the browser in any new response. The new
+      Control Room JavaScript must use upload_id exclusively.
+    required_change: |
+      Remove h5_path from the new POST /demo/api/stage response. The new
+      Control Room contract returns only status, upload_id, filename,
+      size_bytes, request_id, technical_demo_only. Preserve legacy
+      compatibility through one explicit isolated mechanism: the existing
+      legacy route retained without changes (the old /demo page still calls
+      an internal endpoint that may return h5_path), or a versioned legacy
+      response path, or an internal adapter used only by old server-side
+      callers. The new POST /demo/api/jobs must not accept h5_path from the
+      browser for the new Control Room path. Legacy h5_path in the job
+      request may be preserved only as an isolated backward-compatibility
+      input that is explicitly routed through the legacy path, not the new
+      secure source-resolution path.
+
+  - id: B003
+    severity: blocker
+    evidence:
+      file: .project-memory/pr/0082a-control-room-data-selection/PLAN.md
+      lines: Model catalog design and model selection contract
+    issue: |
+      The model catalog response schema (GET /demo/api/models) does not
+      include catalog_timestamp, catalog_version, or equivalent revision
+      metadata. The correction requires catalog freshness metadata so the
+      frontend can reason about staleness of the displayed catalog state.
+      Without a timestamp, the frontend cannot determine whether the catalog
+      reflects current server state or needs refresh.
+    required_change: |
+      Add catalog_timestamp (ISO-8601 UTC) or catalog_version (monotonic
+      integer) to the GET /demo/api/models response. The frontend should
+      display the timestamp and use it to inform the user when the catalog
+      may be stale. Server-side revalidation at job submission must remain
+      authoritative regardless of frontend timestamp.
+
+warnings:
+  - id: W001
+    evidence:
+      file: .project-memory/pr/0082a-control-room-data-selection/PLAN.md
+      lines: Core interface changes
+    issue: The plan modifies workflow_provider.py execute() signature, workflow_orchestrator.py run_workflow_request(), and workflow_bremen.py to accept and propagate model_id.
+    recommendation: Ensure model_id is added as optional keyword argument defaulting to None on all modified signatures so existing internal callers without model_id preserve current behavior when exactly one valid model is configured. Existing calls without model_id when zero or multiple models are available must fail closed (typed error, no ambiguous execution).
+
+  - id: W002
+    evidence:
+      file: .project-memory/pr/0082a-control-room-data-selection/PLAN.md
+      lines: Isolated legacy upload path
+    issue: The plan must isolate legacy h5_path upload compatibility through a separate mechanism, not by embedding it in the new Control Room response.
+    recommendation: The existing legacy POST /demo/api/stage endpoint (before this PR's changes) returns h5_path. Preserve that exact endpoint at a distinct route (e.g., keep the current route handling for non-Control-Room callers) while the new Control Room uses a contract that never exposes h5_path. The existing /demo/api/h5/analyze legacy endpoint that uses container_id also remains as an isolated backward-compatible path.
+
+  - id: W003
+    evidence:
+      file: .project-memory/pr/0082a-control-room-data-selection/PLAN.md
+      lines: Model configuration section
+    issue: The plan says "No structured multi-model configuration mechanism is added" and describes the catalog as single-model only. The correction requires the catalog contract to support zero, one, or multiple real configured Bremen models.
+    recommendation: The ModelEntry list schema already supports multiple entries. Clarify that the build_model_catalog() function reads from ModelState for the legacy single-model case but the catalog endpoint contract (list of ModelEntry with model_id, availability, etc.) is designed to support multiple real configured models from any future configuration source. The architecture must not permanently constrain the catalog to a singleton ModelState. Model IDs must be stable. Duplicate model IDs must be rejected. Only technically real configured models are returned. No fabricated models.
+
+  - id: W004
+    evidence:
+      file: .project-memory/pr/0082a-control-room-data-selection/PLAN.md
+      lines: Catalog freshness
+    issue: The plan relies on the catalog being rebuilt on every call and revalidation at job submission, which is correct, but without catalog_timestamp the frontend cannot distinguish a fresh catalog from a stale one.
+    recommendation: Once catalog_timestamp is added to resolve blocker B003, the frontend should show the timestamp and allow the user to refresh before submission. The server revalidation at submission remains authoritative regardless.
+
+  - id: W005
+    evidence:
+      file: .project-memory/pr/0082a-control-room-data-selection/PLAN.md
+      lines: Source identity section
+    issue: The plan correctly describes opaque upload_id for uploads. The upload_id pattern (server-generated UUID, stored server-side, never exposes temp path) satisfies the opaque identity requirement for uploaded files. This pattern should be replicated for S3 catalog objects with an opaque source_id server-generated at selection time rather than using the S3 key directly.
+    recommendation: Apply the same opaque-token pattern used for upload_id to source_id for S3 catalog objects. When the user selects a container, the server creates a source_id (UUID), stores the mapping to the S3 bucket/key pair, and returns only the source_id to the browser.
+
+confirmed:
+  opaque_source_identity: false
+  no_h5_path_in_new_control_room: false
+  legacy_upload_compatibility_isolated: false
+  model_catalog_multi_model_supported: true
+  legacy_single_model_adapter: true
+  no_fabricated_models: true
+  model_id_optional_compatibility: true
+  ambiguous_multi_model_fails_closed: true
+  catalog_freshness_timestamp: false
+  catalog_selection_revalidated: true
+  frontend_catalog_informative_only: true
+  stale_selection_typed_error: true
+  p0082b_has_data_contract: true
+
+summary: |
+  REVIEW CORRECTED per five required corrections. Three blockers identified:
+  (B001) Source identity for S3 catalog objects uses the S3 key as source_id
+  instead of a server-generated opaque token. The browser must never receive
+  a reversible storage identifier. (B002) The PLAN preserves h5_path in the
+  new Control Room upload response and job request contract. The new Control
+  Room contract must not expose filesystem paths. Legacy compatibility must
+  be through an isolated mechanism. (B003) The model catalog response schema
+  lacks catalog_timestamp or equivalent revision metadata, required for the
+  frontend to reason about catalog freshness. Five warnings track the
+  remaining correction requirements that are partially satisfied or need
+  clarification. The plan's upload_id pattern is a good model for the opaque
+  source_id that should replace the S3-key-as-source_id design. The model
+  catalog list schema supports multiple entries architecturally even though
+  only ModelState populates it currently. The model_id interface changes are
+  correctly optional. Revalidation at job submission is correctly specified.
