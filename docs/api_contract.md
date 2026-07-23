@@ -23,6 +23,8 @@
 
 **Purpose:** Expose configured model package metadata/status. Must not call `joblib.load()`. Must not deserialize model artifacts.
 
+For the richer model catalog with catalog_timestamp, model selection, and support for multiple models, use `GET /demo/api/models` instead (see below).
+
 **Response (not configured):**
 
 ```json
@@ -335,3 +337,80 @@ Safe recommendation framing:
 
 For the full release readiness operator notes, see
 [docs/release_readiness_operator_notes.md](release_readiness_operator_notes.md).
+
+---
+
+### `GET /demo/api/models`
+
+**Purpose:** Return the server-owned model catalog — zero, one, or multiple
+real configured Bremen models.  The catalog is rebuilt on every call to
+reflect current ModelState.
+
+**Response (PR0082a):**
+
+```json
+{
+  "schema_version": "v1",
+  "catalog_timestamp": "2026-07-23T12:00:00.000000+00:00",
+  "models": [
+    {
+      "model_id": "bremen-current",
+      "display_name": "Bremen Current",
+      "workflow_id": "bremen",
+      "model_version": "v0.1",
+      "artifact_type": "portable_logreg",
+      "feature_schema_version": "v0.1",
+      "decision_policy_id": "bremen_mri_continuation_threshold",
+      "decision_policy_version": "0.1.0",
+      "technical_ready": true,
+      "scientifically_certified": false,
+      "technical_demo_only": true,
+      "availability": "available"
+    }
+  ],
+  "default_model_id": "bremen-current",
+  "status": "available",
+  "request_id": "...",
+  "technical_demo_only": true
+}
+```
+
+**Response (not configured):**
+
+```json
+{
+  "schema_version": "v1",
+  "catalog_timestamp": "...",
+  "models": [],
+  "default_model_id": null,
+  "status": "not_configured"
+}
+```
+
+**Fields:**
+- `schema_version`: Always `"v1"` for this schema.
+- `catalog_timestamp`: ISO-8601 UTC timestamp of when the catalog was built.
+  The frontend should use this to detect staleness, but the server's
+  revalidation at job submission is authoritative.
+- `models`: List of `ModelEntry` dicts (see below).
+- `default_model_id`: The model_id of the single available model when there
+  is exactly one; `null` when zero or multiple models are available.
+- `status`: `"available"`, `"not_configured"`, or `"error"`.
+
+**ModelEntry fields (all safe):**
+- `model_id`: Stable opaque identifier.
+- `display_name`: Controlled human-readable name.
+- `workflow_id`: The workflow this model executes under (e.g. `"bremen"`).
+- `model_version`: Version string from the configured model package.
+- `artifact_type`: The model package type (e.g. `"portable_logreg"`).
+- `feature_schema_version`: Feature schema version the model expects.
+- `decision_policy_id`: The decision policy bound to this model.
+- `decision_policy_version`: Version of the decision policy.
+- `technical_ready`: Whether the model is technically ready (loaded, validated).
+- `scientifically_certified`: Always `false` until certified.
+- `technical_demo_only`: Always `true`.
+- `availability`: `"available"`, `"unavailable"`, or `"not_configured"`.
+
+**Not exposed:** Artifact URI, S3 model key, local path, checksum,
+coefficients, weights, intercepts, scaler values, imputer values, or
+reference distributions.

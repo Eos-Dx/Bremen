@@ -4,33 +4,23 @@
 
 No hard calendar dates — use sequence and dependencies.
 
-## Current milestone (PR0082)
+## Current milestone (PR0082a)
 
-Bremen Investor Control Room:
-- GET /demo renders the Investor Control Room as the default experience
-- GET /demo/workspace preserved for backward compatibility
-- Real H5 file upload via POST /demo/api/stage, then structured job creation
-  through POST /demo/api/jobs
-- Ten-stage visual pipeline as projection over authoritative events
-  (does not replace BREMEN_STAGE_ORDER)
-- Docked structured live event panel with real SSE, history replay,
-  monotonic ordering, duplicate suppression, reconnect, terminal handling,
-  200-row DOM bound
-- Explicit fourteen-state frontend lifecycle model
-- Approved PR0081 canonical decision vocabulary (CONTINUE_MRI /
-  MRI_REVIEW_DEFER, bremen_mri_continuation_threshold v0.1.0)
-- Real Bremen report access through existing report endpoint
-- Technical readiness and scientific certification as separate visible
-  badges; model-unconfigured state disables Analyze with safe guidance
-- Legacy analyze-job limitation documented (jobs via POST /demo/api/h5/analyze
-  not imported into structured Control Room job list)
-- Exactly one real Bremen model, no model selector
-- Accessibility: semantic pipeline, aria-pressed event filters, keyboard-
-  operable controls, visible focus, controlled aria-live, reduced motion
-- Privacy: no patient identifiers, model internals, paths, tracebacks, or
-  credentials in rendered HTML
+Control Room Data and Selection Foundation:
+- GET /demo/api/models — model catalog endpoint with catalog_timestamp
+- Server-owned model catalog supporting zero, one, or multiple configured models
+- Opaque source_id for S3 catalog objects (server-generated UUID, not S3 key)
+- Opaque upload_id for file uploads (no h5_path in new Control Room contract)
+- Upload registry (_staged_uploads) with consumption and expiry
+- Source resolution (resolve_source) for S3 and upload sources
+- Model selection via model_id in job creation with default resolution
+- Model identity propagated through job record, workflow, events, and reports
+- Container catalog with filtering, sorting, size limits in Control Room UI
+- Job history panel in Control Room with decision display
+- Extended job list summaries with model_id, decision_code, report_availability
+- Legacy backward compatibility preserved
 
-**Status**: Implemented (PR0082)
+**Status**: Implemented (PR0082a)
 
 ---
 

@@ -707,8 +707,10 @@ class TestDemoH5ContainersS3Listing:
             data = _json.loads(resp.read())
 
             assert data["storage"] == "configured"
-            ids = [c["id"] for c in data["containers"]]
-            assert "env-ctr-1.h5" in ids
+            src_ids = [c["source_id"] for c in data["containers"]]
+            display_names = [c["display_name"] for c in data["containers"]]
+            assert "env-ctr-1.h5" in display_names
+            assert len(src_ids) == 1
 
     def test_s3_listing_deduplicates_by_id(self, server_info, monkeypatch):
         """S3 listing deduplicates containers with same id as env catalog."""
@@ -735,12 +737,15 @@ class TestDemoH5ContainersS3Listing:
             resp = urlopen(req, timeout=3)
             data = _json.loads(resp.read())
 
-            # Should have 3 unique: common.h5 (env), env-only.h5, s3-only.h5
-            ids = [c["id"] for c in data["containers"]]
-            assert len(ids) == 3, f"Expected 3 unique, got {len(ids)}: {ids}"
-            assert "common.h5" in ids
-            assert "env-only.h5" in ids
-            assert "s3-only.h5" in ids
+            # Should have 3 unique containers
+            ids = [c["source_id"] for c in data["containers"]]
+            src_ids = [c["source_id"] for c in data["containers"]]
+            display_names = [c["display_name"] for c in data["containers"]]
+            assert len(src_ids) == 3, f"Expected 3 unique, got {len(src_ids)}: {display_names}"
+            # Verify display names are present (source_ids are opaque UUIDs)
+            assert "common.h5" in display_names
+            assert "env-only.h5" in display_names
+            assert "s3-only.h5" in display_names
 
 
 # --------------------------------------------------------------------------

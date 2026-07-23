@@ -294,6 +294,8 @@ def _make_handler(
                 _handle_control_room_route(self)
             elif self.path == "/demo/workspace" or self.path.startswith("/demo/workspace/") or self.path.startswith("/demo/workspace?"):
                 _handle_workspace_route(self)
+            elif self.path == "/demo/api/models":
+                _handle_demo_models(self)
             elif self.path == "/demo/api/evidence":
                 _handle_demo_evidence_route(self)
             elif self.path == "/demo/api/h5/containers":
@@ -560,6 +562,25 @@ def _list_s3_containers(bucket: str, prefix: str) -> list[dict]:
     return containers
 
 
+def _handle_demo_models(handler: BaseHTTPRequestHandler) -> None:
+    """Handle GET /demo/api/models — return the model catalog."""
+    import json as _json  # noqa: PLC0415
+    from .model_catalog import build_model_catalog  # noqa: PLC0415
+
+    request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())
+    catalog = build_model_catalog()
+    catalog["request_id"] = request_id
+    catalog["technical_demo_only"] = True
+
+    body = _json.dumps(catalog, ensure_ascii=False).encode("utf-8")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "application/json")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("X-Request-ID", request_id)
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
 # ---------------------------------------------------------------------------
 # Demo H5 container endpoints
 # ---------------------------------------------------------------------------
@@ -570,12 +591,17 @@ def _handle_demo_h5_containers_list(
 ) -> None:
     """Handle GET /demo/api/h5/containers — list demo H5 containers.
 
+    Returns opaque server-generated source_ids instead of raw S3 keys.
+    Each container entry carries a ``source_id``, ``display_name``
+    (derived from filename), ``size_bytes``, and ``last_modified``.
+    The raw S3 key is never exposed to the browser.
+
     Merges:
     1. Env-configured catalog from ``BREMEN_DEMO_H5_CONTAINERS``.
     2. S3-listed containers from configured bucket/prefix.
     3. Runtime-uploaded containers (in-memory, not persisted).
 
-    Deduplicates by ``id`` (S3 key).
+    Deduplicates by S3 key (server-side only, not exposed).
     """
     import json as _json  # noqa: PLC0415
     import os as _os  # noqa: PLC0415
@@ -621,23 +647,61 @@ def _handle_demo_h5_containers_list(
             storage_status = "list_failed"
             s3_containers = []
 
-        # 3. Merge with deduplication by "id"
-        seen_ids: set[str] = set()
-        merged: list[dict] = []
+        # 3. Merge with deduplication by raw key (server-side only)
+        seen_keys: set[str] = set()
+        merged_raw: list[dict] = []
         for c in env_containers:
             cid = c.get("id") or c.get("key") or c.get("filename", "")
-            if cid not in seen_ids:
-                seen_ids.add(cid)
-                merged.append(c)
+            if cid not in seen_keys:
+                seen_keys.add(cid)
+                merged_raw.append(c)
         for c in s3_containers:
             cid = c.get("id", "")
-            if cid not in seen_ids:
-                seen_ids.add(cid)
-                merged.append(c)
+            if cid not in seen_keys:
+                seen_keys.add(cid)
+                merged_raw.append(c)
+
+        # Filter oversized objects
+        max_bytes = config["upload_max_bytes"]
+        merged_raw = [c for c in merged_raw if c.get("size_bytes", 0) <= max_bytes]
+
+        # Sort by last_modified descending (newest first)
+        merged_raw.sort(key=lambda c: c.get("last_modified", ""), reverse=True)
+
+        # Limit to 100 objects maximum
+        merged_raw = merged_raw[:100]
+
+        # Replace raw S3 keys with opaque source_ids from the registry.
+        # The browser receives only source_id, display_name, size_bytes,
+        # and last_modified — never the S3 key.
+        from .source_registry import register_source  # noqa: PLC0415
+
+        bucket = config["h5_bucket"]
+        prefix = config["h5_prefix"]
+        safe_containers: list[dict] = []
+        for item in merged_raw:
+            raw_key = item.get("id", "")
+            filename = item.get("filename", "unknown.h5")
+            size = item.get("size_bytes", 0)
+            last_mod = item.get("last_modified", "")
+            source_id = register_source(
+                bucket=bucket,
+                object_key=raw_key,
+                filename=filename,
+                size_bytes=size,
+                prefix=prefix,
+            )
+            safe_containers.append({
+                "source_id": source_id,
+                "display_name": filename,
+                "size_bytes": size,
+                "last_modified": last_mod,
+            })
 
         data = {
             "storage": storage_status,
-            "containers": merged,
+            "containers": safe_containers,
+            "upload_max_bytes": max_bytes,
             "technical_demo_only": True,
         }
 
@@ -1356,12 +1420,22 @@ def _handle_control_room_route(handler: BaseHTTPRequestHandler) -> None:
 
 def _handle_demo_stage(handler: BaseHTTPRequestHandler) -> None:
     """Handle POST /demo/api/stage — accept a demo H5 file, stage it
-    locally, and return a safe h5_path for job creation.
+    locally, and return an opaque upload_id for job creation.
+
+    The new Control Room contract returns only upload_id, filename,
+    and size_bytes — never a local filesystem path. Legacy callers
+    that relied on h5_path must use the POST /demo/api/h5/containers
+    (S3 upload) endpoint instead.
+
+    The staged file is registered in the uploads registry and evicted
+    after a timeout period or after being consumed by a job.
     """
     import json as _json  # noqa: PLC0415
     import os as _os  # noqa: PLC0415
     import tempfile  # noqa: PLC0415
     import uuid as _uuid  # noqa: PLC0415
+    from datetime import datetime, timezone  # noqa: PLC0415
+    from .job_api_handler import register_staged_upload  # noqa: PLC0415
 
     request_id = handler.headers.get("X-Request-ID") or str(_uuid.uuid4())
     content_length = int(handler.headers.get("Content-Length", 0))
@@ -1378,15 +1452,29 @@ def _handle_demo_stage(handler: BaseHTTPRequestHandler) -> None:
         handler.wfile.write(body)
         return
 
+    # Read filename from header for display
+    raw_filename = handler.headers.get("X-H5-Filename", "").strip() or "uploaded.h5"
+    # Sanitize filename (safe display only)
+    safe_filename = "".join(c for c in raw_filename if c.isalnum() or c in "._- ").strip()
+    if not safe_filename:
+        safe_filename = "uploaded.h5"
+
     raw = handler.rfile.read(content_length)
     suffix = ".h5"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tf:
         tf.write(raw)
         staged_path = tf.name
 
+    upload_id = register_staged_upload(
+        h5_path=staged_path,
+        filename=safe_filename,
+        size_bytes=content_length,
+    )
+
     body = _json.dumps({
         "status": "staged",
-        "h5_path": staged_path,
+        "upload_id": upload_id,
+        "filename": safe_filename,
         "size_bytes": content_length,
         "request_id": request_id,
         "technical_demo_only": True,

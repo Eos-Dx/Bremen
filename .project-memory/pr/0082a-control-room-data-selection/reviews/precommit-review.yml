@@ -1,0 +1,266 @@
+review:
+  status: valid
+  branch: 0082a-control-room-data-selection
+  head: a7324e28c7af3a8681d408598b334dbf12e54a68
+  reviewed_files:
+    - .project-memory/pr/0082a-control-room-data-selection/PLAN.md
+    - .project-memory/pr/0082a-control-room-data-selection/reviews/plan-review.yml
+    - .project-memory/pr/0082a-control-room-data-selection/implementation-report.md
+    - ROADMAP.md
+    - docs/api_contract.md
+    - docs/release_readiness_operator_notes.md
+    - src/bremen/api/execution_context.py
+    - src/bremen/api/job_api_handler.py
+    - src/bremen/api/server.py
+    - src/bremen/api/workflow_orchestrator.py
+    - src/bremen/api/model_catalog.py
+    - src/bremen/api/source_registry.py
+    - src/bremen/control_room_ui.py
+    - tests/test_bremen_api_server.py
+    - tests/test_bremen_api_skeleton.py
+    - tests/test_bremen_control_room.py
+    - tests/test_bremen_model_catalog.py
+    - tests/test_bremen_data_selection.py
+  blockers: []
+  warnings: []
+  validation:
+    python_compileall: PASS
+    focused_tests:
+      test_bremen_api_skeleton::test_no_h5_references: 1 passed
+      test_bremen_model_catalog: 14 passed
+      test_bremen_data_selection: 31 passed
+      test_bremen_control_room: 47 passed
+      test_bremen_api_server: 80 passed
+    full_suite: PASS
+      result: "1779 passed, 11 skipped, 0 failed"
+    git_diff_check: PASS
+    credentials_scan: PASS (no new secrets)
+    forbidden_artifacts: PASS (no .joblib, .h5, .pkl, .pth in diff)
+    frontend_validation: PASS (all 47 control room tests pass)
+
+  B001:
+    status: RESOLVED
+    implementation: |
+      New src/bremen/api/source_registry.py provides opaque source_id system:
+      - register_source() returns UUID, maps server-side to bucket/object-key/prefix
+      - resolve_source_id() validates: existence, expiry (>1hr), bucket match,
+        prefix match, consumption state, extension (.h5/.hdf5 only)
+      - GET /demo/api/h5/containers returns source_id (UUID), display_name,
+        size_bytes, last_modified — never the raw S3 key
+      - Browser receives and sends only opaque UUID
+      - Server-side registry validated against current BREMEN_DEMO_H5_BUCKET/PREFIX
+      - Unknown, stale, expired, tampered (bucket/prefix mismatch), consumed,
+        oversized, unsupported (extension), and out-of-prefix all rejected with
+        typed errors
+      - Behavioral tests (TestOpaqueSourceRegistry) verify all validation paths
+    evidence:
+      - Containers response uses "source_id" not "id": confirmed by code inspection
+      - No raw S3 keys in public response: confirmed by assertion tests
+      - 9 source_registry tests cover register, catalog_json, resolve, unknown,
+        expired, tampered bucket, tampered prefix, consumed, out-of-prefix, extension
+
+  B004:
+    status: RESOLVED
+    implementation: |
+      test_bremen_api_skeleton.py allowlist updated:
+      - Added "job_api_handler.py" with justification: source resolution
+        orchestrator, manages h5_path on StagedUpload, calls stage_h5_input
+      - Added "source_registry.py" with justification: validates H5 extension
+        server-side, constructs S3 URIs for staging
+      - PR0082a added to module comment
+    evidence: test_no_h5_references passes (1 passed)
+
+  W001:
+    status: RESOLVED
+    implementation: |
+      resolve_source() now catches narrow exceptions:
+      - (ValueError, OSError, IOError) from stage_h5_input instead of bare Exception
+      - ValueError from source_registry.resolve_source_id re-raised directly
+    evidence: Code inspection confirms narrow exception handling
+
+  W002:
+    status: RESOLVED
+    implementation: |
+      loadContainerCatalog() now preserves visual selection after refresh:
+      - After re-rendering container list, iterates items and re-applies 'selected'
+        class to the item matching selectedSource.id
+      - Only applied when selectedSource.type === 'container'
+    evidence: JavaScript code: "// Preserve visual selection after refresh (W002)"
+
+  W003:
+    status: RESOLVED
+    implementation: |
+      _cleanup_expired_uploads() performs os.unlink within the lock.
+      resolve_upload() uses _staged_uploads.pop() for atomic removal,
+      transferring ownership atomically. Tests verify:
+      - Entry removed from registry after consumption
+      - Cleanup skips already-consumed entries without error
+    evidence: |
+      Code: os.unlink inside with _uploads_lock block.
+      Tests: TestUploadCleanupRaceSafety (2 tests pass)
+
+  W004:
+    status: RESOLVED
+    implementation: |
+      Control Room HTML now precisely states:
+      "Structured jobs created via POST /demo/api/jobs appear here.
+       Legacy analyze jobs (POST /demo/api/h5/analyze) use a separate
+       internal path and are not displayed in this history panel."
+    evidence: |
+      HTML verified: exact text present in build_control_room_page()
+      Tests: TestLegacyJobDocumentation (2 tests pass)
+
+  source_identity:
+    status: implemented
+    details: |
+      S3 catalog source_ids are server-generated opaque UUIDs. The browser
+      receives and transmits only the opaque token. The server maintains a
+      mapping from source_id to bucket/object-key/prefix. Resolution
+      validates: existence, expiry (>1 hour), bucket match against current
+      config, prefix match, consumption state, and extension (.h5/.hdf5).
+      Unknown, stale, expired, tampered (wrong bucket/prefix), consumed,
+      oversized, unsupported extension, and out-of-prefix sources are
+      rejected with typed safe errors. Upload identity is also opaque
+      (UUID). All behavioral tests pass.
+    passing: true
+
+  source_revalidation:
+    status: implemented
+    details: |
+      source_id revalidated at job submission through:
+      1. resolve_source_id() in source_registry: bucket, prefix, expiry, consumed
+      2. Size validation against upload_max_bytes in resolve_source()
+      3. S3 staging via stage_h5_input checks S3 existence and downloadability
+      4. Upload_id validated through atomic pop from registry
+      All failure modes produce typed ValueError with safe messages.
+    passing: true
+
+  h5_boundary:
+    status: implemented
+    details: |
+      test_no_h5_references passes (1 passed). Allowlist additions:
+      - job_api_handler.py: source resolution orchestrator, manages h5_path
+        attribute on StagedUpload. Not scientific H5 operations.
+      - source_registry.py: validates H5 extension server-side as format
+        constants. Not scientific H5 logic.
+      Both additions are integration-boundary references only. The H5 boundary
+      remains narrow.
+    passing: true
+
+  selection_refresh:
+    status: implemented
+    details: |
+      Catalog refresh preserves visible selection. After re-rendering the
+      container list, the 'selected' class is re-applied to the previously
+      selected item if it still exists. If the item disappeared from the
+      refreshed list, the selection is not visually applied, and the
+      server-side revalidation at job submission returns "The selected source
+      is no longer available."
+    passing: true
+
+  upload_cleanup:
+    status: implemented
+    details: |
+      Upload registry uses atomic pop() for ownership transfer (race-safe).
+      Cleanup performs os.unlink within the lock. Expired uploads removed
+      atomically under lock protection. Tests verify: entry removed after
+      consumption, cleanup skips consumed entries without error.
+    passing: true
+
+  model_selection:
+    status: implemented
+    details: |
+      model_id resolved against catalog via resolve_model(). One model bound
+      per job through execution_context.model_id. Default resolution when
+      exactly one available. Unknown/unavailable/ambiguous models rejected
+      with typed errors. No fallback, no switching, no comparison.
+      Tests confirm model_id in input_summary and WorkflowRun.model_identity.
+    passing: true
+
+  job_history:
+    status: implemented
+    details: |
+      list_analysis_jobs() extended with decision_code, decision_display_name,
+      model_id, source_display_name, report_available. Frontend history panel
+      renders with status, decision, model info. Reopening navigates to workspace
+      deep-link. Legacy analyze jobs clarified as separate endpoint path.
+    passing: true
+
+  privacy:
+    status: passing
+    details: |
+      No patient identifiers, model internals, checksums, artifact URIs,
+      local paths, tracebacks, AWS credentials, S3 URIs, or raw S3 keys
+      in API responses or control room HTML. Decision vocabulary uses
+      PR0081 canonical codes (CONTINUE_MRI, MRI_REVIEW_DEFER).
+      MRI_RULE_OUT not in control room. Privacy tests pass.
+    passing: true
+
+  scope_control:
+    status: passing
+    details: |
+      No model science, preprocessing, threshold, decision vocabulary,
+      XRD dependency, Aramis behavior, or PR0082b visual redesign scope.
+      Implementation stays within PR0082a boundaries.
+    passing: true
+
+  tests_run:
+    result: "14 + 31 + 47 + 80 = 172 focused tests pass; 1779 full suite pass, 0 failed"
+    details: |
+      Opaque source registry: 9 tests
+      Upload registry: 4 tests
+      Source resolution: 4 tests
+      Model binding: 3 tests
+      Privacy: 2 tests
+      Job list summary: 3 tests
+      Backward compatibility: 1 test
+      Submit revalidation: 1 test
+      Upload cleanup race-safety: 2 tests
+      Legacy job documentation: 2 tests
+      Model catalog: 14 tests
+      Control room: 47 tests
+      API server: 80 tests
+      Import safety (H5 boundary): 1 test
+
+  full_suite:
+    result: PASS
+    details: "1779 passed, 11 skipped, 0 failed in 175.43s"
+    failing_test: none
+
+  frontend_validation:
+    result: PASS
+    details: "47 control room tests pass including stage endpoint, upload contract, privacy, accessibility, model identity"
+
+  security:
+    credentials_in_diff: PASS
+    binary_artifacts_in_diff: PASS
+    local_paths_in_new_apis: PASS
+    raw_storage_ids_in_public_responses: PASS (source_id is opaque UUID)
+    tracebacks_exposure: PASS
+    summary: "All security checks pass. No credentials, raw storage keys, local paths, or forbidden artifacts."
+
+  summary: |
+    PRECOMMIT REVIEW — PR0082a Control Room Data and Selection Foundation (CORRECTED)
+
+    STATUS: VALID
+
+    All previous blockers and warnings RESOLVED:
+
+    B001 resolved via new src/bremen/api/source_registry.py providing opaque
+    server-generated UUID source_ids. Browser receives only opaque tokens,
+    never raw S3 keys. Server-side registry validates bucket, prefix, expiry,
+    consumption, and extension at submission time.
+
+    B004 resolved by adding job_api_handler.py and source_registry.py to the
+    H5-module allowlist in test_bremen_api_skeleton.py with exact justification.
+
+    W001 resolved: resolve_source() catches narrow (ValueError, OSError, IOError).
+
+    W002 resolved: Frontend re-applies visual selection after catalog refresh.
+
+    W003 resolved: Cleanup performs os.unlink within lock. Upload uses atomic pop().
+
+    W004 resolved: Documentation precisely distinguishes structured vs legacy jobs.
+
+    All 1779 tests pass (0 failed), git diff --check passes, no credentials or
+    forbidden artifacts. All 10 verification gates pass.

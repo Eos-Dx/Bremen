@@ -113,6 +113,7 @@ def run_workflow_request(
     control_scan_ref: str | None = None,
     registry: WorkflowRegistry | None = None,
     event_store: Any = None,  # BoundedEventStore | None
+    model_id: str | None = None,
 ) -> MultiWorkflowResult:
     """Normalize an H5 container once, then execute the requested workflow.
 
@@ -132,6 +133,9 @@ def run_workflow_request(
     event_store : Optional ``BoundedEventStore`` for structured event
         emission.  When ``None``, no job events are emitted (only
         application logging).
+    model_id : Optional model_id to bind to this execution.  When
+        provided, it is passed to the provider via the execution
+        context and propagates through events and result payload.
 
     Returns
     -------
@@ -269,6 +273,7 @@ def run_workflow_request(
         workflow_id=workflow_id,
         event_sink=event_sink,
         runtime_build_version="dev",
+        model_id=model_id,
     )
 
     try:

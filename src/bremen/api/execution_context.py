@@ -49,6 +49,7 @@ class WorkflowExecutionContext:
     workflow_id: str
     event_sink: EventSink | None = None
     runtime_build_version: str = ""
+    model_id: str | None = None
     started_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
