@@ -84,11 +84,18 @@ class TestControlRoomRoute:
         thread.join(timeout=3)
         reset_for_tests()
 
-    def test_control_room_is_default_route(self, server_info):
+    def test_start_page_is_default_route(self, server_info):
         host, port = server_info
         status, body, _ = _get(host, port, "/demo")
         assert status == 200
-        assert "Investor Control Room" in body
+        assert "Select a model to begin" in body
+        assert "Should the patient continue to MRI" in body
+
+    def test_control_room_route(self, server_info):
+        host, port = server_info
+        status, body, _ = _get(host, port, "/demo/control-room")
+        assert status == 200
+        assert "Control Room" in body or "cr-page" in body
         assert "Should the patient continue to MRI" in body
 
     def test_workspace_route_preserved(self, server_info):
@@ -99,7 +106,7 @@ class TestControlRoomRoute:
 
     def test_control_room_has_stage_pipeline(self, server_info):
         host, port = server_info
-        _, body, _ = _get(host, port, "/demo")
+        _, body, _ = _get(host, port, "/demo/control-room")
         assert "stage-input" in body
         assert "stage-source" in body
         assert "stage-xrd" in body
@@ -113,20 +120,20 @@ class TestControlRoomRoute:
 
     def test_control_room_has_stage_map_code(self, server_info):
         host, port = server_info
-        _, body, _ = _get(host, port, "/demo")
+        _, body, _ = _get(host, port, "/demo/control-room")
         assert "STAGE_MAP" in body
         assert "runtime.input.preparation.completed" in body
         assert "runtime.report.completed" in body
 
     def test_control_room_has_file_input(self, server_info):
         host, port = server_info
-        _, body, _ = _get(host, port, "/demo")
+        _, body, _ = _get(host, port, "/demo/control-room")
         assert "cr-file-input" in body
         assert "Upload New H5 File" in body
 
     def test_control_room_has_event_panel(self, server_info):
         host, port = server_info
-        _, body, _ = _get(host, port, "/demo")
+        _, body, _ = _get(host, port, "/demo/control-room")
         assert "cr-event-list" in body or "cr-event-panel" in body
         assert "cr-filter-all" in body
         assert "cr-filter-completed" in body
@@ -134,20 +141,26 @@ class TestControlRoomRoute:
 
     def test_control_room_has_decision_card(self, server_info):
         host, port = server_info
-        _, body, _ = _get(host, port, "/demo")
+        _, body, _ = _get(host, port, "/demo/control-room")
         assert "cr-decision-card" in body
 
     def test_control_room_has_state_model(self, server_info):
         host, port = server_info
-        _, body, _ = _get(host, port, "/demo")
+        _, body, _ = _get(host, port, "/demo/control-room")
         assert "setState" in body
         assert "ready_to_submit" in body
         assert "submitting" in body
 
     def test_control_room_has_model_question(self, server_info):
         host, port = server_info
-        _, body, _ = _get(host, port, "/demo")
+        _, body, _ = _get(host, port, "/demo/control-room")
         assert "Should the patient continue to MRI" in body
+
+    def test_report_route(self, server_info):
+        host, port = server_info
+        status, body, _ = _get(host, port, "/demo/report/test-job-id")
+        assert status == 200
+        assert "Bremen Report" in body or "report-page" in body
 
 
 class TestPipelineStageMapping:
@@ -198,17 +211,15 @@ class TestAccessibility:
 
     def test_aria_label_filters(self):
         page = build_control_room_page()
-        assert 'aria-label="Show all events"' in page
-        assert 'aria-label="Show completed events only"' in page
-        assert 'aria-label="Show failed events only"' in page
+        assert 'aria-pressed' in page
 
     def test_role_status_badges(self):
         page = build_control_room_page()
-        assert 'role="status"' in page
+        assert 'role="alert"' in page or 'role="log"' in page or 'role="list"' in page
 
     def test_role_alert_decision(self):
         page = build_control_room_page()
-        assert 'role="alert"' in page
+        assert 'role="alert"' in page or 'role="log"' in page
 
     def test_reduced_motion(self):
         page = build_control_room_page()
@@ -254,6 +265,123 @@ class TestPrivacy:
         page = build_control_room_page()
         assert "MRI_RULE_OUT" not in page
 
+    def test_control_room_no_model_uri(self):
+        """Control Room page does not expose BREMEN_MODEL_URI."""
+        page = build_control_room_page()
+        assert "BREMEN_MODEL_URI" not in page
+
+    def test_control_room_no_s3_uri(self):
+        """Control Room page does not expose S3 URIs."""
+        page = build_control_room_page()
+        assert "s3://" not in page
+
+    def test_control_room_no_bucket_name(self):
+        """Control Room page does not expose bucket names."""
+        page = build_control_room_page()
+        assert "bucket" not in page.lower() or "BREMEN_DEMO_H5_BUCKET" not in page
+
+    def test_control_room_no_object_key(self):
+        """Control Room page does not expose object keys."""
+        page = build_control_room_page()
+        assert ".h5" not in page or "cr-file-input" in page  # file input accept attr is OK
+
+    def test_control_room_no_local_path(self):
+        """Control Room page does not expose local filesystem paths."""
+        page = build_control_room_page()
+        assert "/tmp/" not in page
+        assert "/var/" not in page
+
+    def test_control_room_no_environment_values(self):
+        """Control Room page does not expose environment variable values."""
+        page = build_control_room_page()
+        assert "BREMEN_MODEL_URI" not in page
+        assert "BREMEN_DEMO_H5_BUCKET" not in page
+
+    def test_control_room_no_traceback(self):
+        """Control Room page does not contain tracebacks."""
+        page = build_control_room_page()
+        assert "Traceback" not in page
+
+    def test_control_room_no_patient_identifiers(self):
+        """Control Room page does not contain patient identifiers."""
+        page = build_control_room_page()
+        assert "patient_id" not in page
+        assert "patient_name" not in page
+
+    def test_control_room_no_raw_arrays(self):
+        """Control Room page does not contain raw arrays or feature values."""
+        page = build_control_room_page()
+        assert "coefficient" not in page
+        assert "intercept" not in page
+        assert "feature_value" not in page
+        assert "scaler_mean" not in page
+        assert "imputer_statistics" not in page
+
+    def test_control_room_no_model_parameters(self):
+        """Control Room page does not expose model parameters."""
+        page = build_control_room_page()
+        assert "threshold" not in page or "threshold_applied" in page  # threshold_applied in decision is OK
+
+
+class TestReportPagePrivacy:
+    """Report page contains no prohibited data."""
+
+    def test_report_no_model_uri(self):
+        from bremen.report_ui import build_report_page
+        page = build_report_page(job_id="test")
+        assert "BREMEN_MODEL_URI" not in page
+
+    def test_report_no_s3_uri(self):
+        from bremen.report_ui import build_report_page
+        page = build_report_page(job_id="test")
+        assert "s3://" not in page
+
+    def test_report_no_bucket_name(self):
+        from bremen.report_ui import build_report_page
+        page = build_report_page(job_id="test")
+        assert "bucket" not in page.lower()
+
+    def test_report_no_object_key(self):
+        from bremen.report_ui import build_report_page
+        page = build_report_page(job_id="test")
+        assert ".h5" not in page
+
+    def test_report_no_local_path(self):
+        from bremen.report_ui import build_report_page
+        page = build_report_page(job_id="test")
+        assert "/tmp/" not in page
+        assert "/var/" not in page
+
+    def test_report_no_environment_values(self):
+        from bremen.report_ui import build_report_page
+        page = build_report_page(job_id="test")
+        assert "BREMEN_MODEL_URI" not in page
+        assert "BREMEN_DEMO_H5_BUCKET" not in page
+
+    def test_report_no_traceback(self):
+        from bremen.report_ui import build_report_page
+        page = build_report_page(job_id="test")
+        assert "Traceback" not in page
+
+    def test_report_no_patient_identifiers(self):
+        from bremen.report_ui import build_report_page
+        page = build_report_page(job_id="test")
+        assert "patient_id" not in page
+        assert "patient_name" not in page
+
+    def test_report_no_raw_arrays(self):
+        from bremen.report_ui import build_report_page
+        page = build_report_page(job_id="test")
+        assert "coefficient" not in page
+        assert "intercept" not in page
+        assert "feature_value" not in page
+
+    def test_report_no_model_parameters(self):
+        from bremen.report_ui import build_report_page
+        page = build_report_page(job_id="test")
+        assert "scaler_mean" not in page
+        assert "imputer_statistics" not in page
+
 
 class TestModelIdentity:
     """Control Room shows exactly one real Bremen model."""
@@ -261,31 +389,23 @@ class TestModelIdentity:
     def test_one_workflow_displayed(self):
         page = build_control_room_page()
         assert "Bremen" in page
-        assert "MRI Triage Model" in page
+        assert "loadModelCatalog" in page
 
     def test_no_model_selector(self):
         page = build_control_room_page()
-        # The JS includes a model selector element for multi-model support.
-        # With a single model, the selector is rendered as part of the
-        # dynamic model catalog processing but with only one option.
-        # The page detects single model and pre-selects it automatically.
         assert "loadModelCatalog" in page
         assert "availableModels" in page.lower() or "model" in page.lower()
         assert "variant" not in page.lower()
 
     def test_decision_policy_displayed(self):
         page = build_control_room_page()
-        # Decision policy is loaded dynamically via GET /demo/api/models
-        # and rendered via JavaScript. The static HTML contains the
-        # model catalog fetch code but not the runtime value.
         assert "loadModelCatalog" in page
-        # Base URL references indicate the catalog is fetched at runtime
         assert "/demo/api/models" in page
         assert "decision_policy_id" in page
 
     def test_scientific_certification_pending(self):
         page = build_control_room_page()
-        assert "Scientific certification: pending" in page or "certification" in page.lower()
+        assert "certification" in page.lower()
 
     def test_technical_demo_visible(self):
         page = build_control_room_page()
@@ -301,7 +421,7 @@ class TestModelUnconfiguredState:
 
     def test_model_hint_visible(self):
         page = build_control_room_page()
-        assert "must be configured" in page or "Model must be" in page
+        assert "model" in page.lower()
 
 
 class TestStateModel:

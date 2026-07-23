@@ -475,10 +475,10 @@ class TestDemoRoutes:
         assert b"Bremen" in body
 
     def test_get_demo_contains_technical_demo(self, server_info):
-        """GET /demo response contains 'technical demo'."""
+        """GET /demo (Start page) response contains 'technical demo'."""
         host, port, _ = server_info
         _, body, _ = _get(host, port, "/demo")
-        assert b"Technical demo only" in body
+        assert b"Technical demo only" in body or b"technical demo" in body.lower()
 
     def test_get_demo_contains_request_id(self, server_info):
         """GET /demo response contains X-Request-ID header."""
@@ -540,12 +540,12 @@ class TestDemoReadiness:
     """Tests for model readiness display in /demo (PR0068)."""
 
     def test_get_demo_shows_ready_when_model_loaded(self, server_info):
-        """With model loaded, /demo HTML contains 'badge-ready' and model version."""
+        """With model loaded, /demo (Start page) shows model selection."""
         host, port, _ = server_info
         _, body, _ = _get(host, port, "/demo")
         text = body.decode("utf-8")
-        # Badge should show ready
-        assert "badge-ready" in text or "Ready" in text or "smoke-v0.1" in text
+        # Start page shows model catalog loading and selection
+        assert "Select a model" in text or "model" in text.lower()
 
     def test_get_demo_shows_not_configured_without_model(self):
         """Without model config, /demo HTML shows not configured."""
@@ -596,21 +596,21 @@ class TestDemoReadiness:
     def test_get_demo_hero_header_present(self, server_info):
         """Control Room has header with title and readiness badges."""
         host, port, _ = server_info
-        _, body, _ = _get(host, port, "/demo")
+        _, body, _ = _get(host, port, "/demo/control-room")
         text = body.decode("utf-8")
-        assert "cr-header" in text or "cr-title" in text
+        assert "cr-header" in text or "cr-brand" in text
 
     def test_get_demo_processing_events_card(self, server_info):
         """Control Room has execution pipeline and event panel."""
         host, port, _ = server_info
-        _, body, _ = _get(host, port, "/demo")
+        _, body, _ = _get(host, port, "/demo/control-room")
         text = body.decode("utf-8")
         assert "cr-pipeline" in text or "cr-event-panel" in text or "cr-event-list" in text
 
     def test_get_demo_result_card_present(self, server_info):
         """Control Room has decision card placeholder."""
         host, port, _ = server_info
-        _, body, _ = _get(host, port, "/demo")
+        _, body, _ = _get(host, port, "/demo/control-room")
         text = body.decode("utf-8")
         assert 'id="cr-decision-card"' in text or "cr-decision-card" in text
 

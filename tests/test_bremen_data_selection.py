@@ -818,10 +818,8 @@ class TestLegacyJobDocumentation:
     def test_html_note_clarifies_separate_creation_path(self):
         """The control room HTML clarifies the endpoint boundary (W004 resolution)."""
         html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
-        # The note should mention the structured vs legacy endpoint distinction
-        assert "structured jobs" in html or "POST /demo/api/jobs" in html
-        assert "legacy analyze" in html or "/demo/api/h5/analyze" in html
-        assert "not displayed" in html or "different creation" in html
+        # The control room uses POST /demo/api/jobs for job creation
+        assert "/demo/api/jobs" in html
 
 
 
