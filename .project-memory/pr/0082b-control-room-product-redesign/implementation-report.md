@@ -148,6 +148,87 @@ All tokens from BREMEN_DESIGN_SPEC_v1.md:
 | `python -m compileall src tests` | PASS |
 | `git diff --check` | PASS |
 
+
+## HOTFIX — Query-String Routing and Health-Log Suppression
+
+### Query-String Routing Root Cause
+
+`BaseHTTPRequestHandler.path` includes the query string. Route dispatch in `do_GET` compared `self.path` directly against route strings like `"/demo/control-room"`. A request to `/demo/control-room?workflow_id=bremen&model_id=bremen-current` did not match the exact string and returned 404.
+
+### Health-Log Noise Root Cause
+
+App Runner repeatedly calls `GET /health`, and every successful probe was written at INFO level via `log_message`, creating high-volume low-value log output.
+
+### Exact Suppression Rule
+
+In `log_message`, if the parsed route path equals `"/health"` and the response status is in the 200-299 range, the method returns immediately without emitting any log. This also covers `/health?probe=app-runner` and similar harmless query strings. Non-2xx health responses, exceptions, startup logs, and non-health requests are unaffected.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `src/bremen/api/server.py` | Added `urlsplit` import and `route_path` derivation in `do_GET`. All route comparisons use `route_path` instead of `self.path`. Updated `_handle_report_route`, `_handle_workspace_route`, and `_handle_demo_jobs_route` to parse identifiers from `urlsplit(path).path`. Added health-log suppression in `log_message`. |
+| `tests/test_bremen_api_server.py` | Added `TestQueryStringRouting` (7 tests) and `TestHealthLogSuppression` (4 tests). Updated `test_log_message_includes_request_id` to use `/model/version` instead of `/health`. |
+
+### Route Dispatch Changes
+
+- `do_GET`: Derives `route_path = urlsplit(self.path).path` at the top of the method. All `elif` comparisons use `route_path`. The original `self.path` is preserved for request logging and diagnostics.
+- `_handle_report_route`: Parses `job_id` from `urlsplit(handler.path).path`.
+- `_handle_workspace_route`: Parses `job_id` from `urlsplit(handler.path).path`.
+- `_handle_demo_jobs_route`: Parses `job_id` from `urlsplit(handler.path).path`.
+- The browser retains the original query string in `window.location.search`.
+
+### Identifier Parsing
+
+Query strings are stripped before extracting job_id, report_id, workspace identifiers, and API resource identifiers. A request to `/demo/report/job-123?source=history` correctly extracts `job_id="job-123"`.
+
+### Health Log Policy
+
+- Successful GET /health (2xx): suppressed (no INFO log)
+- Successful GET /health?probe=app-runner (2xx): suppressed
+- Non-2xx health response: not suppressed
+- Exceptions while handling health: not suppressed
+- Startup health/model readiness summaries: not suppressed
+- Any non-health request: not suppressed
+- Unknown routes: not suppressed
+- No new environment variable or runtime configuration switch added
+
+### Regression Tests
+
+**Query-string routing (7 tests in `TestQueryStringRouting`):**
+- `test_start_page_with_query_string` — GET /demo?source=test returns 200 text/html
+- `test_control_room_with_query_string` — GET /demo/control-room?workflow_id=bremen&model_id=bremen-current returns 200
+- `test_report_with_query_string` — GET /demo/report/test-job-id?source=history returns Report page
+- `test_workspace_with_query_string` — GET /demo/workspace/test-job-id?tab=events returns Workspace
+- `test_unknown_path_still_404` — Unknown path with query string returns 404
+- `test_api_jobs_with_query_string` — API resource identifiers exclude query strings
+- `test_health_with_query_string` — GET /health?probe=app-runner returns 200
+
+**Health log suppression (4 tests in `TestHealthLogSuppression`):**
+- `test_health_success_no_info_log` — Successful GET /health produces no INFO log
+- `test_health_with_query_no_info_log` — Successful GET /health?probe=app-runner produces no INFO log
+- `test_non_health_request_still_logged` — Non-health successful request is still logged
+- `test_unknown_route_still_logged` — Unknown route (404) is still logged
+
+### Focused Tests
+
+295 passed, 0 failures across:
+- test_bremen_js_parse.py: 7
+- test_bremen_launch_flow.py: 12
+- test_bremen_data_selection.py: 51
+- test_bremen_model_catalog.py: 14
+- test_bremen_control_room.py: 73
+- test_bremen_api_server.py: 91 (was 80, added 11 regression tests)
+- test_bremen_api_skeleton.py: 47
+
+### Full Suite
+
+Full suite times out at 2 minutes (pre-existing behavior). All 295 focused tests pass with zero failures.
+
+### Diff Check
+
+`git diff --check`: PASS (no whitespace errors)
+
 ## Full Suite
 
 Full suite times out at 2 minutes (pre-existing behavior, not related to this change). All 184 focused tests pass.
