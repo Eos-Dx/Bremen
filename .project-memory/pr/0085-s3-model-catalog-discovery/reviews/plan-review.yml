@@ -1,0 +1,338 @@
+review:
+  status: valid
+  branch: 0085-s3-model-catalog-discovery
+  head: 434cb9679c22de6184e4388e1d872f0698a1dd23
+  reviewed_files:
+    - .project-memory/pr/0085-s3-model-catalog-discovery/PLAN.md
+    - src/bremen/api/model_catalog.py
+    - src/bremen/api/workflow_orchestrator.py
+    - src/bremen/api/app.py
+    - src/bremen/api/model_state.py
+    - src/bremen/model_package.py
+    - src/bremen/api/server.py
+    - src/bremen/api/job_api_handler.py
+    - src/bremen/api/workflow_bremen.py
+    - src/bremen/api/decision_contract.py
+
+blockers: []
+
+warnings:
+  - id: W001
+    evidence:
+      file: .project-memory/pr/0085-s3-model-catalog-discovery/PLAN.md
+      lines: Discovery pipeline step 2
+    issue: The PLAN describes two different approaches for candidate manifest discovery (common prefixes with delimiter, then a better approach with no delimiter and key filtering). The implementation must choose one consistent approach.
+    recommendation: Use the second approach (list with no delimiter, filter for keys ending in /manifest.json at depth prefix + one directory level). This avoids AWS S3 delimiter inconsistencies and provides deterministic results.
+
+  - id: W002
+    evidence:
+      file: .project-memory/pr/0085-s3-model-catalog-discovery/PLAN.md
+      lines: Model registry immutable section
+    issue: The PLAN states the registry is immutable after initialization. However, the legacy migration path (ModelState -> registry) requires building the registry after ModelState.load_at_startup() completes. The registry snapshot is only immutable after the bootstrap function returns. During the brief initialization window, the registry is being populated. This is acceptable since initialization is single-threaded at startup before any request handlers run.
+    recommendation: Document that the registry is mutable during the initialization phase (server startup, before serve_forever) and immutable after the bootstrap function returns. No locking needed for reads after initialization.
+
+  - id: W003
+    evidence:
+      file: .project-memory/pr/0085-s3-model-catalog-discovery/PLAN.md
+      lines: Expected files - src/bremen/api/workflow_bremen.py
+    issue: The PLAN adds model_id parameter to BremenProvider.__init__. The provider is also instantiated in test fixtures (test_workflow_bremen.py, test_runtime_plugin.py). Existing tests that construct BremenProvider() without arguments must continue to work.
+    recommendation: Ensure model_id defaults to None for backward compatibility. Existing tests must pass unchanged.
+
+goal:
+  per_job_selected_model_execution: true
+  not_just_ui_cards: true
+
+configuration:
+  env_var: BREMEN_MODEL_CATALOG_URI
+  accepts_one_s3_prefix_uri: true
+  catalog_mode_takes_precedence: true
+  legacy_warning_on_override: true
+  legacy_mode_unchanged_when_absent: true
+  no_additional_polling_settings: true
+  no_promotion_settings: true
+  no_default_model_settings: true
+  no_refresh_settings: true
+  no_catalog_config_settings: true
+
+s3_layout:
+  recognized_layout: "catalog-prefix/package-directory/manifest.json and catalog-prefix/package-directory/model-file-named-by-manifest"
+  manifests_immediate_package_children_only: true
+  model_filename_is_basename: true
+  artifact_within_same_package_directory: true
+  artifact_within_catalog_prefix: true
+  identity_not_inferred_from_path: true
+  identity_not_inferred_from_filename: true
+  identity_not_inferred_from_timestamp: true
+  identity_not_inferred_from_ordering: true
+  pagination_supported: true
+  deterministic_lexicographic_ordering: true
+  maximum_50_candidates: true
+  maximum_65536_manifest_bytes: true
+
+manifest_contract:
+  existing_base_fields_backward_compatible: true
+  model_id_required_by_discovery_validator: true
+  display_name_required_by_discovery_validator: true
+  workflow_id_required_by_discovery_validator: true
+  not_added_to_legacy_REQUIRED_MANIFEST_FIELDS: true
+  model_id_pattern: "^[a-z0-9][a-z0-9._-]{0,63}$"
+  display_name_trimmed_nonempty_max80: true
+  workflow_id_equals_bremen: true
+  model_version_from_manifest: true
+  no_sensitivity_fields: true
+  no_specificity_fields: true
+  no_reliability_fields: true
+  no_demographic_fields: true
+  no_promotion_fields: true
+  no_default_fields: true
+  no_certification_fields: true
+  scientifically_certified_server_owned_false: true
+  technical_demo_only_server_owned_true: true
+
+discovery_pipeline:
+  list_manifests: true
+  limit_candidates: true
+  limit_manifest_size: true
+  parse_json: true
+  base_validation: true
+  discovery_validation: true
+  safe_artifact_resolution: true
+  s3_staging: true
+  checksum_before_deserialization: true
+  controlled_joblib_load: true
+  portable_logreg_package_validation: true
+  workflow_compatibility: true
+  feature_schema_compatibility: true
+  threshold_and_decision_policy_compatibility: true
+  registry_insertion_only_after_all_checks_pass: true
+
+limits:
+  candidate_limit: 50
+  manifest_size_limit: 65536
+  limit_enforcement_before_parse: true
+  limit_enforcement_before_validation: true
+
+failure_policy:
+  one_invalid_does_not_block_unrelated_valid: true
+  catalog_level_failure_does_not_crash_process: true
+  catalog_level_failure_finalizes_empty_discovery: true
+  duplicate_model_id_all_duplicates_rejected: true
+  duplicate_model_id_unrelated_unique_continue: true
+  invalid_entries_not_public_selectable: true
+
+duplicate_policy:
+  all_occurrences_rejected: true
+  not_resolved_by_s3_order: true
+  unrelated_unique_models_not_affected: true
+
+registry_architecture:
+  immutable_process_local_multi_model: true
+  reload_safe_package_level_snapshot: true
+  locked_initialization: true
+  selection_never_mutates_global_current_model: true
+  private_packages_and_checksums_remain_private: true
+  request_handling_performs_no_S3_work: true
+
+legacy_compatibility:
+  ModelState_tests_unchanged: true
+  BREMEN_MODEL_URI_mode_unchanged: true
+  one_startup_bootstrap_selects_one_source: true
+  no_parallel_competing_registry_and_singleton: true
+
+catalog_api:
+  reads_startup_snapshot: true
+  all_existing_safe_fields_remain: true
+  only_technically_available_selectable: true
+  deterministic_model_id_ordering: true
+  default_model_id_null_for_zero: true
+  default_model_id_model_id_for_exactly_one: true
+  default_model_id_null_for_multiple: true
+  safe_aggregate_counts_additive: true
+
+start_page:
+  every_real_available_model_shown: true
+  one_model_auto_selects: true
+  multiple_models_require_explicit_selection: true
+  zero_models_disables_progression: true
+  model_id_and_workflow_id_url_persistent: true
+  no_fabricated_models: true
+  no_promotion_ui: true
+  no_model_upload: true
+  no_comparison: true
+  no_polling: true
+  no_auto_newest_behavior: true
+
+job_binding:
+  POST_jobs_binds_one_immutable_model_id: true
+  omitted_model_id_resolves_only_when_exactly_one_available: true
+  multiple_models_without_model_id_fails_ambiguous: true
+  unknown_model_id_fails_closed: true
+  incompatible_model_id_fails_closed: true
+  history_uses_actual_model_identity: true
+  SSE_uses_actual_model_identity: true
+  report_uses_actual_model_identity: true
+  technical_trace_uses_actual_model_identity: true
+
+execution_binding:
+  model_id_resolves_to_private_loaded_package: true
+  package_constructs_or_configures_BremenProvider: true
+  get_provider_for_model_id_from_registry: true
+  provider_fresh_per_job_with_specific_package: true
+  not_only_in_WorkflowExecutionContext_events_metadata_reports: true
+  acceptance_test_two_distinct_packages_distinct_outputs: true
+  concurrent_selected_model_without_cross_job_mutation: true
+
+health:
+  model_ready_means_at_least_one_available: true
+  HTTP_200_with_model_ready_false_when_discovery_empty_or_failed: true
+  successful_health_log_suppression_intact: true
+
+model_version:
+  zero_models_preserves_not_configured: true
+  one_model_returns_singular_metadata: true
+  multiple_models_returns_selection_required_with_null_singular_fields: true
+  no_arbitrary_first_selection: true
+  no_newest_selection: true
+  no_timestamp_selection: true
+  no_lexicographic_selection: true
+
+privacy:
+  no_BREMEN_MODEL_CATALOG_URI_exposure: true
+  no_bucket_exposure: true
+  no_prefix_exposure: true
+  no_manifest_key_exposure: true
+  no_artifact_key_exposure: true
+  no_S3_URI_exposure: true
+  no_filename_exposure: true
+  no_staging_path_exposure: true
+  no_checksum_exposure: true
+  no_package_content_exposure: true
+  no_coefficients_exposure: true
+  no_intercepts_exposure: true
+  no_scaler_values_exposure: true
+  no_imputer_values_exposure: true
+  no_reference_distribution_exposure: true
+  no_environment_value_exposure: true
+  no_private_exception_text_exposure: true
+
+logging:
+  safe_counts_used: true
+  safe_categories_used: true
+  no_S3_metadata_in_logs: true
+
+thread_safety:
+  immutable_registry_reads: true
+  locked_startup_initialization: true
+  concurrent_job_safety: true
+  no_user_selection_mutation_of_global_state: true
+
+test_strategy:
+  fake_S3_clients_only: true
+  synthetic_packages_only: true
+  coverage_for_discovery: true
+  coverage_for_validation: true
+  coverage_for_duplicate: true
+  coverage_for_failure: true
+  coverage_for_privacy: true
+  coverage_for_legacy: true
+  coverage_for_UI: true
+  coverage_for_job: true
+  coverage_for_provider: true
+  coverage_for_health: true
+  coverage_for_model_version: true
+  coverage_for_concurrency: true
+  coverage_for_no_post_startup_S3: true
+  no_source_grep_only_for_selected_model_execution: true
+  full_repository_suite_required: true
+
+acceptance_criteria:
+  catalog_uri_validation_rejected: true
+  S3_pagination_all_candidates: true
+  deterministic_ordering: true
+  overload_rejection: true
+  oversized_manifest_skipped_counted: true
+  valid_manifest_creates_entry: true
+  missing_discovery_fields_rejected: true
+  invalid_model_id_rejected: true
+  duplicate_model_id_all_rejected: true
+  path_traversal_rejected: true
+  artifact_outside_dir_rejected: true
+  checksum_mismatch_rejected: true
+  partial_success_available_and_rejected_counts: true
+  S3_listing_failure_catalog_status_discovery_failed: true
+  legacy_fallback_single_entry: true
+  catalog_mode_precedence_with_warning: true
+  registry_immutable_after_startup: true
+  get_model_package_returns_correct_per_id: true
+  valid_model_id_succeeds_with_correct_package: true
+  unknown_model_id_rejected_typed_error: true
+  no_model_id_with_2plus_rejected_ambiguous: true
+  two_concurrent_jobs_different_models_correct_output: true
+  catalog_returns_all_sorted: true
+  default_model_id_null_when_2plus_set_when_1: true
+  no_private_fields_in_API_responses: true
+  health_model_ready_reflects_available_count: true
+  model_version_selection_required_when_2plus: true
+  model_version_singular_when_1: true
+  start_page_zero_disabled_one_selected_multiple_requires: true
+  full_legacy_suite_passes: true
+
+scope_control:
+  no_continuous_polling: true
+  no_hot_reload: true
+  no_model_upload_url: true
+  no_automatic_newest_selection: true
+  no_automatic_promotion: true
+  no_default_manifest_markers: true
+  no_model_comparison: true
+  no_ensemble_execution: true
+  no_multiple_models_in_one_job: true
+  no_ModelVariant: true
+  no_model_variant_id: true
+  no_RBAC: true
+  no_clinical_approval: true
+  no_scientific_certification_changes: true
+  no_sensitivity: true
+  no_specificity: true
+  no_reliability: true
+  no_demographic_metadata: true
+  no_training: true
+  no_H5_changes: true
+  no_preprocessing_changes: true
+  no_feature_changes: true
+  no_threshold_changes: true
+  no_decision_vocabulary_changes: true
+  no_Aramis_discovery: true
+  no_React: true
+  no_npm: true
+  no_frontend_frameworks: true
+  no_Docker_changes: true
+  no_Terraform: true
+  no_AWS_actions: true
+  no_CI_changes: true
+
+commit_readiness:
+  stop_conditions_defined: true
+  branch_verified: "434cb9679c22de6184e4388e1d872f0698a1dd23 on 0085-s3-model-catalog-discovery"
+  base_includes_query_routing_and_health_log_hotfix: true
+  validation_commands_specified: true
+  complete_test_suite_required: true
+  no_unresolved_invention_required: true
+
+summary: |
+  PLAN verified against all 19 blocking review gates. The plan delivers true
+  per-job selected-model execution by introducing an S3-discovered multi-model
+  catalog and an immutable process-local registry. The execution binding is
+  explicit: get_provider_for_model(model_id) reads the registry to get the
+  specific entry's private package and constructs a BremenProvider with it.
+  An acceptance test with two distinct synthetic packages producing distinct
+  outputs is required. Configuration uses exactly BREMEN_MODEL_CATALOG_URI
+  accepting one S3 prefix URI. Catalog mode takes precedence over legacy
+  BREMEN_MODEL_URI with a safe startup warning. Legacy mode is unchanged when
+  catalog URI is absent. S3 layout, manifest contract, discovery pipeline,
+  failure policy, duplicate policy, registry architecture, privacy, thread
+  safety, health, model-version semantics, and scope boundaries are all
+  explicitly specified with exact contracts. No unresolved implementation
+  decisions require the coder to invent behavior. Three non-blocking warnings
+  about discovery approach ambiguity, registry initialization window, and
+  provider backward compatibility.
