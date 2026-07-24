@@ -155,13 +155,24 @@ def _make_handler(
             behaviour with structured key=value logging through ``logger``.
             Each log line includes request_id, method, path, status, and
             available contextual fields (job_id, error).
+
+            Successful GET /health responses (2xx) are suppressed to avoid
+            high-volume low-value log noise from App Runner health checks.
             """
-            # Format the default status-line message (
-            #   e.g. '"GET /health HTTP/1.1" 200 -'
-            # )
             message = format % args
-            # Extract status from args[1] (the code passed by log_request)
             status = args[1] if len(args) >= 2 else "?"
+
+            # Suppress INFO logging for successful health check requests
+            path = getattr(self, "path", "")
+            from urllib.parse import urlsplit as _urlsplit
+            route_path = _urlsplit(path).path
+            try:
+                status_int = int(status)
+            except (ValueError, TypeError):
+                status_int = 0
+            if route_path == "/health" and 200 <= status_int < 300:
+                return
+
             extra_parts = []
             job_id = getattr(self, "_job_id", None)
             error = getattr(self, "_error", None)
@@ -176,7 +187,7 @@ def _make_handler(
                 {
                     "request_id": getattr(self, "_request_id", "?"),
                     "method": getattr(self, "command", "?"),
-                    "path": getattr(self, "path", "?"),
+                    "path": path,
                     "status": status,
                     "extra": extra_str,
                 },
@@ -248,7 +259,10 @@ def _make_handler(
             self._job_id = None
             self._error = None
 
-            if self.path == "/health":
+            from urllib.parse import urlsplit as _urlsplit
+            route_path = _urlsplit(self.path).path
+
+            if route_path == "/health":
                 resp = handle_health(version=version)
                 self._log_and_send({
                     "status": resp.status,
@@ -257,7 +271,7 @@ def _make_handler(
                     "timestamp": resp.timestamp,
                     "model_ready": resp.model_ready,
                 })
-            elif self.path == "/model/version":
+            elif route_path == "/model/version":
                 resp = handle_model_version()
                 self._log_and_send({
                     "model_configured": resp.model_configured,
@@ -269,7 +283,7 @@ def _make_handler(
                     "qc_criteria_version": resp.qc_criteria_version,
                     "model_status": resp.model_status,
                 })
-            elif (match := _JOB_ID_PATTERN.match(self.path)) is not None:
+            elif (match := _JOB_ID_PATTERN.match(route_path)) is not None:
                 job_id = match.group(1)
                 self._job_id = job_id
                 resp = handle_get_prediction(job_id, job_store)
@@ -290,23 +304,23 @@ def _make_handler(
                         "error": resp.error,
                     }, job_id=job_id)
 
-            elif self.path == "/demo":
+            elif route_path == "/demo":
                 _handle_start_page_route(self)
-            elif self.path == "/demo/control-room" or self.path.startswith("/demo/control-room/"):
+            elif route_path == "/demo/control-room" or route_path.startswith("/demo/control-room/"):
                 _handle_control_room_route(self)
-            elif self.path.startswith("/demo/report/"):
+            elif route_path.startswith("/demo/report/"):
                 _handle_report_route(self)
-            elif self.path == "/demo/workspace" or self.path.startswith("/demo/workspace/") or self.path.startswith("/demo/workspace?"):
+            elif route_path == "/demo/workspace" or route_path.startswith("/demo/workspace/"):
                 _handle_workspace_route(self)
-            elif self.path == "/demo/api/models":
+            elif route_path == "/demo/api/models":
                 _handle_demo_models(self)
-            elif self.path == "/demo/api/evidence":
+            elif route_path == "/demo/api/evidence":
                 _handle_demo_evidence_route(self)
-            elif self.path == "/demo/api/h5/containers":
+            elif route_path == "/demo/api/h5/containers":
                 _handle_demo_h5_containers_list(self)
-            elif self.path == "/demo/api/jobs":
+            elif route_path == "/demo/api/jobs":
                 _handle_demo_jobs_list(self)
-            elif self.path.startswith("/demo/api/jobs/"):
+            elif route_path.startswith("/demo/api/jobs/"):
                 _handle_demo_jobs_route(self)
             else:
                 self._log_and_send_error(
@@ -1412,16 +1426,17 @@ def _handle_report_route(handler: BaseHTTPRequestHandler) -> None:
     """Handle GET /demo/report/{job_id} — product-grade Report page."""
     import uuid as _uuid  # noqa: PLC0415
     from ..report_ui import build_report_page  # noqa: PLC0415
+    from urllib.parse import urlsplit as _urlsplit  # noqa: PLC0415
 
     request_id = handler.headers.get("X-Request-ID") or str(_uuid.uuid4())
     host_header = handler.headers.get("Host", "localhost")
     forwarded_proto = handler.headers.get("X-Forwarded-Proto", "http")
     base_url = f"{forwarded_proto}://{host_header}"
-    path = handler.path
+    route_path = _urlsplit(handler.path).path
     job_id = ""
     prefix = "/demo/report/"
-    if path.startswith(prefix):
-        job_id = path[len(prefix):].rstrip("/")
+    if route_path.startswith(prefix):
+        job_id = route_path[len(prefix):].rstrip("/")
     html = build_report_page(base_url=base_url, job_id=job_id)
     body = html.encode("utf-8")
     handler.send_response(200)
@@ -1441,16 +1456,17 @@ def _handle_workspace_route(handler: BaseHTTPRequestHandler) -> None:
     """Handle GET /demo/workspace — multi-workflow analysis workspace."""
     import uuid as _uuid  # noqa: PLC0415
     from ..workspace_ui import build_workspace_page  # noqa: PLC0415
+    from urllib.parse import urlsplit as _urlsplit  # noqa: PLC0415
 
     request_id = handler.headers.get("X-Request-ID") or str(_uuid.uuid4())
     host_header = handler.headers.get("Host", "localhost")
     forwarded_proto = handler.headers.get("X-Forwarded-Proto", "http")
     base_url = f"{forwarded_proto}://{host_header}"
-    path = handler.path
+    route_path = _urlsplit(handler.path).path
     job_id = None
     prefix = "/demo/workspace/"
-    if path.startswith(prefix):
-        job_id = path[len(prefix):].rstrip("/")
+    if route_path.startswith(prefix):
+        job_id = route_path[len(prefix):].rstrip("/")
     html = build_workspace_page(base_url=base_url, request_id=request_id, job_id=job_id)
     body = html.encode("utf-8")
     handler.send_response(200)
@@ -1569,29 +1585,30 @@ def _handle_demo_jobs_create(handler: BaseHTTPRequestHandler) -> None:
 def _handle_demo_jobs_route(handler: BaseHTTPRequestHandler) -> None:
     """Dispatch /demo/api/jobs/{job_id}/... routes."""
     import re as _re  # noqa: PLC0415
+    from urllib.parse import urlsplit as _urlsplit  # noqa: PLC0415
     from .job_api_handler import (  # noqa: PLC0415
         handle_job_get, handle_job_events,
         handle_job_events_stream, handle_job_reports, handle_job_report,
     )
-    path = handler.path
-    m = _re.match(r"^/demo/api/jobs/([^/]+)/events/stream$", path)
+    route_path = _urlsplit(handler.path).path
+    m = _re.match(r"^/demo/api/jobs/([^/]+)/events/stream$", route_path)
     if m:
         handle_job_events_stream(handler, m.group(1))
         return
-    m = _re.match(r"^/demo/api/jobs/([^/]+)/events$", path)
+    m = _re.match(r"^/demo/api/jobs/([^/]+)/events$", route_path)
     if m:
         handle_job_events(handler, m.group(1))
         return
-    m = _re.match(r"^/demo/api/jobs/([^/]+)/reports/([^/]+)$", path)
+    m = _re.match(r"^/demo/api/jobs/([^/]+)/reports/([^/]+)$", route_path)
     if m:
         handle_job_report(handler, m.group(1), m.group(2))
         return
-    m = _re.match(r"^/demo/api/jobs/([^/]+)/reports$", path)
+    m = _re.match(r"^/demo/api/jobs/([^/]+)/reports$", route_path)
     if m:
         handle_job_reports(handler, m.group(1))
         return
-    m = _re.match(r"^/demo/api/jobs/([^/]+)$", path)
+    m = _re.match(r"^/demo/api/jobs/([^/]+)$", route_path)
     if m:
         handle_job_get(handler, m.group(1))
         return
-    handler._log_and_send_error(f"Not found: {path}", status=404)
+    handler._log_and_send_error(f"Not found: {handler.path}", status=404)
