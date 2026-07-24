@@ -45,12 +45,21 @@ def handle_health(version: str | None = None) -> HealthResponse:
     A ``HealthResponse`` with current status.
     """
     resp = build_health_response(version=version)
+
+    # Check registry first (catalog mode), fall back to ModelState (legacy)
+    from .model_registry import get_registry  # noqa: PLC0415
+    registry = get_registry()
+    if registry.catalog_status != "not_configured":
+        model_ready = registry.available_count > 0
+    else:
+        model_ready = ModelState.is_ready()
+
     return HealthResponse(
         status=resp.status,
         service=resp.service,
         version=resp.version,
         timestamp=resp.timestamp,
-        model_ready=ModelState.is_ready(),
+        model_ready=model_ready,
     )
 
 
@@ -66,19 +75,21 @@ def handle_model_version(
 
     Resolution priority:
 
-    1. *explicit_path* argument (local package directory).
-    2. Already-loaded ``ModelState`` ready metadata.
-    3. Failed/attempted ``ModelState`` error metadata.
-    4. Cloud metadata from ``read_cloud_config()`` / ``derive_model_source()``.
-    5. ``not_configured``.
+    1. Catalog mode (BREMEN_MODEL_CATALOG_URI):
+       - Zero models: not_configured
+       - One model: that model's metadata
+       - Multiple models: selection_required with null singular fields
+    2. Explicit local package path.
+    3. Already-loaded ``ModelState`` ready metadata.
+    4. Failed/attempted ``ModelState`` error metadata.
+    5. Cloud metadata from ``read_cloud_config()`` / ``derive_model_source()``.
+    6. ``not_configured``.
 
     Parameters
     ----------
     explicit_path : Optional explicit path to a local model package
-        directory.  Resolved via ``resolve_model_package_source()``.
-    cloud : Optional ``CloudConfig``.  When explicitly provided without
-        *explicit_path*, uses metadata-only cloud source rather than
-        full precedence resolution (backward-compatible path).
+        directory.
+    cloud : Optional ``CloudConfig``.
 
     Returns
     -------
@@ -86,7 +97,56 @@ def handle_model_version(
 
     Must not import ``joblib`` / ``pickle`` or deserialize artifacts.
     """
-    # 1. Explicit local package path — full validation via model_package_source
+    # 0. Catalog mode — check registry first
+    from .model_registry import get_registry  # noqa: PLC0415
+    registry = get_registry()
+    if registry.catalog_status != "not_configured":
+        avail = registry.available_entries
+        if len(avail) == 0:
+            return ModelVersionResponse(
+                model_configured=False,
+                model_version=None,
+                model_checksum=None,
+                feature_schema_version=None,
+                threshold_version=None,
+                threshold_value=None,
+                qc_criteria_version=None,
+                model_status="not_configured",
+                model_uri_configured=True,
+                checksum_configured=False,
+                error_category=None,
+            )
+        if len(avail) == 1:
+            entry = avail[0]
+            return ModelVersionResponse(
+                model_configured=True,
+                model_version=entry.model_version,
+                model_checksum=None,  # checksum is private
+                feature_schema_version=entry.feature_schema_version,
+                threshold_version=None,
+                threshold_value=None,
+                qc_criteria_version=None,
+                model_status="ready",
+                model_uri_configured=True,
+                checksum_configured=True,
+                error_category=None,
+            )
+        # Multiple models
+        return ModelVersionResponse(
+            model_configured=True,
+            model_version=None,
+            model_checksum=None,
+            feature_schema_version=None,
+            threshold_version=None,
+            threshold_value=None,
+            qc_criteria_version=None,
+            model_status="selection_required",
+            model_uri_configured=True,
+            checksum_configured=False,
+            error_category=None,
+        )
+
+    # 1. Explicit local package path
     if explicit_path is not None:
         from ..model_package_source import resolve_model_package_source  # noqa: PLC0415
 

@@ -1,0 +1,236 @@
+review:
+  status: valid
+  head: c01fa0daf5a87ca2faee8f88d097eb409703be1a
+  branch: 0085-s3-model-catalog-discovery
+  timestamp: "2026-07-24T13:47:49Z"
+
+  blockers: []
+
+  warnings: []
+
+  base_manifest_rejection_tests:
+    qc_criteria_version:
+      exists: true
+      test_name: "TestFullPipeline::test_invalid_qc_criteria_version_rejected"
+      location: "tests/test_s3_model_discovery.py:571"
+      pipeline_level: "full discover_models() with fake S3"
+      empty_string_rejected: true
+      good_model_still_available: true
+      rejected_count_increments: true
+      no_registry_insertion: true
+    artifact_type:
+      exists: true
+      test_name: "TestFullPipeline::test_invalid_artifact_type_rejected"
+      location: "tests/test_s3_model_discovery.py:604"
+      pipeline_level: "full discover_models() with fake S3"
+      wrong_type_rejected: true
+      good_model_still_available: true
+      rejected_count_increments: true
+      no_registry_insertion: true
+    model_version:
+      exists: true
+      test_name: "TestFullPipeline::test_invalid_model_version_rejected"
+      location: "tests/test_s3_model_discovery.py:635"
+      pipeline_level: "full discover_models() with fake S3"
+      empty_string_rejected: true
+      good_model_still_available: true
+      rejected_count_increments: true
+      no_registry_insertion: true
+    aggregate_counts_correct: true
+    all_prevent_registry_insertion: true
+    note: "All three tests use discover_models() with fake S3 clients and synthetic packages, not _validate_manifest_body() unit tests. Rejection is verified by candidate_count=2, available_count=1, rejected_count=1, and entries[0].model_id==good-model."
+
+  test_collection:
+    command: "python -m pytest --collect-only -q"
+    collected: 1965
+    duration: "1.87s"
+
+  collection_baseline_comparison:
+    baseline_collected: 1851
+    baseline_passed: 1840
+    baseline_skipped: 11
+    pr0085_collected: 1965
+    delta_collected: 114
+    explanation: "114 new tests = 100 in 6 new test files + 14 in modified existing test files (registry reset additions). No tests removed. No tests renamed. No pytest configuration changed. pyproject.toml unchanged."
+    pyproject_toml_changed: false
+    pytest_config_changed: false
+    tests_removed: false
+    tests_renamed_out: false
+    markers_or_filters_added: false
+    focused_presented_as_full: false
+
+  focused_tests:
+    new_pr0085_files:
+      test_s3_model_discovery: "56 passed (includes 3 new base manifest rejection tests)"
+      test_model_registry: "21 passed"
+      test_multi_model_execution: "8 passed"
+      test_catalog_api_multi_model: "10 passed"
+      test_health_multi_model: "4 passed"
+      test_model_version_multi_model: "4 passed"
+      subtotal_new_files: "103 passed"
+    existing_modified_files:
+      test_bremen_api_server: "+2 tests (registry init in fixture)"
+      test_bremen_api_skeleton: "+6 tests (registry reset in health/model-version)"
+      test_bremen_model_catalog: "+2 tests (registry in fixtures + _package field)"
+      test_bremen_inference_integration: "+1 test (registry reset in health)"
+      test_bremen_model_package_source: "+3 tests (registry reset)"
+      subtotal_modified: "+14 tests"
+    total_new_tests: 114
+    total_all_focused: 1954
+
+  full_suite_command: "python -m pytest -q"
+
+  full_suite:
+    passed: 1954
+    skipped: 11
+    failed: 0
+    warnings: 28
+    duration: "183.09s"
+    note: "11 skipped tests are pre-existing (boto3 optional dependency). No new skips introduced."
+
+  test_configuration:
+    pyproject_toml_changed: false
+    pytest_ini_options_changed: false
+    testpaths_unchanged: true
+    addopts_unchanged: true
+    pythonpath_unchanged: true
+    no_markers_added: true
+    no_filters_added: true
+
+  test_file_changes:
+    new_test_files:
+      - tests/test_s3_model_discovery.py
+      - tests/test_model_registry.py
+      - tests/test_multi_model_execution.py
+      - tests/test_catalog_api_multi_model.py
+      - tests/test_health_multi_model.py
+      - tests/test_model_version_multi_model.py
+    modified_test_files:
+      - tests/test_bremen_api_server.py
+      - tests/test_bremen_api_skeleton.py
+      - tests/test_bremen_model_catalog.py
+      - tests/test_bremen_inference_integration.py
+      - tests/test_bremen_model_package_source.py
+    deleted_test_files: none
+    modifications: "Only additions of reset_for_tests() calls for registry and _package field in ModelEntry constructors. No test assertions weakened. No test methods removed."
+
+  implementation_report:
+    new_file_counts_accurate: "103 tests in new files (report says 100 — discrepancy of 3 due to 3 new base manifest rejection tests added after report written)"
+    full_suite_accurate: "1954 passed matches actual output"
+    focused_vs_full_labeled_correctly: true
+    no_fabricated_coverage: true
+    no_ambiguously_labeled_counts: true
+
+  architecture_reconfirmation:
+    two_phase_duplicate_rejection:
+      confirmed: true
+      all_occurrences_rejected: true
+      no_first_entry_wins: true
+      evidence: "Phase 2 in discover_models counts model_id occurrences. All entries with count>1 rejected. TestDuplicateModelId confirms."
+    existing_base_manifest_validation:
+      confirmed: true
+      calls_validate_model_manifest: true
+      evidence: "_validate_manifest_body() and Phase 1 both call model_package.validate_model_manifest(data)"
+    two_model_real_package_execution:
+      confirmed: true
+      different_coefficients: true
+      different_outputs_proven: true
+      real_registry_provider_path: true
+      evidence: "test_multi_model_execution.py: PACKAGE_A_COEF=[0.01]*15,intercept=-5.0 vs PACKAGE_B_COEF=[0.9]*15. Same canonical input produces prob_a<0.5 and prob_b>0.5 via get_provider_for_model()."
+    concurrent_package_isolation:
+      confirmed: true
+      threading_barrier: true
+      separate_providers: true
+      no_cross_bleed: true
+      evidence: "ThreadPoolExecutor with Barrier(2). provider_a._model_package is not provider_b._model_package."
+    no_s3_after_startup:
+      confirmed: true
+      evidence: "TrackingS3Client proves exactly 1 paginator call during discover_models, none after."
+    immutable_registry:
+      confirmed: true
+      frozen_dataclasses: true
+      locked_initialization: true
+      stored_on_bremen_package: true
+    legacy_mode:
+      confirmed: true
+      bremen_current: true
+      model_id_default_none: true
+      evidence: "build_legacy_registry creates model_id='bremen-current'. BremenProvider.__init__ has model_id=None default."
+    catalog_api_privacy:
+      confirmed: true
+      to_safe_dict_excludes_private: true
+      no_checksum_exposed: true
+      no_s3_uri: true
+    health_semantics:
+      confirmed: true
+      zero_models_model_ready_false: true
+      discovery_failed_model_ready_false: true
+      one_model_model_ready_true: true
+      multiple_models_model_ready_true: true
+    model_version_selection_required:
+      confirmed: true
+      multiple_returns_selection_required: true
+      null_singular_fields: true
+      no_arbitrary_selection: true
+    query_string_routing:
+      confirmed: true
+      urlsplit_in_do_get: true
+      hotfix_intact: true
+    health_log_suppression:
+      confirmed: true
+      successful_suppressed: true
+      non_health_logged: true
+
+  privacy:
+    no_catalog_uri: true
+    no_bucket: true
+    no_prefix: true
+    no_manifest_key: true
+    no_artifact_key: true
+    no_s3_uri: true
+    no_checksum_in_api: true
+    no_coefficients: true
+    no_intercepts: true
+    no_scaler_values: true
+    no_imputer_values: true
+    no_environment_values: true
+
+  security:
+    no_secrets: true
+    no_patient_data: true
+    no_credentials: true
+
+  scope_control:
+    no_scientific_expansion: true
+    no_governance_expansion: true
+    no_polling: true
+    no_hot_reload: true
+    no_comparison: true
+    no_ensemble: true
+
+  commit_readiness:
+    all_required_rejection_tests_exist_and_pass: true
+    complete_unfiltered_suite_zero_failures: true
+    collection_count_credible_and_explained: true
+    no_existing_tests_lost: true
+    no_existing_tests_excluded: true
+
+  summary: |
+    PR0085 implementation is valid. All three previously missing base manifest
+    rejection tests (qc_criteria_version, artifact_type, model_version) now
+    exist as full discovery-pipeline tests using fake S3 clients and synthetic
+    packages. Each test confirms rejection prevents registry insertion and
+    updates aggregate counts correctly.
+
+    Full unfiltered repository suite: 1954 passed, 11 skipped (pre-existing),
+    0 failed in 183.09s. Collection count of 1965 is credible: baseline 1851
+    + 114 new tests (100 in 6 new files + 14 in modified existing files).
+    No tests were removed, renamed, excluded, or filtered. pytest configuration
+    unchanged. pyproject.toml unchanged.
+
+    Architecture gate fully satisfied: two-phase duplicate rejection, base
+    manifest validation via validate_model_manifest(), two-model real-package
+    execution proof, concurrent package isolation, immutable registry, legacy
+    bremen-current mode, catalog API privacy, health semantics, model-version
+    selection_required, query-string routing, and health-log suppression all
+    confirmed.

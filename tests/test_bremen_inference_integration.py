@@ -242,7 +242,9 @@ class TestModelState:
 class TestHealthModelReady:
     def test_health_reports_model_not_ready(self):
         """Health reports model_ready: False when model not loaded."""
+        from bremen.api.model_registry import reset_for_tests as reset_registry
         ModelState.reset_for_tests()
+        reset_registry()
         resp = handle_health(version="test")
         assert resp.status == "ok"
         assert resp.model_ready is False

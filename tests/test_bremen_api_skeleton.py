@@ -111,7 +111,9 @@ def _load_synthetic_model(tmp_path: Path | None = None) -> None:
 class TestHealth:
     def test_health_returns_response(self):
         """handle_health returns a HealthResponse with model_ready."""
+        from bremen.api.model_registry import reset_for_tests as reset_registry
         ModelState.reset_for_tests()
+        reset_registry()
         response = handle_health()
         assert isinstance(response, HealthResponse)
         assert response.status == "ok"
@@ -120,14 +122,18 @@ class TestHealth:
 
     def test_health_has_timestamp(self):
         """HealthResponse contains a timestamp."""
+        from bremen.api.model_registry import reset_for_tests as reset_registry
         ModelState.reset_for_tests()
+        reset_registry()
         response = handle_health()
         assert response.timestamp is not None
         assert "T" in response.timestamp  # ISO-8601 format
 
     def test_health_accepts_version(self):
         """handle_health accepts an optional version parameter."""
+        from bremen.api.model_registry import reset_for_tests as reset_registry
         ModelState.reset_for_tests()
+        reset_registry()
         response = handle_health(version="1.0.0")
         assert response.version == "1.0.0"
 
@@ -142,6 +148,10 @@ class TestModelVersion:
         """handle_model_version returns not_configured by default with no env."""
         import os
         from unittest.mock import patch
+        from bremen.api.model_registry import reset_for_tests as reset_registry
+
+        ModelState.reset_for_tests()
+        reset_registry()
 
         # Clear all BREMEN_MODEL_* env vars
         with patch.dict(os.environ, {}, clear=True):
@@ -155,6 +165,10 @@ class TestModelVersion:
         """handle_model_version with configured cloud returns configured."""
         import os
         from unittest.mock import patch
+        from bremen.api.model_registry import reset_for_tests as reset_registry
+
+        ModelState.reset_for_tests()
+        reset_registry()
 
         with patch.dict(
             os.environ,
@@ -170,6 +184,10 @@ class TestModelVersion:
         """handle_model_version with BREMEN_MODEL_VERSION set."""
         import os
         from unittest.mock import patch
+        from bremen.api.model_registry import reset_for_tests as reset_registry
+
+        ModelState.reset_for_tests()
+        reset_registry()
 
         with patch.dict(
             os.environ,
@@ -188,6 +206,10 @@ class TestModelVersion:
         """handle_model_version does not load/validate a model."""
         import os
         from unittest.mock import patch
+        from bremen.api.model_registry import reset_for_tests as reset_registry
+
+        ModelState.reset_for_tests()
+        reset_registry()
 
         # Even when configured, no model loading happens
         with patch.dict(
@@ -218,8 +240,10 @@ class TestModelVersionReadiness:
         import hashlib
         from joblib import dump
         from bremen.api.preprocessing_bridge import BREMEN_V01_FEATURE_COLUMNS
+        from bremen.api.model_registry import reset_for_tests as reset_registry
 
         ModelState.reset_for_tests()
+        reset_registry()
         n_features = 15
         package = {
             "portable_logreg": {
@@ -257,8 +281,10 @@ class TestModelVersionReadiness:
     def test_model_version_error_after_failed_load(self, tmp_path):
         """After failed model load, model_status is error with safe category."""
         import hashlib
+        from bremen.api.model_registry import reset_for_tests as reset_registry
 
         ModelState.reset_for_tests()
+        reset_registry()
 
         # Create a corrupt file and use a mismatched checksum
         bad_file = tmp_path / "bad_model.joblib"
@@ -294,8 +320,10 @@ class TestModelVersionReadiness:
     def test_model_version_configured_not_loaded(self):
         """Configured but not loaded returns configured and not ready."""
         from bremen.config import read_cloud_config
+        from bremen.api.model_registry import reset_for_tests as reset_registry
 
         ModelState.reset_for_tests()
+        reset_registry()
         cloud = read_cloud_config(
             env={"BREMEN_MODEL_BUCKET": "my-bucket"}
         )
@@ -312,8 +340,10 @@ class TestModelVersionReadiness:
     def test_model_version_not_configured(self):
         """No env vars set returns not_configured."""
         from bremen.config import read_cloud_config
+        from bremen.api.model_registry import reset_for_tests as reset_registry
 
         ModelState.reset_for_tests()
+        reset_registry()
         cloud = read_cloud_config(env={})
         response = handle_model_version(cloud=cloud)
         assert response.model_status == "not_configured"
@@ -332,8 +362,10 @@ class TestModelVersionReadiness:
         import hashlib
         from joblib import dump
         from bremen.api.preprocessing_bridge import BREMEN_V01_FEATURE_COLUMNS
+        from bremen.api.model_registry import reset_for_tests as reset_registry
 
         ModelState.reset_for_tests()
+        reset_registry()
 
         # Not configured consistency
         from bremen.config import read_cloud_config
@@ -396,8 +428,10 @@ class TestModelVersionReadiness:
         error_category is a safe enum string, not raw exception.
         """
         from bremen.config import read_cloud_config
+        from bremen.api.model_registry import reset_for_tests as reset_registry
 
         ModelState.reset_for_tests()
+        reset_registry()
 
         # not_configured — all safe
         cloud = read_cloud_config(env={})
@@ -933,9 +967,10 @@ class TestImportSafety:
         for py_file in API_SRC.rglob("*.py"):
             if py_file.name in (
                 "server.py",  # demo H5 upload S3 (PR0067, lazy import)
+                "model_state.py",
+                "server.py",
+                "s3_model_discovery.py",  # PR0085: S3 model catalog discovery
             ):
-                continue
-            if py_file.name in ("model_state.py", "server.py"):
                 continue  # PR 0039: controlled startup model loading
             tree = ast.parse(py_file.read_text(encoding="utf-8"))
             for node in ast.walk(tree):
@@ -977,8 +1012,8 @@ class TestImportSafety:
         for controlled startup model loading (PR 0039).
         """
         for py_file in API_SRC.rglob("*.py"):
-            if py_file.name in ("model_state.py", "server.py"):
-                continue  # PR 0039: controlled startup/loading
+            if py_file.name in ("model_state.py", "server.py", "s3_model_discovery.py"):
+                continue  # PR 0039: controlled startup/loading, PR0085: S3 discovery
             content = py_file.read_text(encoding="utf-8")
             if "joblib.load(" in content:
                 pytest.fail(f"{py_file} contains 'joblib.load('")
@@ -1032,6 +1067,7 @@ class TestImportSafety:
         for py_file in API_SRC.rglob("*.py"):
             if py_file.name in (
                 "server.py",  # demo H5 upload S3 (PR0067, lazy import)
+                "s3_model_discovery.py",  # PR0085: S3 model catalog discovery
             ):
                 continue
             tree = ast.parse(py_file.read_text(encoding="utf-8"))
