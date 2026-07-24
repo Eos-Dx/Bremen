@@ -436,7 +436,7 @@ class TestStructuredLogging:
 
         try:
             req = Request(
-                f"http://{host}:{port}/health",
+                f"http://{host}:{port}/model/version",
                 headers={"X-Request-ID": "log-test-id"},
             )
             urlopen(req, timeout=3)
@@ -446,7 +446,7 @@ class TestStructuredLogging:
                 f"Log output should contain request_id=log-test-id, got: {output}"
             )
             assert "method=GET" in output
-            assert "path=/health" in output
+            assert "path=/model/version" in output
             assert "status=200" in output
         finally:
             logger.removeHandler(handler)
@@ -1963,3 +1963,136 @@ class TestImportSafety:
             pytest.fail("server.py contains 'joblib.load('")
         if "pickle.load(" in content:
             pytest.fail("server.py contains 'pickle.load('")
+
+
+# ---------------------------------------------------------------------------
+# Query-string routing regression tests
+# ---------------------------------------------------------------------------
+
+
+class TestQueryStringRouting:
+    """Routes with query strings resolve correctly."""
+
+    def test_start_page_with_query_string(self, server_info):
+        """GET /demo?source=test returns Start page."""
+        host, port, _ = server_info
+        status, body, _ = _get(host, port, "/demo?source=test")
+        assert status == 200
+        text = body.decode("utf-8")
+        assert "Select a model to begin" in text
+
+    def test_control_room_with_query_string(self, server_info):
+        """GET /demo/control-room?workflow_id=bremen&model_id=bremen-current returns Control Room."""
+        host, port, _ = server_info
+        status, body, _ = _get(host, port, "/demo/control-room?workflow_id=bremen&model_id=bremen-current")
+        assert status == 200
+        text = body.decode("utf-8")
+        assert "cr-page" in text or "Should the patient continue to MRI" in text
+
+    def test_report_with_query_string(self, server_info):
+        """GET /demo/report/test-job-id?source=history returns Report page."""
+        host, port, _ = server_info
+        status, body, _ = _get(host, port, "/demo/report/test-job-id?source=history")
+        assert status == 200
+        text = body.decode("utf-8")
+        assert "report-page" in text or "Bremen Report" in text
+
+    def test_workspace_with_query_string(self, server_info):
+        """GET /demo/workspace/test-job-id?tab=events returns Workspace."""
+        host, port, _ = server_info
+        status, body, _ = _get(host, port, "/demo/workspace/test-job-id?tab=events")
+        assert status == 200
+        text = body.decode("utf-8")
+        assert "Analysis Workspace" in text
+
+    def test_unknown_path_still_404(self, server_info):
+        """Unknown path with query string returns 404."""
+        host, port, _ = server_info
+        status, _, _ = _get(host, port, "/demo/nonexistent?foo=bar")
+        assert status == 404
+
+    def test_api_jobs_with_query_string(self, server_info):
+        """API resource identifiers exclude query strings."""
+        host, port, _ = server_info
+        status, body, _ = _get(host, port, "/demo/api/jobs?limit=10")
+        assert status == 200
+        data = json.loads(body)
+        assert "jobs" in data
+
+    def test_health_with_query_string(self, server_info):
+        """GET /health?probe=app-runner returns 200."""
+        host, port, _ = server_info
+        status, body, _ = _get(host, port, "/health?probe=app-runner")
+        assert status == 200
+        data = json.loads(body)
+        assert data["status"] == "ok"
+
+
+# ---------------------------------------------------------------------------
+# Health check log suppression tests
+# ---------------------------------------------------------------------------
+
+
+class TestHealthLogSuppression:
+    """Successful health checks do not produce INFO request logs."""
+
+    def test_health_success_no_info_log(self, server_info, caplog):
+        """Successful GET /health produces no INFO request log."""
+        import logging
+        host, port, _ = server_info
+        caplog.set_level(logging.INFO)
+        _get(host, port, "/health")
+        # Check that no log record contains the health request
+        health_logs = [
+            r for r in caplog.records
+            if r.levelno == logging.INFO
+            and "path=/health" in r.getMessage()
+        ]
+        assert len(health_logs) == 0, (
+            f"Expected no INFO log for successful health check, got {len(health_logs)}"
+        )
+
+    def test_health_with_query_no_info_log(self, server_info, caplog):
+        """Successful GET /health?probe=app-runner produces no INFO request log."""
+        import logging
+        host, port, _ = server_info
+        caplog.set_level(logging.INFO)
+        _get(host, port, "/health?probe=app-runner")
+        health_logs = [
+            r for r in caplog.records
+            if r.levelno == logging.INFO
+            and "path=/health" in r.getMessage()
+        ]
+        assert len(health_logs) == 0, (
+            f"Expected no INFO log for health check with query, got {len(health_logs)}"
+        )
+
+    def test_non_health_request_still_logged(self, server_info, caplog):
+        """Non-health successful request is still logged at INFO."""
+        import logging
+        host, port, _ = server_info
+        caplog.set_level(logging.INFO)
+        _get(host, port, "/model/version")
+        model_logs = [
+            r for r in caplog.records
+            if r.levelno == logging.INFO
+            and "path=/model/version" in r.getMessage()
+        ]
+        assert len(model_logs) > 0, (
+            "Expected INFO log for non-health request"
+        )
+
+    def test_unknown_route_still_logged(self, server_info, caplog):
+        """Unknown route (404) is still logged."""
+        import logging
+        host, port, _ = server_info
+        caplog.set_level(logging.INFO)
+        _get(host, port, "/nonexistent")
+        notfound_logs = [
+            r for r in caplog.records
+            if r.levelno == logging.INFO
+            and "path=/nonexistent" in r.getMessage()
+        ]
+        assert len(notfound_logs) > 0, (
+            "Expected INFO log for unknown route"
+        )
