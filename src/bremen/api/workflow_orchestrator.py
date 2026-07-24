@@ -37,9 +37,48 @@ from .execution_context import WorkflowExecutionContext
 
 _log = logging.getLogger(__name__)
 
+def get_provider_for_model(model_id: str) -> Any:
+    """Construct a BremenProvider for a specific model_id from the registry.
+
+    Reads the registry to get the entry's private package, checksum,
+    and version, then constructs a fresh BremenProvider with that
+    package.  This is called per-job to bind the selected model.
+
+    Parameters
+    ----------
+    model_id : The model_id to resolve.
+
+    Returns
+    -------
+    A configured BremenProvider instance.
+
+    Raises
+    ------
+    ValueError
+        If the model_id is not found in the registry.
+    """
+    from .model_registry import get_model_entry, get_model_package, get_model_checksum  # noqa: PLC0415
+    from .workflow_bremen import BremenProvider  # noqa: PLC0415
+
+    entry = get_model_entry(model_id)
+    if entry is None:
+        raise ValueError(f"Model '{model_id}' not found in registry")
+
+    package = get_model_package(model_id)
+    checksum = get_model_checksum(model_id)
+
+    return BremenProvider(
+        model_package=package,
+        model_checksum=checksum,
+        model_version=entry.model_version,
+        model_id=entry.model_id,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Registry bootstrap
 # ---------------------------------------------------------------------------
+
 
 _DEFAULT_REGISTRY: WorkflowRegistry | None = None
 

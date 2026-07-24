@@ -136,6 +136,10 @@ def _make_handler(
     """
     if load_model:
         _load_synthetic_model()
+        # Initialize registry from ModelState after loading
+        from .model_registry import initialize_registry, build_legacy_registry  # noqa: PLC0415
+        legacy_registry = build_legacy_registry()
+        initialize_registry(legacy_registry)
 
     class _BremenHandler(BaseHTTPRequestHandler):
         """Single-request HTTP handler.  Shared *job_store* from closure."""
@@ -1336,26 +1340,76 @@ def run_server(
         host, port,
     )
 
-    # --- Model startup: load exactly once per process ---
-    from .model_state import ModelState as _ModelState  # noqa: PLC0415
-
     import os as _os
-    _model_env_present = bool(_os.environ.get("BREMEN_MODEL_URI", ""))
-    model_ready = _ModelState.load_at_startup()
-    _log_level = _os.environ.get("BREMEN_LOG_LEVEL", "INFO")
-    _log.info(
-        "bremen.runtime.config.summary\t"
-        "stage=startup\tstatus=summary\t"
-        "model_env_present=%s\t"
-        "model_ready=%s\t"
-        "log_level=%s\t"
-        "server_host=%s\t"
-        "server_port=%s",
-        str(_model_env_present).lower(),
-        str(model_ready).lower(),
-        _log_level,
-        host, str(port),
-    )
+
+    # --- Determine startup mode: catalog or legacy ---
+    catalog_uri = _os.environ.get("BREMEN_MODEL_CATALOG_URI", "").strip()
+    legacy_uri = _os.environ.get("BREMEN_MODEL_URI", "").strip()
+
+    if catalog_uri:
+        # Catalog mode — run S3 discovery
+        if legacy_uri:
+            _log.warning(
+                "bremen.startup.catalog_mode\t"
+                "BREMEN_MODEL_CATALOG_URI is set; "
+                "BREMEN_MODEL_URI is ignored"
+            )
+
+        _log.info(
+            "bremen.startup.catalog.discovering\t"
+            "stage=startup\tstatus=started"
+        )
+
+        from .s3_model_discovery import discover_models  # noqa: PLC0415
+        from .model_registry import initialize_registry, ModelRegistry  # noqa: PLC0415
+
+        discovery_result = discover_models(catalog_uri)
+
+        registry = ModelRegistry(
+            entries=tuple(discovery_result.entries),
+            catalog_status=discovery_result.catalog_status,
+            candidate_count=discovery_result.candidate_count,
+            available_count=discovery_result.available_count,
+            rejected_count=discovery_result.rejected_count,
+        )
+        initialize_registry(registry)
+
+        _log.info(
+            "bremen.startup.catalog.completed\t"
+            "stage=startup\tstatus=completed\t"
+            "catalog_status=%s\tcandidate_count=%d\t"
+            "available_count=%d\trejected_count=%d",
+            registry.catalog_status,
+            registry.candidate_count,
+            registry.available_count,
+            registry.rejected_count,
+        )
+    else:
+        # Legacy mode — load ModelState as before
+        from .model_state import ModelState as _ModelState  # noqa: PLC0415
+
+        _model_env_present = bool(legacy_uri)
+        model_ready = _ModelState.load_at_startup()
+
+        # Build legacy registry from ModelState
+        from .model_registry import initialize_registry, build_legacy_registry  # noqa: PLC0415
+        legacy_registry = build_legacy_registry()
+        initialize_registry(legacy_registry)
+
+        _log_level = _os.environ.get("BREMEN_LOG_LEVEL", "INFO")
+        _log.info(
+            "bremen.runtime.config.summary\t"
+            "stage=startup\tstatus=summary\t"
+            "model_env_present=%s\t"
+            "model_ready=%s\t"
+            "log_level=%s\t"
+            "server_host=%s\t"
+            "server_port=%s",
+            str(_model_env_present).lower(),
+            str(model_ready).lower(),
+            _log_level,
+            host, str(port),
+        )
 
     job_store = InMemoryJobStore()
     handler = _make_handler(job_store, version=version)

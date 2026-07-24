@@ -439,13 +439,31 @@ def create_analysis_job(
         _jobs[job_id] = job
 
     # Run the orchestrator with event capture (no lock held — may take seconds)
-    mw_result = run_workflow_request(
-        h5_path=h5_path,
-        workflow_id=workflow_id,
-        registry=registry,
-        event_store=_event_store,
-        model_id=model_id,
-    )
+    # In catalog mode, construct a fresh provider for the selected model
+    from .model_registry import get_registry  # noqa: PLC0415
+    _reg = get_registry()
+    if _reg.catalog_status != "not_configured" and _reg.available_count > 0:
+        # Catalog mode — use get_provider_for_model to bind the package
+        from .workflow_orchestrator import get_provider_for_model  # noqa: PLC0415
+        from .workflow_registry import WorkflowRegistry  # noqa: PLC0415
+        provider = get_provider_for_model(model_id)
+        cat_registry = WorkflowRegistry()
+        cat_registry.register(provider)
+        mw_result = run_workflow_request(
+            h5_path=h5_path,
+            workflow_id=workflow_id,
+            registry=cat_registry,
+            event_store=_event_store,
+            model_id=model_id,
+        )
+    else:
+        mw_result = run_workflow_request(
+            h5_path=h5_path,
+            workflow_id=workflow_id,
+            registry=registry,
+            event_store=_event_store,
+            model_id=model_id,
+        )
 
     # Update job from result
     wf_result = mw_result.workflows.get(workflow_id)

@@ -156,10 +156,11 @@ class BremenProvider(WorkflowProvider):
         *,
         model_checksum: str | None = None,
         model_version: str | None = None,
+        model_id: str | None = None,
     ) -> None:
         self._raw_model_package = model_package
         self._model_package: dict | None = None
-        self._model_id = "bremen_mri_triage_logreg"
+        self._model_id = model_id or "bremen_mri_triage_logreg"
         if model_package is not None:
             self._model_package = self._adapt_package(model_package)
         self._model_checksum = model_checksum

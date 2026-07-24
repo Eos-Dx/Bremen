@@ -359,6 +359,8 @@ class TestHandleModelVersionIntegration:
     def test_handle_model_version_with_explicit_path(self, tmp_path: Path):
         """handle_model_version with explicit path returns metadata."""
         from bremen.api.app import handle_model_version
+        from bremen.api.model_registry import reset_for_tests as reset_registry
+        reset_registry()
 
         pkg_dir = _make_package(tmp_path)
         resp = handle_model_version(explicit_path=pkg_dir)
@@ -373,6 +375,8 @@ class TestHandleModelVersionIntegration:
         from unittest.mock import patch
 
         from bremen.api.app import handle_model_version
+        from bremen.api.model_registry import reset_for_tests as reset_registry
+        reset_registry()
 
         with patch.dict(os.environ, {}, clear=True):
             resp = handle_model_version()
@@ -385,6 +389,8 @@ class TestHandleModelVersionIntegration:
         from unittest.mock import patch
 
         from bremen.api.app import handle_model_version
+        from bremen.api.model_registry import reset_for_tests as reset_registry
+        reset_registry()
 
         with patch.dict(
             os.environ,

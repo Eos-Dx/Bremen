@@ -47,12 +47,16 @@ def server_info():
     and joins the thread on teardown.
     """
     from bremen.api.model_state import ModelState
+    from bremen.api.model_registry import initialize_registry, build_legacy_registry
 
     host = "127.0.0.1"
     port = _find_free_port()
     job_store = InMemoryJobStore()
     ModelState.reset_for_tests()
     handler = _make_handler(job_store, version="test-version", load_model=True)
+    # Initialize registry from ModelState after loading
+    legacy_registry = build_legacy_registry()
+    initialize_registry(legacy_registry)
     server = HTTPServer((host, port), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -150,9 +154,11 @@ class TestModelVersion:
         """Test handle_model_version with env set to configured state."""
         from bremen.config import read_cloud_config
         from bremen.api.model_state import ModelState
+        from bremen.api.model_registry import reset_for_tests as reset_registry
 
-        # Reset model state to test cloud env behavior
+        # Reset model state and registry to test cloud env behavior
         ModelState.reset_for_tests()
+        reset_registry()
 
         cloud = read_cloud_config(
             env={"BREMEN_MODEL_BUCKET": "my-bucket"}

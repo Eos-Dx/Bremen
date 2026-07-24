@@ -1,145 +1,73 @@
 """Bremen model catalog — server-owned catalog of configured models.
 
-Supports zero, one, or multiple real configured Bremen models.
-Each entry has a stable ``model_id``.  The catalog is rebuilt on
-every call to reflect current ``ModelState`` without requiring server
-restart.
-
-Privacy:  No artifact URIs, S3 model keys, local paths, checksums,
-coefficients, weights, intercepts, scaler values, imputer values, or
-reference distributions are exposed.
+Reads from the immutable process-local ModelRegistry. Supports zero,
+one, or multiple real configured Bremen models.
 
 PR0082a — Control Room Data and Selection Foundation.
+PR0085 — Startup S3 Model Discovery and Per-Job Model Selection.
 """
 
 from __future__ import annotations
 
-import uuid
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from .decision_contract import (
-    DECISION_POLICY_ID,
-    DECISION_POLICY_VERSION,
-)
+from .model_registry import get_registry, RegistryModelEntry
+
+# Re-export for backward compatibility
+ModelEntry = RegistryModelEntry
 
 
 # ---------------------------------------------------------------------------
-# ModelEntry — single catalog entry
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class ModelEntry:
-    """Single entry in the Bremen model catalog.
-
-    All fields are safe for public API exposure.  No artifact URIs,
-    checksums, or internal paths are included.
-    """
-
-    model_id: str
-    display_name: str
-    workflow_id: str
-    model_version: str
-    artifact_type: str
-    feature_schema_version: str
-    decision_policy_id: str
-    decision_policy_version: str
-    technical_ready: bool
-    scientifically_certified: bool
-    technical_demo_only: bool
-    availability: str  # "available" | "unavailable" | "not_configured"
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "model_id": self.model_id,
-            "display_name": self.display_name,
-            "workflow_id": self.workflow_id,
-            "model_version": self.model_version,
-            "artifact_type": self.artifact_type,
-            "feature_schema_version": self.feature_schema_version,
-            "decision_policy_id": self.decision_policy_id,
-            "decision_policy_version": self.decision_policy_version,
-            "technical_ready": self.technical_ready,
-            "scientifically_certified": self.scientifically_certified,
-            "technical_demo_only": self.technical_demo_only,
-            "availability": self.availability,
-        }
-
-
-# ---------------------------------------------------------------------------
-# Build the model catalog from the current ModelState
+# Build the model catalog from the current registry
 # ---------------------------------------------------------------------------
 
 
 def build_model_catalog() -> dict[str, Any]:
-    """Build the model catalog from current ModelState.
+    """Build the model catalog from the current ModelRegistry.
 
     Returns a dict suitable for the GET /demo/api/models response
     with ``schema_version``, ``catalog_timestamp``, ``models`` list,
     ``default_model_id``, and ``status``.
-
-    With the existing single-model configuration (BREMEN_MODEL_URI),
-    returns one entry with ``model_id = "bremen-current"``.
-    When no model is configured, returns an empty models list.
     """
-    from .model_state import ModelState  # noqa: PLC0415
-
+    registry = get_registry()
     now = datetime.now(timezone.utc)
     catalog_timestamp = now.isoformat()
-    model_pkg = ModelState.get_model()
-    state = ModelState.get_instance()
 
-    models: list[ModelEntry] = []
-    default_model_id: str | None = None
+    models = [e.to_safe_dict() for e in registry.entries]
+    # Sort by model_id for deterministic ordering
+    models.sort(key=lambda m: m["model_id"])
+    default_model_id = registry.default_model_id
 
-    if model_pkg is not None:
-        # Model is configured — build a catalog entry from ModelState
-        model_ready = ModelState.is_ready()
-        model_version = state._model_version or "unknown"
-
-        # Derive feature_schema_version from model package
-        plr = model_pkg.get("portable_logreg", {})
-        feature_schema_version = plr.get(
-            "feature_schema_version",
-            plr.get("feature_schema", "v0.1"),
-        )
-
-        entry = ModelEntry(
-            model_id="bremen-current",
-            display_name="Bremen Current",
-            workflow_id="bremen",
-            model_version=model_version,
-            artifact_type="portable_logreg",
-            feature_schema_version=str(feature_schema_version),
-            decision_policy_id=DECISION_POLICY_ID,
-            decision_policy_version=DECISION_POLICY_VERSION,
-            technical_ready=model_ready,
-            scientifically_certified=False,
-            technical_demo_only=True,
-            availability="available" if model_ready else "unavailable",
-        )
-        models.append(entry)
-        if entry.availability == "available":
-            default_model_id = entry.model_id
+    # Determine status
+    if registry.catalog_status == "discovery_failed":
+        status = "discovery_failed"
+    elif registry.available_count > 0:
+        status = "available"
+    elif registry.candidate_count > 0 and registry.available_count == 0:
+        status = "no_valid_models"
     else:
-        # No model configured
-        pass
+        status = "not_configured"
 
-    status: str = "available" if models else "not_configured"
-
-    return {
+    result: dict[str, Any] = {
         "schema_version": "v1",
         "catalog_timestamp": catalog_timestamp,
-        "models": [m.to_dict() for m in models],
+        "models": models,
         "default_model_id": default_model_id,
         "status": status,
     }
 
+    # Add safe aggregate counts in catalog mode
+    if registry.catalog_status != "not_configured":
+        result["candidate_count"] = registry.candidate_count
+        result["available_count"] = registry.available_count
+        result["rejected_count"] = registry.rejected_count
+
+    return result
+
 
 # ---------------------------------------------------------------------------
-# Resolve and validate a model_id against the catalog
+# Resolve and validate a model_id against the registry
 # ---------------------------------------------------------------------------
 
 
@@ -169,7 +97,7 @@ def resolve_model(
     workflow_id: str = "bremen",
     require_availability: bool = True,
 ) -> str:
-    """Resolve and validate a model_id against the current catalog.
+    """Resolve and validate a model_id against the current registry.
 
     Parameters
     ----------
@@ -193,18 +121,18 @@ def resolve_model(
         If model_id is ``None`` and the catalog does not have exactly
         one available model.
     """
-    catalog = build_model_catalog()
-    entries = catalog["models"]
-    default_id = catalog["default_model_id"]
+    registry = get_registry()
+    entries = registry.entries
 
     if model_id is None:
         # Default resolution
         if not entries:
             raise AmbiguousModelSelectionError(
                 "No model configured. "
-                "Configure BREMEN_MODEL_URI to enable analysis."
+                "Configure BREMEN_MODEL_URI or BREMEN_MODEL_CATALOG_URI "
+                "to enable analysis."
             )
-        available_entries = [m for m in entries if m["availability"] == "available"]
+        available_entries = registry.available_entries
         if len(available_entries) == 0:
             raise AmbiguousModelSelectionError(
                 "No model is currently available. "
@@ -217,25 +145,24 @@ def resolve_model(
         resolved = available_entries[0]
     else:
         # Explicit model_id
-        matching = [m for m in entries if m["model_id"] == model_id]
-        if not matching:
+        resolved = registry.get_entry(model_id)
+        if resolved is None:
             raise ModelNotFoundError(
                 f"Model '{model_id}' not found in catalog."
             )
-        resolved = matching[0]
 
     # Availability check
-    if require_availability and resolved["availability"] != "available":
+    if require_availability and resolved.availability != "available":
         raise ModelUnavailableError(
-            f"Model '{resolved['model_id']}' is not available. "
-            f"Status: {resolved['availability']}."
+            f"Model '{resolved.model_id}' is not available. "
+            f"Status: {resolved.availability}."
         )
 
     # Workflow compatibility
-    if resolved["workflow_id"] != workflow_id:
+    if resolved.workflow_id != workflow_id:
         raise ModelIncompatibleError(
-            f"Model '{resolved['model_id']}' targets workflow "
-            f"'{resolved['workflow_id']}', not '{workflow_id}'."
+            f"Model '{resolved.model_id}' targets workflow "
+            f"'{resolved.workflow_id}', not '{workflow_id}'."
         )
 
-    return str(resolved["model_id"])
+    return str(resolved.model_id)

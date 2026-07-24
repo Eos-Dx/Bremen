@@ -41,8 +41,12 @@ def minimal_model_package() -> dict[str, Any]:
 
 @pytest.fixture
 def mock_model_state_ready(monkeypatch, minimal_model_package):
-    """Mock ModelState to appear as fully loaded and ready."""
+    """Mock ModelState to appear as fully loaded and ready.
+    Also initializes the registry for catalog reads.
+    """
     from bremen.api import model_state as ms
+    from bremen.api.model_registry import initialize_registry, ModelRegistry, RegistryModelEntry
+    from bremen.api.decision_contract import DECISION_POLICY_ID, DECISION_POLICY_VERSION
 
     class FakeState:
         _model_version = "smoke-v0.1"
@@ -72,11 +76,43 @@ def mock_model_state_ready(monkeypatch, minimal_model_package):
                  "was_load_attempted", "get_load_error"):
         monkeypatch.setattr(ms.ModelState, attr, getattr(FakeState, attr))
 
+    # Initialize registry
+    plr = minimal_model_package.get("portable_logreg", {})
+    entry = RegistryModelEntry(
+        model_id="bremen-current",
+        display_name="Bremen Current",
+        workflow_id="bremen",
+        model_version="smoke-v0.1",
+        artifact_type="portable_logreg",
+        feature_schema_version=str(plr.get("feature_schema_version", "v0.1")),
+        decision_policy_id=DECISION_POLICY_ID,
+        decision_policy_version=DECISION_POLICY_VERSION,
+        technical_ready=True,
+        scientifically_certified=False,
+        technical_demo_only=True,
+        availability="available",
+        _package=minimal_model_package,
+        _checksum="abc123",
+    )
+    registry = ModelRegistry(
+        entries=(entry,),
+        catalog_status="available",
+        candidate_count=1,
+        available_count=1,
+        rejected_count=0,
+    )
+    initialize_registry(registry)
+
 
 @pytest.fixture
 def mock_model_state_not_configured(monkeypatch):
-    """Mock ModelState to appear as not configured."""
+    """Mock ModelState to appear as not configured.
+    Also resets the registry.
+    """
     from bremen.api import model_state as ms
+    from bremen.api.model_registry import reset_for_tests as reset_registry
+
+    reset_registry()
 
     class FakeState:
         _model_version = None
@@ -109,8 +145,12 @@ def mock_model_state_not_configured(monkeypatch):
 
 @pytest.fixture
 def mock_model_state_unavailable(monkeypatch, minimal_model_package):
-    """Mock ModelState where model exists but is not ready."""
+    """Mock ModelState where model exists but is not ready.
+    Also initializes the registry with an unavailable entry.
+    """
     from bremen.api import model_state as ms
+    from bremen.api.model_registry import initialize_registry, ModelRegistry, RegistryModelEntry
+    from bremen.api.decision_contract import DECISION_POLICY_ID, DECISION_POLICY_VERSION
 
     class FakeState:
         _model_version = "smoke-v0.1"
@@ -140,6 +180,33 @@ def mock_model_state_unavailable(monkeypatch, minimal_model_package):
                  "was_load_attempted", "get_load_error"):
         monkeypatch.setattr(ms.ModelState, attr, getattr(FakeState, attr))
 
+    # Initialize registry with unavailable entry
+    plr = minimal_model_package.get("portable_logreg", {})
+    entry = RegistryModelEntry(
+        model_id="bremen-current",
+        display_name="Bremen Current",
+        workflow_id="bremen",
+        model_version="smoke-v0.1",
+        artifact_type="portable_logreg",
+        feature_schema_version=str(plr.get("feature_schema_version", "v0.1")),
+        decision_policy_id=DECISION_POLICY_ID,
+        decision_policy_version=DECISION_POLICY_VERSION,
+        technical_ready=False,
+        scientifically_certified=False,
+        technical_demo_only=True,
+        availability="unavailable",
+        _package=minimal_model_package,
+        _checksum="abc123",
+    )
+    registry = ModelRegistry(
+        entries=(entry,),
+        catalog_status="available",
+        candidate_count=1,
+        available_count=0,
+        rejected_count=0,
+    )
+    initialize_registry(registry)
+
 
 # ---------------------------------------------------------------------------
 # ModelEntry tests
@@ -166,6 +233,7 @@ class TestModelEntry:
             scientifically_certified=False,
             technical_demo_only=True,
             availability="available",
+            _package={},
         )
 
         d = entry.to_dict()
@@ -190,6 +258,7 @@ class TestModelEntry:
             decision_policy_id="policy", decision_policy_version="0.1",
             technical_ready=True, scientifically_certified=False,
             technical_demo_only=True, availability="available",
+            _package={},
         )
         with pytest.raises((AttributeError, TypeError)):
             entry.model_id = "changed"
