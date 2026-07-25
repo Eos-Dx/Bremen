@@ -1,4 +1,4 @@
-"""Tests for the immutable model registry (PR0085).
+"""Tests for the immutable model registry (PR0085, PR0087).
 
 Uses synthetic model packages only. No real model artifacts.
 """
@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 
 from bremen.api.model_registry import (
+    CatalogUnavailableEntry,
     RegistryModelEntry,
     ModelRegistry,
     initialize_registry,
@@ -18,6 +19,7 @@ from bremen.api.model_registry import (
     get_model_package,
     reset_for_tests,
     build_legacy_registry,
+    REASON_CATEGORIES,
 )
 
 
@@ -294,3 +296,240 @@ class TestLegacyCompatibility:
         reg = build_legacy_registry()
         assert reg.catalog_status == "not_configured"
         assert len(reg.entries) == 0
+
+
+# ---------------------------------------------------------------------------
+# PR0087 — CatalogUnavailableEntry tests
+# ---------------------------------------------------------------------------
+
+
+class TestPR0087UnavailableEntry:
+    """PR0087-specific tests for CatalogUnavailableEntry.
+
+    Covers: entry creation, validation, to_safe_dict, immutability,
+    unavailable entries not resolvable, available entries still resolvable.
+    """
+
+    def teardown_method(self):
+        reset_for_tests()
+
+    # -- Identified entry -------------------------------------------------
+
+    def test_identified_entry_creation(self):
+        """CatalogUnavailableEntry with kind=identified passes validation."""
+        entry = CatalogUnavailableEntry(
+            kind="identified",
+            reason_category="not_compatible",
+            model_id="test-model",
+            display_name="Test Model",
+            workflow_id="bremen",
+        )
+        assert entry.kind == "identified"
+        assert entry.reason_category == "not_compatible"
+        assert entry.model_id == "test-model"
+        assert entry.display_name == "Test Model"
+        assert entry.workflow_id == "bremen"
+        assert entry.candidate_label is None
+
+    def test_identified_rejects_missing_model_id(self):
+        """Identified entry requires model_id."""
+        with pytest.raises(ValueError):
+            CatalogUnavailableEntry(
+                kind="identified",
+                reason_category="not_compatible",
+                model_id="",
+                display_name="Test",
+                workflow_id="bremen",
+            )
+
+    # -- Unregistered entry -----------------------------------------------
+
+    def test_unregistered_entry_creation(self):
+        """CatalogUnavailableEntry with kind=unregistered passes validation."""
+        entry = CatalogUnavailableEntry(
+            kind="unregistered",
+            reason_category="unregistered_package",
+            candidate_label="Discovered model package 1",
+        )
+        assert entry.kind == "unregistered"
+        assert entry.reason_category == "unregistered_package"
+        assert entry.candidate_label == "Discovered model package 1"
+        assert entry.model_id is None
+        assert entry.display_name is None
+        assert entry.workflow_id is None
+
+    def test_unregistered_rejects_missing_label(self):
+        """Unregistered entry requires candidate_label."""
+        with pytest.raises(ValueError):
+            CatalogUnavailableEntry(
+                kind="unregistered",
+                reason_category="unregistered_package",
+                candidate_label="",
+            )
+
+    # -- Reason category validation ---------------------------------------
+
+    def test_invalid_reason_category_rejected(self):
+        """Invalid reason_category is rejected."""
+        with pytest.raises(ValueError):
+            CatalogUnavailableEntry(
+                kind="identified",
+                reason_category="checksum_mismatch",
+                model_id="test",
+                display_name="Test",
+                workflow_id="bremen",
+            )
+
+    def test_reason_categories_fixed_enum(self):
+        """REASON_CATEGORIES contains only the three public values."""
+        assert REASON_CATEGORIES == frozenset({
+            "not_compatible", "duplicate_entry", "unregistered_package",
+        })
+
+    # -- to_safe_dict -----------------------------------------------------
+
+    def test_identified_to_safe_dict(self):
+        """to_safe_dict for identified entry contains safe fields only."""
+        entry = CatalogUnavailableEntry(
+            kind="identified",
+            reason_category="not_compatible",
+            model_id="test-model",
+            display_name="Test Model",
+            workflow_id="bremen",
+        )
+        safe = entry.to_safe_dict()
+        assert safe["kind"] == "identified"
+        assert safe["reason_category"] == "not_compatible"
+        assert safe["model_id"] == "test-model"
+        assert safe["display_name"] == "Test Model"
+        assert safe["workflow_id"] == "bremen"
+        assert safe["technical_demo_only"] is True
+        assert safe["scientifically_certified"] is False
+        assert safe["availability"] == "unavailable"
+        assert "candidate_label" not in safe
+        assert "_package" not in safe
+
+    def test_unregistered_to_safe_dict(self):
+        """to_safe_dict for unregistered entry contains safe fields only."""
+        entry = CatalogUnavailableEntry(
+            kind="unregistered",
+            reason_category="unregistered_package",
+            candidate_label="Discovered model package 1",
+        )
+        safe = entry.to_safe_dict()
+        assert safe["kind"] == "unregistered"
+        assert safe["reason_category"] == "unregistered_package"
+        assert safe["candidate_label"] == "Discovered model package 1"
+        assert "model_id" not in safe
+        assert "display_name" not in safe
+        assert "workflow_id" not in safe
+
+    # -- Immutability ----------------------------------------------------
+
+    def test_unavailable_entry_is_frozen(self):
+        """CatalogUnavailableEntry is immutable."""
+        entry = CatalogUnavailableEntry(
+            kind="identified",
+            reason_category="not_compatible",
+            model_id="test-model",
+            display_name="Test",
+            workflow_id="bremen",
+        )
+        with pytest.raises((AttributeError, TypeError)):
+            entry.reason_category = "duplicate_entry"
+
+    # -- Not resolvable ---------------------------------------------------
+
+    def test_unavailable_entry_not_resolvable(self):
+        """get_model_entry returns None for a model_id in unavailable_entries."""
+        entry = CatalogUnavailableEntry(
+            kind="identified",
+            reason_category="not_compatible",
+            model_id="unavail-model",
+            display_name="Unavailable",
+            workflow_id="bremen",
+        )
+        reg = ModelRegistry(
+            entries=(),
+            unavailable_entries=(entry,),
+            catalog_status="available",
+            candidate_count=1,
+            available_count=0,
+            rejected_count=1,
+            unavailable_count=1,
+        )
+        initialize_registry(reg)
+        # Cannot resolve via get_model_entry
+        assert get_model_entry("unavail-model") is None
+        assert get_model_package("unavail-model") is None
+
+    def test_available_entry_still_resolvable_with_unavailable_present(self):
+        """Available entries remain resolvable alongside unavailable entries."""
+        avail = _make_entry(model_id="avail-model", display_name="Available")
+        unavail = CatalogUnavailableEntry(
+            kind="identified",
+            reason_category="not_compatible",
+            model_id="bad-model",
+            display_name="Bad",
+            workflow_id="bremen",
+        )
+        reg = ModelRegistry(
+            entries=(avail,),
+            unavailable_entries=(unavail,),
+            catalog_status="available",
+            candidate_count=2,
+            available_count=1,
+            rejected_count=1,
+            unavailable_count=1,
+        )
+        initialize_registry(reg)
+        assert get_model_entry("avail-model") is avail
+        assert get_model_entry("bad-model") is None
+
+    # -- default_model_id with unavailable entries -----------------------
+
+    def test_default_model_id_ignores_unavailable(self):
+        """default_model_id is based only on available entries."""
+        avail = _make_entry(model_id="only-avail")
+        unavail = CatalogUnavailableEntry(
+            kind="identified",
+            reason_category="not_compatible",
+            model_id="not-avail",
+            display_name="Not",
+            workflow_id="bremen",
+        )
+        reg = ModelRegistry(
+            entries=(avail,),
+            unavailable_entries=(unavail,),
+            catalog_status="available",
+            candidate_count=2,
+            available_count=1,
+            rejected_count=1,
+            unavailable_count=1,
+        )
+        initialize_registry(reg)
+        assert reg.default_model_id == "only-avail"
+
+    # -- ModelRegistry carries unavailable fields -------------------------
+
+    def test_registry_carries_unavailable_entries_and_last_discovery(self):
+        """ModelRegistry stores unavailable_entries, unavailable_count,
+        and last_discovery_at."""
+        unavail = CatalogUnavailableEntry(
+            kind="identified",
+            reason_category="not_compatible",
+            model_id="bad",
+            display_name="Bad",
+            workflow_id="bremen",
+        )
+        reg = ModelRegistry(
+            unavailable_entries=(unavail,),
+            unavailable_count=1,
+            last_discovery_at="2026-07-25T10:00:00+00:00",
+            catalog_status="available",
+            candidate_count=1,
+            rejected_count=1,
+        )
+        assert reg.unavailable_count == 1
+        assert len(reg.unavailable_entries) == 1
+        assert reg.last_discovery_at == "2026-07-25T10:00:00+00:00"

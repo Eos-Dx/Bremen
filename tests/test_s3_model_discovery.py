@@ -973,3 +973,359 @@ class TestNoPostStartupS3:
         discover_models("s3://bucket/models/", _s3_client=TrackingS3Client())
         # No further S3 calls after discovery
         assert call_count[0] == 1
+
+
+# ---------------------------------------------------------------------------
+# PR0087 — Unavailable model discovery tests
+# ---------------------------------------------------------------------------
+
+
+class TestPR0087UnavailableDiscovery:
+    """PR0087-specific tests for unavailable model discovery.
+
+    Covers: Phase 3 not_compatible, duplicate_entry, unregistered_package,
+    .joblib-only directories, invalid manifest + .joblib, manifest-only
+    aggregate, available+unavailable coexistence, counts, log sanitization,
+    and last_discovery_at.
+    """
+
+    # -- Phase 3 not_compatible ---------------------------------------------
+
+    def test_phase3_rejection_creates_identified_not_compatible(self, tmp_path):
+        """Phase 3 package validation failure with valid manifest identity
+        produces a kind=identified unavailable entry with
+        reason_category=not_compatible."""
+        pkg_bytes = _make_root_level_package(
+            include_threshold=False, include_feature_columns=False,
+        )
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(
+            model_id="bad-package",
+            display_name="Bad Package",
+            model_checksum=checksum,
+        )
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.catalog_status == "no_valid_models"
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+        assert result.unavailable_count == 1
+        assert len(result.unavailable_entries) == 1
+        ue = result.unavailable_entries[0]
+        assert ue.kind == "identified"
+        assert ue.reason_category == "not_compatible"
+        assert ue.model_id == "bad-package"
+        assert ue.display_name == "Bad Package"
+        assert ue.workflow_id == "bremen"
+
+    def test_phase3_rejection_no_raw_technical_detail(self, tmp_path):
+        """Phase 3 rejection does not expose raw technical detail
+        in the unavailable entry."""
+        import io, joblib
+        # Package missing portable_logreg entirely
+        pkg = {"wrong_key": {}}
+        buf = io.BytesIO()
+        joblib.dump(pkg, buf)
+        pkg_bytes = buf.getvalue()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(
+            model_id="bad-format",
+            display_name="Bad Format",
+            model_checksum=checksum,
+        )
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.unavailable_count == 1
+        ue = result.unavailable_entries[0]
+        assert ue.reason_category == "not_compatible"
+        # No raw technical detail
+        safe = ue.to_safe_dict()
+        assert "portable_logreg" not in str(safe)
+        assert "threshold" not in str(safe)
+        assert "coef" not in str(safe)
+        assert "missing" not in str(safe).lower()
+
+    # -- Duplicate model_id ------------------------------------------------
+
+    def test_duplicate_model_id_creates_single_duplicate_entry(self, tmp_path):
+        """Two manifests with same model_id produce exactly one
+        duplicate_entry unavailable card."""
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        s3 = _make_s3_client({
+            "models/a/manifest.json": _make_manifest(
+                model_id="dup-model", display_name="Dup A",
+                model_checksum=checksum,
+            ),
+            "models/a/model.joblib": pkg_bytes,
+            "models/b/manifest.json": _make_manifest(
+                model_id="dup-model", display_name="Dup B",
+                model_checksum=checksum,
+            ),
+            "models/b/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.catalog_status == "no_valid_models"
+        assert result.available_count == 0
+        assert result.rejected_count == 2
+        assert result.unavailable_count >= 1
+        # Exactly one duplicate_entry for this model_id
+        dup_entries = [
+            e for e in result.unavailable_entries
+            if e.reason_category == "duplicate_entry"
+        ]
+        assert len(dup_entries) == 1
+        assert dup_entries[0].model_id == "dup-model"
+        assert dup_entries[0].kind == "identified"
+
+    def test_duplicate_display_name_deterministic(self, tmp_path):
+        """Duplicate display_name selection uses lexicographically first."""
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        def run_discovery():
+            s3 = _make_s3_client({
+                "models/z/manifest.json": _make_manifest(
+                    model_id="dup", display_name="Zeta",
+                    model_checksum=checksum,
+                ),
+                "models/z/model.joblib": pkg_bytes,
+                "models/a/manifest.json": _make_manifest(
+                    model_id="dup", display_name="Alpha",
+                    model_checksum=checksum,
+                ),
+                "models/a/model.joblib": pkg_bytes,
+            })
+            return discover_models(
+                "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+            )
+        r1 = run_discovery()
+        r2 = run_discovery()
+        dup1 = [e for e in r1.unavailable_entries if e.reason_category == "duplicate_entry"]
+        dup2 = [e for e in r2.unavailable_entries if e.reason_category == "duplicate_entry"]
+        assert len(dup1) == 1
+        assert len(dup2) == 1
+        # Lexicographically first is "Alpha"
+        assert dup1[0].display_name == "Alpha"
+        assert dup2[0].display_name == "Alpha"
+
+    # -- .joblib-only directories ------------------------------------------
+
+    def test_joblib_only_creates_unregistered_package(self, tmp_path):
+        """A package directory with a .joblib file but no manifest
+        produces an unregistered_package entry."""
+        pkg_bytes = _make_synthetic_package()
+        s3 = _make_s3_client({
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.candidate_count == 1
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+        assert result.unavailable_count == 1
+        ue = result.unavailable_entries[0]
+        assert ue.kind == "unregistered"
+        assert ue.reason_category == "unregistered_package"
+        assert ue.candidate_label is not None
+        assert "Discovered model package" in ue.candidate_label
+        assert ue.model_id is None
+        assert ue.display_name is None
+
+    def test_joblib_with_invalid_manifest_creates_unregistered(self, tmp_path):
+        """A package directory with .joblib and invalid JSON manifest
+        produces an unregistered_package entry."""
+        pkg_bytes = _make_synthetic_package()
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": b"not valid json {{{ ",
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.candidate_count == 1
+        assert result.available_count == 0
+        assert result.unavailable_count == 1
+        ue = result.unavailable_entries[0]
+        assert ue.kind == "unregistered"
+        assert ue.reason_category == "unregistered_package"
+        assert ue.candidate_label is not None
+
+    def test_joblib_with_manifest_missing_model_id_unregistered(self, tmp_path):
+        """A package directory with .joblib and manifest missing model_id
+        produces an unregistered_package entry."""
+        pkg_bytes = _make_synthetic_package()
+        # Valid base manifest fields but missing model_id
+        bad_manifest = json.dumps({
+            "display_name": "No ID",
+            "workflow_id": "bremen",
+            "model_version": "v1.0",
+            "model_filename": "model.joblib",
+            "model_checksum": "a" * 64,
+            "artifact_type": "bremen.joblib.model_package",
+            "feature_schema_version": "v0.1",
+            "threshold_version": "v0.1",
+            "threshold_value": 0.5,
+            "qc_criteria_version": "v0.1",
+        }).encode("utf-8")
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": bad_manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.unavailable_count == 1
+        ue = result.unavailable_entries[0]
+        assert ue.kind == "unregistered"
+        assert ue.reason_category == "unregistered_package"
+
+    # -- Manifest-only, no .joblib — aggregate only -----------------------
+
+    def test_manifest_only_no_joblib_aggregate_only(self):
+        """A manifest-only directory with invalid identity fields
+        and no .joblib produces no unavailable_models entry."""
+        bad_manifest = json.dumps({"model_id": "bad"}).encode("utf-8")
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": bad_manifest,
+            # No .joblib
+        })
+        result = discover_models("s3://bucket/models/", _s3_client=s3)
+        assert result.candidate_count == 1
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+        assert result.unavailable_count == 0
+        assert len(result.unavailable_entries) == 0
+
+    # -- Available + unavailable coexist -----------------------------------
+
+    def test_available_and_unavailable_coexist(self, tmp_path):
+        """One valid model and one rejected model produce
+        both models and unavailable_models."""
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        # Bad: missing threshold
+        bad_pkg_bytes = _make_root_level_package(
+            include_threshold=False, include_feature_columns=False,
+        )
+        bad_checksum = hashlib.sha256(bad_pkg_bytes).hexdigest()
+        s3 = _make_s3_client({
+            "models/good/manifest.json": _make_manifest(
+                model_id="good-model", display_name="Good",
+                model_checksum=checksum,
+            ),
+            "models/good/model.joblib": pkg_bytes,
+            "models/bad/manifest.json": _make_manifest(
+                model_id="bad-model", display_name="Bad",
+                model_checksum=bad_checksum,
+            ),
+            "models/bad/model.joblib": bad_pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.catalog_status == "available"
+        assert result.available_count == 1
+        assert result.unavailable_count == 1
+        assert len(result.entries) == 1
+        assert result.entries[0].model_id == "good-model"
+        assert len(result.unavailable_entries) == 1
+        assert result.unavailable_entries[0].model_id == "bad-model"
+        assert result.unavailable_entries[0].reason_category == "not_compatible"
+
+    # -- Counts ------------------------------------------------------------
+
+    def test_candidate_counts_accurate(self, tmp_path):
+        """candidate_count counts package directories, not manifests."""
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        s3 = _make_s3_client({
+            "models/joblib_only/model.joblib": pkg_bytes,
+            "models/valid/manifest.json": _make_manifest(
+                model_id="ok", display_name="OK", model_checksum=checksum,
+            ),
+            "models/valid/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.candidate_count == 2
+        assert result.available_count == 1
+        assert result.rejected_count == 1
+        assert result.unavailable_count == 1
+
+    # -- last_discovery_at -------------------------------------------------
+
+    def test_last_discovery_at_is_populated(self, tmp_path):
+        """CatalogDiscoveryResult carries last_discovery_at."""
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(model_checksum=checksum)
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.last_discovery_at is not None
+        # Should be ISO-8601
+        assert "T" in result.last_discovery_at
+
+    # -- Log sanitization (caplog) -----------------------------------------
+
+    def test_discovery_logs_no_manifest_key_in_warnings(self, tmp_path, caplog):
+        """Discovery warning logs use safe reason_category, not manifest_key."""
+        import logging
+        caplog.set_level(logging.WARNING)
+        pkg_bytes = _make_synthetic_package()
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": b"not json",
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        warning_text = " ".join(r.getMessage() for r in caplog.records)
+        assert "manifest_key" not in warning_text
+        assert "reason_category" in warning_text
+
+    # -- JSON safety -------------------------------------------------------
+
+    def test_unavailable_to_safe_dict_no_raw_detail(self, tmp_path):
+        """to_safe_dict output contains no raw technical detail."""
+        import json as _json
+        pkg_bytes = _make_root_level_package(
+            include_threshold=False, include_feature_columns=False,
+        )
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(
+            model_id="safe-test", display_name="Safe",
+            model_checksum=checksum,
+        )
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        for ue in result.unavailable_entries:
+            safe = ue.to_safe_dict()
+            body = _json.dumps(safe)
+            assert "s3://" not in body
+            assert "checksum" not in body
+            assert "/manifest.json" not in body
+            assert "model.joblib" not in body

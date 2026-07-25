@@ -1,0 +1,267 @@
+review:
+  status: valid
+  head: 063730fcac87b6a1036f2576049b325246cacdb7
+  branch: 0087-show-rejected-model-candidates
+  timestamp: "2026-07-25T15:10:00Z"
+
+  blockers: []
+
+  warnings:
+    - id: W001
+      severity: warning
+      title: "Implementation report minor count inconsistency"
+      evidence: |
+        Report lists "tests/test_catalog_api_multi_model.py — 6 new PR0087 tests"
+        but results line says "17 passed (was 10, 7 new PR0087)". Actual count
+        is 7 new tests (17-10=7). Duration reported as 181.04s vs actual 183.65s.
+      recommendation: "Update report to say 7 new and correct duration."
+
+    - id: W002
+      severity: warning
+      title: "feature_schema_version in start_page_ui.py line 143"
+      evidence: |
+        Pre-existing available-model card detail displays "Feature schema: v0.1".
+        Not introduced by PR0087. The new unavailable card rendering code (lines
+        157+) does NOT include feature_schema_version or any other technical term.
+      recommendation: "Non-blocking. Pre-existing pattern outside PR0087 scope."
+
+  changed_files:
+    - docs/api_contract.md
+    - src/bremen/api/model_catalog.py
+    - src/bremen/api/model_registry.py
+    - src/bremen/api/s3_model_discovery.py
+    - src/bremen/api/server.py
+    - src/bremen/start_page_ui.py
+    - tests/test_bremen_api_server.py
+    - tests/test_catalog_api_multi_model.py
+    - tests/test_model_registry.py
+    - tests/test_s3_model_discovery.py
+
+  working_tree_state:
+    modified: 10
+    untracked:
+      - .project-memory/pr/0087-show-rejected-model-candidates/
+
+  b001_tests:
+    status: fixed
+    evidence: "grep returns 80+ matches across all four test files"
+    test_s3_model_discovery:
+      total: 77
+      new_pr0087: 13
+      classes: "TestPR0087UnavailableDiscovery (13 tests covering Phase 3 not_compatible, duplicate_entry, unregistered_package, coexistence, counts, logging safety)"
+    test_catalog_api_multi_model:
+      total: 17
+      new_pr0087: 7
+      classes: "TestPR0087CatalogApi (7 tests covering unavailable_models field, empty, default_model_id, resolve failures, safe_dict)"
+    test_model_registry:
+      total: 34
+      new_pr0087: 13
+      classes: "TestPR0087UnavailableEntry (13 tests covering entry creation, validation, frozen, to_safe_dict, not_resolvable, registry integration)"
+    test_bremen_api_server:
+      total: 95
+      new_pr0087: 4
+      classes: "Start page tests (4 tests covering disabled cards, catalog caption, discovery_failed rendering)"
+    total_new_pr0087: 37
+
+  b002_server_scope:
+    status: resolved
+    diff_minimal: true
+    changes:
+      - "unavailable_entries tuple passed to ModelRegistry constructor"
+      - "unavailable_count passed to ModelRegistry constructor"
+      - "last_discovery_at passed to ModelRegistry constructor"
+      - "startup log updated to include unavailable_count"
+    unrelated_changes: false
+    report_justifies: true
+
+  candidate_inventory:
+    discovery_not_limited_to_manifest: true
+    immediate_child_dirs_counted: true
+    manifest_json_and_joblib_both_counted: true
+    joblib_only_becomes_unregistered: true
+    invalid_manifest_plus_joblib_becomes_unregistered: true
+    manifest_only_stays_aggregate: true
+    candidate_count_counts_unique_dirs: true
+    deterministic_ordering: true
+    no_s3_key_exposed: true
+    no_dir_name_exposed: true
+    no_filename_exposed: true
+    no_checksum_exposed: true
+
+  data_model:
+    catalog_unavailable_entry_frozen: true
+    allowed_fields_only: true
+    no_package_object: true
+    no_exception: true
+    no_s3_key: true
+    no_manifest_key: true
+    no_checksum: true
+    no_coefficients: true
+    not_in_executable_maps: true
+    not_resolvable_for_execution: true
+
+  discovery_handling:
+    phase3_creates_not_compatible: true
+    duplicate_creates_duplicate_entry: true
+    duplicate_display_name_deterministic: true
+    joblib_no_manifest_creates_unregistered: true
+    joblib_invalid_manifest_creates_unregistered: true
+    joblib_missing_identity_creates_unregistered: true
+    manifest_only_stays_aggregate: true
+    catalog_failure_no_fabrication: true
+    no_raw_technical_cause: true
+
+  api_contract:
+    backward_compatible: true
+    existing_fields_unchanged: true
+    new_fields:
+      - unavailable_models
+      - unavailable_count
+      - last_discovery_at
+    unavailable_models_display_only: true
+    default_model_id_uses_available_only: true
+    health_model_ready_uses_available_only: true
+    model_version_uses_available_only: true
+    resolve_model_searches_available_only: true
+    post_unavailable_model_id_fails: true
+    candidate_label_not_usable: true
+
+  start_page_ui:
+    disabled_cards_rendered: true
+    aria_disabled_true: true
+    non_interactive: true
+    not_selectable: true
+    do_not_enable_start: true
+    reason_captions_fixed_lookup: true
+    raw_reason_not_rendered: true
+    no_technical_terms_in_disabled: true
+    catalog_caption_rendered: true
+    discovery_failed_safe_copy: true
+    no_raw_aws_error: true
+    no_polling: true
+    no_admin_panel: true
+
+  catalog_observability:
+    safe_fields_only: true
+    discovery_failed_safe_copy: true
+    no_raw_aws_error: true
+
+  reason_categories:
+    exact_set: "not_compatible | duplicate_entry | unregistered_package"
+    no_technical_categories_exposed: true
+
+  execution_boundary:
+    unavailable_not_executable: true
+    resolve_model_ignores_unavailable: true
+    default_model_id_ignores_unavailable: true
+    health_ready_ignores_unavailable: true
+    post_unavailable_id_fails: true
+    post_candidate_label_fails: true
+
+  logging_sanitization:
+    no_manifest_key_in_logs: true
+    no_s3_uri_in_logs: true
+    no_str_exc_in_logs: true
+    no_repr_exc_in_logs: true
+    no_raw_exception_text: true
+    safe_reason_categories_in_logs: true
+
+  validation_integrity:
+    adapt_model_package_unchanged: true
+    _validate_loaded_package_unchanged: true
+    portable_logreg_requirements_unchanged: true
+    manifest_schema_unchanged: true
+    checksum_validation_unchanged: true
+    artifact_staging_unchanged: true
+    workflow_compatibility_unchanged: true
+    feature_schema_compatibility_unchanged: true
+    threshold_compatibility_unchanged: true
+    duplicate_fail_closed_unchanged: true
+    registry_atomic_publication_unchanged: true
+    job_binding_unchanged: true
+    execution_behavior_unchanged: true
+    health_readiness_unchanged: true
+    model_version_unchanged: true
+
+  test_quality:
+    no_mocks_of_discovery_pipeline: true
+    no_weakened_assertions: true
+    real_behavior_executed: true
+    fake_s3_only: true
+    synthetic_packages_only: true
+
+  focused_tests:
+    test_s3_model_discovery: "77 passed (13 new PR0087)"
+    test_catalog_api_multi_model: "17 passed (7 new PR0087)"
+    test_model_registry: "34 passed (13 new PR0087)"
+    test_bremen_api_server: "95 passed (4 new PR0087)"
+    total_focused: 223
+    total_new_pr0087: 37
+
+  full_suite:
+    command: "python -m pytest -q"
+    passed: 1999
+    skipped: 11
+    failed: 0
+    warnings: 28
+    duration: "183.65s"
+
+  safety_greps:
+    start_page_technical_terms: "feature_schema_version only in pre-existing available card detail (line 143), not in new unavailable card code"
+    no_raw_exception_in_catalog_or_ui: true
+    no_aws_references_in_ui_or_catalog: true
+    manifest_key_not_in_logs: "manifest_key is internal PackageDirectoryInfo field and _resolve_artifact_key parameter only; not logged to public"
+    no_technical_reason_categories: true
+
+  diff_check:
+    command: "git diff --check"
+    result: "clean"
+
+  implementation_report:
+    b001_documented: true
+    b002_documented: true
+    production_log_diagnosis: true
+    candidate_inventory_documented: true
+    data_model_documented: true
+    api_additions_documented: true
+    start_page_rendering_documented: true
+    catalog_observability_documented: true
+    reason_categories_documented: true
+    execution_boundary_documented: true
+    logging_sanitization_documented: true
+    focused_tests_documented: true
+    full_suite_documented: true
+    warning_count_documented: true
+    diff_check_documented: true
+    safety_grep_documented: true
+    rollback_documented: true
+    minor_count_inconsistency: "test_catalog_api_multi_model says 6 new in list but 7 in results; duration 181.04s vs actual 183.65s"
+
+  security:
+    no_private_joblib_contents: true
+    no_coefficients_exposed: true
+    no_patient_data: true
+    no_h5_data: true
+    no_credentials: true
+    no_aws_account_data: true
+    no_s3_paths_exposed: true
+    no_checksums_in_api: true
+    tests_use_fake_s3: true
+    tests_use_synthetic_packages: true
+
+  scope_control:
+    no_infra_changes: true
+    no_docker_changes: true
+    no_ci_changes: true
+    no_training_code_changed: true
+    no_preprocessing_changed: true
+    no_threshold_policy_changed: true
+    no_decision_vocabulary_changed: true
+
+  commit_readiness:
+    blocked: false
+    b001_fixed: true
+    b002_resolved: true
+    all_tests_pass: true
+    safety_greps_clean: true
+    diff_check_clean: true

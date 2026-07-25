@@ -62,9 +62,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .model-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-card);padding:var(--sp-16) var(--sp-24);cursor:pointer;transition:border-color 150ms,box-shadow 150ms;position:relative;display:flex;align-items:flex-start;gap:var(--sp-16)}
 .model-card:hover{border-color:var(--accent);box-shadow:var(--shadow-card)}
 .model-card.selected{border:2px solid var(--accent);padding:calc(var(--sp-16) - 1px) calc(var(--sp-24) - 1px)}
-.model-card.disabled{opacity:0.5;cursor:not-allowed}
+.model-card.disabled{opacity:0.4;cursor:not-allowed}
 .model-card.disabled:hover{border-color:var(--border);box-shadow:none}
+.model-card[aria-disabled="true"]{opacity:0.4;cursor:not-allowed}
+.model-card[aria-disabled="true"]:hover{border-color:var(--border);box-shadow:none}
 .model-card.disabled .model-status-rail{opacity:1}
+.model-card[aria-disabled="true"] .model-status-rail{opacity:1}
 .model-radio{width:20px;height:20px;border:2px solid var(--border);border-radius:50%;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;transition:border-color 150ms}
 .model-card.selected .model-radio{border-color:var(--accent)}
 .model-radio-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);opacity:0;transition:opacity 150ms}
@@ -77,9 +80,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .model-detail{font-size:var(--fs-11);color:var(--text-secondary);font-family:monospace}
 .model-status-rail{display:inline-flex;align-items:center;gap:var(--sp-4);padding:2px 10px;border-radius:var(--radius-pill);font-size:var(--fs-11);font-weight:600}
 .model-status-rail.available{background:var(--tint-accent);color:var(--status-available)}
-.model-status-rail.unavailable{background:var(--tint-pending);color:var(--status-pending)}
+.model-status-rail.unavailable{background:var(--status-unconfigured);color:#FFFFFF}
 .model-status-rail.not_configured{background:var(--tint-error);color:var(--status-error)}
 .model-reason{font-size:var(--fs-13);color:var(--status-pending);margin-top:var(--sp-4)}
+.catalog-caption{font-size:var(--fs-13);color:var(--text-secondary);text-align:center;margin-top:var(--sp-8);margin-bottom:var(--sp-16)}
 .start-actions{display:flex;gap:var(--sp-12);align-items:center;margin-top:var(--sp-8)}
 .btn-primary{background:var(--accent);color:#FFFFFF;border:none;border-radius:var(--radius-card);padding:12px 32px;font-size:var(--fs-17);font-weight:600;cursor:pointer;transition:background 150ms}
 .btn-primary:hover:not(:disabled){background:var(--accent)}
@@ -99,6 +103,12 @@ _JS = r"""
 (function(){
 var baseUrl='__BASE_URL__';
 
+var reasonCaptions={
+  'not_compatible':'Not compatible with the current runtime',
+  'duplicate_entry':'Duplicate model identity',
+  'unregistered_package':'Model package is not registered'
+};
+
 function init(){
   loadModelCatalog();
 }
@@ -109,16 +119,18 @@ function loadModelCatalog(){
   fetch(baseUrl+'/demo/api/models')
     .then(function(r){return r.json()})
     .then(function(data){
-      if(data.status==='not_configured'||!data.models||data.models.length===0){
+      if(data.status==='not_configured'||(!data.models||data.models.length===0)&&(!data.unavailable_models||data.unavailable_models.length===0)){
         grid.innerHTML='<div class="start-empty"><div class="start-empty-title">No models configured</div><div class="start-empty-text">A Bremen model must be configured by the deployment operator before analysis can begin.</div></div>';
         var btn=document.getElementById('start-cta');
         if(btn)btn.disabled=true;
+        updateCatalogCaption(data);
         return;
       }
       var html='';
-      var availableModels=data.models.filter(function(m){return m.availability==='available'});
-      var hasAvailable=availableModels.length>0;
-      data.models.forEach(function(m){
+      // Available model cards
+      var models=data.models||[];
+      var availableModels=models.filter(function(m){return m.availability==='available'});
+      models.forEach(function(m){
         var isAvail=m.availability==='available';
         var isDisabled=!isAvail?' disabled':'';
         var statusLabel=m.availability==='available'?'Available':m.availability==='unavailable'?'Unavailable':'Not configured';
@@ -135,9 +147,31 @@ function loadModelCatalog(){
         }
         html+='</div></div>';
       });
+
+      // Disabled unavailable cards
+      var unavailableModels=data.unavailable_models||[];
+      unavailableModels.forEach(function(m){
+        var displayLabel=m.display_name||m.model_id||m.candidate_label||'Unknown';
+        var metaText='';
+        if(m.kind==='identified'){
+          metaText=(m.workflow_id||'bremen')+' workflow';
+        }else{
+          metaText='Unregistered package';
+        }
+        var reasonText=reasonCaptions[m.reason_category]||'Unavailable';
+        html+='<div class="model-card disabled" aria-disabled="true" role="presentation">';
+        html+='<div class="model-radio" style="visibility:hidden"><div class="model-radio-dot"></div></div>';
+        html+='<div class="model-info">';
+        html+='<div class="model-name">'+displayLabel+'</div>';
+        html+='<div class="model-meta">'+metaText+'</div>';
+        html+='<div class="model-status-rail unavailable">Unavailable</div>';
+        html+='<div class="model-reason">'+reasonText+'</div>';
+        html+='</div></div>';
+      });
+
       grid.innerHTML=html;
 
-      // Attach event listeners
+      // Attach event listeners only to non-disabled cards
       var cards=grid.querySelectorAll('.model-card:not(.disabled)');
       cards.forEach(function(card){
         card.addEventListener('click',function(){selectModel(card);});
@@ -155,11 +189,28 @@ function loadModelCatalog(){
         if(autoCard)selectModel(autoCard);
       }
 
-      // Enable/disable CTA
       updateCTA();
+      updateCatalogCaption(data);
     }).catch(function(){
       grid.innerHTML='<div class="start-empty"><div class="start-empty-title">Model catalog unavailable</div><div class="start-empty-text">Could not load the model catalog. Please check that the server is running.<br><button class="btn-primary" onclick="loadModelCatalog()" style="margin-top:12px">Retry</button></div></div>';
     });
+}
+
+function updateCatalogCaption(data){
+  var caption=document.getElementById('catalog-caption');
+  if(!caption)return;
+  if(data.status==='discovery_failed'){
+    caption.textContent='Catalog: discovery unavailable';
+  }else if(data.candidate_count>0||(data.candidate_count===0&&data.status!=='not_configured')){
+    var available=data.available_count||0;
+    var total=data.candidate_count||0;
+    if(total===0){
+      caption.textContent='Catalog: no discovered models';
+      return;
+    }
+    var time=data.last_discovery_at?new Date(data.last_discovery_at).toLocaleTimeString():'';
+    caption.textContent='Catalog: '+available+' of '+total+' discovered models available'+(time?' \u00b7 last checked '+time:'');
+  }
 }
 
 function selectModel(card){
@@ -241,6 +292,8 @@ def build_start_page(base_url: str = "http://localhost:8000") -> str:
         <div class="start-empty-text">Fetching available models from the server.</div>
       </div>
     </div>
+
+    <div class="catalog-caption" id="catalog-caption"></div>
 
     <div class="start-actions" id="start-actions">
       <button class="btn-primary" id="start-cta" onclick="startAnalysis()" disabled

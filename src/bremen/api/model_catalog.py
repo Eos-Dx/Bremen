@@ -57,11 +57,17 @@ def build_model_catalog() -> dict[str, Any]:
         "status": status,
     }
 
-    # Add safe aggregate counts in catalog mode
+    # Add safe aggregate counts and unavailable models in catalog mode
     if registry.catalog_status != "not_configured":
         result["candidate_count"] = registry.candidate_count
         result["available_count"] = registry.available_count
         result["rejected_count"] = registry.rejected_count
+        result["unavailable_count"] = registry.unavailable_count
+        result["last_discovery_at"] = registry.last_discovery_at
+
+        # Include unavailable models for display
+        unavailable = [e.to_safe_dict() for e in registry.unavailable_entries]
+        result["unavailable_models"] = unavailable
 
     return result
 

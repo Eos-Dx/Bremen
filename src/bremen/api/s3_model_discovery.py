@@ -1,10 +1,15 @@
 """S3 model catalog discovery — startup bootstrap for multi-model support.
 
-Discovers model manifests under a configured S3 prefix, validates each
+Discovers model packages under a configured S3 prefix, validates each
 candidate through a complete pipeline, and produces a CatalogDiscoveryResult
 for registry initialization.
 
+Every discovered Joblib model package directory is surfaced — available
+models are executable, and non-executable candidates appear as disabled
+display-only entries with safe reason categories.
+
 PR0085 — Startup S3 Model Discovery and Per-Job Model Selection.
+PR0087 — Show Every Discovered Joblib Model Candidate as Available or Disabled.
 """
 
 from __future__ import annotations
@@ -16,9 +21,14 @@ import os
 import re
 import tempfile
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any
 
-from .model_registry import RegistryModelEntry
+from .model_registry import (
+    CatalogUnavailableEntry,
+    RegistryModelEntry,
+    REASON_CATEGORIES,
+)
 from ..inference import adapt_model_package  # noqa: PLC0415
 
 _log = logging.getLogger(__name__)
@@ -49,6 +59,29 @@ _MODEL_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 # Supported feature schema versions
 _SUPPORTED_FEATURE_SCHEMA_VERSIONS = frozenset({"v0.1"})
 
+# Generic candidate label prefix
+_CANDIDATE_LABEL_PREFIX = "Discovered model package"
+
+
+# ---------------------------------------------------------------------------
+# Package directory info
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class PackageDirectoryInfo:
+    """Internal representation of a discovered package directory.
+
+    Never exposed publicly. Directory name, manifest key, and
+    joblib keys remain server-private.
+    """
+
+    name: str  # Directory name (never exposed publicly)
+    manifest_key: str | None = None  # S3 key of manifest.json, if any
+    joblib_keys: list[str] = field(default_factory=list)  # S3 keys of .joblib artifacts
+    has_manifest: bool = False
+    has_joblib: bool = False
+
 
 # ---------------------------------------------------------------------------
 # Result types
@@ -60,10 +93,13 @@ class CatalogDiscoveryResult:
     """Result of the full S3 model discovery process."""
 
     entries: list[RegistryModelEntry] = field(default_factory=list)
+    unavailable_entries: list[CatalogUnavailableEntry] = field(default_factory=list)
     catalog_status: str = "not_configured"
     candidate_count: int = 0
     available_count: int = 0
     rejected_count: int = 0
+    unavailable_count: int = 0
+    last_discovery_at: str | None = None
     error_category: str | None = None
 
 
@@ -105,24 +141,27 @@ def _validate_catalog_uri(uri: str) -> tuple[str, str]:
 
 
 # ---------------------------------------------------------------------------
-# S3 listing
+# S3 listing — package directory discovery
 # ---------------------------------------------------------------------------
 
 
-def _list_candidate_manifests(
+def _discover_package_directories(
     s3_client: Any,
     bucket: str,
     prefix: str,
-) -> list[str]:
-    """List candidate manifest keys under the configured prefix.
+) -> list[PackageDirectoryInfo]:
+    """Discover candidate package directories under the catalog prefix.
 
-    Uses ListObjectsV2 without Delimiter. Filters for keys matching:
-    {prefix}{package_dir}/manifest.json where package_dir is exactly
-    one level below prefix.
+    A candidate directory is any immediate child directory of the prefix
+    that contains at least one of:
+    - manifest.json
+    - one or more .joblib objects
 
-    Returns sorted list of manifest keys (lexicographic order).
+    Returns sorted list (by directory name) for deterministic ordering.
+    Does NOT recursively scan nested directories.
     """
-    manifest_keys: list[str] = []
+    # Collect all objects under prefix and group by immediate child directory
+    dirs: dict[str, PackageDirectoryInfo] = {}
     paginator = s3_client.get_paginator("list_objects_v2")
     pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
 
@@ -130,21 +169,72 @@ def _list_candidate_manifests(
         for obj in page.get("Contents", []):
             key = str(obj["Key"])
 
-            # Must end with /manifest.json
-            if not key.endswith("/manifest.json"):
+            # Get relative path after prefix
+            if not key.startswith(prefix):
                 continue
+            relative = key[len(prefix):]
 
-            # Must be exactly one level below prefix
-            relative = key[len(prefix):] if key.startswith(prefix) else key
+            # Extract immediate child directory name
             parts = relative.split("/")
-            # Expected: ["package-dir", "manifest.json"]
-            if len(parts) != 2 or parts[1] != "manifest.json":
+            if len(parts) < 2:
                 continue
+            dir_name = parts[0]
+            filename = parts[1] if len(parts) >= 2 else ""
 
-            manifest_keys.append(key)
+            if dir_name not in dirs:
+                dirs[dir_name] = PackageDirectoryInfo(name=dir_name)
 
-    manifest_keys.sort()
-    return manifest_keys
+            info = dirs[dir_name]
+
+            # Check for manifest.json
+            if filename == "manifest.json" and len(parts) == 2:
+                info.manifest_key = key
+                info.has_manifest = True
+
+            # Check for .joblib objects
+            if filename.lower().endswith(".joblib") and len(parts) == 2:
+                info.joblib_keys.append(key)
+                info.has_joblib = True
+
+    # Filter to only directories that are candidates
+    candidates = [
+        info for info in dirs.values()
+        if info.has_manifest or info.has_joblib
+    ]
+
+    # Sort by directory name for deterministic ordering
+    candidates.sort(key=lambda d: d.name)
+
+    return candidates
+
+
+def _generate_candidate_labels(unregistered_count: int) -> list[str]:
+    """Generate deterministic generic labels for unregistered candidates.
+
+    Labels are "Discovered model package 1", "Discovered model package 2", etc.
+    Ordinal is deterministic within the response and does NOT encode
+    S3 path, filename, checksum, or manifest contents.
+    """
+    return [
+        f"{_CANDIDATE_LABEL_PREFIX} {i + 1}"
+        for i in range(unregistered_count)
+    ]
+
+
+def _list_candidate_manifests(
+    s3_client: Any,
+    bucket: str,
+    prefix: str,
+) -> list[str]:
+    """Backward-compatible wrapper — delegates to package directory discovery.
+
+    Kept for test compatibility. Returns manifest keys sorted by
+    directory name.
+    """
+    pkg_dirs = _discover_package_directories(s3_client, bucket, prefix)
+    return sorted(
+        [d.manifest_key for d in pkg_dirs if d.manifest_key is not None]
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -378,14 +468,11 @@ def discover_models(
 ) -> CatalogDiscoveryResult:
     """Run the full S3 model discovery pipeline.
 
-    Two-phase duplicate handling:
-    Phase 1: Download, parse, base-validate, and discovery-validate
-             candidate manifests.
-    Phase 2: Count model_id occurrences among otherwise valid manifests.
-             Reject every candidate whose model_id occurs more than once.
-             Only unique model_ids proceed to artifact staging, checksum
-             verification, deserialization, package validation, and
-             registry insertion.
+    Discovers package directories, validates manifests, detects
+    duplicates, stages and validates artifacts. Every directory
+    containing a .joblib artifact surfaces as a card (available or
+    disabled). Manifest-only directories surface as identified
+    disabled if identity validates.
 
     Parameters
     ----------
@@ -395,8 +482,13 @@ def discover_models(
 
     Returns
     -------
-    A CatalogDiscoveryResult with validated entries.
+    A CatalogDiscoveryResult with validated entries and disabled
+    display-only entries.
     """
+    from datetime import datetime as _dt  # noqa: PLC0415
+
+    discovery_start = datetime.now(timezone.utc)
+
     result = CatalogDiscoveryResult()
 
     try:
@@ -418,24 +510,24 @@ def discover_models(
             result.error_category = "s3_client_failure"
             return result
 
-    # List candidate manifests
+    # ---- Phase 0: Discover package directories ----
     try:
-        manifest_keys = _list_candidate_manifests(_s3_client, bucket, prefix)
+        pkg_dirs = _discover_package_directories(_s3_client, bucket, prefix)
     except Exception as exc:
         _log.error("bremen.catalog.discovery.failed\terror_category=s3_listing\tmessage=%s", exc)
         result.catalog_status = "discovery_failed"
         result.error_category = "s3_listing_failure"
         return result
 
-    result.candidate_count = len(manifest_keys)
+    result.candidate_count = len(pkg_dirs)
 
     # Enforce candidate limit
-    if len(manifest_keys) > MAX_CANDIDATES:
+    if len(pkg_dirs) > MAX_CANDIDATES:
         _log.error(
             "bremen.catalog.discovery.failed\t"
             "error_category=too_many_candidates\t"
             "candidate_count=%d\tmax_candidates=%d",
-            len(manifest_keys), MAX_CANDIDATES,
+            len(pkg_dirs), MAX_CANDIDATES,
         )
         result.catalog_status = "discovery_failed"
         result.error_category = "too_many_candidates"
@@ -445,21 +537,34 @@ def discover_models(
     if staging_dir is None:
         staging_dir = tempfile.mkdtemp(prefix="bremen_model_staging_")
 
-    # ---- Phase 1: Download, parse, and validate all manifests ----
-    # Each entry: (manifest_key, data_dict) or None if rejected
-    phase1_results: list[tuple[str, dict[str, Any] | None]] = []
-    for manifest_key in manifest_keys:
+    # ---- Phase 1: Manifest validation per directory ----
+    # phase1_data: dict mapping directory name to parsed manifest data (or None)
+    phase1_data: dict[str, dict[str, Any] | None] = {}
+    unregistered_dirs: list[PackageDirectoryInfo] = []
+
+    for pkg_dir in pkg_dirs:
+        if pkg_dir.manifest_key is None:
+            # No manifest — if .joblib exists, mark as unregistered
+            if pkg_dir.has_joblib:
+                unregistered_dirs.append(pkg_dir)
+                result.rejected_count += 1
+            # No manifest and no .joblib — not a candidate (shouldn't happen)
+            phase1_data[pkg_dir.name] = None
+            continue
+
+        # Attempt manifest download and validation
         try:
-            response = _s3_client.get_object(Bucket=bucket, Key=manifest_key)
+            response = _s3_client.get_object(Bucket=bucket, Key=pkg_dir.manifest_key)
             body_bytes = response["Body"].read()
-        except Exception as exc:
+        except Exception:
             _log.warning(
                 "bremen.catalog.candidate.rejected\t"
-                "manifest_key=%s\terror_category=manifest_download_failed",
-                manifest_key,
+                "reason_category=manifest_download_failed",
             )
             result.rejected_count += 1
-            phase1_results.append((manifest_key, None))
+            if pkg_dir.has_joblib:
+                unregistered_dirs.append(pkg_dir)
+            phase1_data[pkg_dir.name] = None
             continue
 
         try:
@@ -477,36 +582,82 @@ def discover_models(
             # Discovery-specific validation
             data = _validate_discovery_fields(data)
 
-            phase1_results.append((manifest_key, data))
-        except Exception as exc:
+            phase1_data[pkg_dir.name] = data
+        except Exception:
             _log.warning(
                 "bremen.catalog.candidate.rejected\t"
-                "manifest_key=%s\terror_category=%s",
-                manifest_key, str(exc)[:100],
+                "reason_category=manifest_validation_failed",
             )
             result.rejected_count += 1
-            phase1_results.append((manifest_key, None))
+            if pkg_dir.has_joblib:
+                unregistered_dirs.append(pkg_dir)
+            phase1_data[pkg_dir.name] = None
+
+    # ---- Create unregistered unavailable entries ----
+    if unregistered_dirs:
+        labels = _generate_candidate_labels(len(unregistered_dirs))
+        for i, pkg_dir in enumerate(unregistered_dirs):
+            entry = CatalogUnavailableEntry(
+                kind="unregistered",
+                reason_category="unregistered_package",
+                candidate_label=labels[i],
+            )
+            result.unavailable_entries.append(entry)
+        result.unavailable_count = len(result.unavailable_entries)
 
     # ---- Phase 2: Count model_id occurrences, reject duplicates ----
+    # Collect valid manifest entries (passed Phase 1)
+    phase2_candidates: list[tuple[str, dict[str, Any]]] = [
+        (dname, data) for dname, data in phase1_data.items()
+        if data is not None
+    ]
+
     model_id_counts: dict[str, int] = {}
-    for manifest_key, data in phase1_results:
-        if data is not None:
-            mid = str(data["model_id"])
-            model_id_counts[mid] = model_id_counts.get(mid, 0) + 1
+    for _, data in phase2_candidates:
+        mid = str(data["model_id"])
+        model_id_counts[mid] = model_id_counts.get(mid, 0) + 1
 
     duplicate_ids = {mid for mid, count in model_id_counts.items() if count > 1}
 
-    # Reject all duplicates
-    for i, (manifest_key, data) in enumerate(phase1_results):
-        if data is not None and str(data["model_id"]) in duplicate_ids:
-            _log.warning(
-                "bremen.catalog.candidate.rejected\t"
-                "manifest_key=%s\terror_category=duplicate_model_id\t"
-                "model_id=%s",
-                manifest_key, str(data["model_id"]),
-            )
-            phase1_results[i] = (manifest_key, None)
+    # For duplicates: select lexicographically first display_name
+    duplicate_display_names: dict[str, str] = {}
+    for dname, data in phase2_candidates:
+        mid = str(data["model_id"])
+        if mid in duplicate_ids:
+            dn = str(data.get("display_name", "")).strip()
+            if mid not in duplicate_display_names or dn < duplicate_display_names[mid]:
+                duplicate_display_names[mid] = dn if dn else mid
+
+    # Create duplicate unavailable entries (one per duplicated model_id)
+    for mid in sorted(duplicate_ids):
+        display_name = duplicate_display_names.get(mid, mid)
+        # Find first duplicate candidate for workflow_id
+        workflow_id = "bremen"
+        for _, data in phase2_candidates:
+            if str(data["model_id"]) == mid:
+                workflow_id = str(data.get("workflow_id", "bremen"))
+                break
+        entry = CatalogUnavailableEntry(
+            kind="identified",
+            reason_category="duplicate_entry",
+            model_id=mid,
+            display_name=display_name,
+            workflow_id=workflow_id,
+        )
+        result.unavailable_entries.append(entry)
+        _log.warning(
+            "bremen.catalog.candidate.rejected\t"
+            "reason_category=duplicate_entry\tmodel_id=%s",
+            mid,
+        )
+
+    # Reject all duplicates — mark data as None
+    for dname, data in phase2_candidates:
+        if str(data["model_id"]) in duplicate_ids:
+            phase1_data[dname] = None
             result.rejected_count += 1
+
+    result.unavailable_count = len(result.unavailable_entries)
 
     # ---- Phase 3: Process unique candidates through full pipeline ----
     from .decision_contract import (  # noqa: PLC0415
@@ -515,19 +666,42 @@ def discover_models(
     )
 
     entries: list[RegistryModelEntry] = []
+    pkg_dir_map = {d.name: d for d in pkg_dirs}
 
-    for manifest_key, data in phase1_results:
+    for dname, data in phase1_data.items():
         if data is None:
             continue
 
+        pkg_dir = pkg_dir_map.get(dname)
+        model_id = str(data["model_id"])
+        display_name = str(data["display_name"]).strip()
+        workflow_id = str(data["workflow_id"])
+
+        # If no .joblib artifact but valid identity, create identified disabled
+        if pkg_dir is None or not pkg_dir.has_joblib:
+            entry = CatalogUnavailableEntry(
+                kind="identified",
+                reason_category="not_compatible",
+                model_id=model_id,
+                display_name=display_name,
+                workflow_id=workflow_id,
+            )
+            result.unavailable_entries.append(entry)
+            result.rejected_count += 1
+            _log.warning(
+                "bremen.catalog.candidate.rejected\t"
+                "reason_category=not_compatible\tmodel_id=%s",
+                model_id,
+            )
+            continue
+
         try:
-            model_id = str(data["model_id"])
             model_filename = str(data["model_filename"])
             expected_checksum = str(data["model_checksum"])
 
             # Resolve artifact key
             artifact_key = _resolve_artifact_key(
-                manifest_key, model_filename, prefix,
+                pkg_dir.manifest_key, model_filename, prefix,
             )
 
             # Stage and load artifact
@@ -546,8 +720,6 @@ def discover_models(
 
             # Build entry
             model_version = str(data.get("model_version", "unknown"))
-            display_name = str(data["display_name"]).strip()
-            workflow_id = str(data["workflow_id"])
             artifact_type = str(data.get("artifact_type", "portable_logreg"))
             feature_schema_version = str(data.get("feature_schema_version", "v0.1"))
 
@@ -572,32 +744,54 @@ def discover_models(
             result.available_count += 1
 
             _log.info(
-                "bremen.catalog.candidate.accepted\t"
-                "model_id=%s\tmanifest_key=%s",
-                model_id, manifest_key,
+                "bremen.catalog.candidate.accepted\tmodel_id=%s",
+                model_id,
             )
-        except Exception as exc:
+        except Exception:
+            # Phase 3 failure — create identified disabled entry
+            unavailable_entry = CatalogUnavailableEntry(
+                kind="identified",
+                reason_category="not_compatible",
+                model_id=model_id,
+                display_name=display_name,
+                workflow_id=workflow_id,
+            )
+            result.unavailable_entries.append(unavailable_entry)
+            result.rejected_count += 1
             _log.warning(
                 "bremen.catalog.candidate.rejected\t"
-                "manifest_key=%s\terror_category=%s",
-                manifest_key, str(exc)[:100],
+                "reason_category=not_compatible\tmodel_id=%s",
+                model_id,
             )
-            result.rejected_count += 1
+
+    # Update final counts
+    result.unavailable_count = len(result.unavailable_entries)
 
     # Sort entries by model_id for deterministic ordering
     entries.sort(key=lambda e: e.model_id)
 
     result.entries = entries
-    result.catalog_status = "available" if entries else "no_valid_models"
+    result.last_discovery_at = discovery_start.isoformat()
+
+    if entries:
+        result.catalog_status = "available"
+    elif pkg_dirs and not entries:
+        result.catalog_status = "no_valid_models"
+    elif not pkg_dirs:
+        result.catalog_status = "no_valid_models"
+    else:
+        result.catalog_status = "not_configured"
 
     _log.info(
         "bremen.catalog.discovery.completed\t"
         "catalog_status=%s\tcandidate_count=%d\t"
-        "available_count=%d\trejected_count=%d",
+        "available_count=%d\trejected_count=%d\t"
+        "unavailable_count=%d",
         result.catalog_status,
         result.candidate_count,
         result.available_count,
         result.rejected_count,
+        result.unavailable_count,
     )
 
     return result

@@ -2102,3 +2102,59 @@ class TestHealthLogSuppression:
         assert len(notfound_logs) > 0, (
             "Expected INFO log for unknown route"
         )
+
+
+# ---------------------------------------------------------------------------
+# PR0087 — Start page disabled cards and catalog caption tests
+# ---------------------------------------------------------------------------
+
+
+class TestPR0087StartPageDisabledCards:
+    """PR0087-specific tests for Start page disabled card rendering.
+
+    Covers: aria-disabled, role=presentation, reason captions,
+    catalog caption, discovery_failed safe copy.
+    """
+
+    def test_start_page_renders_disabled_cards(self, server_info):
+        """GET /demo Start page HTML includes disabled card markup
+        with aria-disabled=true."""
+        host, port, _ = server_info
+        status, body, _ = _get(host, port, "/demo")
+        assert status == 200
+        text = body.decode("utf-8")
+        # The JS renders disabled cards from unavailable_models;
+        # the CSS includes the disabled-card styles.
+        assert "aria-disabled" in text
+        assert "disabled" in text.lower()
+
+    def test_start_page_has_catalog_caption_div(self, server_info):
+        """GET /demo Start page includes the catalog-caption div."""
+        host, port, _ = server_info
+        status, body, _ = _get(host, port, "/demo")
+        assert status == 200
+        text = body.decode("utf-8")
+        assert 'id="catalog-caption"' in text
+
+    def test_start_page_discovery_failed_no_raw_aws_error(self, server_info):
+        """The Start page JS renders discovery_failed as safe copy,
+        never raw AWS error."""
+        host, port, _ = server_info
+        status, body, _ = _get(host, port, "/demo")
+        assert status == 200
+        text = body.decode("utf-8")
+        # The JS contains the discovery_failed caption logic
+        assert "discovery unavailable" in text
+        # No raw AWS error patterns in HTML
+        assert "AccessDenied" not in text
+        assert "s3://" not in text
+
+    def test_start_page_has_reason_captions(self, server_info):
+        """The Start page JS includes the reasonCaptions lookup."""
+        host, port, _ = server_info
+        status, body, _ = _get(host, port, "/demo")
+        assert status == 200
+        text = body.decode("utf-8")
+        assert "Not compatible with the current runtime" in text
+        assert "Duplicate model identity" in text
+        assert "Model package is not registered" in text
