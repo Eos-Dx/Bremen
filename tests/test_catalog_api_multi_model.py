@@ -1,4 +1,4 @@
-"""Tests for multi-model catalog API behavior (PR0085).
+"""Tests for multi-model catalog API behavior (PR0085, PR0087).
 
 Tests GET /demo/api/models with zero, one, and multiple models.
 Uses the registry directly. No real AWS calls.
@@ -12,12 +12,17 @@ from typing import Any
 import pytest
 
 from bremen.api.model_registry import (
+    CatalogUnavailableEntry,
     RegistryModelEntry,
     ModelRegistry,
     initialize_registry,
     reset_for_tests,
 )
-from bremen.api.model_catalog import build_model_catalog
+from bremen.api.model_catalog import (
+    build_model_catalog,
+    resolve_model,
+    ModelNotFoundError,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -220,3 +225,186 @@ class TestMultipleModelCatalog:
         catalog = build_model_catalog()
         assert len(catalog["models"]) == 0
         assert catalog["rejected_count"] == 2
+
+
+# ---------------------------------------------------------------------------
+# PR0087 — Unavailable models catalog API tests
+# ---------------------------------------------------------------------------
+
+
+class TestPR0087CatalogApi:
+    """PR0087-specific tests for unavailable_models in catalog API.
+
+    Covers: unavailable_models field, unavailable_count, last_discovery_at,
+    default_model_id from available only, resolve_model rejection,
+    no raw detail in API response.
+    """
+
+    def teardown_method(self):
+        reset_for_tests()
+
+    # -- unavailable_models field -----------------------------------------
+
+    def test_unavailable_models_field_present(self):
+        """build_model_catalog includes unavailable_models, unavailable_count,
+        and last_discovery_at when catalog_status is not not_configured."""
+        unavail = CatalogUnavailableEntry(
+            kind="identified",
+            reason_category="not_compatible",
+            model_id="bad-model",
+            display_name="Bad",
+            workflow_id="bremen",
+        )
+        reg = ModelRegistry(
+            entries=(),
+            unavailable_entries=(unavail,),
+            catalog_status="no_valid_models",
+            candidate_count=1,
+            available_count=0,
+            rejected_count=1,
+            unavailable_count=1,
+            last_discovery_at="2026-07-25T10:00:00+00:00",
+        )
+        initialize_registry(reg)
+        catalog = build_model_catalog()
+        assert "unavailable_models" in catalog
+        assert isinstance(catalog["unavailable_models"], list)
+        assert catalog["unavailable_count"] == 1
+        assert catalog["last_discovery_at"] == "2026-07-25T10:00:00+00:00"
+
+    def test_unavailable_models_empty_when_none(self):
+        """unavailable_models is an empty list when no unavailable entries."""
+        entry = _make_entry()
+        reg = ModelRegistry(
+            entries=(entry,),
+            catalog_status="available",
+            candidate_count=1,
+            available_count=1,
+            rejected_count=0,
+            unavailable_count=0,
+        )
+        initialize_registry(reg)
+        catalog = build_model_catalog()
+        assert "unavailable_models" in catalog
+        assert catalog["unavailable_models"] == []
+        assert catalog["unavailable_count"] == 0
+
+    # -- default_model_id uses only available -----------------------------
+
+    def test_default_model_id_uses_only_available(self):
+        """default_model_id comes from available models, not unavailable."""
+        avail = _make_entry(model_id="only-avail", display_name="Only")
+        unavail = CatalogUnavailableEntry(
+            kind="identified",
+            reason_category="not_compatible",
+            model_id="not-avail",
+            display_name="Not",
+            workflow_id="bremen",
+        )
+        reg = ModelRegistry(
+            entries=(avail,),
+            unavailable_entries=(unavail,),
+            catalog_status="available",
+            candidate_count=2,
+            available_count=1,
+            rejected_count=1,
+            unavailable_count=1,
+        )
+        initialize_registry(reg)
+        catalog = build_model_catalog()
+        assert catalog["default_model_id"] == "only-avail"
+
+    def test_default_model_id_null_when_unavailable_only(self):
+        """When only unavailable models exist, default_model_id is None."""
+        unavail = CatalogUnavailableEntry(
+            kind="identified",
+            reason_category="duplicate_entry",
+            model_id="dup-model",
+            display_name="Duplicate",
+            workflow_id="bremen",
+        )
+        reg = ModelRegistry(
+            entries=(),
+            unavailable_entries=(unavail,),
+            catalog_status="no_valid_models",
+            candidate_count=1,
+            available_count=0,
+            rejected_count=1,
+            unavailable_count=1,
+        )
+        initialize_registry(reg)
+        catalog = build_model_catalog()
+        assert catalog["default_model_id"] is None
+
+    # -- resolve_model rejects unavailable ---------------------------------
+
+    def test_resolve_unavailable_model_id_fails(self):
+        """resolve_model raises ModelNotFoundError for unavailable-only model_id."""
+        unavail = CatalogUnavailableEntry(
+            kind="identified",
+            reason_category="not_compatible",
+            model_id="bad-model",
+            display_name="Bad",
+            workflow_id="bremen",
+        )
+        reg = ModelRegistry(
+            entries=(),
+            unavailable_entries=(unavail,),
+            catalog_status="no_valid_models",
+            candidate_count=1,
+            available_count=0,
+            rejected_count=1,
+            unavailable_count=1,
+        )
+        initialize_registry(reg)
+        with pytest.raises(ModelNotFoundError):
+            resolve_model("bad-model")
+
+    def test_resolve_available_still_works_with_unavailable_present(self):
+        """resolve_model succeeds for available model even with unavailable present."""
+        avail = _make_entry(model_id="good-model", display_name="Good")
+        unavail = CatalogUnavailableEntry(
+            kind="identified",
+            reason_category="not_compatible",
+            model_id="bad-model",
+            display_name="Bad",
+            workflow_id="bremen",
+        )
+        reg = ModelRegistry(
+            entries=(avail,),
+            unavailable_entries=(unavail,),
+            catalog_status="available",
+            candidate_count=2,
+            available_count=1,
+            rejected_count=1,
+            unavailable_count=1,
+        )
+        initialize_registry(reg)
+        assert resolve_model("good-model") == "good-model"
+
+    # -- No raw detail in API response ------------------------------------
+
+    def test_unavailable_models_safe_dict_no_raw_detail(self):
+        """unavailable_models entries contain no raw technical detail."""
+        unavail = CatalogUnavailableEntry(
+            kind="identified",
+            reason_category="not_compatible",
+            model_id="bad-model",
+            display_name="Bad",
+            workflow_id="bremen",
+        )
+        reg = ModelRegistry(
+            unavailable_entries=(unavail,),
+            catalog_status="no_valid_models",
+            candidate_count=1,
+            rejected_count=1,
+            unavailable_count=1,
+        )
+        initialize_registry(reg)
+        catalog = build_model_catalog()
+        body = json.dumps(catalog)
+        assert "s3://" not in body
+        assert "checksum" not in body
+        assert "manifest_key" not in body
+        assert "model_filename" not in body
+        assert "_package" not in body

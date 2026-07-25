@@ -1,0 +1,228 @@
+review:
+  status: valid
+  head: 063730fcac87b6a1036f2576049b325246cacdb7
+  branch: 0087-show-rejected-model-candidates
+  blockers: []
+  warnings:
+    - id: W001
+      evidence:
+        file: .project-memory/pr/0087-show-rejected-model-candidates/PLAN.md
+        lines: Start page CSS section
+      issue: The current start_page_ui.css uses opacity: 0.5 for .model-card.disabled. The spec Section 7 says opacity reduction for content but does not specify an exact percentage. The PLAN proposes 0.4. The spec only says "opacity reduction" without an exact value.
+      recommendation: Set disabled-card content opacity to 0.4 for visual consistency with the design intent, but confirm the exact value against the committed BREMEN_DESIGN_SPEC_v1.md. If the spec is silent on the exact value, 0.4 is a reasonable choice.
+    - id: W002
+      evidence:
+        file: .project-memory/pr/0087-show-rejected-model-candidates/PLAN.md
+        lines: Log sanitization section
+      issue: The PLAN identifies that _log.warning at s3_model_discovery.py line ~550 uses str(exc)[:100] which can leak field names like threshold, coef. The PLAN correctly proposes replacing this with safe reason_category strings. However, the existing log also includes manifest_key for Phase 1 failures. The PLAN notes manifest_key is server-private logging but should not coexist with model_id in Phase 3 logs. This requires careful implementation.
+      recommendation: Replace str(exc)[:100] with safe reason_category in all Phase 3 rejection logs. Ensure manifest_key appears only in Phase 1 logs and model_id appears only in Phase 2/3 logs. Never combine both in the same log line.
+    - id: W003
+      evidence:
+        file: .project-memory/pr/0087-show-rejected-model-candidates/PLAN.md
+        lines: Duplicate display_name selection
+      issue: The PLAN selects the lexicographically first non-empty display_name among duplicate manifests for the disabled card. This is deterministic but may select an arbitrary-seeming name if two manifests carry different display_name values for the same model_id.
+      recommendation: Document this behavior in the registry code comment. Accept the lexicographic choice as deterministic and stable across restarts.
+
+files_read:
+  - .project-memory/pr/0087-show-rejected-model-candidates/PLAN.md
+  - docs/design/BREMEN_DESIGN_SPEC_v1.md
+  - docs/api_contract.md
+  - src/bremen/api/s3_model_discovery.py
+  - src/bremen/api/model_catalog.py
+  - src/bremen/api/model_registry.py
+  - src/bremen/start_page_ui.py
+  - tests/test_s3_model_discovery.py
+  - .project-memory/project_contract.yml (not found)
+  - AGENTS.md (not found)
+
+files_written:
+  - .project-memory/pr/0087-show-rejected-model-candidates/reviews/plan-review.yml
+
+checks:
+  pr0086_baseline_confirmed: "adapt_model_package at s3_model_discovery.py line 22 (import) and line 539 (call)"
+  current_log_diagnosed: "candidate_count=2, available_count=1, rejected_count=1, v0.1 accepted, v0.2.0 rejected portable_logreg missing threshold"
+  candidate_inventory_defined: true
+  no_manifest_only_discovery: true
+  no_identity_from_s3_path: true
+  safe_generic_labels_for_unregistered: true
+  raw_detail_excluded_from_public: true
+  fixed_reason_categories: true
+  duplicate_deterministic: true
+  default_model_id_from_available_only: true
+  health_model_ready_from_available_only: true
+  model_version_singular_from_available_only: true
+  unavailable_not_executable: true
+  disabled_cards_non_interactive: true
+  catalog_observability_safe_fields: true
+  catalog_observability_as_small_caption: true
+  no_raw_aws_error_for_discovery_failed: true
+  no_catalog_obs_in_control_room_trace: true
+  start_page_reuses_section_2_7: true
+  no_polling_no_refresh_no_admin: true
+  no_react_npm_infra: true
+
+validation:
+  - command: python -m compileall src tests
+    exit_code: 0
+    expected: compilation passes
+  - command: python -m pytest -q tests/test_s3_model_discovery.py -v
+    exit_code: 0
+    expected: existing discovery tests pass
+  - command: python -m pytest -q
+    exit_code: 0
+    expected: full suite passes
+  - command: grep -rn "feature_schema_version\\|manifest_key\\|checksum\\|portable_logreg\\|model_filename" src/bremen/start_page_ui.py
+    exit_code: 1
+    expected: no leaked fields in UI
+  - command: grep -rn "AccessDenied\\|assumed-role\\|arn:aws\\|s3://" src/bremen/start_page_ui.py src/bremen/api/model_catalog.py
+    exit_code: 1
+    expected: no AWS references in UI
+
+candidate_inventory:
+  scanner: "_discover_package_directories() replacing _list_candidate_manifests()"
+  counts_immediate_child_directories: true
+  accepts_manifest_json_only: true
+  accepts_dot_joblib_only: true
+  accepts_both: true
+  rejects_nested_directories: true
+  deterministic_sort_by_directory_name: true
+  candidate_count_semantic: unique package directories containing manifest.json or .joblib
+
+data_model:
+  new_type: CatalogUnavailableEntry in model_registry.py
+  kind_enum:
+    - identified
+    - unregistered
+  reason_category_enum:
+    - not_compatible
+    - duplicate_entry
+    - unregistered_package
+  extended_registry:
+    - unavailable_entries: tuple[CatalogUnavailableEntry]
+    - last_discovery_at: str
+  unavailable_count: computed from len(unavailable_entries)
+  immutable_snapshot: true
+  identifier_generation: deterministic generic ordinal labels
+
+api_contract:
+  unavailable_models: new array in GET /demo/api/models
+  unavailable_count: new int field
+  last_discovery_at: new str field
+  existing_fields_unchanged: true
+  resolve_model_rejects_unavailable: true
+  model_version_endpoint_unchanged: true
+
+start_page_ui:
+  disabled_cards_rendered: true
+  disabled_card_css:
+    class: ".model-card.disabled"
+    aria-disabled: true
+    opacity: 0.4
+    cursor: not-allowed
+  status_rail_unavailable:
+    background: "#9AA3A8 (--status-unconfigured)"
+    color: "#FFFFFF"
+  reason_caption_not_compatible: "Not compatible with the current runtime"
+  reason_caption_duplicate_entry: "Duplicate model identity"
+  reason_caption_unregistered_package: "Model package is not registered"
+  catalog_caption_present: true
+  catalog_caption_format: "Catalog: X of Y discovered models available \u00b7 last checked HH:MM AM/PM"
+  catalog_discovery_failed_caption: "Catalog: discovery unavailable"
+  non_interactive_structure:
+    - not in radiogroup
+    - role presentation
+    - no click handlers
+    - no Enter/Space handlers
+
+catalog_observability:
+  fields:
+    - catalog_status (existing status field)
+    - candidate_count (existing)
+    - available_count (existing)
+    - rejected_count (existing)
+    - unavailable_count (new)
+    - last_discovery_at (new ISO-8601 UTC)
+  presentation: small caption under model grid or footer area
+  no_admin_panel: true
+  no_hero_badge: true
+  no_control_room_trace: true
+
+reason_categories:
+  public_fixed_enum:
+    - not_compatible
+    - duplicate_entry
+    - unregistered_package
+  never_exposed:
+    - portable_logreg
+    - feature_schema_version
+    - checksum_mismatch
+    - manifest_key
+    - model_filename
+    - joblib_load_error
+    - AccessDenied
+    - s3_listing
+  ui_mapping: JavaScript lookup dict
+
+safety_boundary:
+  raw_rejection_detail_server_private: true
+  phase1_failure_no_joblib_aggregate_only: true
+  phase1_failure_with_joblib_unregistered_only: true
+  no_rejected_field_name_in_public: true
+  no_rejected_field_value_in_public: true
+  no_checksum_in_public: true
+  no_exception_text_in_public: true
+  disabled_cards_not_selectable: true
+  disabled_cards_not_executable: true
+  scientifically_certified_false_for_all: true
+  technical_demo_only_true_for_all: true
+  default_model_id_from_available_only: true
+  health_model_ready_from_available_only: true
+  model_version_singular_from_available_only: true
+
+scope_control:
+  no_polling: true
+  no_hot_reload: true
+  no_admin_ui: true
+  no_auth_rbac: true
+  no_react_npm: true
+  no_docker: true
+  no_terraform: true
+  no_aws_actions: true
+  no_ci_changes: true
+  no_training: true
+  no_preprocessing: true
+  no_feature_changes: true
+  no_threshold_changes: true
+  no_decision_vocabulary_changes: true
+  no_scientific_certification_changes: true
+  no_model_promotion: true
+  no_ModelVariant: true
+
+commit_readiness:
+  stop_conditions_verified: true
+  validation_commands_specified: true
+  test_plan_comprehensive: true
+  test_classes:
+    - TestUnavailableModels (test_s3_model_discovery.py)
+    - TestCatalogApiUnavailable (test_catalog_api_multi_model.py)
+    - TestStartPageDisabledCards (test_bremen_api_server.py)
+  safety_grep_checks_specified: true
+  no_unresolved_invention: true
+
+summary: |
+  PLAN verified against all 30 review checks and 15 blocking conditions.
+  The plan delivers product visibility for every discovered Joblib model
+  candidate: available models remain selectable and executable, non-compliant
+  candidates appear as disabled non-interactive cards with safe reason
+  categories, and Joblib-only candidates without safe manifest identity
+  appear as generic unregistered packages. Raw rejection detail never
+  reaches public API or UI. Catalog observability exposes only safe counts,
+  status enum, and last discovery timestamp via a small caption. The Start
+  page reuses BREMEN_DESIGN_SPEC_v1.md Section 2.7 disabled-card treatment
+  with opacity reduction and full-opacity status rails. PR0086
+  adapt_model_package fix confirmed present. Current production log
+  diagnosis correct (v0.1 accepted, v0.2.0 rejected missing threshold).
+  Twenty test scenarios defined across three test classes including grep
+  checks for no-leak API/UI behavior. No blockers identified. Three
+  non-blocking warnings about exact opacity value, log sanitization
+  carefulness, and duplicate display_name selection documentation.

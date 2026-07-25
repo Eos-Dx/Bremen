@@ -1367,10 +1367,13 @@ def run_server(
 
         registry = ModelRegistry(
             entries=tuple(discovery_result.entries),
+            unavailable_entries=tuple(discovery_result.unavailable_entries),
             catalog_status=discovery_result.catalog_status,
             candidate_count=discovery_result.candidate_count,
             available_count=discovery_result.available_count,
             rejected_count=discovery_result.rejected_count,
+            unavailable_count=discovery_result.unavailable_count,
+            last_discovery_at=discovery_result.last_discovery_at,
         )
         initialize_registry(registry)
 
@@ -1378,11 +1381,13 @@ def run_server(
             "bremen.startup.catalog.completed\t"
             "stage=startup\tstatus=completed\t"
             "catalog_status=%s\tcandidate_count=%d\t"
-            "available_count=%d\trejected_count=%d",
+            "available_count=%d\trejected_count=%d\t"
+            "unavailable_count=%d",
             registry.catalog_status,
             registry.candidate_count,
             registry.available_count,
             registry.rejected_count,
+            registry.unavailable_count,
         )
     else:
         # Legacy mode — load ModelState as before

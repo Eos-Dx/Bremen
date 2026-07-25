@@ -414,3 +414,63 @@ reflect current ModelState.
 **Not exposed:** Artifact URI, S3 model key, local path, checksum,
 coefficients, weights, intercepts, scaler values, imputer values, or
 reference distributions.
+
+**Response (catalog mode with unavailable models — PR0087):**
+
+When `BREMEN_MODEL_CATALOG_URI` is configured, the response includes
+these additional fields:
+
+```json
+{
+  "unavailable_models": [
+    {
+      "kind": "identified",
+      "reason_category": "not_compatible",
+      "model_id": "bremen-mri-triage-logreg-v0-2-0",
+      "display_name": "Bremen v0.2.0",
+      "workflow_id": "bremen",
+      "technical_demo_only": true,
+      "scientifically_certified": false,
+      "availability": "unavailable"
+    },
+    {
+      "kind": "unregistered",
+      "reason_category": "unregistered_package",
+      "candidate_label": "Discovered model package 2",
+      "technical_demo_only": true,
+      "scientifically_certified": false,
+      "availability": "unavailable"
+    }
+  ],
+  "unavailable_count": 2,
+  "last_discovery_at": "2026-07-25T10:59:00.000000+00:00"
+}
+```
+
+**New fields (PR0087):**
+- `unavailable_models`: Array of disabled display-only model candidates.
+  Each entry carries a `kind` (`"identified"` or `"unregistered"`),
+  a `reason_category` from the fixed enum (`not_compatible`,
+  `duplicate_entry`, `unregistered_package`), and safe identity fields.
+  Empty array when no unavailable candidates exist.
+- `unavailable_count`: Integer count of unavailable_models entries.
+  May be less than `rejected_count` when a rejected candidate has
+  neither safe identity nor a .joblib artifact.
+- `last_discovery_at`: ISO-8601 UTC timestamp of the last catalog
+  discovery attempt that produced the current snapshot.
+
+**Safety rules for unavailable entries (PR0087):**
+- `model_id` is present only for `kind="identified"`.
+- `candidate_label` is present only for `kind="unregistered"` and is a
+  generic ordinal (e.g. "Discovered model package 1"), never an S3 path.
+- Raw rejection detail, S3 keys, filenames, checksums, exception text,
+  failed field names, rejected values, AWS ARNs, and package internals
+  are never exposed in unavailable entries.
+- `reason_category` is always from the fixed public enum; technical
+  exception class names are never used.
+- Unavailable entries are display-only and not executable.
+- `default_model_id`, health `model_ready`, and `GET /model/version`
+  remain based only on available executable models.
+- `resolve_model()` fails safely for model_ids that appear only in
+  `unavailable_models`.
+- `candidate_label` cannot be used as a model identifier for job submission.

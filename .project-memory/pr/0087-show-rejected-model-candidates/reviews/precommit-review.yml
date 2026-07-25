@@ -1,0 +1,272 @@
+review:
+  status: blocked
+  head: 063730fcac87b6a1036f2576049b325246cacdb7
+  branch: 0087-show-rejected-model-candidates
+  timestamp: "2026-07-25T14:30:00Z"
+
+  blockers:
+    - id: B001
+      severity: blocker
+      title: "Zero PR0087-specific regression tests exist"
+      evidence: |
+        grep for PR0087-specific terms (unavailable_models, CatalogUnavailable,
+        unavailable_entries, reason_category, candidate_label, not_compatible,
+        duplicate_entry, unregistered_package) returns zero matches across all
+        four test files: test_s3_model_discovery.py (0), test_model_registry.py
+        (0), test_bremen_api_server.py (0). test_catalog_api_multi_model.py
+        has 4 matches but all are pre-existing availability="unavailable" tests
+        from PR0085, not PR0087-specific.
+        The implementation report states "All existing tests pass unchanged"
+        confirming no new tests were added. The task requires ~20 specific
+        test scenarios including: Phase 3 rejection → not_compatible,
+        duplicate model_id → duplicate_entry, .joblib-only → unregistered_package,
+        unavailable models not executable, POST unavailable model_id fails,
+        available/unavailable coexist, default_model_id uses only available,
+        health model_ready uses only available, Start page renders disabled
+        cards with generic captions, catalog caption rendered, discovery_failed
+        renders no raw AWS error, logs sanitized.
+      rule: "Required validation missing. Task explicitly requires executable regression tests for all PR0087 behaviors."
+      recommendation: "Add test cases covering all required scenarios before commit."
+
+    - id: B002
+      severity: blocker
+      title: "src/bremen/api/server.py changed but not in allowed file list"
+      evidence: |
+        git diff --name-only shows src/bremen/api/server.py as a changed file.
+        The diff adds unavailable_entries, unavailable_count, and
+        last_discovery_at to ModelRegistry construction and updates the
+        startup log message. The FILE SCOPE section lists 10 allowed changed
+        files; server.py is not among them. The task says to block any file
+        not in the allowed list.
+      rule: "FILE SCOPE: Block changes to files not in the allowed list."
+      recommendation: "Either add server.py to the allowed file list or refactor so the new fields are passed through an intermediate layer that doesn't require server.py changes."
+
+  warnings:
+    - id: W001
+      severity: warning
+      title: "Implementation report test counts are stale"
+      evidence: |
+        The report says full suite is "1962 passed, 11 skipped, 0 failures
+        (182.41s)" but the actual run shows 1962 passed, 11 skipped, 28
+        warnings, 182.11s. The report also says "182.41s" while actual is
+        "182.11s". Minor discrepancy but indicates the report was written
+        before the final validation run.
+      recommendation: "Update report with exact command output."
+
+    - id: W002
+      severity: warning
+      title: "feature_schema_version appears in start_page_ui.py line 143"
+      evidence: |
+        The start_page_ui.py renders "Feature schema: v0.1" in the available
+        model card detail. This is pre-existing (not introduced by PR0087) and
+        only appears in available card rendering, not in the new unavailable
+        card code. The unavailable cards use safe reasonCaptions lookup.
+      recommendation: "Non-blocking. Pre-existing display pattern outside PR0087 scope."
+
+  changed_files:
+    - src/bremen/api/s3_model_discovery.py
+    - src/bremen/api/model_registry.py
+    - src/bremen/api/model_catalog.py
+    - src/bremen/api/server.py
+    - src/bremen/start_page_ui.py
+    - docs/api_contract.md
+  allowed_files:
+    - src/bremen/api/s3_model_discovery.py
+    - src/bremen/api/model_registry.py
+    - src/bremen/api/model_catalog.py
+    - src/bremen/start_page_ui.py
+    - docs/api_contract.md
+    - tests/test_s3_model_discovery.py
+    - tests/test_model_registry.py
+    - tests/test_catalog_api_multi_model.py
+    - tests/test_bremen_api_server.py
+  forbidden_files_changed:
+    - src/bremen/api/server.py
+
+  working_tree_state:
+    modified: 6
+    untracked:
+      - .project-memory/pr/0087-show-rejected-model-candidates/
+
+  current_log_diagnosis:
+    confirmed: true
+    before_pr0087: "candidate_count=2, available_count=1, rejected_count=1, catalog_status=available"
+    v01_accepted: true
+    v02_rejected: true
+    report_does_not_claim_v02_executable: true
+
+  candidate_inventory:
+    discovery_uses_package_directories: true
+    considers_manifest_and_joblib: true
+    candidate_counts_unique_directories: true
+    deterministic_ordering: true
+    no_nested_path_as_identity: true
+    no_object_keys_exposed: true
+    joblib_only_directories_visible: true
+
+  data_model:
+    catalog_unavailable_entry_exists: true
+    frozen_dataclass: true
+    safe_fields_only: true
+    kind_enum: "identified | unregistered"
+    reason_categories: "not_compatible | duplicate_entry | unregistered_package"
+    no_package_object: true
+    no_exception: true
+    no_s3_key: true
+    no_manifest_key: true
+    no_checksum: true
+    no_coefficients: true
+    not_in_executable_registry: true
+
+  discovery_handling:
+    valid_packages_still_available: true
+    phase3_rejection_creates_identified_unavailable: true
+    duplicate_creates_identified_unavailable: true
+    duplicate_display_name_deterministic: true
+    joblib_no_manifest_creates_unregistered: true
+    joblib_invalid_manifest_creates_unregistered: true
+    manifest_missing_identity_creates_unregistered: true
+    manifest_only_stays_aggregate: true
+    catalog_failure_no_fabrication: true
+    no_raw_technical_cause_in_reason: true
+
+  validation_integrity:
+    adapt_model_package_unchanged: true
+    _validate_loaded_package_unchanged: true
+    portable_logreg_requirements_unchanged: true
+    manifest_schema_unchanged: true
+    checksum_validation_unchanged: true
+    artifact_staging_unchanged: true
+    workflow_compatibility_unchanged: true
+    feature_schema_compatibility_unchanged: true
+    threshold_compatibility_unchanged: true
+    duplicate_fail_closed_unchanged: true
+    registry_atomic_publication_unchanged: true
+    job_binding_unchanged: true
+    execution_behavior_unchanged: true
+    health_readiness_unchanged: true
+    model_version_unchanged: true
+    invalid_packages_not_executable: true
+
+  api_contract:
+    backward_compatible: true
+    existing_fields_unchanged: true
+    new_fields:
+      - unavailable_models
+      - unavailable_count
+      - last_discovery_at
+    unavailable_models_display_only: true
+    default_model_id_uses_only_available: true
+    health_model_ready_uses_only_available: true
+    model_version_uses_only_available: true
+    resolve_model_searches_only_available: true
+    post_unavailable_model_id_fails: true
+    candidate_label_not_usable_as_model_id: true
+
+  start_page_ui:
+    disabled_cards_rendered: true
+    aria_disabled_true: true
+    non_interactive: true
+    not_selectable: true
+    do_not_enable_start: true
+    gray_status_rail: true
+    reason_captions_fixed_lookup: true
+    raw_reason_not_rendered: true
+    no_technical_terms_in_unavailable_cards: true
+    catalog_caption_rendered: true
+
+  catalog_observability:
+    caption_renders: true
+    safe_fields_only: true
+    discovery_failed_safe_copy: true
+    no_raw_aws_error: true
+    no_polling: true
+    no_admin_panel: true
+
+  logging_sanitization:
+    phase1_no_manifest_key: true
+    phase1_safe_reason_categories: true
+    phase2_uses_validated_model_id: true
+    phase3_uses_validated_model_id: true
+    no_str_exc: true
+    no_repr_exc: true
+    no_raw_exception_text: true
+    no_s3_uri_in_logs: true
+    completion_log_includes_unavailable_count: true
+
+  reason_categories:
+    exact_set: "not_compatible | duplicate_entry | unregistered_package"
+    no_technical_categories_exposed: true
+
+  test_quality:
+    no_new_pr0087_tests: true
+    existing_tests_pass: true
+    no_mocks_of_discovery_pipeline: true
+    no_weakened_assertions: true
+
+  focused_tests:
+    test_s3_model_discovery: "64 passed (pre-existing, no PR0087 tests)"
+    test_catalog_api_multi_model: "10 passed (pre-existing, no PR0087 tests)"
+    test_model_registry: "21 passed (pre-existing, no PR0087 tests)"
+    test_bremen_api_server: "91 passed (pre-existing, no PR0087 tests)"
+
+  full_suite:
+    command: "python -m pytest -q"
+    passed: 1962
+    skipped: 11
+    failed: 0
+    warnings: 28
+    duration: "182.11s"
+
+  safety_greps:
+    start_page_technical_terms: "feature_schema_version appears only in pre-existing available card detail, not in new unavailable card code"
+    no_raw_exception_in_catalog_or_ui: true
+    no_aws_references_in_ui_or_catalog: true
+    manifest_key_not_in_logs: "manifest_key is internal variable in s3_model_discovery.py, not logged to public"
+    no_technical_reason_categories: true
+
+  diff_check:
+    command: "git diff --check"
+    result: "clean"
+
+  implementation_report:
+    root_cause_documented: true
+    candidate_inventory_documented: true
+    data_model_documented: true
+    api_additions_documented: true
+    start_page_rendering_documented: true
+    catalog_observability_documented: true
+    reason_categories_documented: true
+    execution_boundary_documented: true
+    logging_sanitization_documented: true
+    rollback_documented: true
+    test_counts_accurate: false
+    full_suite_result_accurate: false
+    note: "Report states 182.41s duration; actual is 182.11s. Report omits 28 warnings count."
+
+  security:
+    no_private_joblib_contents: true
+    no_coefficients_exposed: true
+    no_patient_data: true
+    no_h5_data: true
+    no_credentials: true
+    no_aws_account_data: true
+    no_s3_paths_exposed: true
+    no_checksums_in_api: true
+    tests_use_fake_s3: true
+    tests_use_synthetic_packages: true
+
+  scope_control:
+    no_infra_changes: true
+    no_docker_changes: true
+    no_ci_changes: true
+    no_training_code_changed: true
+    no_preprocessing_changed: true
+    no_threshold_policy_changed: true
+    no_decision_vocabulary_changed: true
+
+  commit_readiness:
+    blocked: true
+    reasons:
+      - "B001: Zero PR0087-specific regression tests exist"
+      - "B002: server.py changed but not in allowed file list"

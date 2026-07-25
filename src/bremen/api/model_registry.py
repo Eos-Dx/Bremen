@@ -72,6 +72,58 @@ class RegistryModelEntry:
 # ---------------------------------------------------------------------------
 
 
+REASON_CATEGORIES = frozenset({"not_compatible", "duplicate_entry", "unregistered_package"})
+
+
+@dataclass(frozen=True)
+class CatalogUnavailableEntry:
+    """A display-only disabled model catalog entry.
+
+    Not executable. Not selectable. Carries only safe public fields.
+    Never carries _package, _checksum, S3 path, filename, or exception text.
+    """
+
+    kind: str  # "identified" or "unregistered"
+    reason_category: str  # not_compatible | duplicate_entry | unregistered_package
+    candidate_label: str | None = None  # Generic ordinal (e.g. "Discovered model package 1")
+    model_id: str | None = None  # Only for identified kind
+    display_name: str | None = None  # Only for identified kind
+    workflow_id: str | None = None  # Only for identified kind
+
+    def __post_init__(self):
+        if self.kind not in ("identified", "unregistered"):
+            raise ValueError(f"Invalid kind: {self.kind!r}")
+        if self.reason_category not in REASON_CATEGORIES:
+            raise ValueError(f"Invalid reason_category: {self.reason_category!r}")
+        if self.kind == "identified":
+            if not self.model_id:
+                raise ValueError("identified entry requires model_id")
+            if not self.display_name:
+                raise ValueError("identified entry requires display_name")
+            if not self.workflow_id:
+                raise ValueError("identified entry requires workflow_id")
+        elif self.kind == "unregistered":
+            if not self.candidate_label:
+                raise ValueError("unregistered entry requires candidate_label")
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        """Return safe public fields only."""
+        base: dict[str, Any] = {
+            "kind": self.kind,
+            "reason_category": self.reason_category,
+            "technical_demo_only": True,
+            "scientifically_certified": False,
+            "availability": "unavailable",
+        }
+        if self.kind == "identified":
+            base["model_id"] = self.model_id
+            base["display_name"] = self.display_name
+            base["workflow_id"] = self.workflow_id
+        else:
+            base["candidate_label"] = self.candidate_label
+        return base
+
+
 @dataclass(frozen=True)
 class ModelRegistry:
     """Immutable snapshot of all discovered and validated models.
@@ -81,10 +133,13 @@ class ModelRegistry:
     """
 
     entries: tuple[RegistryModelEntry, ...] = field(default_factory=tuple)
+    unavailable_entries: tuple[CatalogUnavailableEntry, ...] = field(default_factory=tuple)
     catalog_status: str = "not_configured"  # "available" | "not_configured" | "discovery_failed"
     candidate_count: int = 0
     available_count: int = 0
     rejected_count: int = 0
+    unavailable_count: int = 0
+    last_discovery_at: str | None = None  # ISO-8601 UTC
 
     @property
     def available_entries(self) -> tuple[RegistryModelEntry, ...]:
