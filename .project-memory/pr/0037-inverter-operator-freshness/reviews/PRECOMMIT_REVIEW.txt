@@ -1,0 +1,172 @@
+PRECOMMIT REVIEW — PR0037: Inverter Operator Metrics and Freshness
+=====================================================================
+
+TITLE
+Inverter Operator Metrics and Freshness — Precommit Review
+
+REPOSITORY STATE
+  Branch: 0088-manifest-threshold-fallback
+  Required branch: pr-0037-inverter-operator-freshness
+  HEAD commit: 3d6252833e2b5fe59463c3e52364ead1089d5e98
+  HEAD message: amplify models
+  Staged files: none (clean staging area)
+  Untracked: .project-memory/pr/0088-manifest-threshold-fallback/
+  Modified (unstaged):
+    - agents/precommit-review.yml
+    - src/bremen/api/s3_model_discovery.py
+    - tests/test_catalog_api_multi_model.py
+    - tests/test_s3_model_discovery.py
+
+ARTIFACTS READ
+  PLAN.txt: NOT FOUND — directory .project-memory/pr/0037-inverter-operator-freshness/ did not exist prior to review
+  PLAN_REVIEW.txt: NOT FOUND
+  CODER_REPORT.txt: NOT FOUND
+  All three required precommit artifacts are absent.
+
+CHANGED FILES READ
+  No inverter-related changed files exist. The only changed files on the current branch are:
+    - agents/precommit-review.yml (agent config, not inverter code)
+    - src/bremen/api/s3_model_discovery.py (S3 model discovery, not inverter code)
+    - tests/test_catalog_api_multi_model.py (catalog API test, not inverter code)
+    - tests/test_s3_model_discovery.py (S3 discovery test, not inverter code)
+  None of these are related to PR0037 scope (inverter operator metrics, freshness, timestamps, power severity).
+
+STAGED STATE
+  git diff --cached --name-only: (empty)
+  No files are staged. Staging area is clean. This precondition is satisfied.
+
+IMPLEMENTATION SUMMARY
+  No implementation for PR0037 exists on this branch. The current branch
+  (0088-manifest-threshold-fallback) contains changes to S3 model discovery
+  and agent configuration files, which are entirely unrelated to inverter
+  operator observability, freshness tracking, power severity, or timestamp
+  rendering. The PR0037 implementation has not been performed or is on a
+  different branch/repository.
+
+INDEPENDENT INVERTER DATA-FLOW TRACE
+  CANNOT PERFORM — no inverter-related files are changed or available for
+  tracing. Cannot verify output_power, output_voltage, battery_current_chg,
+  battery_current_dis, observed_at, or freshness data flow.
+
+POWER SEVERITY ASSESSMENT
+  CANNOT PERFORM — no power severity code changes present. Cannot verify
+  thresholds (<= 1700 green, > 1700 and <= 2600 amber, > 2600 red,
+  null/absent unknown).
+
+TIMESTAMP ASSESSMENT
+  CANNOT PERFORM — no timestamp rendering code changes present. Cannot
+  verify Europe/London normalization or dual-timestamp distinction.
+
+FRESHNESS ASSESSMENT
+  CANNOT PERFORM — no freshness logic changes present. Cannot verify
+  thresholds (<= 150s fresh, 150-600s stale, > 600s unavailable,
+  missing/invalid unknown).
+
+SENSOR PRESERVATION ASSESSMENT
+  CANNOT PERFORM — no sensor rendering changes present. Cannot verify
+  Sensors section or watertemp rendering.
+
+TEST-FIRST ASSESSMENT
+  CANNOT PERFORM — CODER_REPORT.txt does not exist. No test-first
+  evidence available.
+
+FOCUSED VALIDATOR ASSESSMENT
+  CANNOT RUN — scripts/check-inverter-operator-freshness.sh: not found
+  or not applicable to current branch state. No inverter-related
+  validator scripts are present or relevant.
+
+END-TO-END ACCEPTANCE ASSESSMENT
+  CANNOT PERFORM — no PR0037 implementation exists on this branch.
+  All 14 acceptance criteria cannot be verified.
+
+REGRESSION ASSESSMENT
+  CANNOT PERFORM — no PR0037 changes to regress against.
+
+SECURITY ASSESSMENT
+  Changed files do not contain inverter-related security material.
+  No Tuya IDs, DESS URLs, or tokens observed in changed files.
+  No innerHTML changes observed.
+
+SCOPE ASSESSMENT
+  FAIL — changed files are entirely outside PR0037 scope. The changed
+  files relate to S3 model discovery and agent configuration, not
+  inverter operator metrics/freshness. Either:
+    (a) the implementation was not performed on this branch, or
+    (b) the review was requested against the wrong branch.
+
+BLOCKERS
+  1. WRONG BRANCH — current branch is 0088-manifest-threshold-fallback,
+     not pr-0037-inverter-operator-freshness. Required branch not checked out.
+  2. PLAN.txt ABSENT — .project-memory/pr/0037-inverter-operator-freshness/PLAN.txt
+     does not exist. Cannot verify implementation scope or compliance.
+  3. PLAN_REVIEW.txt ABSENT — .project-memory/pr/0037-inverter-operator-freshness/reviews/PLAN_REVIEW.txt
+     does not exist. Cannot verify plan review was completed.
+  4. CODER_REPORT.txt ABSENT — .project-memory/pr/0037-inverter-operator-freshness/CODER_REPORT.txt
+     does not exist. Cannot verify test-first evidence or implementation report.
+  5. NO INVERTER CHANGES — zero files related to PR0037 scope (inverter
+     operator metrics, freshness, timestamps, power severity) are changed.
+     Implementation not present on this branch.
+  6. REQUIRED VALIDATORS NOT APPLICABLE — scripts/check-inverter-operator-freshness.sh
+     and related inverter validators cannot operate on unrelated code.
+
+WARNINGS
+  NONE — all findings are blockers, not warnings.
+
+REQUIRED CORRECTIONS
+  1. Check out branch pr-0037-inverter-operator-freshness (or create it).
+  2. Ensure PR0037 implementation is committed on that branch.
+  3. Ensure PLAN.txt, PLAN_REVIEW.txt, and CODER_REPORT.txt exist in
+     .project-memory/pr/0037-inverter-operator-freshness/.
+  4. Re-run precommit review after branch and artifacts are correct.
+
+VERDICT
+rejected
+
+READY FOR COMMIT
+false
+
+READY FOR PULL REQUEST
+false
+
+ROOT CAUSE FIX VERIFIED
+false — PR0037 implementation not present on current branch
+
+FILES REVIEWED
+  .project-memory/pr/0037-inverter-operator-freshness/PLAN.txt (NOT FOUND)
+  .project-memory/pr/0037-inverter-operator-freshness/reviews/PLAN_REVIEW.txt (NOT FOUND)
+  .project-memory/pr/0037-inverter-operator-freshness/CODER_REPORT.txt (NOT FOUND)
+  agents/precommit-review.yml (read — unrelated to PR0037)
+  src/bremen/api/s3_model_discovery.py (read — unrelated to PR0037)
+  tests/test_catalog_api_multi_model.py (read — unrelated to PR0037)
+  tests/test_s3_model_discovery.py (read — unrelated to PR0037)
+
+VALIDATION RUN
+  git branch --show-current: 0088-manifest-threshold-fallback (WRONG BRANCH)
+  git status --short: 4 modified files, 1 untracked dir, 0 staged
+  git rev-parse HEAD: 3d6252833e2b5fe59463c3e52364ead1089d5e98
+  git diff --name-only: 4 files (none inverter-related)
+  git diff --cached --name-only: (empty) — clean staging area
+  scripts/check-inverter-operator-freshness.sh: NOT RUN — no PR0037 context
+  scripts/check-project-memory.sh: NOT RUN — no PR0037 context
+  scripts/check-web-dashboard.sh: NOT RUN — no PR0037 context
+  scripts/check-web-authentication.sh: NOT RUN — no PR0037 context
+  scripts/check-electrical-telemetry-flow.sh: NOT RUN — no PR0037 context
+  scripts/check-canonical-sensor-snapshot-pipeline.sh: NOT RUN — no PR0037 context
+  scripts/check-compact-operator-dashboard.sh: NOT RUN — no PR0037 context
+  python3 -m compileall -q app run.py: NOT RUN — no PR0037 context
+
+BLOCKERS
+  1. Wrong branch checked out (0088-manifest-threshold-fallback, not pr-0037-inverter-operator-freshness)
+  2. PLAN.txt for PR0037 does not exist
+  3. PLAN_REVIEW.txt for PR0037 does not exist
+  4. CODER_REPORT.txt for PR0037 does not exist
+  5. No PR0037 implementation files present on this branch
+
+WARNINGS
+  NONE
+
+REQUIRED CORRECTIONS
+  1. Switch to branch pr-0037-inverter-operator-freshness
+  2. Complete PR0037 implementation and commit
+  3. Populate .project-memory/pr/0037-inverter-operator-freshness/ with PLAN.txt, PLAN_REVIEW.txt, CODER_REPORT.txt
+  4. Re-run precommit review
