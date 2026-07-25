@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .model_registry import RegistryModelEntry
+from ..inference import adapt_model_package  # noqa: PLC0415
 
 _log = logging.getLogger(__name__)
 
@@ -533,6 +534,9 @@ def discover_models(
             package = _stage_and_load_artifact(
                 _s3_client, bucket, artifact_key, expected_checksum, staging_dir,
             )
+
+            # Adapt real package layout to runtime-expected format
+            package = adapt_model_package(package)
 
             # Validate loaded package
             entry_builder = {

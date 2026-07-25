@@ -131,6 +131,46 @@ def _make_synthetic_package(
     return buf.getvalue()
 
 
+def _make_root_level_package(
+    coef: list[float] | None = None,
+    threshold: float = 0.5,
+    include_threshold: bool = True,
+    include_feature_columns: bool = True,
+) -> bytes:
+    """Create a synthetic package with threshold/feature_columns at root.
+
+    Mimics the real Bremen package layout where ``threshold`` and
+    ``feature_columns`` sit at the top-level dict, NOT inside
+    ``portable_logreg``.  ``adapt_model_package`` must copy them
+    down before validation.
+    """
+    import io
+    from joblib import dump
+
+    pkg: dict[str, Any] = {
+        "portable_logreg": {
+            "coef": coef or [0.1] * 15,
+            "imputer_statistics": [0.0] * 15,
+            "scaler_mean": [0.0] * 15,
+            "scaler_scale": [1.0] * 15,
+            "intercept": 0.0,
+        },
+    }
+    if include_threshold:
+        pkg["threshold"] = threshold
+    if include_feature_columns:
+        pkg["feature_columns"] = [
+            "weightedrms1", "sigma_l1", "sigma_r1", "mahalanobis1",
+            "weightedrms2", "sigma_l2", "sigma_r2", "mahalanobis2",
+            "peak14_intensity", "mean_peak_value_raw",
+            "wasserstein_distance_muLR", "cosine_distance_full_q2",
+            "wasserstein_distance_full_q2", "meanrms1", "meanrms2",
+        ]
+    buf = io.BytesIO()
+    dump(pkg, buf)
+    return buf.getvalue()
+
+
 # ---------------------------------------------------------------------------
 # Catalog URI validation
 # ---------------------------------------------------------------------------
@@ -735,6 +775,182 @@ class TestDuplicateModelId:
         result2 = discover_models("s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3)
         assert result1.available_count == result2.available_count
         assert result1.rejected_count == result2.rejected_count
+
+
+# ---------------------------------------------------------------------------
+# Package adapter regression tests (PR0086)
+# ---------------------------------------------------------------------------
+
+
+class TestPackageAdapter:
+    """Regression tests for the adapt_model_package call in the
+    discovery pipeline.
+
+    Proves that packages with root-level threshold and feature_columns
+    are adapted before validation and stored as the adapted view.
+    """
+
+    def test_root_threshold_passes_discovery(self, tmp_path):
+        """Root-level threshold is adapted into portable_logreg."""
+        pkg_bytes = _make_root_level_package(include_feature_columns=False)
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(model_checksum=checksum)
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.catalog_status == "available"
+        assert result.available_count == 1
+        assert result.rejected_count == 0
+        assert len(result.entries) == 1
+
+    def test_root_feature_columns_passes_discovery(self, tmp_path):
+        """Root-level feature_columns is adapted into portable_logreg."""
+        pkg_bytes = _make_root_level_package(include_threshold=True, include_feature_columns=True)
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(model_checksum=checksum)
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.catalog_status == "available"
+        assert result.available_count == 1
+        assert result.rejected_count == 0
+
+    def test_registry_stores_adapted_package(self, tmp_path):
+        """Registry entry stores the adapted package view."""
+        pkg_bytes = _make_root_level_package(threshold=0.42)
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(model_id="adapted-model", display_name="Adapted", model_checksum=checksum)
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 1
+        entry = result.entries[0]
+        stored_pkg = entry._package
+        # The stored package is the adapted view
+        assert stored_pkg is not None
+        assert stored_pkg["portable_logreg"]["threshold"] == 0.42
+
+    def test_adapted_threshold_copied_from_root(self, tmp_path):
+        """portable_logreg.threshold matches the root threshold value."""
+        pkg_bytes = _make_root_level_package(threshold=0.77)
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(model_id="threshold-test", display_name="T", model_checksum=checksum)
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        plr = result.entries[0]._package["portable_logreg"]
+        assert plr["threshold"] == 0.77
+
+    def test_adapted_feature_columns_copied_from_root(self, tmp_path):
+        """portable_logreg.feature_columns matches root feature_columns."""
+        pkg_bytes = _make_root_level_package(include_threshold=True, include_feature_columns=True)
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(model_id="fc-test", display_name="FC", model_checksum=checksum)
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        plr = result.entries[0]._package["portable_logreg"]
+        assert "feature_columns" in plr
+        assert plr["feature_columns"] == [
+            "weightedrms1", "sigma_l1", "sigma_r1", "mahalanobis1",
+            "weightedrms2", "sigma_l2", "sigma_r2", "mahalanobis2",
+            "peak14_intensity", "mean_peak_value_raw",
+            "wasserstein_distance_muLR", "cosine_distance_full_q2",
+            "wasserstein_distance_full_q2", "meanrms1", "meanrms2",
+        ]
+
+    def test_existing_nested_threshold_not_overwritten(self, tmp_path):
+        """Existing nested threshold takes precedence over root."""
+        # Create a package with threshold both at root AND inside portable_logreg.
+        # The adapter must NOT overwrite the nested value.
+        import io, joblib
+        pkg = {
+            "threshold": 0.99,  # root — should be ignored
+            "portable_logreg": {
+                "coef": [0.1] * 15,
+                "imputer_statistics": [0.0] * 15,
+                "scaler_mean": [0.0] * 15,
+                "scaler_scale": [1.0] * 15,
+                "intercept": 0.0,
+                "threshold": 0.33,  # already nested — must survive
+            },
+        }
+        buf = io.BytesIO()
+        joblib.dump(pkg, buf)
+        pkg_bytes = buf.getvalue()
+
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(model_id="nested-test", display_name="Nested", model_checksum=checksum)
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        plr = result.entries[0]._package["portable_logreg"]
+        assert plr["threshold"] == 0.33  # nested value preserved
+
+    def test_missing_threshold_everywhere_rejected(self, tmp_path):
+        """Package missing threshold at root and inside portable_logreg is rejected."""
+        pkg_bytes = _make_root_level_package(include_threshold=False, include_feature_columns=False)
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(model_id="no-threshold", display_name="NT", model_checksum=checksum)
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+
+    def test_missing_feature_columns_everywhere_still_passes_if_validator_ignores(self, tmp_path):
+        """Package missing feature_columns in every location is tested through
+        the pipeline.  The discovery validator only checks portable_logreg
+        fields (coef, intercept, threshold) — it does NOT require
+        feature_columns.  Proving that the package passes discovery
+        confirms no validation rule was weakened.
+        """
+        # Root-level package with only threshold (no feature_columns).
+        pkg_bytes = _make_root_level_package(
+            include_threshold=True, include_feature_columns=False,
+        )
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(model_id="no-fc", display_name="NoFC", model_checksum=checksum)
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        # The discovery pipeline's _validate_loaded_package does not gate
+        # on feature_columns — it gates on coef, intercept, and threshold.
+        # This is the existing contract; this test proves it was not weakened.
+        assert result.available_count == 1
+        assert result.rejected_count == 0
 
 
 # ---------------------------------------------------------------------------
