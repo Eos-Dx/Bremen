@@ -408,3 +408,85 @@ class TestPR0087CatalogApi:
         assert "manifest_key" not in body
         assert "model_filename" not in body
         assert "_package" not in body
+
+
+# ---------------------------------------------------------------------------
+# PR0088 — Public API does not expose threshold_value
+# ---------------------------------------------------------------------------
+
+
+class TestPR0088CatalogApi:
+    """PR0088: Public GET /demo/api/models does not expose threshold_value
+    or raw fallback detail.
+    """
+
+    def teardown_method(self):
+        reset_for_tests()
+
+    def test_available_model_catalog_does_not_expose_threshold_value(self):
+        """Available model catalog response does not expose threshold_value."""
+        entry = _make_entry(model_id="pr0088-model", display_name="PR0088 Test")
+        reg = ModelRegistry(
+            entries=(entry,),
+            catalog_status="available",
+            candidate_count=1,
+            available_count=1,
+            rejected_count=0,
+        )
+        initialize_registry(reg)
+        catalog = build_model_catalog()
+        body = json.dumps(catalog)
+        assert "threshold_value" not in body
+        assert "_package" not in body
+        assert "manifest_threshold" not in body
+
+    def test_unavailable_entry_catalog_does_not_expose_threshold_value(self):
+        """Unavailable model catalog response does not expose threshold_value."""
+        unavail = CatalogUnavailableEntry(
+            kind="identified",
+            reason_category="not_compatible",
+            model_id="pr0088-fail",
+            display_name="PR0088 Fail",
+            workflow_id="bremen",
+        )
+        reg = ModelRegistry(
+            entries=(),
+            unavailable_entries=(unavail,),
+            catalog_status="no_valid_models",
+            candidate_count=1,
+            available_count=0,
+            rejected_count=1,
+            unavailable_count=1,
+        )
+        initialize_registry(reg)
+        catalog = build_model_catalog()
+        body = json.dumps(catalog)
+        assert "threshold_value" not in body
+        assert "manifest_threshold" not in body
+        assert "_package" not in body
+
+    def test_mixed_catalog_does_not_expose_threshold_value(self):
+        """Mixed available+unavailable catalog does not expose threshold_value."""
+        avail = _make_entry(model_id="good-model", display_name="Good")
+        unavail = CatalogUnavailableEntry(
+            kind="identified",
+            reason_category="not_compatible",
+            model_id="bad-model",
+            display_name="Bad",
+            workflow_id="bremen",
+        )
+        reg = ModelRegistry(
+            entries=(avail,),
+            unavailable_entries=(unavail,),
+            catalog_status="available",
+            candidate_count=2,
+            available_count=1,
+            rejected_count=1,
+            unavailable_count=1,
+        )
+        initialize_registry(reg)
+        catalog = build_model_catalog()
+        body = json.dumps(catalog)
+        assert "threshold_value" not in body
+        assert "manifest_threshold" not in body
+        assert "_package" not in body
