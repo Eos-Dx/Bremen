@@ -203,6 +203,12 @@ class BremenReportProvider(ReportProvider):
                 else "threshold-based"
             )
 
+        # PR0092: Add symmetry signal detail if available in workflow_result
+        if "symmetry_signal_detail" in workflow_result:
+            sym_detail = workflow_result["symmetry_signal_detail"]
+            if isinstance(sym_detail, dict):
+                technical_evidence["symmetry_signal_detail"] = sym_detail
+
         # --- Model identity ---
         model_id_block = {
             "model_version": model_identity.get(
