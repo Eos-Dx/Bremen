@@ -1,0 +1,234 @@
+review:
+  status: valid
+  head: b1733b6d05e31ddd6548fad3fcf9d09fb842b46d
+  branch: 0086-discovery-package-adapter-fix
+  timestamp: "2026-07-24T13:55:00Z"
+
+  blockers: []
+
+  warnings: []
+
+  changed_files:
+    committed: []
+    uncommitted:
+      - src/bremen/api/s3_model_discovery.py
+      - tests/test_s3_model_discovery.py
+    allowed:
+      - src/bremen/api/s3_model_discovery.py
+      - tests/test_s3_model_discovery.py
+    forbidden_files_changed: false
+
+  working_tree_state:
+    modified: 2
+    untracked:
+      - .project-memory/pr/0086-discovery-package-adapter-fix/implementation-report.md
+    staged: 0
+
+  root_cause:
+    confirmed: true
+    evidence: |
+      Production startup rejected both Bremen packages with:
+      'portable_logreg missing required fields: {threshold}'
+      Real packages store threshold and feature_columns at root level,
+      not inside portable_logreg. discover_models validated the raw
+      loaded package directly before this fix.
+
+  adapter_import:
+    exists: true
+    location: "src/bremen/inference.py"
+    count_in_discovery: 1
+    line: 22
+    import_statement: "from ..inference import adapt_model_package"
+    noqa: PLC0415
+    contract: "dict -> dict, creates new dict with patched portable_logreg, does not mutate original"
+    copies_root_threshold_when_absent: true
+    copies_root_feature_columns_when_absent: true
+    original_package_not_mutated: true
+
+  adapter_call_site:
+    count: 1
+    line: 539
+    statement: "package = adapt_model_package(package)"
+    after_stage_and_load: true
+    before_validate_loaded_package: true
+    before_registry_entry_construction: true
+    called_once_per_candidate: true
+    no_guard_condition: true
+    no_skipped_catalog_path: true
+
+  validation_order:
+    sequence:
+      - "_stage_and_load_artifact returns raw package"
+      - "adapt_model_package(package) reassigns local variable"
+      - "_validate_loaded_package(package, entry_builder) receives adapted"
+      - "RegistryModelEntry(_package=package) stores adapted"
+    raw_package_discarded: true
+    single_reference: true
+    adapted_package_validated: true
+    adapted_package_stored: true
+
+  registry_package_binding:
+    entry_uses_adapted: true
+    _package_is_adapted: true
+    no_unadapted_reference_retained: true
+    private_registry_resolution_returns_adapted: true
+
+  single_normalization_authority:
+    no_threshold_logic_in_discovery: true
+    no_feature_columns_logic_in_discovery: true
+    inference_py_unchanged: true
+    no_second_adapter: true
+    no_inline_fallback: true
+    no_test_only_shortcut: true
+
+  validation_integrity:
+    _validate_loaded_package_unchanged: true
+    required_plr_unchanged: true
+    manifest_validation_unchanged: true
+    checksum_validation_unchanged: true
+    artifact_staging_unchanged: true
+    workflow_compatibility_unchanged: true
+    feature_schema_compatibility_unchanged: true
+    threshold_compatibility_unchanged: true
+    duplicate_model_handling_unchanged: true
+    catalog_failure_policy_unchanged: true
+    registry_publication_unchanged: true
+    job_binding_unchanged: true
+    inference_behavior_unchanged: true
+    no_validator_weakened: true
+    no_validator_bypassed: true
+    adaptation_before_validation_not_relaxation: true
+
+  regression_tests:
+    total: 8
+    class: TestPackageAdapter
+    file: tests/test_s3_model_discovery.py
+    all_use_real_discovery_pipeline: true
+    all_use_fake_s3: true
+    all_use_synthetic_packages: true
+    no_real_aws: true
+    no_direct_adapter_calls: true
+    no_mocks: true
+    no_weakened_assertions: true
+    no_order_dependence: true
+    tests:
+      - name: test_root_threshold_passes_discovery
+        proves: "Root threshold adapted, discovery passes, available_count=1"
+      - name: test_root_feature_columns_passes_discovery
+        proves: "Root feature_columns adapted, discovery passes"
+      - name: test_registry_stores_adapted_package
+        proves: "Registry entry._package contains adapted portable_logreg.threshold"
+      - name: test_adapted_threshold_copied_from_root
+        proves: "portable_logreg.threshold matches root value 0.77"
+      - name: test_adapted_feature_columns_copied_from_root
+        proves: "portable_logreg.feature_columns matches root list"
+      - name: test_existing_nested_threshold_not_overwritten
+        proves: "Nested threshold 0.33 survives, root 0.99 ignored"
+      - name: test_missing_threshold_everywhere_rejected
+        proves: "Package with no threshold anywhere rejected (available=0, rejected=1)"
+      - name: test_missing_feature_columns_everywhere_still_passes_if_validator_ignores
+        proves: "Discovery validator does not gate on feature_columns; no rule weakened"
+
+  import_safety:
+    circular_dependency: false
+    smoke_test: "import-smoke-pass"
+    import_time_side_effects: false
+    modules_verified:
+      - bremen.inference
+      - bremen.api.s3_model_discovery
+      - bremen.api.server
+
+  focused_tests:
+    command: "python -m pytest tests/test_s3_model_discovery.py -q"
+    total: 64
+    passed: 64
+    failed: 0
+    duration: "1.45s"
+    adapter_tests: "8 passed (TestPackageAdapter)"
+    existing_tests: "56 passed (unchanged, confirming no regression)"
+
+  full_suite:
+    command: "python -m pytest -q"
+    passed: 1962
+    skipped: 11
+    failed: 0
+    warnings: 28
+    duration: "185.53s"
+
+  diff_check:
+    command: "git diff --check"
+    result: "clean"
+
+  production_claim_boundary:
+    claim_correct: true
+    states_only: |
+      The previous missing portable_logreg threshold rejection should
+      disappear for packages whose root-level threshold can be adapted.
+      Availability still depends on every remaining validation gate.
+    no_overclaim: true
+    no_guarantee_both_available: true
+    no_available_count_2_claim: true
+    no_scientific_approval_claim: true
+    no_compatibility_proof_claim: true
+
+  security:
+    no_private_joblib_contents: true
+    no_coefficients_exposed: true
+    no_patient_data: true
+    no_h5_data: true
+    no_credentials: true
+    no_aws_account_data: true
+    no_s3_object_paths_exposed: true
+    no_checksums_in_source: true
+    no_production_artifact_internals: true
+    no_aws_access_required_by_tests: true
+
+  scope_control:
+    only_allowed_files_changed: true
+    no_model_changes: true
+    no_ui_changes: true
+    no_scientific_changes: true
+    no_infrastructure_changes: true
+    no_deployment_changes: true
+
+  commit_readiness:
+    branch_matches: true
+    all_allowed_files_only: true
+    root_cause_confirmed: true
+    adapter_import_correct: true
+    adapter_call_position_correct: true
+    validation_order_correct: true
+    registry_stores_adapted: true
+    single_normalization_authority: true
+    validation_integrity_preserved: true
+    regression_tests_complete: true
+    import_safety_confirmed: true
+    focused_all_pass: true
+    full_suite_zero_failures: true
+    diff_check_clean: true
+    production_claims_bounded: true
+    no_blockers: true
+
+  summary: |
+    PR0086 implementation is valid. The adapter import (line 22) and
+    single runtime call (line 539) are correctly positioned after
+    _stage_and_load_artifact and before _validate_loaded_package. The
+    same adapted local variable flows through validation and into
+    RegistryModelEntry._package with no unadapted reference retained.
+
+    adapt_model_package in inference.py was not modified. It copies
+    root-level threshold and feature_columns into portable_logreg only
+    when the nested value is absent, returning a new dict without
+    mutating the original. No duplicate normalization logic exists in
+    s3_model_discovery.py.
+
+    All 8 regression tests exercise the real discover_models() pipeline
+    with fake S3 and synthetic packages. They prove: root threshold
+    adapted and accepted, root feature_columns adapted and accepted,
+    adapted package stored in registry, nested threshold not overwritten,
+    missing threshold rejected, missing feature_columns does not weaken
+    validation.
+
+    Full suite: 1962 passed, 11 skipped, 0 failures. compileall and
+    git diff --check clean. Only allowed files changed. Production
+    claim boundary is appropriate.
