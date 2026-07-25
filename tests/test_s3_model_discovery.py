@@ -915,7 +915,7 @@ class TestPackageAdapter:
         """Package missing threshold at root and inside portable_logreg is rejected."""
         pkg_bytes = _make_root_level_package(include_threshold=False, include_feature_columns=False)
         checksum = hashlib.sha256(pkg_bytes).hexdigest()
-        manifest = _make_manifest(model_id="no-threshold", display_name="NT", model_checksum=checksum)
+        manifest = _make_manifest(model_id="no-threshold", display_name="NT", model_checksum=checksum, threshold_value=0.0)
         s3 = _make_s3_client({
             "models/v1/manifest.json": manifest,
             "models/v1/model.joblib": pkg_bytes,
@@ -1003,6 +1003,7 @@ class TestPR0087UnavailableDiscovery:
             model_id="bad-package",
             display_name="Bad Package",
             model_checksum=checksum,
+            threshold_value=0.0,
         )
         s3 = _make_s3_client({
             "models/v1/manifest.json": manifest,
@@ -1230,6 +1231,7 @@ class TestPR0087UnavailableDiscovery:
             "models/bad/manifest.json": _make_manifest(
                 model_id="bad-model", display_name="Bad",
                 model_checksum=bad_checksum,
+                threshold_value=0.0,
             ),
             "models/bad/model.joblib": bad_pkg_bytes,
         })
@@ -1329,3 +1331,319 @@ class TestPR0087UnavailableDiscovery:
             assert "checksum" not in body
             assert "/manifest.json" not in body
             assert "model.joblib" not in body
+
+
+# ---------------------------------------------------------------------------
+# PR0088 — Manifest threshold_value fallback tests
+# ---------------------------------------------------------------------------
+
+
+class TestPR0088ManifestThresholdFallback:
+    """PR0088: Use validated manifest threshold_value as temporary
+    discovery fallback for package portable_logreg.threshold.
+
+    This hotfix does NOT disable checksum verification.
+    This hotfix does NOT weaken model validation.
+    """
+
+    # -- Test 1: Package missing threshold everywhere + manifest has threshold_value
+    #   becomes available after discovery.
+    def test_missing_threshold_in_package_becomes_available_via_fallback(self, tmp_path):
+        """Package with no threshold in portable_logreg and no root threshold,
+        but manifest has threshold_value, becomes available after discovery."""
+        import io, joblib
+        # Package with portable_logreg but NO threshold anywhere
+        pkg = {
+            "portable_logreg": {
+                "coef": [0.1] * 15,
+                "imputer_statistics": [0.0] * 15,
+                "scaler_mean": [0.0] * 15,
+                "scaler_scale": [1.0] * 15,
+                "intercept": 0.0,
+                # No threshold key at all
+            },
+        }
+        buf = io.BytesIO()
+        joblib.dump(pkg, buf)
+        pkg_bytes = buf.getvalue()
+
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        # Manifest with explicit threshold_value != default
+        manifest = _make_manifest(
+            model_id="fallback-model",
+            display_name="Fallback Test",
+            model_checksum=checksum,
+            threshold_value=0.42,
+        )
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.catalog_status == "available"
+        assert result.available_count == 1
+        assert result.rejected_count == 0
+
+    # -- Test 2: Stored RegistryModelEntry._package contains threshold from manifest.
+    def test_stored_package_has_threshold_from_fallback(self, tmp_path):
+        """Stored RegistryModelEntry._package contains portable_logreg.threshold
+        copied from manifest threshold_value."""
+        import io, joblib
+        pkg = {
+            "portable_logreg": {
+                "coef": [0.1] * 15,
+                "imputer_statistics": [0.0] * 15,
+                "scaler_mean": [0.0] * 15,
+                "scaler_scale": [1.0] * 15,
+                "intercept": 0.0,
+            },
+        }
+        buf = io.BytesIO()
+        joblib.dump(pkg, buf)
+        pkg_bytes = buf.getvalue()
+
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(
+            model_id="stored-fallback",
+            display_name="Stored",
+            model_checksum=checksum,
+            threshold_value=0.77,
+        )
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 1
+        plr = result.entries[0]._package["portable_logreg"]
+        assert plr["threshold"] == 0.77
+
+    # -- Test 3: Existing portable_logreg.threshold is NOT overwritten.
+    def test_existing_nested_threshold_not_overwritten_by_manifest(self, tmp_path):
+        """Existing portable_logreg.threshold is not overwritten by manifest
+        threshold_value."""
+        import io, joblib
+        pkg = {
+            "portable_logreg": {
+                "coef": [0.1] * 15,
+                "imputer_statistics": [0.0] * 15,
+                "scaler_mean": [0.0] * 15,
+                "scaler_scale": [1.0] * 15,
+                "intercept": 0.0,
+                "threshold": 0.33,  # already nested
+            },
+        }
+        buf = io.BytesIO()
+        joblib.dump(pkg, buf)
+        pkg_bytes = buf.getvalue()
+
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(
+            model_id="nested-preserve",
+            display_name="Nested",
+            model_checksum=checksum,
+            threshold_value=0.99,  # should NOT overwrite
+        )
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 1
+        plr = result.entries[0]._package["portable_logreg"]
+        assert plr["threshold"] == 0.33  # nested value preserved
+
+    # -- Test 4: Existing root threshold adapted by adapt_model_package is NOT overwritten.
+    def test_root_threshold_not_overwritten_by_manifest(self, tmp_path):
+        """Existing root threshold adapted by adapt_model_package is not
+        overwritten by manifest threshold_value."""
+        # Root-level package with threshold at root
+        pkg_bytes = _make_root_level_package(threshold=0.55, include_feature_columns=False)
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(
+            model_id="root-preserve",
+            display_name="Root",
+            model_checksum=checksum,
+            threshold_value=0.88,  # should NOT overwrite the adapted root value
+        )
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 1
+        plr = result.entries[0]._package["portable_logreg"]
+        assert plr["threshold"] == 0.55  # root adapted value preserved
+
+    # -- Test 5: Checksum mismatch still rejects.
+    def test_checksum_mismatch_still_rejects(self, tmp_path):
+        """Checksum mismatch still rejects the candidate even with manifest
+        threshold_value available."""
+        import io, joblib
+        pkg = {
+            "portable_logreg": {
+                "coef": [0.1] * 15,
+                "imputer_statistics": [0.0] * 15,
+                "scaler_mean": [0.0] * 15,
+                "scaler_scale": [1.0] * 15,
+                "intercept": 0.0,
+            },
+        }
+        buf = io.BytesIO()
+        joblib.dump(pkg, buf)
+        pkg_bytes = buf.getvalue()
+
+        wrong_checksum = "b" * 64  # wrong
+        manifest = _make_manifest(
+            model_id="checksum-test",
+            display_name="Checksum",
+            model_checksum=wrong_checksum,
+            threshold_value=0.5,
+        )
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+
+    # -- Test 6: Package missing threshold but manifest has threshold_value
+    #   still fails if another required field is missing.
+    def test_missing_other_field_still_rejected(self, tmp_path):
+        """Package with manifest threshold fallback still fails if another
+        required field (e.g. coef) is missing, proving validation was not
+        bypassed."""
+        import io, joblib
+        # Package missing coef
+        pkg = {
+            "portable_logreg": {
+                "intercept": 0.0,
+                "imputer_statistics": [0.0] * 15,
+                "scaler_mean": [0.0] * 15,
+                "scaler_scale": [1.0] * 15,
+                # No coef key
+            },
+        }
+        buf = io.BytesIO()
+        joblib.dump(pkg, buf)
+        pkg_bytes = buf.getvalue()
+
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(
+            model_id="missing-coef",
+            display_name="No Coef",
+            model_checksum=checksum,
+            threshold_value=0.5,
+        )
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+
+    # -- Test 7: v0.2-like synthetic package that previously mapped to
+    #   not_compatible for missing threshold now becomes available when all
+    #   other required fields are valid.
+    def test_v02_like_package_becomes_available_with_fallback(self, tmp_path):
+        """A v0.2-like synthetic package (threshold only in manifest, not in
+        package) becomes available after the fallback when all other required
+        fields are valid."""
+        import io, joblib
+        # Package with all required fields except threshold
+        pkg = {
+            "portable_logreg": {
+                "coef": [0.1] * 15,
+                "imputer_statistics": [0.0] * 15,
+                "scaler_mean": [0.0] * 15,
+                "scaler_scale": [1.0] * 15,
+                "intercept": 0.0,
+                # No threshold
+            },
+        }
+        buf = io.BytesIO()
+        joblib.dump(pkg, buf)
+        pkg_bytes = buf.getvalue()
+
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(
+            model_id="v02-like",
+            display_name="v0.2",
+            model_checksum=checksum,
+            threshold_value=0.50,
+        )
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.catalog_status == "available"
+        assert result.available_count == 1
+        assert result.rejected_count == 0
+        plr = result.entries[0]._package["portable_logreg"]
+        assert plr["threshold"] == 0.50
+
+    # -- Test 9: Logs include model_id and event but not threshold value,
+    #   S3 key, checksum, or raw package detail.
+    def test_fallback_log_safe_fields_only(self, tmp_path, caplog):
+        """Logs for threshold fallback include model_id and event name but
+        not threshold value, S3 key, checksum, or raw package detail."""
+        import logging
+        import io, joblib
+        caplog.set_level(logging.INFO)
+
+        pkg = {
+            "portable_logreg": {
+                "coef": [0.1] * 15,
+                "imputer_statistics": [0.0] * 15,
+                "scaler_mean": [0.0] * 15,
+                "scaler_scale": [1.0] * 15,
+                "intercept": 0.0,
+            },
+        }
+        buf = io.BytesIO()
+        joblib.dump(pkg, buf)
+        pkg_bytes = buf.getvalue()
+
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(
+            model_id="log-test-model",
+            display_name="Log Test",
+            model_checksum=checksum,
+            threshold_value=0.63,
+        )
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 1
+
+        # Check logs for safe fields only
+        log_text = " ".join(r.getMessage() for r in caplog.records)
+        assert "threshold_fallback_applied" in log_text
+        assert "log-test-model" in log_text
+        # Must NOT contain threshold value
+        assert "threshold_value" not in log_text
+        # Must NOT contain S3 key or checksum
+        assert "s3://" not in log_text
+        assert checksum not in log_text
+        assert "manifest.json" not in log_text

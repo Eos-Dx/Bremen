@@ -407,6 +407,63 @@ def _stage_and_load_artifact(
 # ---------------------------------------------------------------------------
 
 
+def _apply_manifest_threshold_fallback(
+    package: dict[str, Any],
+    manifest_data: dict[str, Any],
+) -> dict[str, Any]:
+    """Temporary discovery-only fallback: copy validated manifest
+    threshold_value into package portable_logreg.threshold when the
+    package does not already provide threshold through either the
+    portable_logreg nested location or the root-adapted path.
+
+    This is a temporary compatibility shim for catalog packages whose
+    threshold lives in validated manifest metadata.  Future model
+    exporter should embed threshold into the package so this fallback
+    can be removed.
+
+    Precedence:
+    1. Existing portable_logreg.threshold (already in package).
+    2. Existing package root threshold (already adapted by
+       adapt_model_package).
+    3. Validated manifest threshold_value (fallback).
+
+    Does NOT overwrite existing nested or root-adapted threshold.
+    Does NOT backfill any other package fields.
+
+    Returns the package (possibly patched).
+    """
+    if "portable_logreg" not in package:
+        return package
+
+    plr = package["portable_logreg"]
+    if not isinstance(plr, dict):
+        return package
+
+    if plr.get("threshold") is not None:
+        # Already has threshold — no fallback needed
+        return package
+
+    threshold_value = manifest_data.get("threshold_value")
+    if threshold_value is None:
+        # Manifest has no threshold_value — nothing to fall back on
+        return package
+
+    # Apply fallback
+    plr = dict(plr)
+    plr["threshold"] = threshold_value
+    patched = dict(package)
+    patched["portable_logreg"] = plr
+
+    model_id = str(manifest_data.get("model_id", "unknown"))
+    _log.info(
+        "event=bremen.catalog.package.threshold_fallback_applied\t"
+        "model_id=%s\tsource=manifest_metadata",
+        model_id,
+    )
+
+    return patched
+
+
 def _validate_loaded_package(
     package: dict[str, Any],
     entry_builder: dict[str, Any],
@@ -711,6 +768,10 @@ def discover_models(
 
             # Adapt real package layout to runtime-expected format
             package = adapt_model_package(package)
+
+            # PR0088: Apply manifest threshold_value fallback if
+            # portable_logreg.threshold is still missing after adaptation
+            package = _apply_manifest_threshold_fallback(package, data)
 
             # Validate loaded package
             entry_builder = {
