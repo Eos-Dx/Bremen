@@ -539,8 +539,17 @@ def get_analysis_job(job_id: str) -> AnalysisJob | None:
         return _jobs.get(job_id)
 
 
-def list_analysis_jobs() -> list[dict[str, Any]]:
-    """Return safe metadata for recent jobs."""
+def list_analysis_jobs(
+    model_id: str | None = None,
+    workflow_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Return safe metadata for recent jobs, optionally filtered.
+
+    Parameters
+    ----------
+    model_id : If provided, return only jobs created with this model_id.
+    workflow_id : If provided, return only jobs with this workflow_id.
+    """
     with _jobs_lock:
         jobs_snapshot = list(_jobs.values())
     summaries = []
@@ -581,6 +590,17 @@ def list_analysis_jobs() -> list[dict[str, Any]]:
             rm.status == REPORT_STATUS_AVAILABLE
             for rm in j.reports.values()
         )
+
+        # Apply model_id filter (server-side)
+        if model_id is not None:
+            job_model_id = j.input_summary.get("model_id") if j.input_summary else None
+            if job_model_id != model_id:
+                continue
+
+        # Apply workflow_id filter (server-side)
+        if workflow_id is not None:
+            if workflow_id not in j.requested_workflows:
+                continue
 
         summaries.append(summary)
     return summaries
@@ -699,9 +719,30 @@ def _generate_job_reports(job: AnalysisJob) -> None:
 
 
 def handle_jobs_list(handler: BaseHTTPRequestHandler) -> None:
-    """Handle GET /demo/api/jobs — list recent jobs."""
+    """Handle GET /demo/api/jobs — list recent jobs.
+
+    Optional query parameters:
+        model_id   — filter by model_id
+        workflow_id — filter by workflow_id
+    """
+    # Parse query parameters without urllib import
+    filter_model_id = None
+    filter_workflow_id = None
+    if "?" in handler.path:
+        qs = handler.path.split("?", 1)[1]
+        for pair in qs.split("&"):
+            if "=" in pair:
+                k, v = pair.split("=", 1)
+                if k == "model_id":
+                    filter_model_id = v
+                elif k == "workflow_id":
+                    filter_workflow_id = v
+
     data = {
-        "jobs": list_analysis_jobs(),
+        "jobs": list_analysis_jobs(
+            model_id=filter_model_id,
+            workflow_id=filter_workflow_id,
+        ),
         "storage_mode": _event_store.storage_mode,
         "retention_seconds": _event_store.retention_seconds,
         "max_jobs": _event_store.max_jobs,

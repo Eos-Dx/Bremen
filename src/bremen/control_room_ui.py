@@ -402,6 +402,7 @@ function loadModelCatalog(){
         tsEl.textContent='Catalog: '+data.catalog_timestamp.substring(0,19).replace('T',' ');
         tsEl.classList.remove('hidden');
       }
+      loadJobHistory();
       updateReadiness();
     }).catch(function(){
       if(info){info.innerHTML='<div class="cr-field-row"><div class="cr-field-label">Status</div><div class="cr-field-value" style="white-space:normal;color:var(--status-error)">Catalog unavailable</div></div>'}
@@ -414,6 +415,7 @@ function onModelSelect(sel){
   selectedModelId=sel.value;
   var opt=sel.options[sel.selectedIndex];
   selectedModelWorkflowId=opt.getAttribute('data-workflow')||'bremen';
+  loadJobHistory();
   updateReadiness();
 }
 
@@ -532,7 +534,13 @@ function setState(newState){
 }
 
 function loadJobHistory(){
-  fetch(baseUrl+'/demo/api/jobs')
+  var url = baseUrl+'/demo/api/jobs';
+  var params = new URLSearchParams();
+  if(selectedModelWorkflowId) params.append('workflow_id', selectedModelWorkflowId);
+  if(selectedModelId) params.append('model_id', selectedModelId);
+  var qs = params.toString();
+  if(qs) url += '?' + qs;
+  fetch(url)
     .then(function(r){return r.json()})
     .then(function(data){
       var jobs=data.jobs||[];
