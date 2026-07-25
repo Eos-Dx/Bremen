@@ -1,0 +1,74 @@
+# Plan Review — PR0090
+# Reviewed: 2026-07-25T17:41:00Z
+# Result: blocked
+
+status: blocked
+head: 0c7d2dc944b15ffd95e842afabbf724434749a80
+branch: 0090-aramis-subprocess-governance-gate
+
+blockers:
+  - condition: "Branch mismatch — required '0090-aramis-subprocess-docker-isolation', got '0090-aramis-subprocess-governance-gate'"
+    evidence: "git branch --show-current returned '0090-aramis-subprocess-governance-gate'"
+    why_blocking: "PRECONDITION in task prompt requires exact branch match. Without the correct branch, the plan target (Docker-level Phase 1 proof for isolated Aramis subprocess runtime) cannot be reviewed against the expected artifact."
+    required_next_action: "Create branch '0090-aramis-subprocess-docker-isolation' from appropriate base, then write PLAN.md at .project-memory/pr/0090-aramis-subprocess-docker-isolation/PLAN.md describing the Docker-level smoke proof scope."
+
+  - condition: "PLAN.md not found at required path .project-memory/pr/0090-aramis-subprocess-docker-isolation/PLAN.md"
+    evidence: "ls on .project-memory/pr/0090-aramis-subprocess-docker-isolation/ returned 'No such file or directory'. The directory does not exist."
+    why_blocking: "PRECONDITION requires PLAN.md at exactly .project-memory/pr/0090-aramis-subprocess-docker-isolation/PLAN.md. Without it, there is no plan artifact to review."
+    required_next_action: "Create directory .project-memory/pr/0090-aramis-subprocess-docker-isolation/ and write PLAN.md with the Docker-level Phase 1 smoke proof plan."
+
+warnings:
+  - "A PLAN.md exists at .project-memory/pr/0090-aramis-subprocess-governance-gate/PLAN.md (branch 0090-aramis-subprocess-governance-gate) describing a governance-only ADR-0013 PR. That plan explicitly defers Docker/Phase 1 work to PR0091+ and is a different scope than the task's 'Docker-level proof only' objective."
+  - "The existing governance-gate PLAN.md is well-structured with boundary conditions, source access gates, and phased sequencing. It may serve as a reference for the required Docker-level plan, but it is not itself the plan requested for review."
+  - "The existing Dockerfile has two targets (smoke, production). A new target (e.g., aramis-smoke) would need to be added for Phase 1, with an isolated /opt/aramis-venv and no alteration to existing targets without opt-in."
+
+files_read:
+  - .project-memory/pr/0090-aramis-subprocess-governance-gate/PLAN.md
+  - docs/adr/0002-twin-product-document-separation.md
+  - Dockerfile
+  - src/bremen/api/workflow_aramis.py
+  - AGENTS.md
+
+files_written:
+  - .project-memory/pr/0090-aramis-subprocess-docker-isolation/reviews/plan-review.yml
+
+adr_0002_scope: "read — ADR-0002 prohibits Aramis as active dependency, runtime, shared feature set, API, or configuration target for Bremen. The existing governance-gate PLAN.md cites this verbatim and proposes ADR-0013 as a narrow exception for process-isolated bundling."
+
+aramis_source: "not_read — No Aramis source or bundle path was cited by a PLAN.md at the required path. The governance-gate PLAN.md preserves a source-access gate requiring official Aramis artifacts before any Docker work, but no real Aramis source was observed in this review."
+
+venv_isolation: "not_reviewed — No PLAN.md exists at the required path to assess venv isolation requirements. The governance-gate PLAN.md specifies separate venv at /opt/aramis-venv with no shared site-packages."
+
+subprocess_lifecycle: "not_reviewed — No PLAN.md at required path. Governance-gate PLAN.md specifies one-shot subprocess per job, no persistent process/pool/IPC/network service."
+
+smoke_test: "not_reviewed — No PLAN.md at required path to define smoke test command or success criteria."
+
+product_boundary: "not_reviewed — No PLAN.md at required path. Governance-gate PLAN.md explicitly prohibits product wiring in Phase 1, defers allowlist changes to Phase 4, and preserves all 19 existing test_no_aramis_* tests."
+
+output_mapping_boundary: "not_reviewed — No PLAN.md at required path. Governance-gate PLAN.md explicitly forbids p_cancer→p_mri_needed mapping, CANCER/NON-CANCER→CONTINUE_MRI/MRI_REVIEW_DEFER mapping, and reproduction of Aramis directive clinical language in Bremen surfaces."
+
+validation:
+  - command: "git rev-parse --verify HEAD"
+    exit_code: 0
+    output: "0c7d2dc944b15ffd95e842afabbf724434749a80"
+  - command: "git branch --show-current"
+    exit_code: 0
+    output: "0090-aramis-subprocess-governance-gate"
+  - command: "git status --short"
+    exit_code: 0
+    output: "?? .project-memory/pr/0090-aramis-subprocess-governance-gate/"
+  - command: "git diff --name-only"
+    exit_code: 0
+    output: ""
+  - command: "ls .project-memory/pr/0090-aramis-subprocess-docker-isolation/PLAN.md"
+    exit_code: 1
+    output: "No such file or directory"
+
+scope_control:
+  required_branch: "0090-aramis-subprocess-docker-isolation"
+  actual_branch: "0090-aramis-subprocess-governance-gate"
+  required_plan_path: ".project-memory/pr/0090-aramis-subprocess-docker-isolation/PLAN.md"
+  plan_exists: false
+  branch_match: false
+  result: "blocked — both preconditions failed"
+
+commit_readiness: "not_ready — review blocked due to precondition failures. No plan artifact exists at required path on required branch."
