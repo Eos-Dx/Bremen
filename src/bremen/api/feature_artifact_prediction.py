@@ -196,9 +196,14 @@ def run_feature_artifact_prediction(
     }
 
     # 7. Build decision-support report using existing helper
+    #    Pass feature values for symmetry signal computation (PR0092)
+    feature_dict: dict[str, float] = dict(
+        zip(feature_columns, feature_values, strict=True)
+    )
     decision_support: dict[str, Any] = build_decision_support_report(
         prediction_dict,
         input_mode="feature_artifact",
+        feature_values=feature_dict,
     )
 
     # 8. Build safe provenance from validated artifact metadata

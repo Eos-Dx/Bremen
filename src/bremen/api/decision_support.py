@@ -4,9 +4,12 @@ Pure module — no model state, no H5, no network, no runtime dependencies.
 Produces a safe, structured report from an existing inference result dict.
 
 PR 0053: Decision Support Output Wrapper.
+PR 0092: Added symmetry_signals field (Phase 1 — not_available).
 """
 
 from __future__ import annotations
+
+from typing import Any
 
 from .decision_contract import POSITIVE_MACHINE_CODE, NEGATIVE_MACHINE_CODE
 
@@ -53,6 +56,8 @@ def build_decision_support_report(
     input_mode: str | None = None,
     explicit_refs: bool | None = None,
     layout_category: str | None = None,
+    feature_values: dict[str, float] | None = None,
+    ref_stats: dict[str, Any] | None = None,
 ) -> dict:
     """Build a safe decision-support report around an inference result.
 
@@ -66,6 +71,12 @@ def build_decision_support_report(
         ``None`` means unknown — reported as ``null``.
     layout_category : The detected H5 layout category.  Reported as
         ``null`` when ``None``.
+    feature_values : Optional dict mapping feature names to float
+        values from preprocessing.  Used for symmetry signal
+        computation only — not stored in the report.
+    ref_stats : Optional validated reference-statistics artifact
+        dict for symmetry signal bucketing.  When ``None`` all
+        signals emit ``not_available``.
 
     Returns
     -------
@@ -112,7 +123,7 @@ def build_decision_support_report(
         "caution": CAUTION_TEXT,
     }
 
-    return {
+    result = {
         "report_schema_version": REPORT_SCHEMA_VERSION,
         "intended_use": INTENDED_USE,
         "limitations": list(LIMITATIONS),
@@ -121,6 +132,19 @@ def build_decision_support_report(
         "prediction_summary": prediction_summary,
         "decision_support": decision_support,
     }
+
+    # --- Symmetry signals (PR0092) ---
+    from .symmetry_signals import (  # noqa: PLC0415
+        compute_symmetry_signals,
+        _format_external,
+    )
+    symmetry_result = compute_symmetry_signals(
+        feature_values=feature_values,
+        ref_stats=ref_stats,
+    )
+    result["symmetry_signals"] = _format_external(symmetry_result)
+
+    return result
 
 
 # ---------------------------------------------------------------------------

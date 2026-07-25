@@ -522,3 +522,86 @@ these additional fields:
 - No prohibited fields are exposed: full model checksum, raw S3 paths,
   manifest keys, raw exception text, model internals, raw feature
   values, or PHI.
+
+---
+
+## Symmetry Signals (PR0092)
+
+### `symmetry_signals` — External Report Field
+
+Added to `decision_support_report` output as a new top-level key.
+
+```json
+"symmetry_signals": {
+    "schema_status": "unavailable",
+    "measurement_summary": "Asymmetry assessment from 5 signal families across 15 features.",
+    "signals": [
+        {"label": "Profile difference magnitude", "difference_level": "not_available"},
+        {"label": "Weighted profile asymmetry", "difference_level": "not_available"},
+        {"label": "Statistical shape deviation", "difference_level": "not_available"},
+        {"label": "Distributional divergence", "difference_level": "not_available"},
+        {"label": "Bilateral profile intensity", "difference_level": "not_available"}
+    ],
+    "note": "Reference statistics: not available. Symmetry assessment is not computed."
+}
+```
+
+**Fields:**
+- `schema_status`: `"populated"`, `"unavailable"`, or `"error"`.
+- `measurement_summary`: Fixed safe text describing the assessment.
+- `signals`: List of 5 signal objects, each with:
+  - `label`: Plain-language clinician-facing signal name.
+  - `difference_level`: One of `"small"`, `"moderate"`, `"larger"`, `"not_available"`.
+- `note`: Optional safe context string.
+
+**Allowed `difference_level` values (PR0092):**
+- `"small"` — Feature value ≤ 33rd percentile of reference cohort.
+- `"moderate"` — Feature value ≤ 67th percentile of reference cohort.
+- `"larger"` — Feature value > 67th percentile of reference cohort.
+- `"not_available"` — Reference statistics artifact is unavailable or
+  the signal cannot be assessed.
+
+**Phase 1 behavior (PR0092):**
+- All signals emit `difference_level: "not_available"` with
+  `schema_status: "unavailable"` until the reference-statistics
+  artifact is delivered.
+
+**Safety rules:**
+- No raw feature values, raw deltas, percentile cutoffs, or
+  reference-statistic values are exposed in external output.
+- Every signal is always present; difference_level never defaults
+  to `"small"` when data is unavailable.
+- `difference_level` values are constrained to the four allowed
+  strings only — no floats, no null, no custom strings.
+
+### `symmetry_signal_detail` — Internal Report Field
+
+Added under `supporting_technical_evidence` in the Bremen v0.2 report
+envelope payload.
+
+```json
+"symmetry_signal_detail": {
+    "schema_status": "populated",
+    "measurement_summary": "...",
+    "signals": [
+        {
+            "label": "Profile difference magnitude",
+            "feature_family": ["sigma_l1", "sigma_l2", "sigma_r1", "sigma_r2", "meanrms1", "meanrms2"],
+            "difference_level": "moderate"
+        }
+    ],
+    "checksum_prefix": "a1b2c3d4",
+    "reference_artifact_version": "0.1.0"
+}
+```
+
+Internal output includes additionally:
+- `feature_family`: List of feature names per signal.
+- `checksum_prefix`: First 8 hex characters of the reference-statistics
+  artifact checksum (never the full checksum).
+- `reference_artifact_version`: Version string from the artifact.
+
+Internal output still excludes: raw feature values, raw deltas,
+percentile cutoffs, full checksums, raw target/control refs,
+patient names, PHI, raw H5/S3 paths, model internals, coefficients,
+or exception text.

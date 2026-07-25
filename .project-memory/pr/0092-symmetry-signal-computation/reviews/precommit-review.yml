@@ -1,0 +1,73 @@
+status: valid
+head: 8093dacda4cd29baa2686e08a0fca5b33b5ad439
+branch: 0092-symmetry-signal-computation
+blockers: []
+warnings:
+  - "docs/api_contract.md line 558-560 states 'small — Feature value <= 33rd percentile' and 'moderate — Feature value <= 67th percentile' as if 33/67 are hardcoded. The actual code reads cutoffs from the reference artifact bounds dict. This is slightly misleading documentation — the 33/67 are illustrative examples, not enforced constants. Recommend rewording to 'Feature value <= bounds.small cutoff' and 'Feature value <= bounds.moderate cutoff'."
+  - "import os as _os at line 231 of symmetry_signals.py is unused within _load_reference_statistics(). Left for Phase 2 path-based loading but produces a lint warning."
+  - "Task references tests/test_bremen_decision_support.py which does not exist. Actual file is tests/test_bremen_decision_support_output.py (38 tests pass). Implementation report correctly references the actual filename."
+changed_files:
+  - src/bremen/api/symmetry_signals.py
+  - src/bremen/api/decision_support.py
+  - src/bremen/api/report_bremen.py
+  - src/bremen/api/feature_artifact_prediction.py
+  - docs/api_contract.md
+  - tests/test_bremen_symmetry_signals.py
+working_tree_state: "4 modified tracked files + 3 untracked files (implementation-report.md, symmetry_signals.py, test file). No staged files."
+reference_statistics_status: "No artifact exists in repository. Phase 1 implements fail-closed not_available for all 5 signals. Phase 2 requires delivery of aggregate reference-statistics JSON artifact from data science team."
+phase_1_fail_closed_behavior: "All 5 signals emit difference_level not_available with schema_status unavailable. No default to small. No inference from score. All signals always present in output list. Verified by tests: test_all_not_available_when_ref_stats_is_none, test_all_not_available_when_feature_values_is_none, test_symmetry_signals_not_available_by_default."
+feature_to_signal_mapping: "15 features mapped to 5 signal families by computational logic. Verified against preprocessing_bridge.py source. All 15 features covered: test_feature_to_signal_map_covers_all_15_columns passes."
+duplicate_feature_handling: "sigma_l1==meanrms1 and sigma_l2==sigma_r2==meanrms2 acknowledged as computational duplicates. Both mapped to profile_difference_magnitude. Aggregation uses most extreme level — duplicates do not inflate result."
+bucketing_behavior: "_percentile_bucket: pure function, percentile-position against reference bounds. Returns not_available for None bounds, non-numeric, or non-finite values. value <= bounds.small -> small, value <= bounds.moderate -> moderate, value > bounds.moderate -> larger. _aggregate_signal_level: most extreme (highest) level across per-feature levels. All cutoffs come from reference artifact, never hardcoded."
+output_wiring: "External: symmetry_signals field in build_decision_support_report() output with schema_status, measurement_summary, signals (label + difference_level), note. Internal: symmetry_signal_detail under supporting_technical_evidence in BremenReportProvider._build_report() with feature_family, checksum_prefix (<=8 chars), reference_artifact_version. feature_artifact_prediction.py passes feature_values to build_decision_support_report() for consistency. POST /predictions schema unchanged (additive field)."
+not_available_behavior: "ref_stats None -> all not_available schema_status unavailable. Invalid artifact shape -> all not_available schema_status error. Signal missing from artifact -> that signal not_available. Non-finite feature value -> not_available for that feature. Missing feature in feature_values dict -> not_available for that feature. All 5 signals always present."
+safety: "No raw feature values in external or internal output. No percentile cutoffs in external or internal output. No full checksum (truncated to 8 chars). No S3 paths, manifest keys, model internals, coefficients, patient names, PHI, raw H5 paths, or exception text exposed. Decision vocabulary unchanged. POST /predictions schema unchanged. No HTTP routes, HTML, CSS, or PDF rendering introduced. No Aramis data reuse. No fabricated thresholds. No mockup sample values used as runtime data."
+tests:
+  total: 35
+  classes:
+    - name: TestComputeSymmetrySignals
+      count: 9
+      coverage: "Core computation: not_available behavior, all signals present, allowed levels only, missing signal, invalid ref_stats, checksum prefix, feature map coverage, no mockup values"
+    - name: TestDecisionSupportSymmetry
+      count: 6
+      coverage: "Decision support integration: field exists, not_available by default, backward compatible, no raw features, no cutoffs, decision vocabulary unchanged"
+    - name: TestInternalReportSymmetry
+      count: 7
+      coverage: "Internal report: symmetry_signal_detail present/absent, no raw features, no cutoffs, no full checksum, feature_family included/excluded"
+    - name: TestPercentileBucket
+      count: 6
+      coverage: "Bucketing: small/moderate/larger, not_available for None/NaN/Inf/non-number"
+    - name: TestLoadReferenceStatistics
+      count: 5
+      coverage: "Loader: None/valid/invalid/nonexistent path"
+    - name: TestNoRenderingLeak
+      count: 2
+      coverage: "No HTML in output, no HTTP/server imports"
+  full_suite: "2054 passed, 11 skipped, 28 warnings"
+  focused_symmetry: "35 passed"
+  focused_decision_support_output: "38 passed"
+  focused_preprocessing_bridge: "28 passed, 1 skipped"
+  focused_catalog_api: "20 passed"
+validation:
+  - command: "git diff --check"
+    result: "clean (no output)"
+  - command: "python -m compileall src tests"
+    result: "passed"
+  - command: "python -m pytest -q tests/test_bremen_symmetry_signals.py -v"
+    result: "35 passed"
+  - command: "python -m pytest -q tests/test_bremen_decision_support_output.py -v"
+    result: "38 passed"
+  - command: "python -m pytest -q tests/test_bremen_preprocessing_bridge.py -v"
+    result: "28 passed, 1 skipped"
+  - command: "python -m pytest -q tests/test_catalog_api_multi_model.py -v"
+    result: "20 passed"
+  - command: "python -m pytest -q"
+    result: "2054 passed, 11 skipped, 28 warnings"
+scope_control: "No inference changes. No preprocessing changes. No model catalog discovery changes. No Docker/requirements/CI/agents changes. No model artifacts or manifests changed. No Aramis scope. No rendering/PDF/UI work. No POST /predictions schema changes. Backward-compatible signature extension only."
+implementation_report:
+  matches_actual_diff: true
+  files_claimed: "symmetry_signals.py CREATED, decision_support.py MODIFIED, report_bremen.py MODIFIED, feature_artifact_prediction.py MODIFIED, test file CREATED, api_contract.md MODIFIED"
+  files_actual: "matches claimed list exactly"
+  validation_results_match: true
+  safety_claims_verified: true
+commit_readiness: true

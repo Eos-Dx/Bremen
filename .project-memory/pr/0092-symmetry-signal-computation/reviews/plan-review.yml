@@ -1,0 +1,68 @@
+# Plan Review — PR0092
+# Reviewed: 2026-07-25T23:55:00Z
+# Result: valid
+
+status: valid
+head: 43fb7d361209c521d6a85cb7de23be77515ed982
+branch: 0092-symmetry-signal-computation
+
+blockers: []
+
+warnings:
+  - "Reference-statistics artifact does not exist in repository. Phase 1 (this PR) implements fail-closed not_available for all signals. Phase 2 (follow-up PR) requires Slava to deliver the aggregate reference-statistics JSON artifact."
+  - "BREMEN_V01_FEATURE_COLUMNS contains computational duplicates: sigma_l1==meanrms1, sigma_l2==sigma_r2==meanrms2. Feature-to-signal map must handle deduplication (PLAN §3.2 acknowledges this and maps duplicates to same signal)."
+  - "build_decision_support_report() does not currently accept feature_values parameter. Signature extension with backward-compatible None defaults is required."
+  - "feature_artifact_prediction.py must also compute symmetry signals for consistency across prediction paths."
+  - "Report reference artifacts (bremen_external_report.yaml etc.) are not in the repository. PR0093 must be given these before rendering work (no impact on PR0092)."
+
+files_read:
+  - .project-memory/pr/0092-symmetry-signal-computation/PLAN.md
+  - src/bremen/api/preprocessing_bridge.py
+  - src/bremen/api/decision_support.py
+  - docs/api_contract.md
+  - .project-memory/project_contract.yml
+  - AGENTS.md
+
+files_written:
+  - .project-memory/pr/0092-symmetry-signal-computation/reviews/plan-review.yml
+
+reference_statistics_source: "Does not exist in repository. PLAN defines Phase 1 (PR0092) as fail-closed not_available for all signals. Phase 2 requires Slava to deliver a safe aggregate reference-statistics JSON artifact stored in S3 alongside model catalog manifests, referenced by BREMEN_REFERENCE_STATISTICS_URI. Plan specifies expected JSON schema with artifact_type, artifact_version, source_training_run, and signal-specific percentile_bounds containing only percentile cutoffs (no per-patient rows, raw values, or training data)."
+
+feature_to_signal_mapping: "Verified from real source analysis of preprocessing_bridge.py. All 15 features from BREMEN_V01_FEATURE_COLUMNS (line 35) traced through their computation helpers (lines 621-940). Five signal families identified from computational logic: (1) profile_difference_magnitude — sigma_l1/sigma_l2/sigma_r1/sigma_r2/meanrms1/meanrms2 (6 features, 3 unique), (2) weighted_profile_asymmetry — weightedrms1/weightedrms2, (3) statistical_shape_deviation — mahalanobis1/mahalanobis2, (4) distributional_divergence — wasserstein_distance_full_q2/wasserstein_distance_muLR/cosine_distance_full_q2, (5) bilateral_profile_intensity — peak14_intensity/mean_peak_value_raw. Duplicate computations (sigma_l1==meanrms1, sigma_l2==sigma_r2==meanrms2) acknowledged and handled by mapping to same signal. All helpers confirmed as pure numpy functions taking (target, contralateral) mean profiles."
+
+bucketing_method: "Percentile-position bucketing against safe aggregate training-cohort reference distribution. Cutoffs are loaded from controlled artifact, never hardcoded. Per-feature difference_level computed via _percentile_bucket(value, bounds) returning small (value <= bounds.small), moderate (value <= bounds.moderate), or larger (value > bounds.moderate). Per-signal aggregation uses most extreme (highest) level across features. Method justified as deterministic, safe, clinically interpretable, and training-coherent. No fabricated thresholds. No Aramis data reuse."
+
+output_wiring: "External: new symmetry_signals field in build_decision_support_report() output with schema_status, measurement_summary, signals (label + difference_level), note. Internal: symmetry_signal_detail under supporting_technical_evidence in BremenReportProvider._build_report() payload, adding feature_family names, checksum_prefix (first 8 hex chars), reference_artifact_version. Allowed difference_level values: small, moderate, larger, not_available. POST /predictions schema unchanged — new field is additive within existing decision_support_report dict. No new public routes."
+
+not_available_behavior: "Exhaustively defined in PLAN §7.1 with six conditions: artifact not configured, not loaded, checksum invalid, signal missing, feature out of distribution — each maps to not_available with specific schema_status and note. Explicit safety rules: no defaulting to small, no inferring from score, no hiding signals silently, no placeholder/fabricated data. All signals always present in output list."
+
+safety: "All blocker conditions cleared. No raw feature values, raw deltas, percentile cutoffs, reference-statistic values, full checksums, PHI, model internals, S3 paths, or exception text exposed in any output. Decision vocabulary unchanged. Inference/preprocessing semantics unchanged. POST /predictions schema unchanged. No rendering, PDF, UI, or frontend changes. No Aramis data, thresholds, labels, or wording. No fabricated thresholds. No mockup sample values used as runtime fallback. No private H5 or model artifact inspection required."
+
+test_plan: "14 tests defined in PLAN §9.2 covering: valid ref_stats (test 1), not_available when missing/invalid/absent signal (tests 2-3), no raw values in external/internal output (tests 4-5), feature-to-signal mapping correctness (test 6), no mockup values (test 7), backward compatibility of existing decision_support fields (test 8), decision vocabulary unchanged (test 9), POST /predictions schema unchanged (test 10), no rendering routes (test 11), allowed difference_level values only (test 12), stable signal labels (test 13 recommended), checksum_prefix truncation (test 14). New test file: tests/test_bremen_symmetry_signals.py."
+
+validation:
+  - command: "git rev-parse --verify HEAD"
+    exit_code: 0
+    output: "43fb7d361209c521d6a85cb7de23be77515ed982"
+  - command: "git branch --show-current"
+    exit_code: 0
+    output: "0092-symmetry-signal-computation"
+  - command: "git status --short"
+    exit_code: 0
+    output: "?? .project-memory/pr/0092-symmetry-signal-computation/"
+  - command: "git diff --name-only"
+    exit_code: 0
+    output: ""
+  - command: "test -f .project-memory/pr/0092-symmetry-signal-computation/PLAN.md"
+    exit_code: 0
+    output: "File exists"
+
+scope_control:
+  required_branch: "0092-symmetry-signal-computation"
+  actual_branch: "0092-symmetry-signal-computation"
+  plan_path: ".project-memory/pr/0092-symmetry-signal-computation/PLAN.md"
+  plan_exists: true
+  branch_match: true
+  result: "preconditions satisfied"
+
+commit_readiness: "ready — Plan is thorough, grounded in real source evidence, with complete safety boundaries, a well-defined fail-closed Phase 1, explicit deferred Phase 2 for real reference statistics, comprehensive test plan including not_available and no-raw-leakage tests, and full validation strategy. No blockers identified."
