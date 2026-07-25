@@ -1,0 +1,75 @@
+# Plan Review — PR0090
+# Reviewed: 2026-07-25T17:44:00Z
+# Result: valid
+
+status: valid
+head: 0c7d2dc944b15ffd95e842afabbf724434749a80
+branch: 0090-aramis-subprocess-governance-gate
+
+blockers: []
+
+warnings:
+  - "PR0090 is governance-only — creates ADR-0013 but does not implement Docker, runtime, source, or test changes. Docker Phase 1 work is deferred to PR0091+ after official Aramis runtime source/bundle/CLI contract is available."
+  - "requirements.txt comment referencing ADR-0002 is NOT updated in this PR. A future Phase 1 implementation PR should update it to reference ADR-0013 instead."
+  - "ROADMAP.md update is optional. Adding a brief PR0090 governance entry is recommended for roadmap traceability but not required by project conventions."
+  - "19 existing test_no_aramis_* tests remain unchanged and continue to pass. Future Phase 1 implementation must scope new Docker smoke tests to avoid the same check paths as these product-facing tests."
+
+files_read:
+  - .project-memory/pr/0090-aramis-subprocess-governance-gate/PLAN.md
+  - docs/adr/0002-twin-product-document-separation.md
+  - AGENTS.md
+  - requirements.txt
+  - src/bremen/api/workflow_aramis.py
+  - tests/test_bremen_api_contract.py
+  - tests/test_bremen_cli_entrypoint.py
+  - tests/test_bremen_config_loading.py
+  - tests/test_bremen_decision_vocabulary.py
+  - tests/test_bremen_demo_capture.py
+  - tests/test_bremen_demo_evidence.py
+  - tests/test_bremen_demo_presentation.py
+  - tests/test_bremen_demo_ui.py
+  - tests/test_bremen_import_identity.py
+  - tests/test_bremen_model_package.py
+  - tests/test_bremen_execution_showcase.py
+
+files_written:
+  - .project-memory/pr/0090-aramis-subprocess-governance-gate/reviews/plan-review.yml
+
+adr_strategy: "Option A — Create new ADR-0013 (docs/adr/0013-aramis-process-isolated-runtime-exception.md) that supersedes ADR-0002 for the specific case of process-isolated, Docker-level Aramis runtime bundling, while leaving ADR-0002 in full force for all product-facing surfaces. Option B (amend ADR-0002) was rejected due to weaker audit trail, rollback semantics, and lack of precedent."
+
+adr_0002_current_prohibition: "Verbatim citation in PLAN section 5: 'Bremen and Aramis are permanently separate forks/products/final deliverables... Aramis is not an active dependency, runtime, shared feature set, API, or configuration target for Bremen... No Aramis-specific architecture, endpoints, or configuration should be added to Bremen as a result of this or any future PR.' Impact acknowledged: this flatly prohibits Phase 1 Docker-level Aramis runtime bundling without an exception."
+
+exception_boundary: "Narrow and precisely scoped in PLAN section 6. Permitted: process-isolated subprocess integration, Docker-level bundling in separate /opt/aramis-venv, one-shot subprocess per job, same-container subprocess only. Explicitly not permitted: in-process imports, shared site-packages, shared feature sets, shared decision vocabulary, public /demo exposure, model catalog allowlist changes, persistent process/pool/IPC/network service, real patient data in Phases 1/2, guessing Aramis dependencies or CLI contract."
+
+source_access_gate: "Preserved in PLAN section 6. Five explicit options for providing official Aramis artifacts before Docker work can begin: (1) official source tree, (2) official Docker/runtime bundle, (3) official requirements/environment/pyproject, (4) official CLI entrypoint script, (5) written subprocess/CLI contract. Every future implementation plan must cite exact source/bundle used; no guessing, reverse-engineering, or fabrication permitted."
+
+phased_sequence: "Preserved in PLAN section 6. Five phases: (1) Docker-level smoke proof, (2) Provider subprocess invocation, (3) Checksummed artifact/manifest, (4) Workflow allowlist, (5) Safe native-result presentation. Each phase depends on prior phase completion. PR0090 only covers the governance prerequisite to Phase 1."
+
+test_policy_migration: "Comprehensive inventory in PLAN section 7 of all 19 existing test_no_aramis_* tests across 11 test files. All remain valid for product-facing surfaces after ADR-0013. Future Phase 1 implementation must scope new Docker smoke tests to internal-only paths. No test files are modified in this PR."
+
+validation:
+  - command: "git rev-parse --verify HEAD"
+    exit_code: 0
+    output: "0c7d2dc944b15ffd95e842afabbf724434749a80"
+  - command: "git branch --show-current"
+    exit_code: 0
+    output: "0090-aramis-subprocess-governance-gate"
+  - command: "git status --short"
+    exit_code: 0
+    output: "?? .project-memory/pr/0090-aramis-subprocess-docker-isolation/\n?? .project-memory/pr/0090-aramis-subprocess-governance-gate/"
+  - command: "git diff --name-only"
+    exit_code: 0
+    output: ""
+  - command: "test -f .project-memory/pr/0090-aramis-subprocess-governance-gate/PLAN.md"
+    exit_code: 0
+    output: "File exists"
+
+scope_control:
+  required_branch: "0090-aramis-subprocess-governance-gate"
+  actual_branch: "0090-aramis-subprocess-governance-gate"
+  plan_path: ".project-memory/pr/0090-aramis-subprocess-governance-gate/PLAN.md"
+  plan_exists: true
+  branch_match: true
+  result: "preconditions satisfied"
+
+commit_readiness: "ready — plan is well-structured for a governance-only PR. Coder should implement per section 12 (create ADR-0013, optionally update ROADMAP.md, run validation commands, write implementation report). Merging creates the ADR-0013 exception without any runtime, source, test, or Docker changes."

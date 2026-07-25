@@ -1,0 +1,61 @@
+status: valid
+head: 0c7d2dc944b15ffd95e842afabbf724434749a80
+branch: 0090-aramis-subprocess-governance-gate
+blockers: []
+warnings:
+  - "requirements.txt comment referencing ADR-0002 is NOT updated in this PR; future Phase 1 PR should reference ADR-0013"
+  - "ROADMAP.md was not updated (optional per plan, skipped to keep scope minimal)"
+  - "Untracked directory .project-memory/pr/0090-aramis-subprocess-docker-isolation/ exists but is not part of PR0090 scope"
+changed_files:
+  - docs/adr/0013-aramis-process-isolated-runtime-exception.md
+working_tree_state: "clean (no staged or modified tracked files; only untracked ADR + project-memory dirs)"
+adr_strategy: "Option A — new ADR-0013 as standalone document superseding ADR-0002 only for process-isolated Docker-level Aramis runtime bundling; ADR-0002 text untouched and preserved for audit trail"
+adr_0002_prohibition: "Acknowledged and cited verbatim in ADR-0013 Context section; ADR-0002 remains in full force for all product-facing surfaces including public API, UI, reports, model catalog, demo routes, decision vocabulary"
+adr_0013_exception_boundary: "Narrow and complete — permits only process-isolated subprocess, separate /opt/aramis-venv, one-shot lifecycle, same-container; explicitly prohibits in-process import, shared site-packages, shared feature set, shared vocabulary, p_cancer->p_mri_needed mapping, CANCER/NON-CANCER->CONTINUE_MRI/MRI_REVIEW_DEFER mapping, Aramis reliability->Bremen decision_policy mapping, public /demo exposure, allowlist changes in PR0090, persistent process/pool/IPC/server, real patient H5, copying directive wording"
+source_access_gate: "Preserved — five explicit artifact options required before Phase 1 Docker work; no guessing or reverse-engineering permitted; every future plan must cite exact source/bundle"
+phased_sequence: "Five phases documented (Docker smoke, provider subprocess, checksummed artifact, workflow allowlist, safe native presentation); PR0090 is governance-only prerequisite to Phase 1"
+test_policy_migration: "19 existing test_no_aramis_* tests across 11 files remain valid and unchanged; no test weakened; future Docker smoke tests must scope to internal-only paths"
+validation:
+  - command: "git rev-parse --verify HEAD"
+    result: "0c7d2dc944b15ffd95e842afabbf724434749a80"
+    exit_status: 0
+  - command: "git branch --show-current"
+    result: "0090-aramis-subprocess-governance-gate"
+    exit_status: 0
+  - command: "git status --short"
+    result: "only untracked: ADR-0013 + project-memory dirs"
+    exit_status: 0
+  - command: "git diff --name-only"
+    result: "no modified tracked files"
+    exit_status: 0
+  - command: "grep process-isolated/subprocess/Aramis docs/adr/0013-aramis-process-isolated-runtime-exception.md"
+    result: "30 matching lines — process-isolation language present"
+    exit_status: 0
+  - command: "grep p_mri_needed/CONTINUE_MRI/MRI_REVIEW_DEFER/decision_policy docs/adr/0013-aramis-process-isolated-runtime-exception.md"
+    result: "2 matches at lines 101-102 only in explicit prohibition context under Non-goals"
+    exit_status: 0
+  - command: "git diff --name-only | grep src/tests/Dockerfile/requirements.txt/pyproject.toml/.github/infra/agents"
+    result: "NO_BLOCKED_FILES"
+    exit_status: 0
+  - command: "git diff --check"
+    result: "clean"
+    exit_status: 0
+diff_check: "clean — no whitespace errors, no tracked file modifications, no blocked-path changes"
+implementation_report:
+  accurate: true
+  verified_claims:
+    - "Only docs/adr/0013 created (165 lines)"
+    - "ADR-0002 prohibition acknowledged"
+    - "Exception boundary matches plan specification"
+    - "Source access gate preserved with five artifact options"
+    - "Phased sequence documented (5 phases)"
+    - "No-aramis test policy documented (19 tests across 11 files)"
+    - "No src/tests/Docker/requirements changes"
+    - "Validation results match independent verification"
+  documented_warnings:
+    - "requirements.txt ADR-0002 comment not updated (deferred to Phase 1)"
+    - "ROADMAP.md update optional"
+    - "PR0090 governance-only; Docker Phase 1 deferred to PR0091+"
+security: "no private Aramis source, model artifacts, H5 data, credentials, AWS account data, S3 paths, checksums, package internals, or patient data added; documentation-only PR"
+scope_control: "only docs/adr/0013-aramis-process-isolated-runtime-exception.md created; no src/tests/Dockerfile/requirements.txt/pyproject.toml/.github/infra/agents changes; .project-memory dirs are untracked project documentation only"
+commit_readiness: true
