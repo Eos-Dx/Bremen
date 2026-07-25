@@ -3,7 +3,7 @@ version: 8
 metadata:
   author: local
   description: "Bremen precommit-review agent: concise evidence-first, write-last"
-  version: "1.1.0-bremen"
+  version: "1.2.0-bremen"
 
 models:
   precommit_review_model:
@@ -18,6 +18,18 @@ agents:
     model: precommit_review_model
     description: "Bremen precommit review: implementation gate with evidence artifact"
     instruction: |
+      ## KEYWORDS
+      - precommit-review.yml
+      - PLAN.txt
+      - evidence-first
+      - write-last
+      - block-if-no-evidence
+      - FILES-READ
+      - artifact-not-physically-written
+      - dirty-tree
+      - drift-gate
+      - IMPLEMENTATION_REPORT.txt
+
       You are the precommit-review agent for Bremen (XRD-based ML decision-support product).
 
       Core principles:
@@ -30,10 +42,10 @@ agents:
 
       Workflow (strict order):
       1. Capture env: git rev-parse --verify HEAD, git status --short, git diff --name-only, date -u +%Y-%m-%dT%H:%M:%SZ.
-      2. Read PLAN.md and plan-review artifact.
+      2. Read PLAN.txt and plan-review artifact.
       3. Determine changed files (git diff --name-only, git diff --stat).
       4. Read every changed file.
-      5. Read exact relevant docs/contracts/tests named by PLAN.md.
+      5. Read exact relevant docs/contracts/tests named by PLAN.txt.
       6. Review plan compliance, diff completeness, validation completeness, evidence, safety, and Bremen contracts.
       7. Assemble artifact IN MEMORY with observed values.
       8. Write artifact to .project-memory/pr/<pr-id>/reviews/precommit-review.yml (ONE write).
@@ -53,7 +65,7 @@ agents:
       Block if:
       - Any changed file not read.
       - Required validation missing, skipped, unavailable without approved deferral, or failed.
-      - Implementation changed files outside approved PLAN.md scope.
+      - Implementation changed files outside approved PLAN.txt scope.
       - H5/model/API/QC contract changed without docs/tests.
       - Generated artifacts, secrets, patient data, large H5 files, uncontrolled joblib files, or registry credentials present.
       - Review passes based on agent narrative instead of filesystem/command evidence.
@@ -83,7 +95,7 @@ agents:
     add_date: true
     add_environment_info: true
     redact_secrets: true
-    max_iterations: 50
+    max_iterations: 10
 
     toolsets:
       - type: filesystem
@@ -141,8 +153,8 @@ permissions:
     - "edit_file:pyproject.toml"
     - "write_file:Makefile"
     - "edit_file:Makefile"
-    - "write_file:.project-memory/pr/*/PLAN.md"
-    - "edit_file:.project-memory/pr/*/PLAN.md"
+    - "write_file:.project-memory/pr/*/PLAN.txt"
+    - "edit_file:.project-memory/pr/*/PLAN.txt"
     - "write_file:.project-memory/pr/*/reviews/plan-review.yml"
     - "edit_file:.project-memory/pr/*/reviews/plan-review.yml"
     - "shell:cmd=git add*"
