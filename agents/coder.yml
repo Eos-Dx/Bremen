@@ -8,10 +8,9 @@ metadata:
 models:
   coder_model:
     provider: anthropic
-    model: deepseek-v4-pro
+    model: deepseek-v4-flash
     base_url: https://api.openmodel.ai
-#     token_key: DEEPSEEK_API_KEY
-    max_tokens: 10000
+    max_tokens: 40000
     temperature: 0
     thinking_budget: low
 
