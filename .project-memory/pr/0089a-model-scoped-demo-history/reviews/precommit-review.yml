@@ -1,0 +1,79 @@
+status: valid
+head: b729b4d8893b4b2b6b4f785b95c6fd6a2a062542
+branch: 0089a-model-scoped-demo-history
+blockers: []
+warnings:
+  - "No cross-model history leakage test that creates two jobs with different model_ids and verifies only the correct one appears after filtering. The unit tests test_filter_by_model_id_a and test_filter_by_model_id_b both insert two jobs but do not assert the other model's jobs are excluded by count."
+  - "No test verifies the report page /demo/report/<job_id> shows the job's model_id rather than the currently selected model. The report UI already does this correctly via job.input_summary.model_id, but a regression test would prevent future drift."
+changed_files:
+  - src/bremen/api/job_api_handler.py
+  - src/bremen/control_room_ui.py
+  - docs/api_contract.md
+  - tests/test_bremen_api_server.py
+working_tree_state: "4 modified files, 0 staged, 1 untracked project-memory directory"
+api_behavior:
+  - "GET /demo/api/jobs?model_id=<id> returns only jobs with matching model_id"
+  - "GET /demo/api/jobs?workflow_id=bremen&model_id=<id> combines filters"
+  - "GET /demo/api/jobs (no params) preserves existing unfiltered behavior"
+  - "Unknown/invalid model_id returns empty list (no 400 error)"
+  - "Server-side filtering only"
+server_side_filtering: "list_analysis_jobs() accepts optional model_id and workflow_id parameters. Filters are applied server-side after building the summary dict. Jobs where j.input_summary.model_id does not match are skipped. Workflow filtering checks j.requested_workflows. No urllib import added — query params parsed manually."
+ui_behavior:
+  - "loadJobHistory() builds URL with selectedModelWorkflowId and selectedModelId as query params"
+  - "onModelSelect() calls loadJobHistory() after model change"
+  - "loadModelCatalog() calls loadJobHistory() after catalog resolution"
+  - "URLSearchParams used for safe URL construction"
+report_truthfulness: "Report page (report_ui.py line 140) reads model_id from job.input_summary.model_id — shows the job's actual model identity, not the currently selected model. No change needed and no regression introduced."
+sse_events: "SSE streams remain scoped by job_id via /demo/api/jobs/<job_id>/events/stream — unchanged"
+tests:
+  total_new: 9
+  details:
+    - "test_jobs_store_model_id — verifies jobs store model_id in input_summary"
+    - "test_filter_by_model_id_a — list_analysis_jobs(model_id='model-alpha') returns only alpha jobs"
+    - "test_filter_by_model_id_b — list_analysis_jobs(model_id='model-beta') returns only beta jobs"
+    - "test_combined_filters — combined model_id + workflow_id filter works"
+    - "test_no_filter_preserves_behavior — omitting model_id returns all jobs"
+    - "test_unknown_model_id_empty — unknown model_id returns empty list"
+    - "test_jobs_response_no_prohibited_fields — no checksum/S3/manifest_key exposed"
+    - "test_control_room_html_has_model_scoped_js — HTML includes loadJobHistory and model_id"
+    - "test_api_jobs_with_model_id_query — server accepts model_id query param"
+  preexisting_tests_unaffected: true
+validation:
+  compileall: "python -m compileall src tests — passed (no output)"
+  test_bremen_api_server: "104 passed"
+  test_catalog_api_multi_model: "20 passed"
+  test_bremen_demo_ui: "61 passed"
+  full_suite: "2019 passed, 11 skipped, 28 warnings"
+  diff_check: "clean (no output)"
+safety:
+  manifest_key_exposure: "No manifest_key added to UI or changed API response fields"
+  s3_exposure: "s3:// references in src are pre-existing (model_artifacts.py, config.py, system_of_record.py) — not in changed files"
+  arn_aws_exposure: "No arn:aws or AccessDenied in changed files"
+  model_checksum_exposure: "model_checksum references in src/bremen/api/ are pre-existing (app.py, inference_handler.py, model_registry.py) — not exposed by job list endpoint"
+scope_control:
+  allowed_files_changed:
+    - "src/bremen/api/job_api_handler.py — server-side filtering + query param parsing"
+    - "src/bremen/control_room_ui.py — JS passes model_id/workflow_id to job history fetch"
+    - "docs/api_contract.md — documents GET /demo/api/jobs query parameters"
+    - "tests/test_bremen_api_server.py — 9 new tests in TestPR0089AModelScopedJobHistory"
+  disallowed_files_unchanged:
+    - "src/bremen/inference.py — no inference changes"
+    - "src/bremen/preprocessing — no preprocessing changes"
+    - "src/bremen/model_catalog — no model catalog discovery changes"
+    - "Dockerfile — unchanged"
+    - "requirements.txt — unchanged"
+    - "pyproject.toml — unchanged"
+    - "ROADMAP.md — unchanged"
+implementation_report:
+  accurate: true
+  verified_claims:
+    - "list_analysis_jobs() now accepts model_id and workflow_id parameters"
+    - "handle_jobs_list() parses query parameters without urllib"
+    - "Control Room JS passes selectedModelId and selectedModelWorkflowId"
+    - "onModelSelect() refreshes job history"
+    - "loadModelCatalog() refreshes job history"
+    - "9 new tests in TestPR0089AModelScopedJobHistory"
+    - "All validation results match actual command output"
+  minor_notes:
+    - "Duplicate section headers in test file (3x '# PR0089A — Model-scoped demo job history') — cosmetic only, does not affect test execution"
+commit_readiness: true

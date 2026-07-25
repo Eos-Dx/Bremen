@@ -474,3 +474,51 @@ these additional fields:
 - `resolve_model()` fails safely for model_ids that appear only in
   `unavailable_models`.
 - `candidate_label` cannot be used as a model identifier for job submission.
+
+---
+
+### `GET /demo/api/jobs`
+
+**Purpose:** Return recent analysis jobs, with optional server-side model-scoped filtering.
+
+**Query parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `model_id` | string or absent | (none) | Filter jobs to only those created with the given model_id. When absent, all jobs are returned. |
+| `workflow_id` | string or absent | (none) | Filter jobs to only those created with the given workflow_id. When absent, all jobs are returned. |
+
+**Response:**
+
+```json
+{
+  "jobs": [
+    {
+      "job_id": "<uuid>",
+      "created_at": "<ISO-8601 UTC>",
+      "overall_status": "<completed|failed|running>",
+      "requested_workflows": ["bremen"],
+      "model_id": "<model_id>",
+      "source_display_name": "<filename or container_id>",
+      "decision_code": "<decision_code or null>",
+      "decision_display_name": "<display_name or null>",
+      "triage_recommendation": "<deprecated or null>",
+      "model_version": "<version or null>",
+      "report_available": true
+    }
+  ],
+  "storage_mode": "in_memory",
+  "retention_seconds": 3600,
+  "max_jobs": 100
+}
+```
+
+**Safety rules (PR0089A):**
+- Server-side filtering by `model_id` and `workflow_id` ensures
+  reports are model-scoped. A report generated with model A must not
+  appear in Control Room history for model B.
+- Omitting both parameters preserves the existing unfiltered behavior.
+- Invalid or unknown `model_id` returns an empty job list (no hard error).
+- No prohibited fields are exposed: full model checksum, raw S3 paths,
+  manifest keys, raw exception text, model internals, raw feature
+  values, or PHI.

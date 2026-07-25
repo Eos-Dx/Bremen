@@ -2158,3 +2158,155 @@ class TestPR0087StartPageDisabledCards:
         assert "Not compatible with the current runtime" in text
         assert "Duplicate model identity" in text
         assert "Model package is not registered" in text
+
+
+
+
+# ---------------------------------------------------------------------------
+# PR0089A — Model-scoped demo job history
+# ---------------------------------------------------------------------------
+
+
+
+
+# ---------------------------------------------------------------------------
+# PR0089A — Model-scoped demo job history
+# ---------------------------------------------------------------------------
+
+
+
+
+# ---------------------------------------------------------------------------
+# PR0089A — Model-scoped demo job history
+# ---------------------------------------------------------------------------
+
+
+class TestPR0089AModelScopedJobHistory:
+    """PR0089A: Model-scoped job history filtering.
+
+    Tests server-side filtering of list_analysis_jobs() by model_id
+    and workflow_id, and verify Control Room HTML includes the scoped
+    fetch JS.
+    """
+
+    def teardown_method(self):
+        from bremen.api.job_api_handler import reset_for_tests
+        reset_for_tests()
+
+    @staticmethod
+    def _make_simple_job(model_id, workflow_id="bremen", status="completed",
+                         job_id=None, container_id="test"):
+        """Build a minimal AnalysisJob with the given model_id."""
+        import uuid as _uuid
+        from bremen.api.job_models import AnalysisJob
+        jid = job_id or str(_uuid.uuid4())
+        return AnalysisJob(
+            job_id=jid,
+            request_id=str(_uuid.uuid4()),
+            created_at="2026-01-01T00:00:00Z",
+            overall_status=status,
+            input_summary={
+                "container_id": container_id,
+                "model_id": model_id,
+                "workflow_id": workflow_id,
+            },
+            normalization_summary={},
+            requested_workflows=(workflow_id,),
+        )
+
+    def _insert_job(self, model_id, workflow_id="bremen",
+                    container_id="test"):
+        """Insert a minimal job into the shared store."""
+        from bremen.api.job_api_handler import _jobs, _jobs_lock
+        job = self._make_simple_job(model_id, workflow_id=workflow_id,
+                                     container_id=container_id)
+        with _jobs_lock:
+            _jobs[job.job_id] = job
+        return job
+
+    def test_jobs_store_model_id(self):
+        """Jobs store model_id in input_summary and appear in summary."""
+        from bremen.api.job_api_handler import list_analysis_jobs
+        self._insert_job("model-alpha")
+        jobs = list_analysis_jobs()
+        assert len(jobs) > 0
+        assert jobs[0].get("model_id") == "model-alpha"
+
+    def test_filter_by_model_id_a(self):
+        """list_analysis_jobs(model_id=A) returns only model A jobs."""
+        from bremen.api.job_api_handler import list_analysis_jobs
+        self._insert_job("model-alpha")
+        self._insert_job("model-beta")
+        jobs = list_analysis_jobs(model_id="model-alpha")
+        assert len(jobs) > 0
+        for j in jobs:
+            assert j.get("model_id") == "model-alpha"
+
+    def test_filter_by_model_id_b(self):
+        """list_analysis_jobs(model_id=B) returns only model B jobs."""
+        from bremen.api.job_api_handler import list_analysis_jobs
+        self._insert_job("model-alpha")
+        self._insert_job("model-beta")
+        jobs = list_analysis_jobs(model_id="model-beta")
+        for j in jobs:
+            assert j.get("model_id") == "model-beta"
+
+    def test_combined_filters(self):
+        """Combined model_id and workflow_id filters work together."""
+        from bremen.api.job_api_handler import list_analysis_jobs
+        self._insert_job("model-alpha", workflow_id="bremen")
+        self._insert_job("model-beta", workflow_id="bremen")
+        jobs = list_analysis_jobs(
+            model_id="model-alpha", workflow_id="bremen",
+        )
+        for j in jobs:
+            assert j.get("model_id") == "model-alpha"
+            assert "bremen" in j.get("requested_workflows", [])
+
+    def test_no_filter_preserves_behavior(self):
+        """Omitting model_id returns all jobs."""
+        from bremen.api.job_api_handler import list_analysis_jobs
+        self._insert_job("model-alpha")
+        self._insert_job("model-beta")
+        jobs = list_analysis_jobs()
+        assert len(jobs) >= 2
+
+    def test_unknown_model_id_empty(self):
+        """Unknown model_id returns empty list (no error)."""
+        from bremen.api.job_api_handler import list_analysis_jobs
+        self._insert_job("model-alpha")
+        jobs = list_analysis_jobs(model_id="nonexistent")
+        assert jobs == []
+
+    def test_jobs_response_no_prohibited_fields(self):
+        """Job summary dicts do not expose prohibited fields."""
+        from bremen.api.job_api_handler import list_analysis_jobs
+        import json as _json
+        self._insert_job("model-safe")
+        jobs = list_analysis_jobs()
+        body_str = _json.dumps(jobs)
+        assert "model_checksum" not in body_str
+        assert "s3://" not in body_str
+        assert "manifest_key" not in body_str
+
+    def test_control_room_html_has_model_scoped_js(self, server_info):
+        """Control Room HTML includes model-scoped job history JS."""
+        host, port, _ = server_info
+        status, body, _ = _get(
+            host, port,
+            "/demo/control-room?model_id=bremen-test&workflow_id=bremen",
+        )
+        assert status == 200
+        text = body.decode("utf-8")
+        assert "loadJobHistory" in text
+        assert "model_id" in text
+
+    def test_api_jobs_with_model_id_query(self, server_info):
+        """GET /demo/api/jobs?model_id=test returns 200 with jobs list."""
+        host, port, _ = server_info
+        status, body, _ = _get(
+            host, port, "/demo/api/jobs?model_id=test-model",
+        )
+        assert status == 200
+        data = json.loads(body)
+        assert "jobs" in data
