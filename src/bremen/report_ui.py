@@ -189,16 +189,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
   .report-loading-spinner{display:none !important}
   .tab-panel[hidden]{display:none !important}
   .tab-panel:not([hidden]){display:block !important}
-  .recommendation-card,.report-card{box-shadow:none;page-break-inside:avoid;border:1px solid #E3E7E6}
+  .recommendation-card{box-shadow:none;page-break-inside:avoid;border:1px solid #E3E7E6;border-left:3px solid #1F6F6B;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .report-card{box-shadow:none;page-break-inside:avoid;border:1px solid #E3E7E6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .score-bar{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .score-fill{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .score-threshold{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .signal-chip{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .qc-badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .tech-demo-notice{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .boundary-note{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .decision-policy-text{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .sample-banner{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .trace-stage{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .signal-detail-table{page-break-inside:avoid}
   .symmetry-row{page-break-inside:avoid}
   .report-header{border-bottom:1px solid #E3E7E6}
   .report-footer{border-top:1px solid #E3E7E6}
   .section-title{border-bottom:1px solid #E3E7E6}
-  .signal-chip{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .qc-badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .score-fill{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .score-threshold{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 """
 
@@ -295,13 +302,14 @@ function renderExternalTab(job,report){
     html+='<div class="report-card"><div class="report-card-title">Report unavailable</div><p style="font-size:var(--fs-14);color:var(--text-secondary)">The report for this job is not available.</p></div>';
   }
 
-  // QC Status
+  // QC Status — read from report payload (same authoritative source as Internal)
+  var extQcSummary=report.payload?report.payload.measurement_qc_summary||{}:{};
+  var qcStatus=extQcSummary.qc_status||rs.qc_status||'—';
+  var qcClass=qcStatus==='passed'?'passed':'failed';
   html+='<div class="report-card">';
   html+='<div class="report-card-title">Quality Control</div>';
-  var qcStatus=rs.qc_status||'—';
-  var qcClass=qcStatus==='passed'?'passed':'failed';
   html+='<span class="qc-badge '+qcClass+'">QC: '+escapeHtml(qcStatus)+'</span>';
-  var qcFlags=rs.qc_flags||[];
+  var qcFlags=extQcSummary.qc_flags||rs.qc_flags||[];
   if(qcFlags.length>0){
     html+='<p style="font-size:var(--fs-13);color:var(--text-secondary);margin-top:var(--sp-8)">Flags: '+escapeHtml(qcFlags.join(', '))+'</p>';
   }
@@ -481,7 +489,7 @@ function renderInternalTab(job,report,reportData){
       html+='<div class="trace-stage '+statusClass+'">';
       html+='<span class="trace-stage-icon '+iconClass+'">'+icon+'</span>';
       html+='<span class="trace-stage-label">'+escapeHtml(stage.label||stage.stage_id||'')+'</span>';
-      if(stage.duration_ms!==undefined){html+='<span class="trace-stage-dur">'+stage.duration_ms+'ms</span>';}
+      if(stage.duration_ms!=null){html+='<span class="trace-stage-dur">'+stage.duration_ms+'ms</span>';}
       html+='</div>';
     });
     html+='</div>';
