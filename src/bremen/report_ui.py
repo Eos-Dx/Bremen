@@ -108,9 +108,26 @@ def build_external_report_json(report: dict) -> dict:
 
     This is the live API/report shape. It must match bremen_external_report.yaml
     by key structure, but values must come from real job/report data.
+
+    Source paths (BremenReportProvider v0.2 payload):
+      payload["score_and_threshold"]["p_mri_needed"] = probability
+      payload["score_and_threshold"]["threshold"] = threshold
+      payload["score_and_threshold"]["triage_recommendation"] = decision code
+      payload["measurement_qc_summary"]["qc_status"]
+      payload["measurement_qc_summary"]["qc_flags"]
+      payload["model_identity"]["model_version"]
+      payload["model_identity"]["feature_schema_version"]
+      payload["model_identity"]["model_checksum"]
+      payload["supporting_technical_evidence"]["symmetry_signal_detail"]
+      envelope["job_id"], envelope["model_version"], envelope["generated_at"]
+
+    Legacy shapes (decision_support_report, prediction_summary) are still
+    searched for backward compatibility.
     """
     report = _safe_dict(report)
     payload = _safe_dict(report.get("payload"))
+
+    # --- Legacy decision_support_report shape ---
     ds = _safe_dict(
         _first_present(
             payload.get("decision_support_report"),
@@ -120,7 +137,14 @@ def build_external_report_json(report: dict) -> dict:
         )
     )
 
-    prediction = _safe_dict(
+    # --- Actual BremenReportProvider v0.2 payload shapes ---
+    score_threshold = _safe_dict(payload.get("score_and_threshold"))
+    measurement_qc = _safe_dict(payload.get("measurement_qc_summary"))
+    model_identity_payload = _safe_dict(payload.get("model_identity"))
+    tech_evidence = _safe_dict(payload.get("supporting_technical_evidence"))
+
+    # --- Prediction summary: merge legacy + actual ---
+    prediction_legacy = _safe_dict(
         _first_present(
             ds.get("prediction_summary"),
             payload.get("prediction_summary"),
@@ -129,7 +153,8 @@ def build_external_report_json(report: dict) -> dict:
         )
     )
 
-    model = _safe_dict(
+    # --- Model metadata: merge legacy + actual ---
+    model_legacy = _safe_dict(
         _first_present(
             ds.get("model_metadata"),
             payload.get("model_metadata"),
@@ -159,6 +184,7 @@ def build_external_report_json(report: dict) -> dict:
     generated_at = _first_present(
         report.get("completed_at"),
         report.get("created_at"),
+        report.get("generated_at"),
         payload.get("completed_at"),
         payload.get("created_at"),
         ds.get("generated_at"),
@@ -171,22 +197,68 @@ def build_external_report_json(report: dict) -> dict:
         report.get("request_id"), payload.get("request_id"), ds.get("request_id")
     )
 
+    # --- Score: actual shape first, then legacy ---
+    p_mri_needed = _first_present(
+        score_threshold.get("p_mri_needed"),
+        prediction_legacy.get("p_mri_needed"),
+        ds.get("p_mri_needed"),
+        report.get("score"),
+    )
+
+    # --- Decision code: actual shape first (triage_recommendation), then legacy ---
+    decision_code = _first_present(
+        score_threshold.get("triage_recommendation"),
+        prediction_legacy.get("decision_code"),
+        ds.get("decision_code"),
+        report.get("decision_code"),
+    )
+
+    # --- Threshold: actual shape first ---
     threshold_value = _first_present(
-        prediction.get("threshold_value"),
-        model.get("threshold_value"),
+        score_threshold.get("threshold"),
+        prediction_legacy.get("threshold_value"),
+        model_legacy.get("threshold_value"),
         ds.get("threshold_value"),
     )
 
+    # --- Decision policy ID ---
     decision_policy_id = _first_present(
-        prediction.get("decision_policy_id"),
-        model.get("threshold_version"),
+        prediction_legacy.get("decision_policy_id"),
+        model_legacy.get("threshold_version"),
         ds.get("decision_policy_id"),
     )
 
     decision_policy_version = _first_present(
-        prediction.get("decision_policy_version"),
-        model.get("decision_policy_version"),
+        prediction_legacy.get("decision_policy_version"),
+        model_legacy.get("decision_policy_version"),
         ds.get("decision_policy_version"),
+    )
+
+    # --- QC status: actual measurement_qc_summary first, then legacy ---
+    qc_status = _first_present(
+        measurement_qc.get("qc_status"),
+        prediction_legacy.get("qc_status"),
+        ds.get("qc_status"),
+        payload.get("qc_status"),
+    )
+
+    qc_flags = _safe_list(
+        _first_present(
+            measurement_qc.get("qc_flags"),
+            prediction_legacy.get("qc_flags"),
+            ds.get("qc_flags"),
+            payload.get("qc_flags"),
+            default=[],
+        )
+    )
+
+    # --- Decision display name from decision code ---
+    decision_display_name = _first_present(
+        prediction_legacy.get("decision_display_name"),
+        ds.get("decision_display_name"),
+        default="Continue MRI evaluation" if decision_code == "CONTINUE_MRI"
+        else "Defer MRI pending clinician review" if decision_code == "MRI_REVIEW_DEFER"
+        else "Continue MRI evaluation",
     )
 
     return {
@@ -195,7 +267,7 @@ def build_external_report_json(report: dict) -> dict:
             ds.get("report_schema_version"), REPORT_SCHEMA_VERSION
         ),
         "report_id": _first_present(
-            ds.get("report_id"), _report_id(job_id, generated_at)
+            ds.get("report_id"), report.get("report_id"), _report_id(job_id, generated_at)
         ),
         "generated_at": generated_at,
         "job_id": job_id,
@@ -215,10 +287,14 @@ def build_external_report_json(report: dict) -> dict:
         ],
         "model_metadata": {
             "model_version": _first_present(
-                model.get("model_version"), report.get("model_version")
+                model_identity_payload.get("model_version"),
+                model_legacy.get("model_version"),
+                report.get("model_version"),
             ),
             "feature_schema_version": _first_present(
-                model.get("feature_schema_version"), ds.get("feature_schema_version")
+                model_identity_payload.get("feature_schema_version"),
+                model_legacy.get("feature_schema_version"),
+                ds.get("feature_schema_version"),
             ),
             "threshold_version": decision_policy_id,
             "threshold_value": threshold_value,
@@ -235,44 +311,18 @@ def build_external_report_json(report: dict) -> dict:
             ),
         },
         "prediction_summary": {
-            "p_mri_needed": _format_score(
-                _first_present(
-                    prediction.get("p_mri_needed"),
-                    ds.get("p_mri_needed"),
-                    report.get("score"),
-                )
-            ),
-            "decision_code": _first_present(
-                prediction.get("decision_code"),
-                ds.get("decision_code"),
-                report.get("decision_code"),
-            ),
-            "decision_display_name": _first_present(
-                prediction.get("decision_display_name"),
-                ds.get("decision_display_name"),
-                default="Continue MRI evaluation",
-            ),
+            "p_mri_needed": _format_score(p_mri_needed),
+            "decision_code": decision_code,
+            "decision_display_name": decision_display_name,
             "decision_policy_id": decision_policy_id,
             "decision_policy_version": decision_policy_version,
-            "qc_status": _first_present(
-                prediction.get("qc_status"),
-                ds.get("qc_status"),
-                payload.get("qc_status"),
-            ),
-            "qc_flags": _safe_list(
-                _first_present(
-                    prediction.get("qc_flags"),
-                    ds.get("qc_flags"),
-                    payload.get("qc_flags"),
-                    default=[],
-                )
-            ),
+            "qc_status": qc_status,
+            "qc_flags": qc_flags,
         },
         "decision_support": {
             "recommendation": _first_present(
                 _get_path(ds, "decision_support", "recommendation"),
-                prediction.get("decision_code"),
-                ds.get("decision_code"),
+                decision_code,
             )
         },
         "symmetry_signals": {
@@ -297,13 +347,33 @@ def build_internal_report_json(report: dict) -> dict:
 
     This shape follows bremen_internal_report.yaml. It is still safe for
     unauthenticated /demo/*: prefix checksum only, no raw values/cutoffs/PHI.
+
+    Source paths (BremenReportProvider v0.2):
+      envelope["job_id"], envelope["generated_at"], envelope["workflow_status"]
+      payload["score_and_threshold"]["p_mri_needed"] = score
+      payload["score_and_threshold"]["threshold"] = threshold
+      payload["score_and_threshold"]["triage_recommendation"] = decision code
+      payload["measurement_qc_summary"]["qc_status"], ["qc_flags"]
+      payload["model_identity"]["model_version"], ["feature_schema_version"]
+      payload["supporting_technical_evidence"]["symmetry_signal_detail"]
+      payload["audit_information"]["job_id"], ["generated_at"]
+      payload["workflow_readiness"]
     """
     report = _safe_dict(report)
     payload = _safe_dict(report.get("payload"))
     external = build_external_report_json(report)
 
+    # --- Actual BremenReportProvider v0.2 payload shapes ---
+    score_threshold = _safe_dict(payload.get("score_and_threshold"))
+    measurement_qc = _safe_dict(payload.get("measurement_qc_summary"))
+    model_identity_payload = _safe_dict(payload.get("model_identity"))
+    tech_evidence = _safe_dict(payload.get("supporting_technical_evidence"))
+    audit_info = _safe_dict(payload.get("audit_information"))
+    wf_readiness = _safe_dict(payload.get("workflow_readiness"))
+
     supporting = _safe_dict(
         _first_present(
+            tech_evidence,
             payload.get("supporting_technical_evidence"),
             report.get("supporting_technical_evidence"),
             default={},
@@ -327,10 +397,46 @@ def build_internal_report_json(report: dict) -> dict:
 
     model_checksum_prefix = _checksum_prefix(
         _first_present(
+            model_identity_payload.get("model_checksum"),
             supporting.get("model_checksum_prefix"),
             payload.get("model_checksum_prefix"),
             report.get("model_checksum_prefix"),
             report.get("model_checksum"),
+        )
+    )
+
+    # --- Job identity: envelope fields + audit_information ---
+    created_at = _first_present(
+        report.get("created_at"),
+        payload.get("created_at"),
+        audit_info.get("created_at"),
+    )
+    completed_at = _first_present(
+        report.get("completed_at"),
+        payload.get("completed_at"),
+        report.get("generated_at"),
+    )
+    status = _first_present(
+        report.get("status"),
+        payload.get("status"),
+        report.get("workflow_status"),
+    )
+
+    # --- Score from actual payload ---
+    score = _first_present(
+        score_threshold.get("p_mri_needed"),
+        _get_path(external, "prediction_summary", "p_mri_needed"),
+    )
+
+    # --- QC from actual payload ---
+    qc_status = _first_present(
+        measurement_qc.get("qc_status"),
+        _get_path(external, "prediction_summary", "qc_status"),
+    )
+    qc_flags = _safe_list(
+        _first_present(
+            measurement_qc.get("qc_flags"),
+            _get_path(external, "prediction_summary", "qc_flags", default=[]),
         )
     )
 
@@ -342,19 +448,19 @@ def build_internal_report_json(report: dict) -> dict:
         "job_identity": {
             "job_id": external["job_id"],
             "request_id": external["request_id"],
-            "created_at": _first_present(
-                report.get("created_at"), payload.get("created_at")
-            ),
-            "completed_at": _first_present(
-                report.get("completed_at"), payload.get("completed_at")
-            ),
-            "status": _first_present(report.get("status"), payload.get("status")),
+            "created_at": created_at,
+            "completed_at": completed_at,
+            "status": status,
         },
         "model_and_plugin": {
-            "model_version": _get_path(external, "model_metadata", "model_version"),
+            "model_version": _first_present(
+                model_identity_payload.get("model_version"),
+                _get_path(external, "model_metadata", "model_version"),
+            ),
             "model_checksum_prefix": model_checksum_prefix,
-            "feature_schema_version": _get_path(
-                external, "model_metadata", "feature_schema_version"
+            "feature_schema_version": _first_present(
+                model_identity_payload.get("feature_schema_version"),
+                _get_path(external, "model_metadata", "feature_schema_version"),
             ),
             "plugin_id": _first_present(
                 supporting.get("plugin_id"),
@@ -369,18 +475,23 @@ def build_internal_report_json(report: dict) -> dict:
             "report_schema_version": INTERNAL_REPORT_SCHEMA_VERSION,
         },
         "decision_policy": {
-            "decision_code": _get_path(external, "prediction_summary", "decision_code"),
+            "decision_code": _first_present(
+                score_threshold.get("triage_recommendation"),
+                _get_path(external, "prediction_summary", "decision_code"),
+            ),
             "decision_policy_id": _get_path(
                 external, "prediction_summary", "decision_policy_id"
             ),
             "decision_policy_version": _get_path(
                 external, "prediction_summary", "decision_policy_version"
             ),
-            "threshold_value": _get_path(external, "model_metadata", "threshold_value"),
-            "qc_status": _get_path(external, "prediction_summary", "qc_status"),
-            "qc_flags": _get_path(
-                external, "prediction_summary", "qc_flags", default=[]
+            "threshold_value": _first_present(
+                score_threshold.get("threshold"),
+                _get_path(external, "model_metadata", "threshold_value"),
             ),
+            "score": _format_score(score),
+            "qc_status": qc_status,
+            "qc_flags": qc_flags,
         },
         "input_summary": external["input_summary"],
         "execution_trace_summary": _normalize_execution_trace_summary(trace),
@@ -1027,7 +1138,7 @@ function renderInternalReport(report){
   html+='<div class="hero-kicker">DECISION SUPPORT ASSESSMENT</div>';
   html+='<div class="hero-title">'+escapeHtml(policy.decision_code||'\u2014')+'</div>';
   html+='<div class="hero-metrics">';
-  html+='<span>Score: <strong>'+escapeHtml(formatScore(policy.threshold_value))+'</strong></span>';
+  html+='<span>Score: <strong>'+escapeHtml(formatScore(policy.score))+'</strong></span>';
   html+='<span>Threshold: <strong>'+escapeHtml(formatScore(policy.threshold_value))+'</strong></span>';
   html+='<span>QC: <strong>'+escapeHtml(policy.qc_status||'\u2014')+'</strong></span>';
   html+='</div>';
@@ -1058,7 +1169,7 @@ function renderInternalReport(report){
   // 7. Symmetry signal breakdown
   html+='<section>';
   html+='<h2>Symmetry Signal Breakdown</h2>';
-  html+='<p class="section-note">Qualitative buckets derived from the 15-feature contract. Raw magnitudes intentionally omitted \u2014 see boundary note above.</p>';
+  html+='<p class="section-note">Qualitative signal levels derived from the 15-feature contract. Raw magnitudes intentionally omitted — \u2014 see boundary note above.</p>';
   html+='<table class="signal-breakdown-table"><thead><tr><th>SIGNAL</th><th>FEATURE FAMILY</th><th>DIFFERENCE</th></tr></thead><tbody>';
   for(var j=0;j<signals.length;j++){
     var sig=signals[j];
