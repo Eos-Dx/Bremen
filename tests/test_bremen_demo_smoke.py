@@ -26,19 +26,82 @@ import pytest
 from bremen.demo_smoke import run_demo_smoke
 
 
+@pytest.fixture(scope="module")
+def _cli_result_cache():
+    cache: dict[tuple[str, ...], subprocess.CompletedProcess] = {}
+
+    def _run(*args: str) -> subprocess.CompletedProcess:
+        key = tuple(args)
+        if key not in cache:
+            cache[key] = subprocess.run(
+                [sys.executable, *args], capture_output=True, text=True,
+            )
+        return cache[key]
+
+    return _run
+
+
+# ---------------------------------------------------------------------------
+# Module-scoped shared server fixtures (PR0095b)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def _shared_server():
+    """Start an HTTPServer ONCE per module on a free port with synthetic model."""
+    import socket
+    import threading
+    from http.server import HTTPServer
+    from bremen.api.jobs import InMemoryJobStore
+    from bremen.api.server import _make_handler
+    from bremen.api.model_state import ModelState
+
+    host = "127.0.0.1"
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        port = int(s.getsockname()[1])
+
+    job_store = InMemoryJobStore()
+    ModelState.reset_for_tests()
+    handler = _make_handler(job_store, version="test-version", load_model=True)
+    server = HTTPServer((host, port), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    yield host, port
+
+    server.shutdown()
+    thread.join(timeout=2)
+
+
+@pytest.fixture
+def server_info(_shared_server):
+    """Per-test cheap-reset fixture sharing the module-scoped server.
+
+    Yields ``(host, port)`` (same signature as original per-test fixtures).
+    """
+    from bremen.api.model_state import ModelState
+    from bremen.api.server import _load_synthetic_model
+
+    host, port = _shared_server
+
+    ModelState.reset_for_tests()
+    _load_synthetic_model()
+    from bremen.api.job_api_handler import reset_for_tests as _reset_job_handler
+    _reset_job_handler()
+
+    yield host, port
+
+
 # ---------------------------------------------------------------------------
 # CLI help tests
 # ---------------------------------------------------------------------------
 
 
 class TestCliHelp:
-    def test_demo_smoke_help_exits_0(self):
+    def test_demo_smoke_help_exits_0(self, _cli_result_cache):
         """python -m bremen demo-smoke --help exits 0."""
-        result = subprocess.run(
-            [sys.executable, "-m", "bremen", "demo-smoke", "--help"],
-            capture_output=True,
-            text=True,
-        )
+        result = _cli_result_cache("-m", "bremen", "demo-smoke", "--help")
         assert result.returncode == 0, (
             f"Exit code {result.returncode}: {result.stderr}"
         )
@@ -54,13 +117,9 @@ class TestCliHelp:
             "Main help output must list 'demo-smoke' command"
         )
 
-    def test_demo_smoke_help_contains_options(self):
+    def test_demo_smoke_help_contains_options(self, _cli_result_cache):
         """demo-smoke --help shows --base-url, --timeout, --skip-prediction."""
-        result = subprocess.run(
-            [sys.executable, "-m", "bremen", "demo-smoke", "--help"],
-            capture_output=True,
-            text=True,
-        )
+        result = _cli_result_cache("-m", "bremen", "demo-smoke", "--help")
         assert "--base-url" in result.stdout
         assert "--timeout" in result.stdout
         assert "--skip-prediction" in result.stdout
@@ -73,33 +132,6 @@ class TestCliHelp:
 
 class TestDemoSmokeAgainstServer:
     """Run smoke checks against a real local test server with synthetic model."""
-
-    @pytest.fixture
-    def server_info(self):
-        """Start an HTTPServer on a free port with synthetic model loaded."""
-        import socket
-        import threading
-        from http.server import HTTPServer
-        from bremen.api.jobs import InMemoryJobStore
-        from bremen.api.server import _make_handler
-        from bremen.api.model_state import ModelState
-
-        host = "127.0.0.1"
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(("127.0.0.1", 0))
-            port = int(s.getsockname()[1])
-
-        job_store = InMemoryJobStore()
-        ModelState.reset_for_tests()
-        handler = _make_handler(job_store, version="test-version", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-
-        yield host, port
-
-        server.shutdown()
-        thread.join(timeout=2)
 
     def test_health_check_included(self, server_info):
         """Health check returns ok status."""
@@ -236,63 +268,14 @@ class TestDemoSmokeAgainstServer:
 class TestOutputContract:
     def test_output_is_json_serializable(self, server_info):
         """The output dict is JSON-serializable."""
-        import socket
-        import threading
-        from http.server import HTTPServer
-        from bremen.api.jobs import InMemoryJobStore
-        from bremen.api.server import _make_handler
-        from bremen.api.model_state import ModelState
-
-        host = "127.0.0.1"
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(("127.0.0.1", 0))
-            port = int(s.getsockname()[1])
-
-        job_store = InMemoryJobStore()
-        ModelState.reset_for_tests()
-        handler = _make_handler(job_store, version="test-version", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-
-        try:
-            result = run_demo_smoke(
-                base_url=f"http://{host}:{port}",
-                timeout=5,
-                skip_prediction=True,
-            )
-            # Should not raise
-            json.dumps(result)
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-
-    @pytest.fixture
-    def server_info(self):
-        """Start a local test server."""
-        import socket
-        import threading
-        from http.server import HTTPServer
-        from bremen.api.jobs import InMemoryJobStore
-        from bremen.api.server import _make_handler
-        from bremen.api.model_state import ModelState
-
-        host = "127.0.0.1"
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(("127.0.0.1", 0))
-            port = int(s.getsockname()[1])
-
-        job_store = InMemoryJobStore()
-        ModelState.reset_for_tests()
-        handler = _make_handler(job_store, version="test-version", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-
-        yield host, port
-
-        server.shutdown()
-        thread.join(timeout=2)
+        host, port = server_info
+        result = run_demo_smoke(
+            base_url=f"http://{host}:{port}",
+            timeout=5,
+            skip_prediction=True,
+        )
+        # Should not raise
+        json.dumps(result)
 
     def test_no_diagnosis_language(self, server_info):
         """Output should not contain diagnosis or clinical claims.
@@ -332,33 +315,6 @@ class TestOutputContract:
 
 class TestEvidenceBundleInDemoSmoke:
     """Tests verifying the evidence bundle is present in demo-smoke output."""
-
-    @pytest.fixture
-    def server_info(self):
-        """Start a local test server with synthetic model."""
-        import socket
-        import threading
-        from http.server import HTTPServer
-        from bremen.api.jobs import InMemoryJobStore
-        from bremen.api.server import _make_handler
-        from bremen.api.model_state import ModelState
-
-        host = "127.0.0.1"
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(("127.0.0.1", 0))
-            port = int(s.getsockname()[1])
-
-        job_store = InMemoryJobStore()
-        ModelState.reset_for_tests()
-        handler = _make_handler(job_store, version="test-version", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-
-        yield host, port
-
-        server.shutdown()
-        thread.join(timeout=2)
 
     def test_demo_smoke_output_contains_evidence_bundle(self, server_info):
         """Demo-smoke output contains an 'evidence' key."""
@@ -490,35 +446,6 @@ class TestEvidenceBundleInDemoSmoke:
 
 class TestDemoRouteReadiness:
     """Tests for /demo and /demo/api/evidence route readiness checks."""
-
-    @pytest.fixture
-    def server_info(self):
-        """Start a local test server with synthetic model loaded."""
-        import socket
-        import threading
-        from http.server import HTTPServer
-        from bremen.api.jobs import InMemoryJobStore
-        from bremen.api.server import _make_handler
-        from bremen.api.model_state import ModelState
-
-        host = "127.0.0.1"
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(("127.0.0.1", 0))
-            port = int(s.getsockname()[1])
-
-        job_store = InMemoryJobStore()
-        ModelState.reset_for_tests()
-        handler = _make_handler(
-            job_store, version="test-version", load_model=True
-        )
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-
-        yield host, port
-
-        server.shutdown()
-        thread.join(timeout=2)
 
     def test_demo_routes_in_result(self, server_info):
         """demo_routes key is present in result dict."""
@@ -728,38 +655,15 @@ class TestDemoRouteReadiness:
             "--ui should be rejected by demo-smoke"
         )
 
-    def test_no_root_demo_page(self):
+    def test_no_root_demo_page(self, server_info):
         """Root / returns 404, not a demo page."""
-        import socket
-        import threading
-        from http.server import HTTPServer
         from urllib.error import HTTPError
         from urllib.request import urlopen, Request
-        from bremen.api.jobs import InMemoryJobStore
-        from bremen.api.server import _make_handler
-        from bremen.api.model_state import ModelState
 
-        host = "127.0.0.1"
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(("127.0.0.1", 0))
-            port = int(s.getsockname()[1])
-
-        job_store = InMemoryJobStore()
-        ModelState.reset_for_tests()
-        handler = _make_handler(
-            job_store, version="test-version", load_model=True
-        )
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-
+        host, port = server_info
+        req = Request(f"http://{host}:{port}/")
         try:
-            req = Request(f"http://{host}:{port}/")
-            try:
-                urlopen(req, timeout=3)
-                pytest.fail("Expected HTTPError for root /")
-            except HTTPError as exc:
-                assert exc.code == 404
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
+            urlopen(req, timeout=3)
+            pytest.fail("Expected HTTPError for root /")
+        except HTTPError as exc:
+            assert exc.code == 404

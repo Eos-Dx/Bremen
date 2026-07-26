@@ -3,8 +3,31 @@
 Covers endpoints defined in ``docs/api_contract.md`` and implemented
 in ``src/bremen/api/server.py``.
 
-Spins a real ``HTTPServer`` on a random port in a daemon thread so
-that ``urllib.request`` can make real HTTP requests against it.
+PERFORMANCE NOTE (PR0095): this file previously started a brand new
+real ``HTTPServer`` on a real daemon thread for nearly every one of its
+~104 tests (baseline measured: 104 passed in 48.42s). The server itself
+is expensive to start/stop repeatedly; the per-test ISOLATION it was
+providing (fresh ``ModelState``, fresh job store, fresh registry) is
+cheap on its own. This file now starts each distinct server
+configuration ONCE per module (module-scoped) and provides per-test
+isolation through a lightweight reset (``ModelState.reset_for_tests()``
++ reloading the synthetic model + clearing the shared job store's
+contents) that does not touch the socket or thread at all. No test
+logic, assertion, or coverage was changed — only how the real server
+is set up and torn down.
+
+Two distinct shared server configurations exist because they are not
+interchangeable:
+  - ``_shared_server`` / ``server_info``: model loaded (``load_model=True``).
+    Used by nearly every test in this file.
+  - ``_shared_no_model_server`` / ``no_model_server_info``: model NOT
+    loaded (``load_model=False``). Used only by
+    ``TestSubmitPredictionModelNotReady``, which specifically tests the
+    503 "model not ready" response and must not share state with the
+    loaded-model server.
+
+Spins real ``HTTPServer`` instances so that ``urllib.request`` can make
+real HTTP requests against them, same as before.
 """
 
 from __future__ import annotations
@@ -39,24 +62,45 @@ def _find_free_port() -> int:
         return int(s.getsockname()[1])
 
 
-@pytest.fixture
-def server_info():
-    """Start an HTTPServer on a free port in a daemon thread.
+def _reset_loaded_model_state() -> None:
+    """Reset ModelState + reload the synthetic model + reinit registry.
 
-    Yields ``(host, port, job_store)``.  Shuts down the server
-    and joins the thread on teardown.
+    ``ModelState`` is a process-global singleton
+    (``src/bremen/api/model_state.py``); ``reset_for_tests()`` sets its
+    ``_instance`` to ``None``, so the model previously loaded into the
+    old instance becomes unreachable until reloaded. This function
+    performs that reload cheaply (no socket/thread involved) so a single
+    shared HTTPServer can serve tests that each expect a freshly loaded
+    model, without restarting the server itself.
     """
     from bremen.api.model_state import ModelState
     from bremen.api.model_registry import initialize_registry, build_legacy_registry
+    from bremen.api.server import _load_synthetic_model
 
+    ModelState.reset_for_tests()
+    _load_synthetic_model()
+    legacy_registry = build_legacy_registry()
+    initialize_registry(legacy_registry)
+
+
+def _clear_job_store(job_store: InMemoryJobStore) -> None:
+    """Clear a shared InMemoryJobStore's contents between tests."""
+    with job_store._lock:
+        job_store._jobs.clear()
+
+
+@pytest.fixture(scope="module")
+def _shared_server():
+    """Start one real HTTPServer (model loaded) for the whole module.
+
+    Yields ``(host, port, job_store)``. Started once; per-test isolation
+    is layered on top by the ``server_info`` fixture below, not here.
+    """
     host = "127.0.0.1"
     port = _find_free_port()
     job_store = InMemoryJobStore()
-    ModelState.reset_for_tests()
+    _reset_loaded_model_state()
     handler = _make_handler(job_store, version="test-version", load_model=True)
-    # Initialize registry from ModelState after loading
-    legacy_registry = build_legacy_registry()
-    initialize_registry(legacy_registry)
     server = HTTPServer((host, port), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -65,6 +109,64 @@ def server_info():
 
     server.shutdown()
     thread.join(timeout=2)
+
+
+@pytest.fixture
+def server_info(_shared_server):
+    """Per-test view onto the shared, model-loaded server.
+
+    Resets ModelState + reloads the model + clears the job store before
+    each test, WITHOUT restarting the underlying socket/thread. This
+    preserves the original per-test isolation guarantee (each test sees
+    a fresh model state and an empty job store) at a fraction of the
+    real cost.
+    """
+    host, port, job_store = _shared_server
+    _reset_loaded_model_state()
+    _clear_job_store(job_store)
+    yield host, port, job_store
+
+
+@pytest.fixture(scope="module")
+def _shared_no_model_server():
+    """Start one real HTTPServer (model NOT loaded) for the whole module.
+
+    Separate from ``_shared_server`` — this configuration must never be
+    shared with tests expecting a loaded model, since
+    ``TestSubmitPredictionModelNotReady`` specifically tests the
+    "model not ready" 503 path.
+    """
+    from bremen.api.model_state import ModelState
+
+    host = "127.0.0.1"
+    port = _find_free_port()
+    job_store = InMemoryJobStore()
+    ModelState.reset_for_tests()
+    handler = _make_handler(job_store, version="test-version", load_model=False)
+    server = HTTPServer((host, port), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    yield host, port, job_store
+
+    server.shutdown()
+    thread.join(timeout=2)
+
+
+@pytest.fixture
+def no_model_server_info(_shared_no_model_server):
+    """Per-test view onto the shared, model-NOT-loaded server.
+
+    Re-asserts ModelState is reset (defensive, matching the original
+    test's own defensive reset) and clears the job store, without
+    restarting the socket/thread.
+    """
+    from bremen.api.model_state import ModelState
+
+    host, port, job_store = _shared_no_model_server
+    ModelState.reset_for_tests()
+    _clear_job_store(job_store)
+    yield host, port, job_store
 
 
 def _get(host: str, port: int, path: str) -> tuple[int, bytes, dict]:
@@ -242,25 +344,12 @@ class TestSubmitPrediction:
 
 
 class TestSubmitPredictionModelNotReady:
-    """Tests for the 503 model-not-ready case."""
+    """Tests for the 503 model-not-ready case.
 
-    @pytest.fixture
-    def no_model_server_info(self):
-        """Start server with model NOT loaded."""
-        from bremen.api.model_state import ModelState
-
-        # Ensure clean singleton state before creating handler
-        ModelState.reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test-version", load_model=False)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        yield host, port, job_store
-        server.shutdown()
-        thread.join(timeout=2)
+    Uses the module-scoped ``no_model_server_info`` fixture (separate
+    server configuration, load_model=False) — see the fixture docstrings
+    above for why this cannot share the main ``server_info`` server.
+    """
 
     def test_submit_returns_503_when_model_not_ready(self, no_model_server_info, caplog):
         """POST /predictions returns 503 when model is not loaded.
@@ -271,7 +360,6 @@ class TestSubmitPredictionModelNotReady:
         from bremen.api.model_state import ModelState
 
         # Defensive: ensure ModelState is clean before sending request
-        # (previous tests with server_info may have loaded a model)
         ModelState.reset_for_tests()
 
         caplog.set_level(logging.WARNING)
@@ -553,28 +641,15 @@ class TestDemoReadiness:
         # Start page shows model catalog loading and selection
         assert "Select a model" in text or "model" in text.lower()
 
-    def test_get_demo_shows_not_configured_without_model(self):
+    def test_get_demo_shows_not_configured_without_model(
+        self, no_model_server_info
+    ):
         """Without model config, /demo HTML shows not configured."""
-        from bremen.api.model_state import ModelState
-        from bremen.api.jobs import InMemoryJobStore
-
-        ModelState.reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test-version", load_model=False)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        try:
-            status, body, _ = _get(host, port, "/demo")
-            assert status == 200
-            text = body.decode("utf-8")
-            assert "Not configured" in text or "badge-warn" in text
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-        ModelState.reset_for_tests()
+        host, port, _ = no_model_server_info
+        status, body, _ = _get(host, port, "/demo")
+        assert status == 200
+        text = body.decode("utf-8")
+        assert "Not configured" in text or "badge-warn" in text
 
     def test_get_demo_no_status_fail(self, server_info):
         """Control Room does not show FAIL as a visual status label."""
@@ -1011,7 +1086,14 @@ class TestDemoH5Analyze:
 
 
 class TestDemoH5AnalyzeFailureObservability:
-    """Tests for analyze stage-specific failure details and logging (PR0069)."""
+    """Tests for analyze stage-specific failure details and logging (PR0069).
+
+    Converted from per-test standalone HTTPServer instances to the
+    shared ``server_info`` fixture (PR0095) — each test here only needed
+    a loaded-model server plus scoped ``monkeypatch`` env/function
+    patches around a single request; nothing here required an isolated
+    socket/thread per test.
+    """
 
     def test_unexpected_exception_logged_server_side(self, server_info, caplog, monkeypatch):
         """Unexpected analyze exceptions are logged with logger.exception.
@@ -1020,18 +1102,8 @@ class TestDemoH5AnalyzeFailureObservability:
         not a raw exception class name or stack trace.
         """
         import logging
-        from bremen.api.model_state import ModelState
-        from bremen.api.jobs import InMemoryJobStore
 
-        # Start a new server with bucket configured
-        ModelState.reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test-version", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
+        host, port, _ = server_info
 
         # Monkeypatch run_inference to raise an error (this is called after staging)
         def failing_inference(*args, **kwargs):
@@ -1041,192 +1113,138 @@ class TestDemoH5AnalyzeFailureObservability:
 
         caplog.set_level(logging.ERROR)
 
-        try:
-            with monkeypatch.context() as m:
-                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
-                m.setenv("BREMEN_DEMO_H5_PREFIX", "demo-uploads/")
-                # Mock stage_h5_input to return a valid path
-                from pathlib import Path
-                mock_path = Path("/tmp/mock_staged.h5")
-                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: mock_path)
+        with monkeypatch.context() as m:
+            m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+            m.setenv("BREMEN_DEMO_H5_PREFIX", "demo-uploads/")
+            # Mock stage_h5_input to return a valid path
+            mock_path = Path("/tmp/mock_staged.h5")
+            m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: mock_path)
 
-                _, body, _ = _post(
-                    host, port, "/demo/api/h5/analyze",
-                    {"container_id": "demo-uploads/test.h5"},
-                )
-                data = json.loads(body)
+            _, body, _ = _post(
+                host, port, "/demo/api/h5/analyze",
+                {"container_id": "demo-uploads/test.h5"},
+            )
+            data = json.loads(body)
 
-                # Should have stage-specific failure event
-                events = data["events"]
-                event_types = [e["event"] for e in events]
-                detail_texts = [e.get("detail", "") for e in events]
-                combined = " ".join(detail_texts)
+            # Should have stage-specific failure event
+            events = data["events"]
+            event_types = [e["event"] for e in events]
+            detail_texts = [e.get("detail", "") for e in events]
+            combined = " ".join(detail_texts)
 
-                # Must contain a failure event (inference_failed for RuntimeError)
-                assert "inference_failed" in event_types, (
-                    f"Expected inference_failed event, got: {event_types}"
-                )
-                # Public detail must NOT contain raw exception class names
-                assert "RuntimeError" not in combined, (
-                    f"Public detail must not expose raw exception class: {combined}"
-                )
-                # Public detail must NOT contain raw exception messages
-                assert "Simulated" not in combined, (
-                    f"Public detail must not expose raw messages: {combined}"
-                )
-                # Public detail must be one of the safe finite messages
-                assert combined.strip(), "Public detail must not be empty"
-                # No traceback in public response
-                assert "Traceback" not in combined
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-            ModelState.reset_for_tests()
+            # Must contain a failure event (inference_failed for RuntimeError)
+            assert "inference_failed" in event_types, (
+                f"Expected inference_failed event, got: {event_types}"
+            )
+            # Public detail must NOT contain raw exception class names
+            assert "RuntimeError" not in combined, (
+                f"Public detail must not expose raw exception class: {combined}"
+            )
+            # Public detail must NOT contain raw exception messages
+            assert "Simulated" not in combined, (
+                f"Public detail must not expose raw messages: {combined}"
+            )
+            # Public detail must be one of the safe finite messages
+            assert combined.strip(), "Public detail must not be empty"
+            # No traceback in public response
+            assert "Traceback" not in combined
 
     def test_non_runtime_exception_yields_safe_detail(self, server_info, monkeypatch):
         """Non-RuntimeError exceptions return safe finite detail — not raw exception text."""
-        from bremen.api.model_state import ModelState
-        from bremen.api.jobs import InMemoryJobStore
-        from pathlib import Path
-
-        ModelState.reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test-version", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
+        host, port, _ = server_info
 
         def failing_inference(*args, **kwargs):
             raise ValueError("Bridge preprocessing failed: unexpected feature shape")
 
         monkeypatch.setattr("bremen.api.inference_handler.run_inference", failing_inference)
 
-        try:
-            with monkeypatch.context() as m:
-                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
-                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: Path("/tmp/mock.h5"))
+        with monkeypatch.context() as m:
+            m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+            m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: Path("/tmp/mock.h5"))
 
-                _, body, _ = _post(
-                    host, port, "/demo/api/h5/analyze",
-                    {"container_id": "demo-uploads/test.h5"},
-                )
-                data = json.loads(body)
-                events = data["events"]
-                detail_texts = [e.get("detail", "") for e in events]
-                combined = " ".join(detail_texts)
-                # Public detail must NOT expose raw exception class names
-                assert "ValueError" not in combined, (
-                    f"Public detail must not expose raw exception class: {combined}"
-                )
-                # Public detail must NOT expose raw message
-                assert "Bridge" not in combined, (
-                    f"Public detail must not expose raw messages: {combined}"
-                )
-                # Should NOT contain raw stack trace
-                assert "Traceback" not in combined
-                assert "File " not in combined
-                # Event should be classification-appropriate
-                event_types = [e["event"] for e in events]
-                assert any(
-                    ev in event_types
-                    for ev in ("h5_preflight_failed", "preprocessing_failed", "inference_failed")
-                ), f"Expected a failure event, got: {event_types}"
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-            ModelState.reset_for_tests()
+            _, body, _ = _post(
+                host, port, "/demo/api/h5/analyze",
+                {"container_id": "demo-uploads/test.h5"},
+            )
+            data = json.loads(body)
+            events = data["events"]
+            detail_texts = [e.get("detail", "") for e in events]
+            combined = " ".join(detail_texts)
+            # Public detail must NOT expose raw exception class names
+            assert "ValueError" not in combined, (
+                f"Public detail must not expose raw exception class: {combined}"
+            )
+            # Public detail must NOT expose raw message
+            assert "Bridge" not in combined, (
+                f"Public detail must not expose raw messages: {combined}"
+            )
+            # Should NOT contain raw stack trace
+            assert "Traceback" not in combined
+            assert "File " not in combined
+            # Event should be classification-appropriate
+            event_types = [e["event"] for e in events]
+            assert any(
+                ev in event_types
+                for ev in ("h5_preflight_failed", "preprocessing_failed", "inference_failed")
+            ), f"Expected a failure event, got: {event_types}"
 
     def test_unexpected_exception_fallback_detail(self, server_info, monkeypatch):
         """Bare Exception fallback returns safe finite detail without traceback."""
-        from bremen.api.model_state import ModelState
-        from bremen.api.jobs import InMemoryJobStore
-        from pathlib import Path
-
-        ModelState.reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test-version", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
+        host, port, _ = server_info
 
         def failing_inference(*args, **kwargs):
             raise KeyError("missing_feature")
 
         monkeypatch.setattr("bremen.api.inference_handler.run_inference", failing_inference)
 
-        try:
-            with monkeypatch.context() as m:
-                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
-                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: Path("/tmp/mock.h5"))
+        with monkeypatch.context() as m:
+            m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+            m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: Path("/tmp/mock.h5"))
 
-                _, body, _ = _post(
-                    host, port, "/demo/api/h5/analyze",
-                    {"container_id": "demo-uploads/test.h5"},
-                )
-                data = json.loads(body)
-                events = data["events"]
-                detail_texts = [e.get("detail", "") for e in events]
-                combined = " ".join(detail_texts)
-                # Public detail must NOT contain raw exception class name
-                assert "KeyError" not in combined, (
-                    f"Public detail must not expose raw exception class: {combined}"
-                )
-                # No raw traceback
-                assert "Traceback" not in combined
-                assert "File " not in combined
-                # Must have a failure event
-                event_types = [e["event"] for e in events]
-                assert any(
-                    ev in event_types
-                    for ev in ("h5_preflight_failed", "preprocessing_failed", "inference_failed")
-                ), f"Expected a failure event, got: {event_types}"
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-            ModelState.reset_for_tests()
+            _, body, _ = _post(
+                host, port, "/demo/api/h5/analyze",
+                {"container_id": "demo-uploads/test.h5"},
+            )
+            data = json.loads(body)
+            events = data["events"]
+            detail_texts = [e.get("detail", "") for e in events]
+            combined = " ".join(detail_texts)
+            # Public detail must NOT contain raw exception class name
+            assert "KeyError" not in combined, (
+                f"Public detail must not expose raw exception class: {combined}"
+            )
+            # No raw traceback
+            assert "Traceback" not in combined
+            assert "File " not in combined
+            # Must have a failure event
+            event_types = [e["event"] for e in events]
+            assert any(
+                ev in event_types
+                for ev in ("h5_preflight_failed", "preprocessing_failed", "inference_failed")
+            ), f"Expected a failure event, got: {event_types}"
 
     def test_no_raw_traceback_in_response(self, server_info, monkeypatch):
         """No raw stack trace or file paths in API response."""
-        from bremen.api.model_state import ModelState
-        from bremen.api.jobs import InMemoryJobStore
-        from pathlib import Path
-
-        ModelState.reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test-version", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
+        host, port, _ = server_info
 
         def failing_inference(*args, **kwargs):
             raise RuntimeError("Something went wrong with model inference")
 
         monkeypatch.setattr("bremen.api.inference_handler.run_inference", failing_inference)
 
-        try:
-            with monkeypatch.context() as m:
-                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
-                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: Path("/tmp/mock.h5"))
+        with monkeypatch.context() as m:
+            m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+            m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: Path("/tmp/mock.h5"))
 
-                _, body, _ = _post(
-                    host, port, "/demo/api/h5/analyze",
-                    {"container_id": "demo-uploads/test.h5"},
-                )
-                data = json.loads(body)
-                body_str = json.dumps(data)
-                # Should not contain raw stack traces
-                assert "Traceback" not in body_str
-                assert "File " not in body_str
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-            ModelState.reset_for_tests()
+            _, body, _ = _post(
+                host, port, "/demo/api/h5/analyze",
+                {"container_id": "demo-uploads/test.h5"},
+            )
+            data = json.loads(body)
+            body_str = json.dumps(data)
+            # Should not contain raw stack traces
+            assert "Traceback" not in body_str
+            assert "File " not in body_str
 
 
 # ---------------------------------------------------------------------------
@@ -1270,10 +1288,15 @@ def _create_matador_raw_h5_for_server(tmp_path: Path) -> Path:
 
 
 class TestMatadorRawRouteSuccess:
-    """Route-level Matador raw success test — full detection→inference path."""
+    """Route-level Matador raw success test — full detection->inference path.
+
+    Converted to the shared ``server_info`` fixture (PR0095) — the
+    original per-test server was not needed for isolation, only for
+    ``monkeypatch``-scoped env/function patches around one request.
+    """
 
     def test_matador_raw_analyze_completed(
-        self, tmp_path: Path, monkeypatch,
+        self, tmp_path: Path, monkeypatch, server_info,
     ):
         """POST /demo/api/h5/analyze with Matador raw H5 completes successfully.
 
@@ -1300,8 +1323,8 @@ class TestMatadorRawRouteSuccess:
         """
         import hashlib
         import json as _json
-        from bremen.api.model_state import ModelState
-        from bremen.api.jobs import InMemoryJobStore
+
+        host, port, _ = server_info
 
         # Build temp H5
         h5_path = _create_matador_raw_h5_for_server(tmp_path)
@@ -1324,131 +1347,119 @@ class TestMatadorRawRouteSuccess:
             _mock_matador_q_i,
         )
 
-        # Start a server with bucket configured
-        ModelState.reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test-version", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
+        with monkeypatch.context() as m:
+            m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+            m.setenv("BREMEN_DEMO_H5_PREFIX", "demo-uploads/")
+            # Mock stage_h5_input to return our temp H5 path
+            m.setattr(
+                "bremen.h5_inputs.stage_h5_input",
+                lambda *a, **kw: h5_path,
+            )
+            # Mock the bridge wrapper too (same mock as above)
+            m.setattr(
+                "xrd_preprocessing.perform_azimuthal_integration",
+                _mock_matador_q_i,
+            )
 
-        try:
-            with monkeypatch.context() as m:
-                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
-                m.setenv("BREMEN_DEMO_H5_PREFIX", "demo-uploads/")
-                # Mock stage_h5_input to return our temp H5 path
-                m.setattr(
-                    "bremen.h5_inputs.stage_h5_input",
-                    lambda *a, **kw: h5_path,
+            _, body, _ = _post(
+                host, port, "/demo/api/h5/analyze",
+                {"container_id": "demo-uploads/matador_test.h5"},
+            )
+            data = _json.loads(body)
+
+            # Status assertions
+            assert data["status"] == "completed", (
+                f"Expected 'completed', got {data['status']}. "
+                f"Events: {[e['event'] for e in data['events']]}"
+            )
+            assert data["technical_demo_only"] is True
+            assert "request_id" in data
+            assert "job_id" in data
+            assert data["request_id"] is not None
+            assert data["job_id"] is not None
+
+            # Result assertions
+            assert "result" in data, f"Result missing: {list(data.keys())}"
+            result = data["result"]
+            assert "p_mri_needed" in result
+            assert "triage_recommendation" in result
+            assert result["triage_recommendation"] in (
+                "CONTINUE_MRI", "MRI_REVIEW_DEFER", "MRI_RECOMMENDED", "MRI_RULE_OUT"
+            )
+            assert 0.0 <= result["p_mri_needed"] <= 1.0
+            assert "prediction_id" in result
+            assert "model_version" in result
+            assert "feature_schema_version" in result
+
+            # Evidence assertions
+            assert "evidence" in data
+            assert data["evidence"]["model_version"] is not None
+            assert data["evidence"]["prediction_id"] is not None
+
+            # Event ordering
+            events = data["events"]
+            event_types = [e["event"] for e in events]
+            expected_order = [
+                "request_received",
+                "container_selected",
+                "h5_staging_started",
+                "h5_staging_completed",
+                "canonical_normalization_started",
+                "canonical_normalization_completed",
+                "workflow_executed",
+                "completed",
+            ]
+            for expected_event in expected_order:
+                assert expected_event in event_types, (
+                    f"Missing event: {expected_event}. "
+                    f"Got: {event_types}"
                 )
-                # Mock the bridge wrapper too (same mock as above)
-                m.setattr(
-                    "xrd_preprocessing.perform_azimuthal_integration",
-                    _mock_matador_q_i,
-                )
-
-                _, body, _ = _post(
-                    host, port, "/demo/api/h5/analyze",
-                    {"container_id": "demo-uploads/matador_test.h5"},
-                )
-                data = _json.loads(body)
-
-                # Status assertions
-                assert data["status"] == "completed", (
-                    f"Expected 'completed', got {data['status']}. "
-                    f"Events: {[e['event'] for e in data['events']]}"
-                )
-                assert data["technical_demo_only"] is True
-                assert "request_id" in data
-                assert "job_id" in data
-                assert data["request_id"] is not None
-                assert data["job_id"] is not None
-
-                # Result assertions
-                assert "result" in data, f"Result missing: {list(data.keys())}"
-                result = data["result"]
-                assert "p_mri_needed" in result
-                assert "triage_recommendation" in result
-                assert result["triage_recommendation"] in (
-                    "CONTINUE_MRI", "MRI_REVIEW_DEFER", "MRI_RECOMMENDED", "MRI_RULE_OUT"
-                )
-                assert 0.0 <= result["p_mri_needed"] <= 1.0
-                assert "prediction_id" in result
-                assert "model_version" in result
-                assert "feature_schema_version" in result
-
-                # Evidence assertions
-                assert "evidence" in data
-                assert data["evidence"]["model_version"] is not None
-                assert data["evidence"]["prediction_id"] is not None
-
-                # Event ordering
-                events = data["events"]
-                event_types = [e["event"] for e in events]
-                expected_order = [
-                    "request_received",
-                    "container_selected",
-                    "h5_staging_started",
-                    "h5_staging_completed",
-                    "canonical_normalization_started",
-                    "canonical_normalization_completed",
-                    "workflow_executed",
-                    "completed",
-                ]
-                for expected_event in expected_order:
-                    assert expected_event in event_types, (
-                        f"Missing event: {expected_event}. "
-                        f"Got: {event_types}"
-                    )
-                # Check ordering (relative positions)
-                for i, expected in enumerate(expected_order[:-1]):
-                    next_expected = expected_order[i + 1]
-                    idx_current = event_types.index(expected)
-                    idx_next = event_types.index(next_expected)
-                    assert idx_current < idx_next, (
-                        f"Event order violation: {expected} ({idx_current}) "
-                        f"should be before {next_expected} ({idx_next})"
-                    )
-
-                # No identifier leakage
-                body_str = _json.dumps(data)
-                assert "Nova" not in body_str
-                assert "patient_name" not in body_str
-                assert "specimen" not in body_str.lower()
-                assert "biopsy" not in body_str.lower()
-                assert "birads" not in body_str.lower()
-                assert "BENIGN" not in body_str
-                assert "CANCER" not in body_str
-
-                # Source checksum unchanged
-                final_checksum = hashlib.sha256(h5_path.read_bytes()).hexdigest()
-                assert original_checksum == final_checksum, (
-                    "Source H5 checksum changed during analysis"
+            # Check ordering (relative positions)
+            for i, expected in enumerate(expected_order[:-1]):
+                next_expected = expected_order[i + 1]
+                idx_current = event_types.index(expected)
+                idx_next = event_types.index(next_expected)
+                assert idx_current < idx_next, (
+                    f"Event order violation: {expected} ({idx_current}) "
+                    f"should be before {next_expected} ({idx_next})"
                 )
 
-                # Container info
-                assert "container" in data
-                assert data["container"]["id"] == "demo-uploads/matador_test.h5"
-                assert data["container"]["bucket"] == "test-bucket"
+            # No identifier leakage
+            body_str = _json.dumps(data)
+            assert "Nova" not in body_str
+            assert "patient_name" not in body_str
+            assert "specimen" not in body_str.lower()
+            assert "biopsy" not in body_str.lower()
+            assert "birads" not in body_str.lower()
+            assert "BENIGN" not in body_str
+            assert "CANCER" not in body_str
 
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-            ModelState.reset_for_tests()
+            # Source checksum unchanged
+            final_checksum = hashlib.sha256(h5_path.read_bytes()).hexdigest()
+            assert original_checksum == final_checksum, (
+                "Source H5 checksum changed during analysis"
+            )
+
+            # Container info
+            assert "container" in data
+            assert data["container"]["id"] == "demo-uploads/matador_test.h5"
+            assert data["container"]["bucket"] == "test-bucket"
 
 
 class TestMatadorRawRouteFailures:
-    """Route-level Matador failure tests."""
+    """Route-level Matador failure tests.
+
+    Converted to the shared ``server_info`` fixture (PR0095), same
+    rationale as TestMatadorRawRouteSuccess above.
+    """
 
     def test_preflight_failure_no_calib_in_response(
-        self, tmp_path: Path, monkeypatch,
+        self, tmp_path: Path, monkeypatch, server_info,
     ):
         """h5_preflight_failed when calibration missing — no inference events."""
         import json as _json
-        from bremen.api.model_state import ModelState
-        from bremen.api.jobs import InMemoryJobStore
+
+        host, port, _ = server_info
 
         # Build temp H5 without calibration
         path = tmp_path / "no_calib_matador.h5"
@@ -1462,46 +1473,32 @@ class TestMatadorRawRouteFailures:
             m2.attrs["position"] = "center"
             m2.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
 
-        ModelState.reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test-version", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
+        with monkeypatch.context() as m:
+            m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+            m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: path)
 
-        try:
-            with monkeypatch.context() as m:
-                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
-                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: path)
+            _, body, _ = _post(
+                host, port, "/demo/api/h5/analyze",
+                {"container_id": "demo-uploads/matador_nocalib.h5"},
+            )
+            data = _json.loads(body)
 
-                _, body, _ = _post(
-                    host, port, "/demo/api/h5/analyze",
-                    {"container_id": "demo-uploads/matador_nocalib.h5"},
-                )
-                data = _json.loads(body)
+            assert data["status"] == "failed"
+            events = data["events"]
+            event_types = [e["event"] for e in events]
+            assert "inference_failed" in event_types
+            # No downstream events
+            assert "preprocessing_completed" not in event_types
+            assert "model_inference_completed" not in event_types
+            assert "completed" not in event_types
+            # No result
+            assert "result" not in data
 
-                assert data["status"] == "failed"
-                events = data["events"]
-                event_types = [e["event"] for e in events]
-                assert "inference_failed" in event_types
-                # No downstream events
-                assert "preprocessing_completed" not in event_types
-                assert "model_inference_completed" not in event_types
-                assert "completed" not in event_types
-                # No result
-                assert "result" not in data
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-            ModelState.reset_for_tests()
-
-    def test_no_result_on_failure(self, tmp_path: Path, monkeypatch):
+    def test_no_result_on_failure(self, tmp_path: Path, monkeypatch, server_info):
         """Failed analysis returns no result field."""
         import json as _json
-        from bremen.api.model_state import ModelState
-        from bremen.api.jobs import InMemoryJobStore
+
+        host, port, _ = server_info
 
         # Build calibration-less H5 that will fail preflight
         path = tmp_path / "fail_matador.h5"
@@ -1511,39 +1508,25 @@ class TestMatadorRawRouteFailures:
             m1.attrs["position"] = "center"
             m1.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
 
-        ModelState.reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test-version", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
+        with monkeypatch.context() as m:
+            m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+            m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: path)
 
-        try:
-            with monkeypatch.context() as m:
-                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
-                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: path)
-
-                _, body, _ = _post(
-                    host, port, "/demo/api/h5/analyze",
-                    {"container_id": "demo-uploads/fail.h5"},
-                )
-                data = _json.loads(body)
-                assert "result" not in data
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-            ModelState.reset_for_tests()
+            _, body, _ = _post(
+                host, port, "/demo/api/h5/analyze",
+                {"container_id": "demo-uploads/fail.h5"},
+            )
+            data = _json.loads(body)
+            assert "result" not in data
 
     def test_checksum_unchanged_on_failure(
-        self, tmp_path: Path, monkeypatch,
+        self, tmp_path: Path, monkeypatch, server_info,
     ):
         """Source checksum unchanged even after failed analysis."""
         import hashlib
         import json as _json
-        from bremen.api.model_state import ModelState
-        from bremen.api.jobs import InMemoryJobStore
+
+        host, port, _ = server_info
 
         path = tmp_path / "checksum_test.h5"
         with h5py.File(path, "w") as f:
@@ -1554,31 +1537,17 @@ class TestMatadorRawRouteFailures:
 
         original_checksum = hashlib.sha256(path.read_bytes()).hexdigest()
 
-        ModelState.reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test-version", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
+        with monkeypatch.context() as m:
+            m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+            m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: path)
 
-        try:
-            with monkeypatch.context() as m:
-                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
-                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: path)
+            _ = _post(
+                host, port, "/demo/api/h5/analyze",
+                {"container_id": "demo-uploads/fail.h5"},
+            )
 
-                _ = _post(
-                    host, port, "/demo/api/h5/analyze",
-                    {"container_id": "demo-uploads/fail.h5"},
-                )
-
-                final_checksum = hashlib.sha256(path.read_bytes()).hexdigest()
-                assert original_checksum == final_checksum
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-            ModelState.reset_for_tests()
+            final_checksum = hashlib.sha256(path.read_bytes()).hexdigest()
+            assert original_checksum == final_checksum
 
 
 # ---------------------------------------------------------------------------
@@ -1608,62 +1577,51 @@ def _create_session_h5_for_server(tmp_path: Path) -> Path:
 
 
 class TestSessionRouteNoRefs:
-    """Session layout route-level success tests (PR0074)."""
+    """Session layout route-level success tests (PR0074).
+
+    Converted to the shared ``server_info`` fixture (PR0095).
+    """
 
     def test_session_no_refs_analyze_completed(
-        self, tmp_path: Path, monkeypatch,
+        self, tmp_path: Path, monkeypatch, server_info,
     ):
         """POST /demo/api/h5/analyze with session H5, no explicit refs -> completed."""
         import hashlib
         import json as _json
-        from bremen.api.model_state import ModelState
-        from bremen.api.jobs import InMemoryJobStore
+
+        host, port, _ = server_info
 
         h5_path = _create_session_h5_for_server(tmp_path)
         original_checksum = hashlib.sha256(h5_path.read_bytes()).hexdigest()
 
-        ModelState.reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test-version", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
+        with monkeypatch.context() as m:
+            m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+            m.setenv("BREMEN_DEMO_H5_PREFIX", "demo-uploads/")
+            m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: h5_path)
 
-        try:
-            with monkeypatch.context() as m:
-                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
-                m.setenv("BREMEN_DEMO_H5_PREFIX", "demo-uploads/")
-                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: h5_path)
+            _, body, _ = _post(
+                host, port, "/demo/api/h5/analyze",
+                {"container_id": "demo-uploads/session_test.h5"},
+            )
+            data = _json.loads(body)
 
-                _, body, _ = _post(
-                    host, port, "/demo/api/h5/analyze",
-                    {"container_id": "demo-uploads/session_test.h5"},
-                )
-                data = _json.loads(body)
+            assert data["status"] == "completed", (
+                f"Expected 'completed', got {data['status']}. "
+                f"Events: {[e['event'] for e in data['events']]}"
+            )
+            assert data["technical_demo_only"] is True
+            assert "request_id" in data
+            assert "job_id" in data
 
-                assert data["status"] == "completed", (
-                    f"Expected 'completed', got {data['status']}. "
-                    f"Events: {[e['event'] for e in data['events']]}"
-                )
-                assert data["technical_demo_only"] is True
-                assert "request_id" in data
-                assert "job_id" in data
+            events = data["events"]
+            event_types = [e["event"] for e in events]
+            expected = ["canonical_normalization_completed", "workflow_executed",
+                       "completed"]
+            for ev in expected:
+                assert ev in event_types, f"Missing event: {ev}. Got: {event_types}"
 
-                events = data["events"]
-                event_types = [e["event"] for e in events]
-                expected = ["canonical_normalization_completed", "workflow_executed",
-                           "completed"]
-                for ev in expected:
-                    assert ev in event_types, f"Missing event: {ev}. Got: {event_types}"
-
-                final_checksum = hashlib.sha256(h5_path.read_bytes()).hexdigest()
-                assert original_checksum == final_checksum
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-            ModelState.reset_for_tests()
+            final_checksum = hashlib.sha256(h5_path.read_bytes()).hexdigest()
+            assert original_checksum == final_checksum
 
 
 # ---------------------------------------------------------------------------
@@ -1672,15 +1630,18 @@ class TestSessionRouteNoRefs:
 
 
 class TestTypedStageFailure:
-    """Typed exception classification tests (PR0074)."""
+    """Typed exception classification tests (PR0074).
+
+    Converted to the shared ``server_info`` fixture (PR0095).
+    """
 
     def test_preflight_error_maps_to_h5_preflight_failed(
-        self, tmp_path: Path, monkeypatch,
+        self, tmp_path: Path, monkeypatch, server_info,
     ):
         """H5ContainerError maps to h5_preflight_failed event."""
         import json as _json
-        from bremen.api.model_state import ModelState
-        from bremen.api.jobs import InMemoryJobStore
+
+        host, port, _ = server_info
 
         path = tmp_path / "preflight_fail.h5"
         with h5py.File(path, "w") as f:
@@ -1693,46 +1654,32 @@ class TestTypedStageFailure:
             m2.attrs["position"] = "center"
             m2.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
 
-        ModelState.reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test-version", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
+        with monkeypatch.context() as m:
+            m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+            m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: path)
 
-        try:
-            with monkeypatch.context() as m:
-                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
-                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: path)
+            _, body, _ = _post(
+                host, port, "/demo/api/h5/analyze",
+                {"container_id": "demo-uploads/preflight_fail.h5"},
+            )
+            data = _json.loads(body)
 
-                _, body, _ = _post(
-                    host, port, "/demo/api/h5/analyze",
-                    {"container_id": "demo-uploads/preflight_fail.h5"},
-                )
-                data = _json.loads(body)
+            assert data["status"] == "failed"
+            events = data["events"]
+            event_types = [e["event"] for e in events]
+            assert "inference_failed" in event_types
+            assert "preprocessing_completed" not in event_types
+            assert "model_inference_completed" not in event_types
+            assert "completed" not in event_types
+            details = [e.get("detail", "") for e in events if e["event"] == "h5_preflight_failed"]
+            for detail in details:
+                assert "Traceback" not in detail
 
-                assert data["status"] == "failed"
-                events = data["events"]
-                event_types = [e["event"] for e in events]
-                assert "inference_failed" in event_types
-                assert "preprocessing_completed" not in event_types
-                assert "model_inference_completed" not in event_types
-                assert "completed" not in event_types
-                details = [e.get("detail", "") for e in events if e["event"] == "h5_preflight_failed"]
-                for detail in details:
-                    assert "Traceback" not in detail
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-            ModelState.reset_for_tests()
-
-    def test_no_downstream_event_after_failure(self, tmp_path: Path, monkeypatch):
+    def test_no_downstream_event_after_failure(self, tmp_path: Path, monkeypatch, server_info):
         """After h5_preflight_failed, no downstream events appear."""
         import json as _json
-        from bremen.api.model_state import ModelState
-        from bremen.api.jobs import InMemoryJobStore
+
+        host, port, _ = server_info
 
         path = tmp_path / "no_downstream.h5"
         with h5py.File(path, "w") as f:
@@ -1745,37 +1692,23 @@ class TestTypedStageFailure:
             m2.attrs["position"] = "center"
             m2.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
 
-        ModelState.reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test-version", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
+        with monkeypatch.context() as m:
+            m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+            m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: path)
 
-        try:
-            with monkeypatch.context() as m:
-                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
-                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: path)
+            _, body, _ = _post(
+                host, port, "/demo/api/h5/analyze",
+                {"container_id": "demo-uploads/fail.h5"},
+            )
+            data = _json.loads(body)
 
-                _, body, _ = _post(
-                    host, port, "/demo/api/h5/analyze",
-                    {"container_id": "demo-uploads/fail.h5"},
-                )
-                data = _json.loads(body)
-
-                events = data["events"]
-                event_types = [e["event"] for e in events]
-                assert "inference_failed" in event_types
-                assert "preprocessing_completed" not in event_types
-                assert "model_inference_completed" not in event_types
-                assert "completed" not in event_types
-                assert "result" not in data
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-            ModelState.reset_for_tests()
+            events = data["events"]
+            event_types = [e["event"] for e in events]
+            assert "inference_failed" in event_types
+            assert "preprocessing_completed" not in event_types
+            assert "model_inference_completed" not in event_types
+            assert "completed" not in event_types
+            assert "result" not in data
 
 
 # ---------------------------------------------------------------------------
@@ -1784,15 +1717,18 @@ class TestTypedStageFailure:
 
 
 class TestPublicErrorSafety:
-    """Public API response safety tests (PR0074)."""
+    """Public API response safety tests (PR0074).
+
+    Converted to the shared ``server_info`` fixture (PR0095).
+    """
 
     def test_no_h5_paths_in_error_response(
-        self, tmp_path: Path, monkeypatch,
+        self, tmp_path: Path, monkeypatch, server_info,
     ):
         """Error responses do not contain H5 internal paths."""
         import json as _json
-        from bremen.api.model_state import ModelState
-        from bremen.api.jobs import InMemoryJobStore
+
+        host, port, _ = server_info
 
         path = tmp_path / "safety_test.h5"
         with h5py.File(path, "w") as f:
@@ -1801,43 +1737,29 @@ class TestPublicErrorSafety:
             m1.attrs["position"] = "center"
             m1.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
 
-        ModelState.reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test-version", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
+        with monkeypatch.context() as m:
+            m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+            m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: path)
 
-        try:
-            with monkeypatch.context() as m:
-                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
-                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: path)
+            _, body, _ = _post(
+                host, port, "/demo/api/h5/analyze",
+                {"container_id": "demo-uploads/safety.h5"},
+            )
+            data = _json.loads(body)
+            body_str = _json.dumps(data)
 
-                _, body, _ = _post(
-                    host, port, "/demo/api/h5/analyze",
-                    {"container_id": "demo-uploads/safety.h5"},
-                )
-                data = _json.loads(body)
-                body_str = _json.dumps(data)
-
-                assert "/m_left" not in body_str
-                assert "/scans" not in body_str
-                assert "H5ContainerError" not in body_str
-                assert "H5PreflightError" not in body_str
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-            ModelState.reset_for_tests()
+            assert "/m_left" not in body_str
+            assert "/scans" not in body_str
+            assert "H5ContainerError" not in body_str
+            assert "H5PreflightError" not in body_str
 
     def test_safe_default_detail_for_unknown_error(
-        self, tmp_path: Path, monkeypatch,
+        self, tmp_path: Path, monkeypatch, server_info,
     ):
         """Unexpected internal error returns safe default detail."""
         import json as _json
-        from bremen.api.model_state import ModelState
-        from bremen.api.jobs import InMemoryJobStore
+
+        host, port, _ = server_info
 
         class UnknownInternalError(Exception):
             pass
@@ -1845,44 +1767,28 @@ class TestPublicErrorSafety:
         def failing(*args, **kwargs):
             raise UnknownInternalError("/tmp/secret_path: database connection failed")
 
-        monkeypatch.setattr("bremen.api.inference_handler.run_inference", failing)
-
         h5_path = _create_session_h5_for_server(tmp_path)
 
-        ModelState.reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test-version", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
+        with monkeypatch.context() as m:
+            m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
+            m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: h5_path)
+            m.setattr("bremen.api.inference_handler.run_inference", failing)
 
-        try:
-            with monkeypatch.context() as m:
-                m.setenv("BREMEN_DEMO_H5_BUCKET", "test-bucket")
-                m.setattr("bremen.h5_inputs.stage_h5_input", lambda *a, **kw: h5_path)
-                m.setattr("bremen.api.inference_handler.run_inference", failing)
+            _, body, _ = _post(
+                host, port, "/demo/api/h5/analyze",
+                {"container_id": "demo-uploads/session.h5"},
+            )
+            data = _json.loads(body)
+            body_str = _json.dumps(data)
 
-                _, body, _ = _post(
-                    host, port, "/demo/api/h5/analyze",
-                    {"container_id": "demo-uploads/session.h5"},
-                )
-                data = _json.loads(body)
-                body_str = _json.dumps(data)
-
-                assert "/tmp/secret_path" not in body_str
-                assert "database" not in body_str.lower()
-                assert "UnknownInternalError" not in body_str
-                events = data["events"]
-                detail_texts = [e.get("detail", "") for e in events]
-                combined = " ".join(detail_texts)
-                assert len(combined.strip()) > 0
-                assert "Traceback" not in combined
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-            ModelState.reset_for_tests()
+            assert "/tmp/secret_path" not in body_str
+            assert "database" not in body_str.lower()
+            assert "UnknownInternalError" not in body_str
+            events = data["events"]
+            detail_texts = [e.get("detail", "") for e in events]
+            combined = " ".join(detail_texts)
+            assert len(combined.strip()) > 0
+            assert "Traceback" not in combined
 
 
 class TestImportSafety:
@@ -2160,22 +2066,6 @@ class TestPR0087StartPageDisabledCards:
         assert "Model package is not registered" in text
 
 
-
-
-# ---------------------------------------------------------------------------
-# PR0089A — Model-scoped demo job history
-# ---------------------------------------------------------------------------
-
-
-
-
-# ---------------------------------------------------------------------------
-# PR0089A — Model-scoped demo job history
-# ---------------------------------------------------------------------------
-
-
-
-
 # ---------------------------------------------------------------------------
 # PR0089A — Model-scoped demo job history
 # ---------------------------------------------------------------------------
@@ -2186,7 +2076,11 @@ class TestPR0089AModelScopedJobHistory:
 
     Tests server-side filtering of list_analysis_jobs() by model_id
     and workflow_id, and verify Control Room HTML includes the scoped
-    fetch JS.
+    fetch JS. This class already used direct function calls / a shared
+    module-level job dict with its own explicit teardown_method — it
+    never spun up its own HTTPServer, so it is unaffected by the
+    PR0095 shared-server change apart from the two tests that use
+    server_info directly below.
     """
 
     def teardown_method(self):

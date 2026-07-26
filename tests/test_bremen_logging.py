@@ -38,6 +38,58 @@ def _reset_logging():
 
 
 # ---------------------------------------------------------------------------
+# Module-scoped shared server (load_model=False, PR0095b)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def _shared_no_model_server():
+    """Start an HTTPServer ONCE per module (model NOT loaded) for logging tests.
+
+    Yields ``(host, port)``.  Per-test isolation is layered by ``server_info``.
+    """
+    from bremen.api.model_state import ModelState
+    from bremen.api.jobs import InMemoryJobStore
+    from bremen.api.server import _make_handler
+
+    import socket
+    import threading
+    from http.server import HTTPServer
+
+    ModelState.reset_for_tests()
+    host = "127.0.0.1"
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind((host, 0))
+        port = s.getsockname()[1]
+
+    job_store = InMemoryJobStore()
+    handler = _make_handler(job_store, version="test", load_model=False)
+    server = HTTPServer((host, port), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    yield host, port
+
+    server.shutdown()
+    thread.join(timeout=2)
+    ModelState.reset_for_tests()
+
+
+@pytest.fixture
+def server_info(_shared_no_model_server):
+    """Per-test cheap-reset fixture sharing the no-model module-scoped server.
+
+    Yields ``(host, port)``.  Resets ModelState before each test (defensive).
+    """
+    from bremen.api.model_state import ModelState
+
+    host, port = _shared_no_model_server
+    ModelState.reset_for_tests()
+
+    yield host, port
+
+
+# ---------------------------------------------------------------------------
 # Logging configuration
 # ---------------------------------------------------------------------------
 
@@ -294,66 +346,43 @@ class TestChecksumEvents:
 
 
 class TestPredictionRejection:
-    def test_prediction_rejected_logs_one_event(self, caplog):
+    def test_prediction_rejected_logs_one_event(self, caplog, server_info):
         """Model not ready through full server path: exactly one
         bremen.prediction.request.rejected event."""
         caplog.set_level(logging.INFO)
-        from bremen.api.model_state import ModelState
-        ModelState.reset_for_tests()
 
-        import socket
-        import threading
-        from http.server import HTTPServer
         from urllib.request import Request, urlopen
         from urllib.error import HTTPError
         import json
 
-        from bremen.api.jobs import InMemoryJobStore
-        from bremen.api.server import _make_handler
+        host, port = server_info
 
-        host = "127.0.0.1"
-        # Find a free port
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind((host, 0))
-            port = s.getsockname()[1]
-
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test-version", load_model=False)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-
+        payload = {
+            "target_scan_ref": "scan:tgt/001",
+            "control_scan_ref": "scan:ctl/001",
+        }
+        data = json.dumps(payload).encode("utf-8")
+        req = Request(
+            f"http://{host}:{port}/predictions",
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
         try:
-            payload = {
-                "target_scan_ref": "scan:tgt/001",
-                "control_scan_ref": "scan:ctl/001",
-            }
-            data = json.dumps(payload).encode("utf-8")
-            req = Request(
-                f"http://{host}:{port}/predictions",
-                data=data,
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            try:
-                urlopen(req, timeout=3)
-            except HTTPError as exc:
-                assert exc.code == 503
+            urlopen(req, timeout=3)
+        except HTTPError as exc:
+            assert exc.code == 503
 
-            # Count the rejection events — exactly one from server.py
-            rejection_count = caplog.text.count(
-                "bremen.prediction.request.rejected"
-            )
-            assert rejection_count == 1
-            # request.received should also be present
-            assert "bremen.prediction.request.received" in caplog.text
-            # No request body in logs
-            assert "/tmp/test.h5" not in caplog.text
-            assert "scan:tgt/001" not in caplog.text
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-            ModelState.reset_for_tests()
+        # Count the rejection events — exactly one from server.py
+        rejection_count = caplog.text.count(
+            "bremen.prediction.request.rejected"
+        )
+        assert rejection_count == 1
+        # request.received should also be present
+        assert "bremen.prediction.request.received" in caplog.text
+        # No request body in logs
+        assert "/tmp/test.h5" not in caplog.text
+        assert "scan:tgt/001" not in caplog.text
 
 
 # ---------------------------------------------------------------------------
@@ -403,61 +432,39 @@ class TestStartupVisibility:
         assert "bremen.model.not_ready" in caplog.text
         ModelState.reset_for_tests()
 
-    def test_prediction_request_received_has_safe_fields(self, caplog):
+    def test_prediction_request_received_has_safe_fields(self, caplog, server_info):
         """POST /predictions with model not ready logs request.received."""
         caplog.set_level(logging.INFO)
-        from bremen.api.model_state import ModelState
-        ModelState.reset_for_tests()
 
-        import socket
-        import threading
-        from http.server import HTTPServer
         from urllib.request import Request, urlopen
         from urllib.error import HTTPError
         import json
 
-        from bremen.api.jobs import InMemoryJobStore
-        from bremen.api.server import _make_handler
+        host, port = server_info
 
-        host = "127.0.0.1"
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind((host, 0))
-            port = s.getsockname()[1]
-
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test", load_model=False)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-
+        payload = {
+            "target_scan_ref": "scan:tgt/001",
+            "control_scan_ref": "scan:ctl/001",
+        }
+        data = json.dumps(payload).encode("utf-8")
+        req = Request(
+            f"http://{host}:{port}/predictions",
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
         try:
-            payload = {
-                "target_scan_ref": "scan:tgt/001",
-                "control_scan_ref": "scan:ctl/001",
-            }
-            data = json.dumps(payload).encode("utf-8")
-            req = Request(
-                f"http://{host}:{port}/predictions",
-                data=data,
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            try:
-                urlopen(req, timeout=3)
-            except HTTPError as exc:
-                assert exc.code == 503
+            urlopen(req, timeout=3)
+        except HTTPError as exc:
+            assert exc.code == 503
 
-            assert "bremen.prediction.request.received" in caplog.text
-            assert "route=/predictions" in caplog.text
-            assert "method=POST" in caplog.text
-            assert "content_length=" in caplog.text
-            assert "model_ready=false" in caplog.text
-            # No request body leaked
-            assert "scan:tgt/001" not in caplog.text
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-            ModelState.reset_for_tests()
+        assert "bremen.prediction.request.received" in caplog.text
+        assert "route=/predictions" in caplog.text
+        assert "method=POST" in caplog.text
+        assert "content_length=" in caplog.text
+        assert "model_ready=false" in caplog.text
+        # No request body leaked
+        assert "scan:tgt/001" not in caplog.text
 
 
 # ---------------------------------------------------------------------------

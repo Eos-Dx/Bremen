@@ -71,25 +71,53 @@ def _post(host, port, path, body):
 
 
 # ---------------------------------------------------------------------------
+# Module-scoped shared server fixtures (PR0095b)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def _shared_server():
+    """Start an HTTPServer ONCE per module on a free port with synthetic model."""
+    reset_for_tests()
+    host = "127.0.0.1"
+    port = _find_free_port()
+    job_store = InMemoryJobStore()
+    handler = _make_handler(job_store, version="test", load_model=True)
+    server = HTTPServer((host, port), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield host, port, job_store
+    server.shutdown()
+    thread.join(timeout=2)
+    reset_for_tests()
+
+
+@pytest.fixture
+def server_info(_shared_server):
+    """Per-test cheap-reset fixture sharing the module-scoped server.
+
+    Yields ``(host, port, job_store)`` (same signature as original per-test fixture
+    used by TestWorkspaceRoute).
+    """
+    from bremen.api.model_state import ModelState
+    from bremen.api.server import _load_synthetic_model
+
+    host, port, job_store = _shared_server
+
+    ModelState.reset_for_tests()
+    _load_synthetic_model()
+    reset_for_tests()
+
+    yield host, port, job_store
+
+
+# ---------------------------------------------------------------------------
 # Workspace route tests
 # ---------------------------------------------------------------------------
 
 
 class TestWorkspaceRoute:
     """Tests for workspace route accessibility and structure."""
-
-    @pytest.fixture
-    def server_info(self):
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test")
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        yield host, port, job_store
-        server.shutdown()
-        thread.join(timeout=2)
 
     def test_workspace_route_returns_html(self, server_info):
         host, port, _ = server_info
@@ -199,23 +227,8 @@ class TestWorkspaceRoute:
 class TestJobAPI:
     """Tests that exercise the actual job API endpoints."""
 
-    @pytest.fixture
-    def server_info(self):
-        reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        yield host, port
-        server.shutdown()
-        thread.join(timeout=2)
-        reset_for_tests()
-
     def test_jobs_list_returns_json(self, server_info):
-        host, port = server_info
+        host, port, _ = server_info
         status, body, headers = _get(host, port, "/demo/api/jobs")
         assert status == 200
         ct = headers.get("Content-Type", "")
@@ -226,31 +239,31 @@ class TestJobAPI:
         assert data["technical_demo_only"] is True
 
     def test_jobs_list_shows_storage_metadata(self, server_info):
-        host, port = server_info
+        host, port, _ = server_info
         _, body, _ = _get(host, port, "/demo/api/jobs")
         data = json.loads(body)
         assert data["storage_mode"] == "ephemeral"
 
     def test_job_not_found_returns_404(self, server_info):
-        host, port = server_info
+        host, port, _ = server_info
         status, body, _ = _get(host, port, "/demo/api/jobs/nonexistent-uuid")
         assert status in (404, 410)
 
     def test_job_create_requires_h5_path(self, server_info):
-        host, port = server_info
+        host, port, _ = server_info
         status, body, _ = _post(host, port, "/demo/api/jobs", {})
         # May return 400 or 500 depending on error handling
         assert status in (400, 500, 201)
 
     def test_job_events_unknown_job(self, server_info):
-        host, port = server_info
+        host, port, _ = server_info
         status, body, _ = _get(
             host, port, "/demo/api/jobs/nonexistent/events",
         )
         assert status in (404, 410)
 
     def test_job_reports_unknown_job(self, server_info):
-        host, port = server_info
+        host, port, _ = server_info
         status, body, _ = _get(
             host, port, "/demo/api/jobs/nonexistent/reports",
         )
@@ -267,23 +280,8 @@ class TestJobAPI:
 class TestReportAPI:
     """Tests for report API endpoints."""
 
-    @pytest.fixture
-    def server_info(self):
-        reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        yield host, port
-        server.shutdown()
-        thread.join(timeout=2)
-        reset_for_tests()
-
     def test_reports_list_for_unknown_job(self, server_info):
-        host, port = server_info
+        host, port, _ = server_info
         _, body, _ = _get(
             host, port, "/demo/api/jobs/00000000-0000-0000-0000-000000000000/reports",
         )
@@ -291,7 +289,7 @@ class TestReportAPI:
         assert "reports" in data
 
     def test_workflow_report_for_unknown_job(self, server_info):
-        host, port = server_info
+        host, port, _ = server_info
         _, body, _ = _get(
             host, port,
             "/demo/api/jobs/00000000-0000-0000-0000-000000000000/reports/bremen",
@@ -308,24 +306,9 @@ class TestReportAPI:
 class TestEventPrivacy:
     """Verify no prohibited fields appear in event data."""
 
-    @pytest.fixture
-    def server_info(self):
-        reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        yield host, port
-        server.shutdown()
-        thread.join(timeout=2)
-        reset_for_tests()
-
     def test_no_prohibited_fields_in_api_response(self, server_info):
         """No prohibited fields should appear in any API response."""
-        host, port = server_info
+        host, port, _ = server_info
         prohibited = [
             "patient_id", "patient_name", "operator_id",
             "ponifile", "poni_text", "raw_data", "raw_array",
@@ -351,21 +334,8 @@ class TestEventPrivacy:
 class TestWorkspacePrivacy:
     """Verify workspace HTML contains no prohibited data."""
 
-    @pytest.fixture
-    def server_info(self):
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        yield host, port
-        server.shutdown()
-        thread.join(timeout=2)
-
     def test_no_h5_paths_in_workspace_html(self, server_info):
-        host, port = server_info
+        host, port, _ = server_info
         _, body, _ = _get(host, port, "/demo/workspace")
         assert "/scans" not in body
         assert "h5_path" not in body
@@ -373,6 +343,6 @@ class TestWorkspacePrivacy:
         assert "local_path" not in body
 
     def test_technical_demo_only_present(self, server_info):
-        host, port = server_info
+        host, port, _ = server_info
         _, body, _ = _get(host, port, "/demo/workspace")
         assert "Technical demo only" in body

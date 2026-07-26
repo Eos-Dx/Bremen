@@ -37,16 +37,33 @@ from bremen.demo_run import (
 MODULE_PATH = Path(__file__).parents[1] / "src" / "bremen" / "demo_run.py"
 
 
+@pytest.fixture(scope="module")
+def _cli_result_cache():
+    cache: dict[tuple[str, ...], subprocess.CompletedProcess] = {}
+
+    def _run(*args: str) -> subprocess.CompletedProcess:
+        key = tuple(args)
+        if key not in cache:
+            cache[key] = subprocess.run(
+                [sys.executable, *args], capture_output=True, text=True,
+            )
+        return cache[key]
+
+    return _run
+
+
 # ===================================================================
 # Fixtures
 # ===================================================================
 
 
-@pytest.fixture
-def server_info():
-    """Start a local test server on an ephemeral port.
+@pytest.fixture(scope="module")
+def _shared_server():
+    """Start a local test server ONCE per module on an ephemeral port.
 
-    Yields ``(host, port)``.  Shuts down the server on teardown.
+    Yields ``(host, port, job_store)``.  Shared across all eligible tests
+    in this module; per-test isolation is provided by the cheaper
+    ``server_info`` fixture.
     """
     from bremen.api.jobs import InMemoryJobStore
     from bremen.api.server import _make_handler
@@ -66,10 +83,38 @@ def server_info():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
 
-    yield host, port
+    yield host, port, job_store
 
     server.shutdown()
     thread.join(timeout=2)
+
+
+@pytest.fixture
+def server_info(_shared_server):
+    """Per-test fixture using the shared module-scoped server.
+
+    Provides cheap per-test isolation (ModelState reset + model reload
+    + job store clear) without restarting the server socket/thread.
+
+    Yields ``(host, port)`` (same signature as the original per-test
+    fixture, keeping all existing callers unchanged).
+    """
+    def _clear_job_store(job_store):
+        with job_store._lock:
+            job_store._jobs.clear()
+
+    from bremen.api.model_state import ModelState
+    from bremen.api.server import _load_synthetic_model
+
+    host, port, job_store = _shared_server
+
+    ModelState.reset_for_tests()
+    _load_synthetic_model()
+    from bremen.api.job_api_handler import reset_for_tests as _reset_job_handler
+    _reset_job_handler()
+    _clear_job_store(job_store)
+
+    yield host, port
 
 
 # ===================================================================
@@ -471,13 +516,9 @@ class TestSkipPredictionPassThrough:
 
 
 class TestCliHelp:
-    def test_demo_run_help_exits_0(self):
+    def test_demo_run_help_exits_0(self, _cli_result_cache):
         """python -m bremen demo-run --help exits 0."""
-        result = subprocess.run(
-            [sys.executable, "-m", "bremen", "demo-run", "--help"],
-            capture_output=True,
-            text=True,
-        )
+        result = _cli_result_cache("-m", "bremen", "demo-run", "--help")
         assert result.returncode == 0, (
             f"Exit code {result.returncode}: {result.stderr}"
         )
@@ -493,13 +534,9 @@ class TestCliHelp:
             "Main help output must list 'demo-run' command"
         )
 
-    def test_demo_run_help_shows_options(self):
+    def test_demo_run_help_shows_options(self, _cli_result_cache):
         """demo-run --help shows --base-url, --timeout, --skip-prediction."""
-        result = subprocess.run(
-            [sys.executable, "-m", "bremen", "demo-run", "--help"],
-            capture_output=True,
-            text=True,
-        )
+        result = _cli_result_cache("-m", "bremen", "demo-run", "--help")
         assert "--base-url" in result.stdout
         assert "--timeout" in result.stdout
         assert "--skip-prediction" in result.stdout
