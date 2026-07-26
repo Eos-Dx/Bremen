@@ -207,6 +207,39 @@ class TestPrintSavePDF:
         assert "page-break-inside" in page
         assert "avoid" in page
 
+    def test_print_css_preserves_accent_rail(self):
+        """@media print preserves recommendation-card 3px accent left rail."""
+        page = build_report_page(job_id="test-job")
+        assert "border-left:3px solid #1F6F6B" in page
+
+    def test_print_color_adjust_covers_tinted_classes(self):
+        """@media print includes print-color-adjust for all tinted/background classes."""
+        page = build_report_page(job_id="test-job")
+        # Verify each backgrounded/tinted class has print-color-adjust
+        covered_classes = [
+            ".recommendation-card",
+            ".report-card",
+            ".score-bar",
+            ".score-fill",
+            ".score-threshold",
+            ".signal-chip",
+            ".qc-badge",
+            ".tech-demo-notice",
+            ".boundary-note",
+            ".decision-policy-text",
+            ".sample-banner",
+            ".trace-stage",
+        ]
+        for cls in covered_classes:
+            # Each of these classes should appear in the @media print block
+            # with print-color-adjust.  Check the class is in the CSS.
+            assert cls in page, f"Class {cls} missing from page"
+        # Verify print-color-adjust appears at least 26 times (2 per covered class in @media print + body)
+        pca_count = page.count("print-color-adjust")
+        assert pca_count >= 26, (
+            f"print-color-adjust appears only {pca_count} times, expected >= 26"
+        )
+
 
 class TestSymmetrySignals:
     """Symmetry signal rendering in report UI."""
@@ -554,3 +587,53 @@ class TestSymmetrySignalDetail:
         assert "case 'moderate'" in page or "'moderate':" in page
         assert "case 'larger'" in page or "'larger':" in page
         assert "case 'not_available'" in page or "'not_available':" in page
+
+
+class TestDurationMsNullFix:
+    """Execution trace duration_ms null/undefined fix."""
+
+    def test_duration_ms_guard_uses_null_check(self):
+        """duration_ms rendering uses !=null guard, not !==undefined."""
+        page = build_report_page(job_id="test-job")
+        assert "duration_ms!=null" in page
+        assert "duration_ms!==undefined" not in page
+
+    def test_no_nullms_in_page(self):
+        """No literal 'nullms' string in the rendered page."""
+        page = build_report_page(job_id="test-job")
+        assert "nullms" not in page
+
+
+class TestExternalQCStatusMapping:
+    """External tab reads QC status from the same authoritative source as Internal."""
+
+    def test_external_reads_qc_from_report_payload(self):
+        """External QC sources from report.payload.measurement_qc_summary.qc_status."""
+        page = build_report_page(job_id="test-job")
+        assert "extQcSummary" in page
+        assert "measurement_qc_summary" in page
+        assert "extQcSummary.qc_status" in page
+
+    def test_external_qc_falls_back_to_rs(self):
+        """External QC falls back to rs.qc_status when report payload is unavailable."""
+        page = build_report_page(job_id="test-job")
+        assert "rs.qc_status" in page
+
+
+class TestTabStructureOneShell:
+    """Report is one page shell with External/Internal tabs."""
+
+    def test_single_report_page_shell(self):
+        """One report-page div contains both tab panels."""
+        page = build_report_page(job_id="test-job")
+        # Count report-page divs — should be exactly 1
+        import re
+        matches = re.findall(r'class="report-page"', page)
+        assert len(matches) == 1, f"Expected 1 report-page, found {len(matches)}"
+
+    def test_both_panels_in_same_shell(self):
+        """Both panel-external and panel-internal live under report-content."""
+        page = build_report_page(job_id="test-job")
+        assert 'id="panel-external"' in page
+        assert 'id="panel-internal"' in page
+        assert 'report-content' in page

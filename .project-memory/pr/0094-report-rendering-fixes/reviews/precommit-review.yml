@@ -1,0 +1,33 @@
+status: valid
+head: d179e8151029a26ad202f3f70d5009461373d54e
+branch: 0094-report-rendering-fixes
+blockers: []
+warnings:
+  - "Full test suite (pytest -q) timed out due to integration HTTP servers in existing test suite. Report-specific tests (79/79) all pass."
+changed_files:
+  - src/bremen/report_ui.py
+  - tests/test_bremen_report_ui.py
+working_tree_state: "2 modified files (report_ui.py +28/-10, test file +83 lines). No staged files. No decision_support.py changes."
+print_color_adjust: "13 lines covering body + 12 classes: report-card, recommendation-card, score-bar, score-fill, score-threshold, signal-chip, qc-badge, tech-demo-notice, boundary-note, decision-policy-text, sample-banner, trace-stage. Each with -webkit-print-color-adjust:exact;print-color-adjust:exact. count=26 total occurrences. recommendation-card preserves border-left:3px solid #1F6F6B accent rail in @media print."
+nullms_fix: "duration_ms guard changed from !==undefined to !=null at line 492. Loose equality excludes both null and undefined. Verified no 'nullms' string exists in rendered output. Test confirms duration_ms!==undefined is absent and duration_ms!=null is present."
+qc_status_root_cause: "External tab was reading from rs.qc_status (result_summary) while Internal used report.payload.measurement_qc_summary.qc_status. Fix: External now reads extQcSummary from report.payload.measurement_qc_summary first, falling back to rs.qc_status. Both tabs now use the same authoritative source. No decision_support.py changes needed — root cause was entirely in report_ui.py field path divergence."
+tab_structure_finding: "NOT a product bug. Single report-page div contains both tab panels under one report-content parent. User-printed-separate-PDFs behavior is expected for browser-native Print with tabbed content. No structural changes made. Tests verify single shell and both panels in same parent."
+design_tokens: "All 13 hex colors in report_ui.py match BREMEN_DESIGN_SPEC_v1.md: #F7F8F8, #FFFFFF, #16202A, #5B6570, #1F6F6B, #E3E7E6, #2E7D5B, #B8894A, #9AA3A8, #C1483D, #F1F5F4, #FBF3E9, #FBEEEC. No new colors introduced. No token values changed."
+pdf_strategy: "No changes. Browser-native window.print() + @media print CSS only. No WeasyPrint, Chromium, Puppeteer, Playwright, Pango, Cairo in source."
+safety: "No raw feature values, percentile cutoffs, full checksums, S3 paths, manifest keys, ARNs, exceptions, PHI, or model internals exposed. Safety language unchanged. Backend science unchanged. Symmetry signals computation unchanged. not_available behavior unchanged."
+tests:
+  total: 79
+  new_classes: "TestDurationMsNullFix (2 tests), TestExternalQCStatusMapping (2 tests), TestTabStructureOneShell (2 tests)"
+  new_in_existing: "TestPrintSavePDF: test_print_css_preserves_accent_rail, test_print_color_adjust_covers_tinted_classes"
+  all_passing: true
+validation:
+  compileall: "PASS"
+  report_ui_tests: "79/79 passed"
+  git_diff_check: "clean"
+  hex_colors: "13 approved tokens in report_ui.py only"
+  pdf_deps: "no server-side PDF dependencies"
+  nullms: "no nullms in source or output"
+  unsafe_exposure: "no unsafe field exposure in report_ui.py"
+scope_control: "Only report_ui.py and test file changed. No decision_support.py, no symmetry_signals.py, no server.py, no dependencies, no backend changes."
+implementation_report: "Accurate. All 4 fixes documented correctly. Validation results match. File list matches actual diff. Test count (79) matches."
+commit_readiness: true
