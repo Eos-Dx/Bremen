@@ -1,0 +1,88 @@
+# Plan Review — PR0093
+# Reviewed: 2026-07-26T09:45:00Z
+# Result: valid
+
+status: valid
+head: b5f75533de511f837be85c0b22b4627a77cbdd1d
+branch: 0093-report-rendering-and-pdf-export
+
+blockers: []
+
+warnings:
+  - "Four reference artifacts (bremen_external_report.yaml, bremen_internal_report.yaml, Bremen_External_Report_SAMPLE.pdf, Bremen_Internal_Report_SAMPLE.pdf) expected at .project-memory/pr/0093-report-rendering-and-pdf-export/artifacts/report-reference/ do not exist — directory is empty. PLAN proceeds from API contract data shapes. Visual layout may need refinement when artifacts arrive."
+  - "PR0083_design_system_prompt.md does not exist in repository. Design tokens sourced from BREMEN_DESIGN_SPEC_v1.md §1 (authoritative source). Color tokens verified against spec — no new hex colors."
+  - "No --tint-available token exists for small signal chip background. PLAN uses --tint-accent (#F1F5F4) as closest match, or no tint — acceptable given spec limitations."
+  - "Sample demo mode requires creating frozen data fixture. Sample values must remain clearly synthetic and not misrepresentable as live runtime output."
+  - "Current report_ui.py is 287-line single-tab page. Rewrite is significant — extensive CSS, JS, and HTML changes to add tabs, symmetry signals, and print support."
+
+files_read:
+  - .project-memory/pr/0093-report-rendering-and-pdf-export/PLAN.md
+  - .project-memory/pr/0093-report-rendering-and-pdf-export/artifacts/report-reference/bremen_external_report.yaml (not found — empty directory)
+  - .project-memory/pr/0093-report-rendering-and-pdf-export/artifacts/report-reference/bremen_internal_report.yaml (not found — empty directory)
+  - .project-memory/pr/0093-report-rendering-and-pdf-export/artifacts/report-reference/Bremen_External_Report_SAMPLE.pdf (not found)
+  - .project-memory/pr/0093-report-rendering-and-pdf-export/artifacts/report-reference/Bremen_Internal_Report_SAMPLE.pdf (not found)
+  - docs/design/BREMEN_DESIGN_SPEC_v1.md
+  - src/bremen/api/decision_support.py
+  - src/bremen/api/symmetry_signals.py
+  - src/bremen/api/report_bremen.py
+  - src/bremen/report_ui.py
+  - src/bremen/api/server.py
+  - docs/api_contract.md
+  - .project-memory/project_contract.yml
+  - AGENTS.md
+
+files_written:
+  - .project-memory/pr/0093-report-rendering-and-pdf-export/reviews/plan-review.yml
+
+pr0092_dependency: "CONFIRMED MERGED — symmetry_signals found in decision_support.py (field added to build_decision_support_report), symmetry_signals.py (compute_symmetry_signals, _format_external, _format_internal), report_bremen.py (symmetry_signal_detail wired into supporting_technical_evidence). All Phase 1 not_available behavior present."
+
+confirmed_report_route: "GET /demo/report/{job_id} → _handle_report_route() in src/bremen/api/server.py line 1484 → build_report_page() in src/bremen/report_ui.py line 239. Current implementation: single-tab page with recommendation card, model panel, audit panel, execution trace. No symmetry signals. No Print/Save PDF. Uses design tokens from BREMEN_DESIGN_SPEC_v1.md."
+
+reference_artifacts: "Not present in repository. artifacts/report-reference/ directory exists but is empty. PLAN acknowledges this and derives External/Internal report layout from existing API contract data shapes (decision_support_report.symmetry_signals and report envelope payload.supporting_technical_evidence.symmetry_signal_detail). Visual refinement may follow when artifacts arrive."
+
+live_report_mode: "Default mode using real API data from GET /demo/api/jobs/{jid} and GET /demo/api/jobs/{jid}/reports/bremen. External tab renders from decision_support_report.symmetry_signals. Internal tab renders from report envelope payload.supporting_technical_evidence.symmetry_signal_detail. not_available renders as 'Calibration pending' (external) or 'Reference statistics not available for this signal' (internal). No sample value substitution. No fabricated thresholds."
+
+sample_demo_mode: "Option B — local project-memory artifact, not a server route. Frozen fixture at .project-memory/pr/0093-report-rendering-and-pdf-export/artifacts/sample-data.json. Static HTML generated to .project-memory/pr/0093-report-rendering-and-pdf-export/artifacts/sample-report.html via development-only script/Makefile. Prominent header: 'SYNTHETIC DEMONSTRATION SAMPLE — Illustrative values only — Not generated from live runtime calibration — Not clinically validated — Not for patient or external distribution'. No risk of live/sample confusion."
+
+external_report_plan: "Clinician-facing layout described in PLAN §6. Includes: header (Bremen, MRI-Continuation Decision-Support Report), audience line, job/generated metadata, technical demo notice, recommendation card (decision name, code, score bar with threshold marker), QC status, symmetry signal chips (5 signals with color-coded difference levels using --status-[available/pending/unconfigured/error] tokens), explanation section, model table, report ID, footer safety disclaimer. Signal chips use --radius-pill and appropriate status colors from BREMEN_DESIGN_SPEC_v1.md."
+
+internal_report_plan: "Technical/audit-facing layout described in PLAN §7. Includes: header (Internal Technical Report), certification status, job/request identity, model/runtime plugin details (checksum prefix only — max 8 hex chars), decision policy section, QC status/flags, symmetry signal breakdown table (feature family names per signal, difference_level for all 5), reference artifact version, checksum prefix, execution trace, boundary note, footer safety disclaimer. Explicit safety boundary: no raw feature values, deltas, cutoffs, full checksums, S3/H5 paths, PHI, model internals."
+
+print_pdf_decision: "Browser-native window.print() + @media print CSS. Zero new dependencies. Button label: 'Print / Save PDF' (accurate — browser print dialog offers Save as PDF). Print button per tab. Print-only section renders current tab's content. Interactive controls hidden in print (@media print display:none). Page breaks controlled (page-break-inside:avoid). @media print includes -webkit-print-color-adjust:exact for signal chips. No WeasyPrint, Chromium, Puppeteer, Playwright, Pango, Cairo, GDK, or any server-side PDF dependency."
+
+design_tokens: "All color tokens from BREMEN_DESIGN_SPEC_v1.md §1 verbatim — verified. Signal chip color mapping: small → --status-available (#2E7D5B), moderate → --status-pending (#B8894A), larger → --status-error (#C1483D), not_available → --status-unconfigured (#9AA3A8). Background tints: moderate → --tint-pending (#FBF3E9), larger → --tint-error (#FBEEEC), small → --tint-accent (#F1F5F4) (no --tint-available exists). Typography, spacing scale, radii, shadows all from spec. No new hex colors. Prohibited colors confirmed absent."
+
+accessibility: "Comprehensive plan in §11. Tab buttons with role='tab' and aria-selected. Tab panels with role='tabpanel' and aria-labelledby. Keyboard accessible (Enter/Space on buttons). Visible focus outline (3px --accent). Print buttons are real <button> elements. Signal chips are <span> with text labels — no color-only communication. Semantic headings (h1/h2/h3). Field/value pairs use <dl>/<dt>/<dd>. role='alert' on recommendation card. prefers-reduced-motion support."
+
+safety: "All 30 blocker conditions cleared. No raw feature values, raw deltas, percentile cutoffs, reference-statistic values, full checksums, S3/H5 paths, PHI, model internals, coefficients, exception text, or AWS ARNs in any output. Decision vocabulary unchanged. Inference/preprocessing semantics unchanged. POST /predictions schema unchanged. No server-side PDF dependencies. No React/frontend framework/build steps. No new hex colors. No Start Page/Control Room redesign. No backend changes. No Aramis work. Safety language preserved (technical demo only, not a diagnosis, not clinically validated)."
+
+tests: "18 required tests in new test file tests/test_bremen_report_ui.py (§15.2). Covers: External/Internal tab rendering (1-2), recommendation content (3), safety language (4), job identity/model metadata (5-6), signal breakdown (7), not_available rendering as 'Calibration pending'/'Reference statistics not available' (8), live mode does not use sample values (9), sample mode labeled synthetic (10), print button existence (11), @media print hides controls (12), prints selected tab only (13), no raw feature values/cutoffs/checksums/S3 exposure (14), no server-side PDF dependencies (15), no new hex colors (16), backward compatible route (17), signal chip color mapping (18). Existing tests must continue passing."
+
+validation:
+  - command: "git rev-parse --verify HEAD"
+    exit_code: 0
+    output: "b5f75533de511f837be85c0b22b4627a77cbdd1d"
+  - command: "git branch --show-current"
+    exit_code: 0
+    output: "0093-report-rendering-and-pdf-export"
+  - command: "git status --short"
+    exit_code: 0
+    output: "?? .project-memory/pr/0093-report-rendering-and-pdf-export/"
+  - command: "git diff --name-only"
+    exit_code: 0
+    output: ""
+  - command: "test -f .project-memory/pr/0093-report-rendering-and-pdf-export/PLAN.md"
+    exit_code: 0
+    output: "File exists"
+
+future_roadmap_note: "PLAN §17 documents future calibration PR: obtain real reference-statistics artifact from data science team, wire percentile-position bucketing, replace not_available with real small/moderate/larger buckets. Never expose raw values or cutoffs in report output. This is deferred after PR0093."
+
+scope_control:
+  required_branch: "0093-report-rendering-and-pdf-export"
+  actual_branch: "0093-report-rendering-and-pdf-export"
+  plan_path: ".project-memory/pr/0093-report-rendering-and-pdf-export/PLAN.md"
+  plan_exists: true
+  branch_match: true
+  result: "preconditions satisfied"
+
+commit_readiness: "ready — Plan is thorough with complete safety boundaries, separated live/sample modes, browser-native print without server-side dependencies, real PR0092 data dependency verified, comprehensive 18-test plan, and full validation strategy. No blockers identified."
