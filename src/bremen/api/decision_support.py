@@ -13,6 +13,43 @@ from typing import Any
 
 from .decision_contract import POSITIVE_MACHINE_CODE, NEGATIVE_MACHINE_CODE
 
+
+# ---------------------------------------------------------------------------
+# Measurement reliability helper (PR0096)
+# ---------------------------------------------------------------------------
+
+
+def _compute_measurement_reliability(
+    left_measurement_count: int,
+    right_measurement_count: int,
+) -> dict[str, object] | None:
+    """Compute measurement reliability tier from per-side counts.
+
+    Ported verbatim from bremen-training-pipeline.
+    """
+    left = int(left_measurement_count)
+    right = int(right_measurement_count)
+    if left >= 3 and right >= 3:
+        return {
+            "tier": "HIGH_TECHNICAL",
+            "reason": "At least three accepted measurements per breast.",
+            "left_measurement_count": left,
+            "right_measurement_count": right,
+        }
+    if left >= 2 and right >= 2:
+        return {
+            "tier": "ACCEPTABLE_TECHNICAL",
+            "reason": "At least two accepted measurements per breast.",
+            "left_measurement_count": left,
+            "right_measurement_count": right,
+        }
+    return {
+        "tier": "LOW_TECHNICAL",
+        "reason": "Fewer than two accepted measurements on one breast.",
+        "left_measurement_count": left,
+        "right_measurement_count": right,
+    }
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -114,6 +151,14 @@ def build_decision_support_report(
         prediction_summary["qc_status"] = inference_result["qc_status"]
     if "qc_flags" in inference_result:
         prediction_summary["qc_flags"] = inference_result["qc_flags"]
+
+    # --- Measurement reliability (PR0096) ---
+    left_count = inference_result.get("left_measurement_count")
+    right_count = inference_result.get("right_measurement_count")
+    if left_count is not None and right_count is not None:
+        reliability = _compute_measurement_reliability(left_count, right_count)
+        if reliability is not None:
+            prediction_summary["measurement_reliability"] = reliability
 
     # --- Decision-support framing ---
     triage = inference_result.get("triage_recommendation", "")

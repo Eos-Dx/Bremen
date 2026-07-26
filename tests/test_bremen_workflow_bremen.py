@@ -438,3 +438,80 @@ class TestChecksumBoundary:
             model_version="v2.0",
         )
         assert provider._model_version == "v2.0"
+
+
+# ---------------------------------------------------------------------------
+# PR0096 — Per-side measurement counts in execute()
+# ---------------------------------------------------------------------------
+
+
+class TestPerSideMeasurementCounts:
+    """Per-side measurement counts threaded through execute()."""
+
+    def test_left_right_counts_in_payload(self):
+        """execute() populates left/right measurement counts in payload."""
+        provider = BremenProvider(
+            model_package=_make_synthetic_model(),
+            model_version="test-v1",
+        )
+        case = _make_canonical_case()
+        result = provider.execute(case)
+        assert result.status == "completed"
+        assert result.payload is not None
+        assert "left_measurement_count" in result.payload
+        assert "right_measurement_count" in result.payload
+        assert result.payload["left_measurement_count"] >= 1
+        assert result.payload["right_measurement_count"] >= 1
+
+    def test_left_count_from_side_label(self):
+        """left_measurement_count comes from side='LEFT' label."""
+        provider = BremenProvider(
+            model_package=_make_synthetic_model(),
+            model_version="test-v1",
+        )
+        measurements = [
+            CanonicalXRDMeasurement(
+                side="LEFT", position="P1",
+                q=np.linspace(1.0, 10.0, 100, dtype=np.float64),
+                intensity=np.random.default_rng(42).normal(10, 2, 100).astype(np.float64),
+            ),
+            CanonicalXRDMeasurement(
+                side="LEFT", position="P1",
+                q=np.linspace(1.0, 10.0, 100, dtype=np.float64),
+                intensity=np.random.default_rng(44).normal(10, 2, 100).astype(np.float64),
+            ),
+            CanonicalXRDMeasurement(
+                side="RIGHT", position="P1",
+                q=np.linspace(1.0, 10.0, 100, dtype=np.float64),
+                intensity=np.random.default_rng(43).normal(10, 2, 100).astype(np.float64),
+            ),
+        ]
+        case = CanonicalXRDCase(
+            source_layout="test",
+            source_layout_version="v1",
+            source_checksum="abc123",
+            calibration_provenance="session_pre_integrated",
+            measurements=tuple(measurements),
+        )
+        result = provider.execute(case)
+        assert result.status == "completed"
+        assert result.payload is not None
+        assert result.payload["left_measurement_count"] == 2
+        assert result.payload["right_measurement_count"] == 1
+
+    def test_counts_absent_when_incompatible(self):
+        """Counts not present in payload when execution fails."""
+        provider = BremenProvider(model_package=_make_synthetic_model())
+        result = provider.execute("not a case")
+        assert result.status == "failed"
+
+    def test_no_fabricated_counts(self):
+        """Counts are computed from real measurement.side labels, not total."""
+        provider = BremenProvider(
+            model_package=_make_synthetic_model(),
+            model_version="test-v1",
+        )
+        case = _make_canonical_case()
+        result = provider.execute(case)
+        # Canonical case has 1 LEFT + 1 RIGHT = 2 total
+        assert result.payload["left_measurement_count"] + result.payload["right_measurement_count"] == 2

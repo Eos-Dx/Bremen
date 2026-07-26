@@ -391,6 +391,18 @@ class BremenProvider(WorkflowProvider):
         # --- Inference (exactly once) ---
         result = self.run_inference(features)
 
+        # --- Per-side measurement counts (PR0096) ---
+        if result.status == "completed" and result.payload is not None:
+            measurements = getattr(canonical, "measurements", [])
+            left_count = sum(
+                1 for m in measurements if getattr(m, "side", None) == "LEFT"
+            )
+            right_count = sum(
+                1 for m in measurements if getattr(m, "side", None) == "RIGHT"
+            )
+            result.payload["left_measurement_count"] = left_count
+            result.payload["right_measurement_count"] = right_count
+
         if context and result.status == "completed":
             payload = result.payload or {}
             self._emit_inference_events(context, payload)
@@ -452,6 +464,12 @@ class BremenProvider(WorkflowProvider):
 
         sides = {getattr(m, "side", "?") for m in measurements}
         positions = {getattr(m, "position", "?") for m in measurements}
+        left_measurement_count = sum(
+            1 for m in measurements if getattr(m, "side", None) == "LEFT"
+        )
+        right_measurement_count = sum(
+            1 for m in measurements if getattr(m, "side", None) == "RIGHT"
+        )
         measurement_count = len(measurements)
         side_count = len(sides)
         position_count = len(positions)
@@ -465,6 +483,8 @@ class BremenProvider(WorkflowProvider):
             details={
                 "layout": canonical_case.source_layout,
                 "measurement_count": measurement_count,
+                "left_measurement_count": left_measurement_count,
+                "right_measurement_count": right_measurement_count,
                 "side_count": side_count,
                 "position_count": position_count,
                 "compatible": compatible,
@@ -474,6 +494,8 @@ class BremenProvider(WorkflowProvider):
         return PreparedWorkflowInput(
             layout=canonical_case.source_layout,
             measurement_count=measurement_count,
+            left_measurement_count=left_measurement_count,
+            right_measurement_count=right_measurement_count,
             side_count=side_count,
             position_count=position_count,
             compatible=compatible,

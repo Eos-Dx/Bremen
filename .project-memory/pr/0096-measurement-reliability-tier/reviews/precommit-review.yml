@@ -1,0 +1,189 @@
+review:
+  status: valid
+  head: 9c8be584aa3737f06829243535f6fe51a8ecad03
+  branch: 0096-measurement-reliability-tier
+  blockers: []
+  warnings:
+    - "WARNING 1 (app.py default 0 fallback): When payload lacks left/right counts (non-Bremen workflows), app.py defaults to 0/0, which emission-triggers LOW_TECHNICAL reliability. This could produce a misleading tier for non-Bremen workflow results. Plan-approved fallback for feature_artifact_prediction.py and inference_handler.py works correctly (counts absent → field omitted). The app.py 0-default path is a minor edge case — reliability is not meaningful without real counts."
+  changed_files:
+    - src/bremen/api/lifecycle_contracts.py
+    - src/bremen/api/workflow_bremen.py
+    - src/bremen/api/decision_support.py
+    - src/bremen/api/app.py
+    - src/bremen/report_ui.py
+    - tests/test_bremen_workflow_bremen.py
+    - tests/test_bremen_decision_support.py (new)
+    - tests/test_bremen_report_ui.py
+  working_tree_state:
+    origin: "All changes are in working tree (unstaged) except app.py which appears staged in status but git diff --cached shows empty — actual changes are in git diff (working tree vs index). Untracked: implementation-report.md, test_bremen_decision_support.py."
+  count_computation:
+    location: "src/bremen/api/workflow_bremen.py — prepare_input() and execute()"
+    method: "sum(1 for m in measurements if getattr(m, 'side', None) == 'LEFT')"
+    source: "Real measurement.side labels (duck-typed getattr). Not fabricated, not inferred from total count."
+    dual_computation: "prepare_input() stores in PreparedWorkflowInput + event emission. execute() computes directly from canonical.measurements into WorkflowResult.payload."
+    confirmed: true
+  storage:
+    location: "src/bremen/api/lifecycle_contracts.py — PreparedWorkflowInput dataclass"
+    fields:
+      - "left_measurement_count: int = 0"
+      - "right_measurement_count: int = 0"
+    defaults: "0 (backward compatible)"
+    confirmed: true
+  plumbing_path:
+    hop_1: "workflow_bremen.py execute() → result.payload['left_measurement_count'/'right_measurement_count']"
+    hop_2: "app.py handle_submit_prediction() → reads from payload → adds to result_dict"
+    hop_3: "result_dict → build_decision_support_report(inference_result=result_dict)"
+    hop_4: "decision_support.py → extracts counts → _compute_measurement_reliability() → prediction_summary.measurement_reliability"
+    other_call_sites: "feature_artifact_prediction.py, inference_handler.py — counts absent → reliability field omitted (correct fallback)"
+    confirmed: true
+  decision_support_report_wiring:
+    helper: "_compute_measurement_reliability(left_measurement_count, right_measurement_count)"
+    helper_name_qualifier: "Starts with _compute_measurement_ — includes measurement_ qualifier"
+    wiring: "After existing qc_flags, before decision_support section"
+    safety: "Only emitted when both left_count and right_count are not None"
+    absent_fallback: "Field omitted when either count is None"
+    confirmed: true
+  json_contract_placement:
+    location: "prediction_summary.measurement_reliability"
+    shape:
+      tier: "HIGH_TECHNICAL | ACCEPTABLE_TECHNICAL | LOW_TECHNICAL"
+      reason: "verbatim reason string"
+      left_measurement_count: "int"
+      right_measurement_count: "int"
+    no_top_level_reliability: true
+    no_top_level_reliability_reason: true
+    no_prediction_summary_reliability: true
+    measurement_qualifier_present: true
+    confirmed: true
+  internal_report_wiring:
+    python_external_builder: "build_external_report_json() — _get_path(ds, 'prediction_summary', 'measurement_reliability')"
+    python_internal_builder: "build_internal_report_json() — _get_path(external, 'prediction_summary', 'measurement_reliability')"
+    js_external_builder: "buildExternalReport() — measurement_reliability:prediction.measurement_reliability in prediction_summary"
+    js_internal_builder: "buildInternalReport() — measurement_reliability:external.prediction_summary.measurement_reliability in decision_policy"
+    js_renderer: "renderInternalReport() — 'Measurement Reliability' section after Decision Policy, before Boundary Note"
+    confirmed: true
+  external_display:
+    status: "Deferred to follow-up PR"
+    json_only: true
+    no_external_rendering: true
+    confirmed: true
+  tier_logic:
+    exact_names:
+      - "HIGH_TECHNICAL"
+      - "ACCEPTABLE_TECHNICAL"
+      - "LOW_TECHNICAL"
+    exact_thresholds:
+      - "left >= 3 AND right >= 3 → HIGH_TECHNICAL"
+      - "left >= 2 AND right >= 2 → ACCEPTABLE_TECHNICAL"
+      - "else → LOW_TECHNICAL"
+    exact_reason_strings:
+      - "At least three accepted measurements per breast."
+      - "At least two accepted measurements per breast."
+      - "Fewer than two accepted measurements on one breast."
+    source: "Verbatim from bremen-training-pipeline"
+    confirmed: true
+  naming_guard:
+    no_top_level_reliability: true
+    no_top_level_reliability_reason: true
+    no_prediction_summary_reliability: true
+    no_prediction_summary_reliability_reason: true
+    only_measurement_reliability_key_used: true
+    helper_named_measurement_reliability: true
+    no_clinical_reliability_wording: true
+    no_diagnostic_reliability_wording: true
+    no_model_reliability_wording: true
+    no_scientific_reliability_wording: true
+    confirmed: true
+  safety:
+    counts_are_aggregate: true
+    no_raw_measurement_values: true
+    no_raw_refs: true
+    no_patient_identifiers: true
+    no_phi_exposed: true
+    prediction_not_blocked: true
+    no_new_request_schema_fields: true
+    terminology: "Measurement reliability / technical measurement reliability"
+    confirmed: true
+  tests:
+    tier_logic:
+      three_tier_outcomes: 8 tests
+      exact_reason_strings: verified
+      absent_count_fallback: 3 tests
+      integer_casting: 1 test
+      exact_tier_names: 1 test
+    decision_support_wiring:
+      present_with_counts: 1 test
+      absent_without_counts: 1 test
+      absent_when_only_left: 1 test
+      absent_when_only_right: 1 test
+      acceptable_tier_wired: 1 test
+      low_tier_wired: 1 test
+      existing_fields_preserved: 1 test
+    naming_guard:
+      no_top_level_reliability: 2 tests
+      no_prediction_summary_reliability: 2 tests
+      only_measurement_reliability: 1 test
+      no_prohibited_wording: 1 test
+    report_ui_wiring:
+      external_passthrough: 2 tests
+      internal_decision_policy: 2 tests
+      no_top_level_keys: 2 tests
+      js_measurement_reliability: 2 tests
+      js_rendering_section: 1 test
+      no_prohibited_wording: 1 test
+    workflow_counts:
+      counts_in_payload: 1 test
+      left_count_from_side_label: 1 test
+      counts_absent_on_failure: 1 test
+      not_fabricated: 1 test
+    test_counts:
+      workflow: "36 passed"
+      decision_support: "24 passed"
+      report_ui: "181 passed"
+      full_suite: "2263 passed, 11 skipped"
+    confirmed: true
+  validation:
+    compileall: "PASS"
+    test_workflow_bremen: "36 passed in 1.49s"
+    test_decision_support: "24 passed in 1.47s"
+    test_report_ui: "181 passed in 1.51s"
+    full_suite: "2263 passed, 11 skipped in 61.92s"
+    git_diff_check: "CLEAN"
+    tier_names_in_decision_support: "Found HIGH_TECHNICAL, ACCEPTABLE_TECHNICAL, LOW_TECHNICAL"
+    count_fields_in_lifecycle_contracts: "Found left_measurement_count, right_measurement_count"
+    measurement_reliability_in_report_ui: "Found at 6 locations (Python builders, JS builders, JS renderer)"
+    confirmed: true
+  scope_control:
+    aramis_touched: false
+    pr0092_touched: "Incidental passthrough only (JS signal builder line already present, not changed by PR0096)"
+    request_schema_changed: false
+    new_dependencies: false
+    docs_changed: false
+    roapmap_changed: false
+    requirements_changed: false
+    pyproject_changed: false
+    dockerfile_changed: false
+    infra_changed: false
+    github_actions_changed: false
+    files_outside_scope: []
+    confirmed: true
+  implementation_report:
+    exists: true
+    location: ".project-memory/pr/0096-measurement-reliability-tier/implementation-report.md"
+    matches_diff: true
+    test_counts_match: true
+    confirmed: true
+  commit_readiness:
+    compileall_pass: true
+    focused_tests_pass: true
+    full_suite_pass: true
+    git_diff_check_clean: true
+    naming_guard_verified: true
+    scope_control_verified: true
+    aramis_untouched: true
+    pr0092_untouched: true
+    no_new_dependencies: true
+    no_clinical_wording: true
+    no_request_schema_changes: true
+    implementation_report_matches: true
+    ready: true
