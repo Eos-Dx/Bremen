@@ -1,0 +1,161 @@
+# Plan Review PR0096 — Measurement reliability tier
+# Reviewed: 2026-07-26T18:37:32Z
+# Updated: 2026-07-26T18:37:32Z (naming guard checks)
+# Reviewer: plan-review-agent
+
+verdict: approve
+blockers: []
+warnings:
+  - |
+    The plan presents two count-computation approaches (within prepare_input()
+    and directly in execute()) but the "Order of edits" step 2 includes BOTH
+    additions to prepare_input() AND extraction in execute().  If the preferred
+    "direct computation in execute()" approach is followed, adding counts to
+    prepare_input() is unnecessary for the data path (though still useful for
+    event emission).  The implementation agent should clarify which approach
+    is used and avoid double-computation with inconsistent defaults.
+  - |
+    Validation plan does not enumerate explicit test cases for the three tier
+    outcomes (HIGH/ACCEPTABLE/LOW), absent-count fallback, or report JSON
+    wiring.  "Tests for the new code paths" is an adequate directive for the
+    coder but the plan could be more specific.  Not a blocker because the tier
+    logic is simple and testable, and the implementation agent can derive tests
+    from the _compute_measurement_reliability() function contract.
+checks:
+  plumbing_path: pass
+  tier_logic: pass
+  json_contract_placement: pass
+  external_display_decision: pass
+  naming_guard: pass
+  measurement_qualifier: pass
+  no_top_level_reliability: pass
+  no_model_maturity_mixing: pass
+  validation: pass
+  commit_readiness: pass
+plumbing_path:
+  status: verified
+  hops:
+    - hop: 1
+      from: "workflow_bremen.py prepare_input() / execute()"
+      to: "WorkflowResult.payload"
+      code_lines: "workflow_bremen.py L392-395, L439-474"
+      evidence: "execute() calls run_inference() then accesses result.payload at L395"
+    - hop: 2
+      from: "WorkflowResult.payload"
+      to: "result_dict in app.py"
+      code_lines: "app.py L303-313"
+      evidence: "payload dict fields mapped into result_dict"
+    - hop: 3
+      from: "result_dict"
+      to: "build_decision_support_report()"
+      code_lines: "app.py L317; decision_support.py L53-147"
+      evidence: "result_dict passed as inference_result to build_decision_support_report()"
+    - hop: 4 (other call sites)
+      from: "feature_artifact_prediction.py L203, inference_handler.py L119"
+      to: "build_decision_support_report()"
+      handling: "Counts absent → reliability field omitted (correct fallback)"
+    preferred_approach: "Direct count computation from canonical.measurements in execute()"
+    verifies_return_value_discarded: true
+    verifies_other_call_sites: true
+tier_logic:
+  tier_names:
+    - HIGH_TECHNICAL
+    - ACCEPTABLE_TECHNICAL
+    - LOW_TECHNICAL
+  thresholds:
+    - "left >= 3 AND right >= 3 => HIGH_TECHNICAL"
+    - "left >= 2 AND right >= 2 => ACCEPTABLE_TECHNICAL"
+    - "else => LOW_TECHNICAL"
+  reason_strings:
+    - "At least three accepted measurements per breast."
+    - "At least two accepted measurements per breast."
+    - "Fewer than two accepted measurements on one breast."
+  source: "Verbatim from bremen-training-pipeline (declared in PLAN.md)"
+  count_computation: "sum(1 for m in measurements if getattr(m, 'side', None) == 'LEFT') / 'RIGHT')"
+  match_with_contract: true
+naming_guard:
+  top_level_reliability_or_reliability_reason: false
+  evidence: "PLAN.md NAMING GUARD section explicitly prohibits top-level
+    `reliability` and `reliability_reason`.  The only `reliability`-bearing
+    key is `prediction_summary.measurement_reliability`.  No top-level
+    `reliability` or `reliability_reason` field appears anywhere in PLAN.md."
+  measurement_count_mixed_with_model_maturity: false
+  evidence_model: "PLAN.md NAMING GUARD states PR0096 reliability means 'only
+    per-side measurement technical reliability based on LEFT/RIGHT accepted
+    measurement counts.'  It explicitly rejects overloading
+    `measurement_reliability` with model-validation meaning and directs
+    model/scientific maturity to existing fields (`scientific_certification`,
+    `technical_demo_only`)."
+  measurement_qualifier_in_json: true
+  evidence_qualifier: "JSON key is `prediction_summary.measurement_reliability`
+    everywhere in PLAN.md — never `prediction_summary.reliability`.  Function
+    is named `_compute_measurement_reliability()`.  All prose uses 'measurement
+    reliability' or 'technical measurement reliability'."
+json_contract_placement:
+  location: "prediction_summary.measurement_reliability"
+  shape:
+    tier: "HIGH_TECHNICAL | ACCEPTABLE_TECHNICAL | LOW_TECHNICAL"
+    reason: "string matching training-side source"
+    left_measurement_count: "int"
+    right_measurement_count: "int"
+  absent_when: "left_measurement_count or right_measurement_count is None"
+  rationale: "Reliability describes prediction quality context, same dimension as qc_status/qc_flags"
+  internal_report_passthrough: "Automatic via _get_path(external, 'prediction_summary') in build_internal_report_json()"
+  internal_rendering: "renderFieldTable entry under 'Measurement Reliability' heading, after Decision Policy, before Boundary Note"
+external_display_decision:
+  status: "Deferred to follow-up PR"
+  justification:
+    - "DATA-FIRST rule: prove data exists before adding visual emphasis"
+    - "External is production-facing; premature display could mislead consumers"
+    - "Assessment hero focuses on primary decision (score/threshold/QC)"
+    - "JSON-only emission allows consumers to adopt at their own pace"
+  fallback_if_in_scope: "Single field-table row: 'Measurement Reliability' → 'HIGH_TECHNICAL — At least three accepted measurements per breast.'"
+safety:
+  no_raw_measurement_values: true
+  no_raw_refs: true
+  no_patient_identifiers: true
+  counts_are_aggregate: true
+  terminology: "Measurement reliability / technical reliability"
+  prohibited_terms: "clinical reliability, diagnostic reliability, model reliability, scientific reliability"
+  prediction_not_blocked: true
+  no_new_request_fields: true
+  no_aramis_coupling: true
+  no_pr0092_symmetry_signals: true
+  no_clinical_claims: true
+validation:
+  - command: "python -m compileall src tests"
+    purpose: "Syntax/import check after edits"
+    exit_ok: 0
+  - command: "python -m pytest -q tests/test_bremen_workflow_bremen.py -v"
+    purpose: "Workflow provider tests (count computation path)"
+    exit_ok: 0
+  - command: "python -m pytest -q tests/test_bremen_decision_support.py -v 2>&1 || echo 'note if file does not exist'"
+    purpose: "Decision support report tests (reliability tier logic)"
+    exit_ok: 0
+  - command: "python -m pytest -q tests/test_bremen_report_ui.py -v"
+    purpose: "Report UI tests (JSON wiring and Internal rendering)"
+    exit_ok: 0
+  - command: "python -m pytest -q"
+    purpose: "Full suite regression"
+    exit_ok: 0
+  - command: "grep -n 'HIGH_TECHNICAL|ACCEPTABLE_TECHNICAL|LOW_TECHNICAL' src/bremen/api/decision_support.py"
+    purpose: "Exact tier names present in code"
+  - command: "grep -n 'left_measurement_count|right_measurement_count' src/bremen/api/lifecycle_contracts.py"
+    purpose: "Count fields present in PreparedWorkflowInput"
+  - command: "grep -n 'measurement_reliability' src/bremen/report_ui.py"
+    purpose: "Reliability field wired in report UI"
+commit_readiness:
+  production_source_changes: true
+  files_modified:
+    - "src/bremen/api/lifecycle_contracts.py"
+    - "src/bremen/api/workflow_bremen.py"
+    - "src/bremen/api/decision_support.py"
+    - "src/bremen/api/app.py"
+    - "src/bremen/report_ui.py"
+    - "tests/ (new and updated test files)"
+  new_dependencies: false
+  request_schema_changed: false
+  aramis_touched: false
+  pr0092_touched: false
+  clinical_language_used: false
+  plan_ends_with_coder: true
