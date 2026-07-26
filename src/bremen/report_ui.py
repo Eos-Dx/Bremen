@@ -624,8 +624,62 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .sample-banner-title{font-size:var(--fs-17);font-weight:700;color:var(--status-error);margin-bottom:var(--sp-8)}
 .sample-banner-text{font-size:var(--fs-13);color:var(--text-primary);line-height:1.6}
 
+/* ============ CLINICAL-GRADE REPORT LAYOUT (PR0093C) ============ */
+/* Report masthead */
+.report-masthead{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:var(--sp-24);margin-bottom:0;gap:var(--sp-16);flex-wrap:wrap}
+.report-masthead-left{flex:1;min-width:280px}
+.report-eyebrow{font-size:var(--fs-11);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:var(--sp-8);line-height:1.4}
+.report-masthead h1{font-size:var(--fs-22);font-weight:700;color:var(--text-primary);margin:var(--sp-4) 0 var(--sp-6) 0;line-height:1.25}
+.report-masthead .report-subtitle{font-size:var(--fs-13);color:var(--text-secondary);line-height:1.5;margin-bottom:var(--sp-8)}
+.report-masthead-right{flex-shrink:0}
+/* Report metadata grid */
+.report-info-grid{display:grid;grid-template-columns:auto 1fr;gap:var(--sp-4) var(--sp-24);font-size:var(--fs-11);border-top:2px solid var(--accent);padding-top:var(--sp-12);margin-bottom:var(--sp-24)}
+.report-info-grid dt{color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap}
+.report-info-grid dd{color:var(--text-primary);font-family:monospace}
+/* Assessment hero (clinical grade) */
+.assessment-hero{background:var(--text-primary);color:#FFFFFF;border-radius:var(--radius-card);padding:var(--sp-32) var(--sp-32);margin-bottom:var(--sp-24);display:flex;flex-direction:column;gap:var(--sp-16)}
+.assessment-hero .hero-kicker{font-size:var(--fs-11);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;opacity:0.75;margin-bottom:var(--sp-4)}
+.assessment-hero .hero-title{font-size:var(--fs-22);font-weight:700;line-height:1.25}
+.assessment-hero .hero-subtitle{font-size:var(--fs-13);opacity:0.85;line-height:1.5}
+.assessment-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--sp-12);margin-top:var(--sp-8)}
+.assessment-metric-card{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:var(--radius-card);padding:var(--sp-12) var(--sp-16)}
+.assessment-metric-card .metric-label{font-size:var(--fs-11);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;opacity:0.7;margin-bottom:var(--sp-4)}
+.assessment-metric-card .metric-value{font-size:var(--fs-17);font-weight:700;line-height:1.2}
+.assessment-metric-card .metric-detail{font-size:var(--fs-11);opacity:0.7;margin-top:var(--sp-4)}
+/* Interpretation grid */
+.interpretation-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-16);margin-bottom:var(--sp-24)}
+@media(max-width:600px){.interpretation-grid{grid-template-columns:1fr}}
+.interpretation-card{border:1px solid var(--border);border-radius:var(--radius-card);padding:var(--sp-16) var(--sp-20);background:var(--bg-surface)}
+.interpretation-card h3{font-size:var(--fs-11);font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-secondary);margin-bottom:var(--sp-8)}
+.interpretation-card p{font-size:var(--fs-13);color:var(--text-secondary);line-height:1.5;margin:0}
+.interpretation-card.is-current{border:2px solid var(--accent);background:var(--tint-accent)}
+.interpretation-card.is-current h3{color:var(--accent)}
+.interpretation-card.is-current p{color:var(--text-primary)}
+/* Supporting evidence */
+.supporting-evidence{margin-bottom:var(--sp-24)}
+.supporting-evidence h2{font-size:var(--fs-17);font-weight:600;color:var(--text-primary);margin:var(--sp-24) 0 var(--sp-12) 0;padding-bottom:var(--sp-8);border-bottom:1px solid var(--border)}
+.supporting-evidence>p{font-size:var(--fs-13);color:var(--text-secondary);line-height:1.6;margin-bottom:var(--sp-16)}
+/* Method & limitations */
+.method-limitations{background:var(--tint-accent);border:1px solid var(--border);border-radius:var(--radius-card);padding:var(--sp-20) var(--sp-24);margin-bottom:var(--sp-24)}n.method-limitations h2{font-size:var(--fs-14);font-weight:600;color:var(--text-primary);margin:0 0 var(--sp-12) 0}
+.method-limitations ul{margin:0;padding-left:var(--sp-20);font-size:var(--fs-13);color:var(--text-secondary);line-height:1.7}
+.method-limitations li{margin-bottom:var(--sp-4)}
+/* Confidential strip (internal) */
+.confidential-strip{background:var(--text-primary);color:#FFFFFF;text-align:center;padding:var(--sp-8) var(--sp-16);font-size:var(--fs-11);font-weight:700;letter-spacing:1px;text-transform:uppercase;border-radius:var(--radius-card);margin-bottom:var(--sp-24)}
+/* Internal assessment hero */
+.internal-assessment{background:var(--text-primary);color:#FFFFFF;border-radius:var(--radius-card);padding:var(--sp-24) var(--sp-32);margin-bottom:var(--sp-24);display:flex;flex-direction:column;gap:var(--sp-12)}
+.internal-assessment .hero-kicker{font-size:var(--fs-11);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;opacity:0.75}
+.internal-assessment .hero-title{font-size:var(--fs-17);font-weight:700}
+.internal-assessment .hero-metrics{display:flex;gap:var(--sp-24);flex-wrap:wrap;font-size:var(--fs-13)}
+.internal-assessment .hero-metrics span{opacity:0.9}
+.internal-assessment .hero-metrics strong{color:#FFFFFF}
+/* Internal info grid */
+.internal-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-24);margin-bottom:var(--sp-24)}
+@media(max-width:768px){.internal-info-grid{grid-template-columns:1fr}}
+/* Internal method note */
+.internal-method-note{background:var(--tint-accent);border:1px solid var(--border);border-radius:var(--radius-card);padding:var(--sp-16) var(--sp-20);margin-bottom:var(--sp-24);font-size:var(--fs-13);color:var(--text-secondary);line-height:1.6}
+.internal-method-note strong{color:var(--text-primary)}
 /* Responsive */
-@media(max-width:768px){.report-page{padding:var(--sp-12)}.report-content{max-width:100%}.report-document{padding:var(--sp-16)}.tab-btn{padding:var(--sp-8) var(--sp-12);font-size:var(--fs-13)}.print-button{padding:var(--sp-8) var(--sp-12);font-size:var(--fs-11)}.field-label{width:120px}}
+@media(max-width:768px){.report-page{padding:var(--sp-12)}.report-content{max-width:100%}.report-document{padding:var(--sp-16)}.tab-btn{padding:var(--sp-8) var(--sp-12);font-size:var(--fs-13)}.print-button{padding:var(--sp-8) var(--sp-12);font-size:var(--fs-11)}.field-label{width:120px}.assessment-hero{padding:var(--sp-20)}.assessment-metrics{grid-template-columns:1fr}.report-masthead{flex-direction:column}.internal-info-grid{grid-template-columns:1fr}}
 
 /* Print */
 @media print {
@@ -637,18 +691,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
   .tab-panel[hidden]{display:none !important}
   .tab-panel:not([hidden]){display:block !important}
   .report-document{box-shadow:none;border:none;padding:0;max-width:100%;page-break-after:avoid}
+  .assessment-hero{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .recommendation-hero{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .technical-demo-notice{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .boundary-note{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .signal-card{-webkit-print-color-adjust:exact;print-color-adjust:exact;page-break-inside:avoid}
   .level-dot.is-filled{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .decision-meaning-card.is-current{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .decision-meaning-card.is-current,.interpretation-card.is-current{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .signal-breakdown-table{page-break-inside:avoid}
   .trace-stage.completed{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .trace-stage.failed{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .confidential-strip{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .internal-assessment{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .method-limitations{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .internal-method-note{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .report-document .report-header{border-bottom:1px solid #E3E7E6}
   .report-document .report-footer{border-top:1px solid #E3E7E6}
   .section-title{border-bottom:1px solid #E3E7E6}
+  .report-masthead{page-break-after:avoid}
+  .assessment-hero{page-break-inside:avoid}
+  .method-limitations{page-break-inside:avoid}
 }
 """
 
@@ -830,45 +892,86 @@ function renderExternalReport(report){
   var threshold=model.threshold_value;
   var decisionCode=prediction.decision_code;
   var decisionName=prediction.decision_display_name||'Continue MRI evaluation';
-
-  var decisionCard='';
-  if(decisionCode==='CONTINUE_MRI'||decisionCode==='MRI_REVIEW_DEFER'){
-    decisionCard='<div class="decision-meaning-card'+(decisionCode==='CONTINUE_MRI'?' is-current':'')+'"><h3>'+(decisionCode==='CONTINUE_MRI'?'CONTINUE MRI \u00B7 THIS RESULT':'MRI REVIEW DEFER')+'</h3><p>'+explanationText(decisionCode)+'</p></div>';
-  }
+  var qcStatus=prediction.qc_status||'\u2014';
 
   var html='';
-  html+='<article class="report-document external-report-document">';
+  html+='<article class="report-document clinical-report-page external-report-document">';
 
-  // Header
-  html+='<header class="report-header"><div><div class="report-brand">Bremen</div><h1>MRI-Continuation Decision-Support Report</h1><p class="report-subtitle">For the referring clinician / breast-imaging radiologist</p></div><dl class="report-meta-block"><div><dt>Job ID</dt><dd>'+escapeHtml(report.job_id||'\u2014')+'</dd></div><div><dt>Request ID</dt><dd>'+escapeHtml(report.request_id||'\u2014')+'</dd></div><div><dt>Generated</dt><dd>'+escapeHtml(formatDate(report.generated_at))+'</dd></div><div><dt>Patient reference</dt><dd>'+escapeHtml(report.patient_reference||'\u2014')+'</dd></div></dl></header>';
+  // 1. Report masthead
+  html+='<div class="report-masthead"><div class="report-masthead-left">';
+  html+='<div class="report-brand">Bremen</div>';
+  html+='<div class="report-eyebrow">NON-INVASIVE X-RAY DIFFRACTION ANALYSIS</div>';
+  html+='<h1>MRI-Continuation Decision-Support Report</h1>';
+  html+='<p class="report-subtitle">For the referring clinician / breast-imaging radiologist</p>';
+  html+='</div>';
+  html+='<div class="report-masthead-right"><dl class="report-info-grid">';
+  html+='<dt>Report ID</dt><dd>'+escapeHtml(report.report_id||'\u2014')+'</dd>';
+  html+='<dt>Generated</dt><dd>'+escapeHtml(formatDate(report.generated_at))+'</dd>';
+  html+='<dt>Job ID</dt><dd>'+escapeHtml(report.job_id||'\u2014')+'</dd>';
+  html+='<dt>Request ID</dt><dd>'+escapeHtml(report.request_id||'\u2014')+'</dd>';
+  html+='</dl></div></div>';
 
   html+='<div class="report-divider"></div>';
 
-  // Recommendation hero
-  html+='<section class="recommendation-hero" role="alert"><div class="recommendation-left"><div class="hero-kicker">RECOMMENDATION</div><div class="hero-title">'+escapeHtml(decisionName)+'</div></div><div class="recommendation-right"><p>Model score (p_mri_needed) <strong>'+escapeHtml(formatScore(score))+'</strong> \u00B7 threshold '+escapeHtml(formatScore(threshold))+'</p><p>QC status <strong>'+escapeHtml(prediction.qc_status||'\u2014')+'</strong></p></div></section>';
+  // 2. Assessment hero (dark, clinical-grade)
+  html+='<section class="assessment-hero" role="alert">';
+  html+='<div class="hero-kicker">MRI CONTINUATION REVIEW</div>';
+  html+='<div class="hero-title">'+escapeHtml(decisionName)+'</div>';
+  html+='<div class="hero-subtitle">'+escapeHtml(explanationText(decisionCode))+'</div>';
+  html+='<div class="assessment-metrics">';
+  html+='<div class="assessment-metric-card"><div class="metric-label">Model Score</div><div class="metric-value">'+escapeHtml(formatScore(score))+'</div><div class="metric-detail">p_mri_needed \u2014 probability estimate</div></div>';
+  html+='<div class="assessment-metric-card"><div class="metric-label">Decision Threshold</div><div class="metric-value">'+escapeHtml(formatScore(threshold))+'</div><div class="metric-detail">Score \u2265 threshold \u2192 flagged</div></div>';
+  html+='<div class="assessment-metric-card"><div class="metric-label">QC Status</div><div class="metric-value">'+escapeHtml(qcStatus)+'</div><div class="metric-detail">Quality control gate</div></div>';
+  html+='<div class="assessment-metric-card"><div class="metric-label">Decision Code</div><div class="metric-value">'+escapeHtml(decisionCode||'\u2014')+'</div><div class="metric-detail">'+escapeHtml(prediction.decision_policy_id||'\u2014')+'</div></div>';
+  html+='</div>';
+  html+='</section>';
 
-  // Decision policy
+  // 3. Decision policy text
   html+='<p class="decision-policy-text">Decision policy '+escapeHtml(prediction.decision_policy_id||'\u2014')+' '+escapeHtml(prediction.decision_policy_version||'')+' \u00B7 score \u2265 threshold \u2192 MRI continuation flagged for clinician review</p>';
 
-  // Tech demo notice
-  html+='<section class="technical-demo-notice"><strong>Technical demo only. Not a diagnosis. Not clinically validated.</strong> Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment. This output is decision support only and requires qualified clinical review.</section>';
+  // 4. Technical demo notice (visually secondary)
+  html+='<section class="technical-demo-notice"><strong>Technical demonstration environment.</strong> Designed to support MRI-continuation review. Not a diagnosis. Not clinically validated. Clinical review required.</section>';
 
-  // Structural comparison
-  html+='<section class="structural-comparison"><h2>Left/right structural comparison</h2><p>Bremen compares structural symmetry between both breasts rather than scoring one pre-identified side. Each panel below is a different kind of comparison; more filled dots means a larger left/right difference was detected in that comparison. These are indicators for clinical context, not independent diagnostic findings.</p><div class="signal-card-grid">';
+  // 5. Structural comparison / supporting evidence
+  html+='<section class="supporting-evidence">';
+  html+='<h2>Left/Right Structural Comparison</h2>';
+  html+='<p>Bremen compares structural symmetry between both breasts rather than scoring one pre-identified side. Each panel below represents a different kind of comparison. Signal calibration is pending training-cohort reference calibration.</p>';
+  html+='<div class="signal-card-grid">';
   for(var i=0;i<signals.length;i++){html+=renderExternalSignalCard(signals[i]);}
-  html+='</div></section>';
+  html+='</div>';
+  html+='</section>';
 
-  // Decision meaning
-  html+='<section class="decision-meaning"><h2>What this recommendation means</h2><div class="decision-meaning-grid"><div class="decision-meaning-card"><h3>MRI REVIEW DEFER</h3><p>Score below threshold. MRI continuation may be deferred, subject to clinician review.</p></div>'+decisionCard+'</div></section>';
+  // 6. Interpretation cards
+  html+='<section class="decision-meaning">';
+  html+='<h2>Decision Interpretation</h2>';
+  html+='<div class="interpretation-grid">';
+  html+='<div class="interpretation-card"><h3>MRI REVIEW DEFER</h3><p>Score below threshold. MRI continuation may be deferred, subject to clinician review.</p></div>';
+  html+='<div class="interpretation-card'+(decisionCode==='CONTINUE_MRI'?' is-current':'')+'"><h3>'+(decisionCode==='CONTINUE_MRI'?'CONTINUE MRI \u00B7 THIS RESULT':'CONTINUE MRI')+'</h3><p>'+explanationText(decisionCode)+'</p></div>';
+  html+='</div>';
+  html+='</section>';
 
-  // Model table
-  html+='<section class="model-table-section"><h2>Model</h2>'+renderFieldTable('',[['Model',model.model_version],['Feature schema',model.feature_schema_version],['Decision policy',(prediction.decision_policy_id||'\u2014')+' '+(prediction.decision_policy_version||'')],['Scientific certification','Pending \u2014 research draft']])+'</section>';
+  // 7. Method & limitations
+  html+='<section class="method-limitations">';
+  html+='<h2>Method &amp; Limitations</h2>';
+  html+='<ul>';
+  html+='<li>Bremen analyzes XRD-derived structural features to support MRI-continuation review.</li>';
+  html+='<li>Technical demonstration environment \u2014 research stage.</li>';
+  html+='<li>Not a diagnosis. Not clinically validated.</li>';
+  html+='<li>Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment.</li>';
+  html+='<li>Reference-calibrated qualitative levels pending training-cohort calibration.</li>';
+  html+='<li>Qualified clinical review required for all decisions.</li>';
+  html+='</ul>';
+  html+='</section>';
 
-  // Footer
-  html+='<footer class="report-footer"><p>Bremen \u00B7 Eos-Dx \u00B7 This report is decision support only and does not constitute a diagnosis, a validated clinical result, or a substitute for radiologist or clinician judgment. Generated from a technical demonstration environment.</p></footer>';
+  // 8. Model table
+  html+='<section class="model-table-section"><h2>Model &amp; Provenance</h2>';
+  html+=renderFieldTable('model-table',[['Model',model.model_version],['Feature schema',model.feature_schema_version],['Decision policy',(prediction.decision_policy_id||'\u2014')+' '+(prediction.decision_policy_version||'')],['Scientific certification','Pending \u2014 research draft']]);
+  html+='</section>';
+
+  // 9. Footer
+  html+='<footer class="report-footer"><p>Bremen \u00B7 Eos-Dx \u00B7 Decision support only \u00B7 Technical demonstration environment</p></footer>';
 
   html+='</article>';
-
   document.getElementById('panel-external').innerHTML=html;
 }
 
@@ -903,36 +1006,74 @@ function renderInternalReport(report){
   var html='';
   html+='<article class="report-document internal-technical-report">';
 
-  // Header
-  html+='<header class="internal-report-header"><div class="report-brand">Bremen</div><h1>Internal Technical Report</h1><p class="report-subtitle">Audit / provenance detail \u2014 not for patient or external distribution</p><div class="report-pill-row"><span class="report-pill certification-pill">Scientific certification: pending</span><span class="report-pill demo-pill">Technical demo only</span></div></header>';
+  // 1. Confidential strip
+  html+='<div class="confidential-strip">CONFIDENTIAL \u2014 RESEARCH USE ONLY \u00B7 NOT FOR CLINICAL DIAGNOSIS</div>';
+
+  // 2. Internal report header
+  html+='<header class="internal-report-header">';
+  html+='<div class="report-brand">Bremen</div>';
+  html+='<div class="report-running-title">BREMEN MRI CONTINUATION \u00B7 INTERNAL TECHNICAL REPORT</div>';
+  html+='<h1>Internal Technical Report</h1>';
+  html+='<p class="report-subtitle">Non-invasive X-ray diffraction analysis \u2014 audit / provenance detail</p>';
+  html+='<div class="report-pill-row">';
+  html+='<span class="report-pill certification-pill">Scientific certification: pending</span>';
+  html+='<span class="report-pill demo-pill">Technical demo only</span>';
+  html+='</div>';
+  html+='</header>';
   html+='<div class="report-divider"></div>';
 
-  // Job identity
-  html+='<section><h2>Request &amp; job identity</h2>'+renderFieldTable('identity-table',[['Job ID',job.job_id],['Request ID',job.request_id],['Created',job.created_at],['Completed',job.completed_at],['Status',job.status]])+'</section>';
+  // 3. Internal assessment hero
+  html+='<section class="internal-assessment">';
+  html+='<div class="hero-kicker">DECISION SUPPORT ASSESSMENT</div>';
+  html+='<div class="hero-title">'+escapeHtml(policy.decision_code||'\u2014')+'</div>';
+  html+='<div class="hero-metrics">';
+  html+='<span>Score: <strong>'+escapeHtml(formatScore(policy.threshold_value))+'</strong></span>';
+  html+='<span>Threshold: <strong>'+escapeHtml(formatScore(policy.threshold_value))+'</strong></span>';
+  html+='<span>QC: <strong>'+escapeHtml(policy.qc_status||'\u2014')+'</strong></span>';
+  html+='</div>';
+  html+='</section>';
 
-  // Model & plugin
-  html+='<section><h2>Model &amp; runtime plugin</h2>'+renderFieldTable('model-plugin-table',[['Model version',model.model_version],['Model checksum (prefix)',model.model_checksum_prefix],['Feature schema version',model.feature_schema_version],['Plugin ID',model.plugin_id],['Plugin version',model.plugin_version],['Report schema version',model.report_schema_version]])+'</section>';
+  // 4. Analysis information (two-column grid)
+  html+='<section>';
+  html+='<h2>Analysis Information</h2>';
+  html+='<div class="internal-info-grid">';
+  html+='<div>';
+  html+=renderFieldTable('identity-table',[['Job ID',job.job_id],['Request ID',job.request_id],['Created',job.created_at],['Completed',job.completed_at],['Status',job.status]]);
+  html+='</div>';
+  html+='<div>';
+  html+=renderFieldTable('model-plugin-table',[['Model version',model.model_version],['Feature schema',model.feature_schema_version],['Plugin ID',model.plugin_id],['Plugin version',model.plugin_version],['Report schema',model.report_schema_version]]);
+  html+='</div>';
+  html+='</div>';
+  html+='</section>';
 
-  // Boundary note
+  // 5. Decision policy
+  html+='<section>';
+  html+='<h2>Decision Policy</h2>';
+  html+=renderFieldTable('decision-policy-table',[['Decision code',policy.decision_code],['Decision policy ID',policy.decision_policy_id],['Decision policy version',policy.decision_policy_version],['Threshold value',policy.threshold_value],['QC status',policy.qc_status],['QC flags',formatFlags(policy.qc_flags)]]);
+  html+='</section>';
+
+  // 6. Boundary note
   html+='<section class="boundary-note">Checksum shown as prefix only. Bremen\'s demo routes are unauthenticated and public; this report never renders the full 64-character checksum, raw target/control references, feature values, or patient/session identifiers, regardless of audience \u2014 there is no separate authenticated surface to gate a fuller view behind.</section>';
 
-  // Decision policy
-  html+='<section><h2>Decision policy</h2>'+renderFieldTable('decision-policy-table',[['Decision code',policy.decision_code],['Decision policy ID',policy.decision_policy_id],['Decision policy version',policy.decision_policy_version],['Threshold value',policy.threshold_value],['QC status',policy.qc_status],['QC flags',formatFlags(policy.qc_flags)]])+'</section>';
-
-  // Symmetry signals
-  html+='<section><h2>Symmetry signal breakdown</h2><p class="section-note">Qualitative buckets derived from the 15-feature contract. Raw magnitudes intentionally omitted \u2014 see boundary note above.</p><table class="signal-breakdown-table"><thead><tr><th>SIGNAL</th><th>FEATURE FAMILY</th><th>DIFFERENCE</th></tr></thead><tbody>';
+  // 7. Symmetry signal breakdown
+  html+='<section>';
+  html+='<h2>Symmetry Signal Breakdown</h2>';
+  html+='<p class="section-note">Qualitative buckets derived from the 15-feature contract. Raw magnitudes intentionally omitted \u2014 see boundary note above.</p>';
+  html+='<table class="signal-breakdown-table"><thead><tr><th>SIGNAL</th><th>FEATURE FAMILY</th><th>DIFFERENCE</th></tr></thead><tbody>';
   for(var j=0;j<signals.length;j++){
     var sig=signals[j];
     var level=sig.difference_level||'not_available';
-    var label=level==='not_available'?'Reference statistics unavailable':levelLabel(level);
+    var label=level==='not_available'?'Reference calibration pending':levelLabel(level);
     html+='<tr><td>'+escapeHtml(sig.label||'\u2014')+'</td><td>'+escapeHtml((sig.feature_family||[]).join(', ')||'\u2014')+'</td><td>'+escapeHtml(label)+'</td></tr>';
   }
-  html+='</tbody></table></section>';
+  html+='</tbody></table>';
+  html+='</section>';
 
-  // Execution trace
+  // 8. Execution trace
   var traceKeys=Object.keys(trace);
   if(traceKeys.length>0){
-    html+='<section class="execution-trace-summary"><h2>Execution trace (stage summary)</h2>';
+    html+='<section class="execution-trace-summary">';
+    html+='<h2>Execution Trace (Stage Summary)</h2>';
     var traceEntries=[];
     for(var k=0;k<traceKeys.length;k++){
       var stageName=traceKeys[k];
@@ -942,8 +1083,15 @@ function renderInternalReport(report){
     html+='</section>';
   }
 
-  // Footer
-  html+='<footer class="report-footer"><p>Bremen \u00B7 Eos-Dx \u00B7 Internal technical report. Not a diagnosis. Not clinically validated. Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment. Distribution limited to internal engineering, scientific, and product review.</p></footer>';
+  // 9. Method & safety disclaimer
+  html+='<section class="internal-method-note">';
+  html+='<strong>Method &amp; Safety Disclaimer</strong><br>';
+  html+='Internal technical report \u2014 not for clinical diagnosis. Bremen analyzes XRD-derived structural features for MRI-continuation decision support. Not clinically validated. Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment.';
+  html+='</section>';
+
+  // 10. Footer
+  html+='<footer class="report-footer"><p>CONFIDENTIAL \u2014 RESEARCH USE ONLY \u00B7 NOT FOR CLINICAL DIAGNOSIS</p>';
+  html+='<p>Bremen \u00B7 Eos-Dx \u00B7 Internal technical report</p></footer>';
 
   html+='</article>';
   document.getElementById('panel-internal').innerHTML=html;
