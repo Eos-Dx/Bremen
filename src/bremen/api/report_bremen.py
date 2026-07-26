@@ -203,6 +203,16 @@ class BremenReportProvider(ReportProvider):
                 else "threshold-based"
             )
 
+        # --- Measurement reliability (PR0096A) ---
+        measurement_reliability = None
+        left_count = workflow_result.get("left_measurement_count")
+        right_count = workflow_result.get("right_measurement_count")
+        if left_count is not None and right_count is not None:
+            from .decision_support import _compute_measurement_reliability  # noqa: PLC0415
+            measurement_reliability = _compute_measurement_reliability(
+                left_count, right_count,
+            )
+
         # PR0092: Add symmetry signal detail if available in workflow_result
         if "symmetry_signal_detail" in workflow_result:
             sym_detail = workflow_result["symmetry_signal_detail"]
@@ -252,6 +262,7 @@ class BremenReportProvider(ReportProvider):
                 ),
             },
             "workflow_readiness": wf_readiness,
+            "measurement_reliability": measurement_reliability,
             "limitations": list(BREMEN_LIMITATIONS),
             "technical_demo_only_disclaimer": BREMEN_DISCLAIMER,
             "audit_information": audit,

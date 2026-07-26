@@ -1593,3 +1593,182 @@ class TestMeasurementReliabilityReportUI:
         assert "diagnostic reliability" not in lower
         assert "model reliability" not in lower
         assert "scientific reliability" not in lower
+
+
+# ---------------------------------------------------------------------------
+# PR0096A — Regression tests for v0.2 report plumbing fix
+# ---------------------------------------------------------------------------
+
+
+class TestPR0096AReportPlumbing:
+    """Regression tests for the observed plumbing gap.
+
+    Verifies that per-side counts from workflow result_summary reach
+    measurement_reliability in External/Internal report JSON.
+    """
+
+    def test_v02_report_with_counts_produces_reliability(self):
+        """v0.2 report with left=1, right=1 produces LOW_TECHNICAL in External."""
+        from bremen.report_ui import build_external_report_json
+        report = {
+            "payload": {
+                "left_measurement_count": 1,
+                "right_measurement_count": 1,
+                "score_and_threshold": {
+                    "p_mri_needed": 0.5,
+                    "threshold": 0.4,
+                    "triage_recommendation": "CONTINUE_MRI",
+                },
+                "measurement_qc_summary": {
+                    "qc_status": "passed",
+                    "qc_flags": [],
+                },
+                "model_identity": {
+                    "model_version": "v0.1",
+                    "feature_schema_version": "v0.1",
+                },
+                "measurement_reliability": {
+                    "tier": "LOW_TECHNICAL",
+                    "reason": "Fewer than two accepted measurements on one breast.",
+                    "left_measurement_count": 1,
+                    "right_measurement_count": 1,
+                },
+            },
+        }
+        result = build_external_report_json(report)
+        mr = result["prediction_summary"].get("measurement_reliability")
+        assert mr is not None, "measurement_reliability must not be None"
+        assert mr["tier"] == "LOW_TECHNICAL"
+        assert mr["reason"] == "Fewer than two accepted measurements on one breast."
+        assert mr["left_measurement_count"] == 1
+        assert mr["right_measurement_count"] == 1
+
+    def test_v02_report_with_counts_produces_reliability_internal(self):
+        """v0.2 report with left=1, right=1 produces LOW_TECHNICAL in Internal."""
+        from bremen.report_ui import build_internal_report_json
+        report = {
+            "payload": {
+                "left_measurement_count": 1,
+                "right_measurement_count": 1,
+                "score_and_threshold": {
+                    "p_mri_needed": 0.5,
+                    "threshold": 0.4,
+                    "triage_recommendation": "CONTINUE_MRI",
+                },
+                "measurement_qc_summary": {
+                    "qc_status": "passed",
+                    "qc_flags": [],
+                },
+                "model_identity": {
+                    "model_version": "v0.1",
+                    "feature_schema_version": "v0.1",
+                },
+                "measurement_reliability": {
+                    "tier": "LOW_TECHNICAL",
+                    "reason": "Fewer than two accepted measurements on one breast.",
+                    "left_measurement_count": 1,
+                    "right_measurement_count": 1,
+                },
+            },
+        }
+        result = build_internal_report_json(report)
+        mr = result["decision_policy"].get("measurement_reliability")
+        assert mr is not None, "measurement_reliability must not be None"
+        assert mr["tier"] == "LOW_TECHNICAL"
+        assert mr["reason"] == "Fewer than two accepted measurements on one breast."
+        assert mr["left_measurement_count"] == 1
+        assert mr["right_measurement_count"] == 1
+
+    def test_v02_report_absent_counts_no_fabricated_reliability(self):
+        """Absent counts must NOT fabricate LOW_TECHNICAL."""
+        from bremen.report_ui import build_external_report_json
+        report = {
+            "payload": {
+                "score_and_threshold": {
+                    "p_mri_needed": 0.5,
+                    "threshold": 0.4,
+                    "triage_recommendation": "CONTINUE_MRI",
+                },
+                "measurement_qc_summary": {
+                    "qc_status": "passed",
+                    "qc_flags": [],
+                },
+                "model_identity": {
+                    "model_version": "v0.1",
+                    "feature_schema_version": "v0.1",
+                },
+            },
+        }
+        result = build_external_report_json(report)
+        mr = result["prediction_summary"].get("measurement_reliability")
+        assert mr is None, (
+            "Absent counts must not produce measurement_reliability; "
+            f"got: {mr}"
+        )
+
+    def test_v02_report_absent_counts_no_fabricated_reliability_internal(self):
+        """Absent counts must NOT fabricate LOW_TECHNICAL in Internal."""
+        from bremen.report_ui import build_internal_report_json
+        report = {
+            "payload": {
+                "score_and_threshold": {
+                    "p_mri_needed": 0.5,
+                    "threshold": 0.4,
+                    "triage_recommendation": "CONTINUE_MRI",
+                },
+                "measurement_qc_summary": {
+                    "qc_status": "passed",
+                    "qc_flags": [],
+                },
+                "model_identity": {
+                    "model_version": "v0.1",
+                    "feature_schema_version": "v0.1",
+                },
+            },
+        }
+        result = build_internal_report_json(report)
+        mr = result["decision_policy"].get("measurement_reliability")
+        assert mr is None, (
+            "Absent counts must not produce measurement_reliability; "
+            f"got: {mr}"
+        )
+
+    def test_v02_high_technical_reliability(self):
+        """v0.2 report with left=3, right=4 produces HIGH_TECHNICAL."""
+        from bremen.report_ui import build_external_report_json
+        report = {
+            "payload": {
+                "measurement_reliability": {
+                    "tier": "HIGH_TECHNICAL",
+                    "reason": "At least three accepted measurements per breast.",
+                    "left_measurement_count": 3,
+                    "right_measurement_count": 4,
+                },
+            },
+        }
+        result = build_external_report_json(report)
+        mr = result["prediction_summary"].get("measurement_reliability")
+        assert mr is not None
+        assert mr["tier"] == "HIGH_TECHNICAL"
+
+    def test_legacy_ds_path_still_works(self):
+        """Legacy decision_support_report path still carries measurement_reliability."""
+        from bremen.report_ui import build_external_report_json
+        report = {
+            "payload": {
+                "decision_support_report": {
+                    "prediction_summary": {
+                        "measurement_reliability": {
+                            "tier": "ACCEPTABLE_TECHNICAL",
+                            "reason": "At least two accepted measurements per breast.",
+                            "left_measurement_count": 2,
+                            "right_measurement_count": 3,
+                        },
+                    },
+                },
+            },
+        }
+        result = build_external_report_json(report)
+        mr = result["prediction_summary"].get("measurement_reliability")
+        assert mr is not None
+        assert mr["tier"] == "ACCEPTABLE_TECHNICAL"
