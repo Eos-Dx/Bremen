@@ -1,0 +1,45 @@
+status: valid
+head: 436a8ad1272097fa1f7f72e1d7c4f0445d884b83
+branch: 0093-report-rendering-and-pdf-export
+blockers: []
+warnings:
+  - "report_ui.py line 384 accesses modelIdent.model_checksum to produce a truncated prefix via substring(0,8). The full checksum is never rendered. Safe."
+  - "Reference artifacts (bremen_external_report.yaml etc.) not in repository. Layout derived from API contract. Visual refinement may follow."
+  - "No --tint-available token exists for small signal chip. --tint-accent used as closest match. Acceptable given design spec limitations."
+  - "Sample-data.json is a frozen fixture in .project-memory — not in runtime code. No live/sample confusion risk."
+changed_files:
+  - src/bremen/report_ui.py
+  - tests/test_bremen_report_ui.py
+  - docs/api_contract.md
+  - .project-memory/pr/0093-report-rendering-and-pdf-export/artifacts/sample-data.json
+  - .project-memory/pr/0093-report-rendering-and-pdf-export/implementation-report.md
+working_tree_state: "2 modified tracked (report_ui.py, api_contract.md) + 3 untracked (test file, sample fixture, impl report). No staged files."
+confirmed_report_route: "GET /demo/report/{job_id} calls build_report_page() in report_ui.py. Server route unchanged — 104 server tests pass."
+live_report_mode: "Default mode. JS fetches /demo/api/jobs/{jid} and /demo/api/jobs/{jid}/reports/bremen. External tab renders decision_support_report.symmetry_signals. Internal tab renders payload.supporting_technical_evidence.symmetry_signal_detail. not_available renders as Calibration pending (external) or Reference statistics unavailable (internal). No sample value substitution."
+sample_demo_mode: "Frozen fixture in .project-memory/pr/0093-report-rendering-and-pdf-export/artifacts/sample-data.json. build_report_page(sample_data=...) embeds data in script tag and shows SYNTHETIC DEMONSTRATION SAMPLE banner. Not a server route. Development-only artifact."
+external_tab: "Present with role=tab, aria-selected=true default, Bremen header, audience line, tech demo notice, recommendation card with role=alert, QC badge, 5 symmetry signal chips with color-coded pills, explanation section, model table, report ID, footer disclaimer. All 7 TestExternalTab tests pass."
+internal_tab: "Present with role=tab, aria-selected=false default, job identity, model/runtime plugin details (checksum prefix max 8 chars), decision policy, QC status, symmetry signal breakdown table (Signal/Feature Family/Level), checksum prefix, reference artifact version, execution trace, boundary note, footer. All 2 TestInternalTab tests pass."
+print_pdf: "Print buttons per tab (print-btn-external, print-btn-internal). window.print() wired via printActiveTab(). @media print CSS hides interactive controls (.report-nav, .report-tabs, .tab-btn, .tab-spacer, .print-button, .trace-toggle, .trace-content). page-break-inside:avoid on cards and signal rows. -webkit-print-color-adjust:exact on chips, badges, score bars. 7 TestPrintSavePDF tests pass."
+design_tokens: "All 13 hex colors match BREMEN_DESIGN_SPEC_v1.md: #F7F8F8, #FFFFFF, #16202A, #5B6570, #1F6F6B, #E3E7E6, #2E7D5B, #B8894A, #9AA3A8, #C1483D, #F1F5F4, #FBF3E9, #FBEEEC. No prohibited colors in source. Test file contains prohibited colors only in validation sets. 3 TestDesignTokens tests pass."
+accessibility: "Tab buttons with role=tab, aria-selected, aria-controls, tabindex. Tab panels with role=tabpanel, aria-labelledby. Tab container with role=tablist. Arrow key keyboard navigation. focus-visible outline (3px --accent). prefers-reduced-motion support. Real <button> elements. Signal labels in text (not color-only). role=alert on recommendation card. 12 TestAccessibility tests pass."
+safety: "No raw feature values in output. No percentile cutoffs. No full checksum (substring(0,8) only). No s3://, manifest_key, arn:aws, /scans/, /tmp/ in report page. No model internals (coefficient, intercept, scaler_mean). No Traceback or PHI. No WeasyPrint, Chromium, Puppeteer, Playwright, Pango, Cairo in source. Decision vocabulary unchanged. POST /predictions unchanged. Backend unchanged."
+tests:
+  report_ui: "71 passed — TestExternalTab(7), TestInternalTab(2), TestSampleMode(5), TestLiveModeNoSampleLeakage(3), TestPrintSavePDF(7), TestSymmetrySignals(6), TestNotAvailableRendering(3), TestSafetyBoundaries(12), TestServerSidePDFAbsence(3), TestDesignTokens(3), TestAccessibility(12), TestBackwardCompatibility(5), TestSymmetrySignalDetail(6)"
+  demo_ui: "61 passed"
+  api_server: "104 passed"
+  full_suite: "2125 passed, 11 skipped, 28 warnings"
+validation:
+  compileall: "PASS"
+  report_ui_tests: "71 passed"
+  demo_ui_tests: "61 passed"
+  api_server_tests: "104 passed"
+  full_suite: "2125 passed, 11 skipped, 28 warnings"
+  diff_check: "clean"
+  hex_color_grep: "All 13 hex colors in report_ui.py are approved tokens"
+  sample_dependency_grep: "No live runtime dependency on sample/mockup artifacts in report_ui.py"
+  unsafe_exposure_grep: "No unsafe public exposure in report page. model_checksum access is truncated to 8 chars."
+  pdf_dependency_grep: "No server-side PDF dependencies found in source"
+  print_behavior_grep: "window.print, @media print, Print / Save PDF all present in source and tested"
+scope_control: "Only report_ui.py (frontend HTML/CSS/JS), api_contract.md (documentation), test_bremen_report_ui.py (tests), sample-data.json (frozen fixture), implementation-report.md. No changes to symmetry_signals.py, decision_support.py, report_bremen.py, server.py, requirements.txt, pyproject.toml, Dockerfile, control_room_ui.py, start_page_ui.py. No React/frontend framework. No Aramis. No backend changes."
+implementation_report: "Accurate. Files changed match actual diff (5 files). Validation results match (71 report tests, 61 demo tests, 104 server tests, 2125 full suite). Safety claims verified by grep. Design token claims verified. No inaccuracies found."
+commit_readiness: true

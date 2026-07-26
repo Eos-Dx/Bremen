@@ -605,3 +605,138 @@ Internal output still excludes: raw feature values, raw deltas,
 percentile cutoffs, full checksums, raw target/control refs,
 patient names, PHI, raw H5/S3 paths, model internals, coefficients,
 or exception text.
+
+---
+
+## Report Page UI (PR0093)
+
+### `GET /demo/report/{job_id}`
+
+**Purpose:** Render the presentation-grade Bremen report page with
+External and Internal tabs, browser-native Print / Save PDF, and
+bounded safety controls.
+
+**Route:** `GET /demo/report/{job_id}` — handled by
+`_handle_report_route()` in `src/bremen/api/server.py`, calling
+`build_report_page()` in `src/bremen/report_ui.py`.
+
+**Response:** HTML5 page (Content-Type: `text/html; charset=utf-8`).
+
+### Page structure
+
+The report page renders two tab panels:
+
+**External tab** (default — clinician-facing):
+- Bremen header with subtitle and audience line.
+- Technical demo only safety notice.
+- Recommendation card with decision display name, decision code,
+  score bar, and threshold marker.
+- QC status badge (passed/failed).
+- Left/Right Structural Comparison section with 5 symmetry signal
+  chips, each color-coded by difference_level:
+  - `small` → green (`--status-available`)
+  - `moderate` → amber (`--status-pending`)
+  - `larger` → red (`--status-error`)
+  - `not_available` → grey ("Calibration pending", `--status-unconfigured`)
+- Explanation section (CONTINUE_MRI / MRI_REVIEW_DEFER / non-conclusive).
+- Model table (model ID, version, feature schema, decision policy, certification).
+- Report ID and schema version.
+- Footer safety disclaimer.
+
+**Internal tab** (technical/audit-facing):
+- Request/Job identity (job ID, workflow, source, timestamps, duration).
+- Model/Runtime plugin details (model ID, version, feature schema
+  version, checksum prefix — max 8 hex chars, decision policy, policy
+  version, report schema version).
+- Decision policy section (policy name, score, threshold, decision code).
+- QC status/flags.
+- Symmetry Signal Breakdown table with three columns: Signal name,
+  feature family (comma-separated feature names), difference level
+  (color-coded chip). `not_available` renders as "Reference statistics
+  unavailable".
+- Checksum prefix and reference artifact version if available.
+- Execution trace summary if available.
+- Boundary note.
+- Footer safety disclaimer.
+
+### Data sources
+
+| Tab | Primary data | Secondary data |
+|-----|-------------|----------------|
+| External | Decision-support report from job result (workflow_runs result_summary) | Job metadata (input_summary, timestamps) |
+| Internal | Report envelope payload (GET /demo/api/jobs/{jid}/reports/bremen) | Job execution traces |
+
+### Print / Save PDF
+
+- Real `<button>` elements labeled "Print / Save PDF" (one per tab).
+- Calls `window.print()` — browser-native print dialog with "Save as PDF"
+  destination.
+- `@media print` CSS hides interactive controls (tab buttons, print
+  buttons, navigation, execution trace toggle).
+- Only the active tab's panel is printed.
+- `page-break-inside: avoid` on cards and signal detail table.
+- `-webkit-print-color-adjust: exact` / `print-color-adjust: exact`
+  on signal chips and score bar.
+- No server-side PDF generation. No WeasyPrint, Chromium, Puppeteer,
+  Playwright, Pango, Cairo, or GDK dependencies.
+
+### Rendering rules
+
+**Signal chips:**
+- Chips are `<span>` elements with text labels — never color-only
+  communication.
+- External `not_available` chips render as "Calibration pending".
+- Internal `not_available` chips render as "Reference statistics
+  unavailable".
+- All 5 signal families are always visible — unavailable signals are
+  never hidden.
+- No sample/demo values are substituted in live mode.
+- No fabrication of `small`/`moderate`/`larger` when reference
+  statistics are unavailable.
+
+**Safety boundaries:**
+- No raw feature values, raw deltas, percentile cutoffs, full
+  checksums (prefix only — max 8 hex chars), raw target/control refs,
+  patient names, PHI, raw H5/S3 paths, model internals, coefficients,
+  exception text, or AWS ARNs in any rendered output.
+- Model checksum is truncated to max 8 hex characters for display.
+
+**Sample demonstration mode:**
+- Available as a local/dev project-memory artifact only — not a
+  server route.
+- Frozen fixture at `.project-memory/pr/0093-report-rendering-and-pdf-export/artifacts/sample-data.json`.
+- Prominently labeled "SYNTHETIC DEMONSTRATION SAMPLE — Illustrative
+  values only — Not generated from live runtime calibration — Not
+  clinically validated — Not for patient or external distribution".
+- Never served from the runtime `/demo/report/{job_id}` endpoint.
+- No live fallback to sample values.
+
+### Accessibility
+
+- Tab buttons: `<button role="tab" aria-selected="true|false" aria-controls="panel-id">`.
+- Tab panels: `<div role="tabpanel" aria-labelledby="tab-id" id="panel-id">`.
+- Tab container: `role="tablist"` with `aria-label`.
+- Keyboard navigation: ArrowLeft/ArrowRight to switch tabs.
+- Visible focus outlines (3px `--accent`).
+- Print buttons are real `<button>` elements — not `<div>` or `<span>`.
+- `prefers-reduced-motion` respected for loading spinner and transitions.
+- All signal labels present as visible text — never color-only.
+
+### Design tokens
+
+- All colors, typography, spacing, radii, and shadows from
+  `docs/design/BREMEN_DESIGN_SPEC_v1.md`.
+- No new hex colors. No prohibited palette entries.
+- Signal chip colors use existing status tokens:
+  `--status-available`, `--status-pending`, `--status-error`,
+  `--status-unconfigured`, with tint backgrounds
+  `--tint-accent`, `--tint-pending`, `--tint-error`.
+
+### Future roadmap
+
+A future calibration PR will obtain a real reference-statistics
+artifact, wire percentile-position bucketing, and replace
+`not_available` with real `small`/`moderate`/`larger` values. The
+signal chips and detail table are already structured to display
+real difference levels without code changes when the data becomes
+available.
