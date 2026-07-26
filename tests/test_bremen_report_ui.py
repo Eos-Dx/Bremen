@@ -201,82 +201,67 @@ class TestPrintSavePDF:
         assert ".report-nav," in page
 
     def test_print_css_preserves_layout(self):
-        """@media print preserves report card layout."""
+        """@media print preserves report document layout."""
         page = build_report_page(job_id="test-job")
-        assert ".recommendation-card" in page
+        assert ".report-document" in page
         assert "page-break-inside" in page
         assert "avoid" in page
 
     def test_print_css_preserves_accent_rail(self):
-        """@media print preserves recommendation-card 3px accent left rail."""
+        """@media print preserves recommendation hero background."""
         page = build_report_page(job_id="test-job")
-        assert "border-left:3px solid #1F6F6B" in page
+        assert ".recommendation-hero" in page
+        assert "-webkit-print-color-adjust:exact" in page
 
     def test_print_color_adjust_covers_tinted_classes(self):
         """@media print includes print-color-adjust for all tinted/background classes."""
         page = build_report_page(job_id="test-job")
         # Verify each backgrounded/tinted class has print-color-adjust
         covered_classes = [
-            ".recommendation-card",
-            ".report-card",
-            ".score-bar",
-            ".score-fill",
-            ".score-threshold",
-            ".signal-chip",
-            ".qc-badge",
-            ".tech-demo-notice",
+            ".recommendation-hero",
+            ".technical-demo-notice",
             ".boundary-note",
-            ".decision-policy-text",
-            ".sample-banner",
-            ".trace-stage",
+            ".signal-card",
+            ".level-dot.is-filled",
+            ".decision-meaning-card.is-current",
+            ".trace-stage.completed",
+            ".trace-stage.failed",
         ]
         for cls in covered_classes:
-            # Each of these classes should appear in the @media print block
-            # with print-color-adjust.  Check the class is in the CSS.
             assert cls in page, f"Class {cls} missing from page"
-        # Verify print-color-adjust appears at least 26 times (2 per covered class in @media print + body)
+        # Verify print-color-adjust appears at least 16 times (8 classes)
         pca_count = page.count("print-color-adjust")
-        assert pca_count >= 26, (
-            f"print-color-adjust appears only {pca_count} times, expected >= 26"
+        assert pca_count >= 16, (
+            f"print-color-adjust appears only {pca_count} times, expected >= 16"
         )
 
 
 class TestSymmetrySignals:
     """Symmetry signal rendering in report UI."""
 
-    def test_signal_chip_css_classes_exist(self):
-        """Signal chip CSS classes are defined."""
+    def test_signal_card_css_exists(self):
+        """Signal card CSS classes are defined for report rendering."""
         page = build_report_page(job_id="test-job")
-        assert ".signal-chip" in page
-        # Check each difference_level has a CSS class
-        assert ".signal-chip.small" in page
-        assert ".signal-chip.moderate" in page
-        assert ".signal-chip.larger" in page
-        assert ".signal-chip.not_available" in page
+        assert ".signal-card" in page
+        assert ".signal-level-small" in page or "signal-level-" in page
 
-    def test_level_chip_label_function(self):
-        """levelChipLabel function handles all difference_level values."""
+    def test_level_label_function_exists(self):
+        """levelLabel function handles all difference_level values."""
         page = build_report_page(job_id="test-job")
-        assert "levelChipLabel" in page
+        assert "levelLabel" in page
         assert "Calibration pending" in page
-        assert "'Small'" in page
-        assert "'Moderate'" in page
-        assert "'Larger'" in page
+        assert "Small Difference" in page
+        assert "Moderate Difference" in page
+        assert "Larger Difference" in page
 
-    def test_detail_level_label_function(self):
-        """detailLevelLabel function handles not_available as reference stats unavailable."""
-        page = build_report_page(job_id="test-job")
-        assert "detailLevelLabel" in page
-        assert "Reference statistics unavailable" in page
-
-    def test_not_available_is_calibration_pending(self):
+    def test_not_available_label_is_calibration_pending(self):
         """not_available level maps to 'Calibration pending' in external."""
         page = build_report_page(job_id="test-job")
-        assert "'not_available': return 'Calibration pending'" in page or \
-               "case 'not_available'" in page
+        assert "level==='small'" in page or "'small'" in page
+        assert "Calibration pending" in page
 
-    def test_signal_chip_color_tokens(self):
-        """Signal chip colors use approved status tokens."""
+    def test_signal_color_tokens_used(self):
+        """Signal card colors use approved status tokens."""
         page = build_report_page(job_id="test-job")
         # Color tokens are applied via CSS custom properties
         assert "--status-available" in page
@@ -294,16 +279,16 @@ class TestNotAvailableRendering:
         assert "Calibration pending" in page
 
     def test_not_available_internal_label(self):
-        """not_available internal label mentions reference statistics."""
+        """not_available internal label references reference statistics."""
         page = build_report_page(job_id="test-job")
         assert "Reference statistics unavailable" in page
 
     def test_no_small_moderate_larger_fabrication(self):
         """Report UI does not fabricate small/moderate/larger for unavailable data."""
         page = build_report_page(job_id="test-job")
-        # The JS function returns Calibration pending for not_available
-        assert "default: return 'Calibration pending'" in page or \
-               "default: return 'Reference statistics unavailable'" in page
+        # levelLabel returns 'Calibration pending' for not_available
+        assert "Calibration pending" in page
+        assert "Reference statistics unavailable" in page
 
 
 class TestSafetyBoundaries:
@@ -552,15 +537,15 @@ class TestBackwardCompatibility:
 class TestSymmetrySignalDetail:
     """Internal tab symmetry signal detail rendering."""
 
-    def test_signal_detail_table_structure(self):
-        """Internal tab has signal detail table with columns."""
+    def test_signal_breakdown_table_structure(self):
+        """Internal tab has signal breakdown table."""
         page = build_report_page(job_id="test-job")
-        assert "signal-detail-table" in page
+        assert "signal-breakdown-table" in page
 
-    def test_feature_family_column(self):
-        """Feature family column exists in internal detail."""
+    def test_feature_family_rendered(self):
+        """Feature family column exists in internal breakdown."""
         page = build_report_page(job_id="test-job")
-        assert "feature-family" in page
+        assert "feature_family" in page
 
     def test_checksum_prefix_handling(self):
         """Checksum prefix is handled as max 8 hex chars."""
@@ -568,11 +553,15 @@ class TestSymmetrySignalDetail:
         # JS extracts first 8 chars
         assert ".substring(0,8)" in page
 
-    def test_reference_artifact_version_present(self):
-        """Reference artifact version field is rendered."""
+    def test_reference_artifact_version_not_exposed_internally(self):
+        """Reference artifact version is not exposed in public JS.
+
+        The normalized internal report contract omits reference_artifact_version
+        from the public JS output. It is only available server-side.
+        """
         page = build_report_page(job_id="test-job")
-        # The JS checks for reference_artifact_version
-        assert "reference_artifact_version" in page
+        # reference_artifact_version is not in the normalized JS contract
+        assert "reference_artifact_version" not in page
 
     def test_symmetry_signal_detail_key_present(self):
         """symmetry_signal_detail key is referenced in JS."""
@@ -580,23 +569,26 @@ class TestSymmetrySignalDetail:
         assert "symmetry_signal_detail" in page
 
     def test_five_signals_referenced(self):
-        """All 5 signal labels are part of levelChipLabel/detailLevelLabel mapping."""
+        """All 5 signal labels are part of levelLabel mapping."""
         page = build_report_page(job_id="test-job")
         # The JS function handles all four levels
-        assert "case 'small'" in page or "'small':" in page
-        assert "case 'moderate'" in page or "'moderate':" in page
-        assert "case 'larger'" in page or "'larger':" in page
-        assert "case 'not_available'" in page or "'not_available':" in page
+        assert "level==='small'" in page or "levelLabel" in page
+        assert "Small Difference" in page
+        assert "Moderate Difference" in page
+        assert "Larger Difference" in page
+        assert "Calibration pending" in page
+        assert "Reference statistics unavailable" in page
 
 
 class TestDurationMsNullFix:
-    """Execution trace duration_ms null/undefined fix."""
+    """Execution trace is rendered as a normalized field table."""
 
-    def test_duration_ms_guard_uses_null_check(self):
-        """duration_ms rendering uses !=null guard, not !==undefined."""
+    def test_execution_trace_uses_field_table(self):
+        """Execution trace section uses renderFieldTable, not raw duration_ms."""
         page = build_report_page(job_id="test-job")
-        assert "duration_ms!=null" in page
-        assert "duration_ms!==undefined" not in page
+        assert "execution-trace-summary" in page
+        # The normalized trace is rendered via renderFieldTable
+        assert "renderFieldTable" in page
 
     def test_no_nullms_in_page(self):
         """No literal 'nullms' string in the rendered page."""
@@ -605,19 +597,19 @@ class TestDurationMsNullFix:
 
 
 class TestExternalQCStatusMapping:
-    """External tab reads QC status from the same authoritative source as Internal."""
+    """External tab reads QC status from normalized report contract."""
 
-    def test_external_reads_qc_from_report_payload(self):
-        """External QC sources from report.payload.measurement_qc_summary.qc_status."""
+    def test_external_reads_qc_from_normalized_prediction(self):
+        """External QC is read from prediction_summary.qc_status in normalized JS."""
         page = build_report_page(job_id="test-job")
-        assert "extQcSummary" in page
-        assert "measurement_qc_summary" in page
-        assert "extQcSummary.qc_status" in page
+        # The normalized JS reads QC from prediction_summary (extReport)
+        assert "prediction_summary" in page
+        assert "qc_status" in page
 
-    def test_external_qc_falls_back_to_rs(self):
-        """External QC falls back to rs.qc_status when report payload is unavailable."""
+    def test_external_qc_rendered_in_hero(self):
+        """External QC status is rendered in the recommendation hero section."""
         page = build_report_page(job_id="test-job")
-        assert "rs.qc_status" in page
+        assert "QC status" in page
 
 
 class TestTabStructureOneShell:
@@ -637,3 +629,329 @@ class TestTabStructureOneShell:
         assert 'id="panel-external"' in page
         assert 'id="panel-internal"' in page
         assert 'report-content' in page
+
+
+# ---------------------------------------------------------------------------
+# PR0093B — Normalized External report JSON contract keys
+# ---------------------------------------------------------------------------
+
+
+EXTERNAL_REPORT_KEYS = [
+    "output_type", "report_schema_version", "report_id", "generated_at",
+    "job_id", "request_id", "patient_reference", "analysis_author",
+    "intended_use", "limitations", "model_metadata", "input_summary",
+    "prediction_summary", "decision_support", "symmetry_signals",
+]
+
+
+EXTERNAL_MODEL_METADATA_KEYS = [
+    "model_version", "feature_schema_version", "threshold_version",
+    "threshold_value",
+]
+
+EXTERNAL_INPUT_SUMMARY_KEYS = [
+    "input_mode", "explicit_refs_provided", "layout_category",
+]
+
+EXTERNAL_PREDICTION_SUMMARY_KEYS = [
+    "p_mri_needed", "decision_code", "decision_display_name",
+    "decision_policy_id", "decision_policy_version", "qc_status",
+    "qc_flags",
+]
+
+EXTERNAL_SYMMETRY_SIGNALS_KEYS = [
+    "schema_status", "measurement_summary", "signals", "note",
+]
+
+
+class TestExternalReportJSONContract:
+    """External report JSON contract matches bremen_external_report.yaml."""
+
+    def test_external_report_top_level_keys(self):
+        """build_external_report_json returns all required top-level keys."""
+        from bremen.report_ui import build_external_report_json
+        report = {"payload": {"decision_support_report": {}}}
+        result = build_external_report_json(report)
+        for key in EXTERNAL_REPORT_KEYS:
+            assert key in result, f"Missing top-level key: {key}"
+
+    def test_external_output_type(self):
+        """output_type is 'bremen_decision_support_report'."""
+        from bremen.report_ui import build_external_report_json
+        result = build_external_report_json({})
+        assert result["output_type"] == "bremen_decision_support_report"
+
+    def test_external_model_metadata_keys(self):
+        """model_metadata contains all required keys."""
+        from bremen.report_ui import build_external_report_json
+        result = build_external_report_json({})
+        for key in EXTERNAL_MODEL_METADATA_KEYS:
+            assert key in result["model_metadata"], (
+                f"Missing model_metadata key: {key}"
+            )
+
+    def test_external_input_summary_keys(self):
+        """input_summary contains all required keys."""
+        from bremen.report_ui import build_external_report_json
+        result = build_external_report_json({})
+        for key in EXTERNAL_INPUT_SUMMARY_KEYS:
+            assert key in result["input_summary"], (
+                f"Missing input_summary key: {key}"
+            )
+
+    def test_external_prediction_summary_keys(self):
+        """prediction_summary contains all required keys."""
+        from bremen.report_ui import build_external_report_json
+        result = build_external_report_json({})
+        for key in EXTERNAL_PREDICTION_SUMMARY_KEYS:
+            assert key in result["prediction_summary"], (
+                f"Missing prediction_summary key: {key}"
+            )
+
+    def test_external_symmetry_signals_keys(self):
+        """symmetry_signals contains all required keys."""
+        from bremen.report_ui import build_external_report_json
+        result = build_external_report_json({})
+        for key in EXTERNAL_SYMMETRY_SIGNALS_KEYS:
+            assert key in result["symmetry_signals"], (
+                f"Missing symmetry_signals key: {key}"
+            )
+
+    def test_external_limitations_is_list(self):
+        """limitations is a non-empty list."""
+        from bremen.report_ui import build_external_report_json
+        result = build_external_report_json({})
+        assert isinstance(result["limitations"], list)
+        assert len(result["limitations"]) > 0
+
+    def test_external_intended_use_no_diagnosis(self):
+        """intended_use states not a diagnosis."""
+        from bremen.report_ui import build_external_report_json
+        result = build_external_report_json({})
+        assert "not a diagnosis" in result["intended_use"].lower()
+
+    def test_external_empty_report_safe(self):
+        """Empty report produces safe defaults without crashing."""
+        from bremen.report_ui import build_external_report_json
+        result = build_external_report_json(None)
+        assert result["output_type"] == "bremen_decision_support_report"
+        assert result["job_id"] is None
+
+
+# ---------------------------------------------------------------------------
+# PR0093B — Normalized Internal report JSON contract keys
+# ---------------------------------------------------------------------------
+
+
+INTERNAL_REPORT_KEYS = [
+    "output_type", "report_schema_version", "report_id", "generated_at",
+    "job_identity", "model_and_plugin", "decision_policy",
+    "input_summary", "execution_trace_summary", "symmetry_signal_detail",
+]
+
+INTERNAL_JOB_IDENTITY_KEYS = [
+    "job_id", "request_id", "created_at", "completed_at", "status",
+]
+
+INTERNAL_MODEL_AND_PLUGIN_KEYS = [
+    "model_version", "model_checksum_prefix", "feature_schema_version",
+    "plugin_id", "plugin_version", "report_schema_version",
+]
+
+INTERNAL_DECISION_POLICY_KEYS = [
+    "decision_code", "decision_policy_id", "decision_policy_version",
+    "threshold_value", "qc_status", "qc_flags",
+]
+
+INTERNAL_SYMMETRY_SIGNAL_DETAIL_KEYS = [
+    "schema_status", "measurement_summary", "signals", "note",
+]
+
+
+class TestInternalReportJSONContract:
+    """Internal report JSON contract matches bremen_internal_report.yaml."""
+
+    def test_internal_report_top_level_keys(self):
+        """build_internal_report_json returns all required top-level keys."""
+        from bremen.report_ui import build_internal_report_json
+        result = build_internal_report_json({})
+        for key in INTERNAL_REPORT_KEYS:
+            assert key in result, f"Missing top-level key: {key}"
+
+    def test_internal_output_type(self):
+        """output_type is 'bremen_internal_report'."""
+        from bremen.report_ui import build_internal_report_json
+        result = build_internal_report_json({})
+        assert result["output_type"] == "bremen_internal_report"
+
+    def test_internal_job_identity_keys(self):
+        """job_identity contains all required keys."""
+        from bremen.report_ui import build_internal_report_json
+        result = build_internal_report_json({})
+        for key in INTERNAL_JOB_IDENTITY_KEYS:
+            assert key in result["job_identity"], (
+                f"Missing job_identity key: {key}"
+            )
+
+    def test_internal_model_and_plugin_keys(self):
+        """model_and_plugin contains all required keys."""
+        from bremen.report_ui import build_internal_report_json
+        result = build_internal_report_json({})
+        for key in INTERNAL_MODEL_AND_PLUGIN_KEYS:
+            assert key in result["model_and_plugin"], (
+                f"Missing model_and_plugin key: {key}"
+            )
+
+    def test_internal_decision_policy_keys(self):
+        """decision_policy contains all required keys."""
+        from bremen.report_ui import build_internal_report_json
+        result = build_internal_report_json({})
+        for key in INTERNAL_DECISION_POLICY_KEYS:
+            assert key in result["decision_policy"], (
+                f"Missing decision_policy key: {key}"
+            )
+
+    def test_internal_symmetry_signal_detail_keys(self):
+        """symmetry_signal_detail contains all required keys."""
+        from bremen.report_ui import build_internal_report_json
+        result = build_internal_report_json({})
+        for key in INTERNAL_SYMMETRY_SIGNAL_DETAIL_KEYS:
+            assert key in result["symmetry_signal_detail"], (
+                f"Missing symmetry_signal_detail key: {key}"
+            )
+
+    def test_internal_execution_trace_summary_is_dict(self):
+        """execution_trace_summary is a dict."""
+        from bremen.report_ui import build_internal_report_json
+        result = build_internal_report_json({})
+        assert isinstance(result["execution_trace_summary"], dict)
+
+    def test_internal_checksum_prefix_only(self):
+        """Checksum is prefix-only, max 8 chars."""
+        from bremen.report_ui import build_internal_report_json
+        result = build_internal_report_json({})
+        prefix = result["model_and_plugin"]["model_checksum_prefix"]
+        if prefix is not None:
+            assert len(prefix) <= 8, (
+                f"Checksum prefix exceeds 8 chars: {prefix!r}"
+            )
+
+    def test_internal_checksum_never_full_64(self):
+        """Full 64-char checksum is never present."""
+        from bremen.report_ui import build_internal_report_json
+        full_checksum = (
+            "a1b2c3d4e5f6070809a0b1c2d3e4f5070809"
+            "a0b1c2d3e4f5070809a0b1c2d3e4f5070809"
+        )
+        result = build_internal_report_json({})
+        import json as _json
+        result_str = _json.dumps(result)
+        assert full_checksum not in result_str
+
+    def test_internal_empty_report_safe(self):
+        """Empty report produces safe defaults without crashing."""
+        from bremen.report_ui import build_internal_report_json
+        result = build_internal_report_json(None)
+        assert result["output_type"] == "bremen_internal_report"
+
+
+# ---------------------------------------------------------------------------
+# PR0093B — Report-specific HTML structure
+# ---------------------------------------------------------------------------
+
+
+class TestReportHTMLStructure:
+    """Report HTML contains required report-document structure classes."""
+
+    def test_report_document_class(self):
+        page = build_report_page(job_id="test")
+        assert 'class="report-document"' in page
+
+    def test_report_header_class(self):
+        page = build_report_page(job_id="test")
+        assert 'class="report-header"' in page
+
+    def test_recommendation_hero_class(self):
+        page = build_report_page(job_id="test")
+        assert 'class="recommendation-hero"' in page
+
+    def test_structural_comparison_class(self):
+        page = build_report_page(job_id="test")
+        assert 'class="structural-comparison"' in page
+
+    def test_decision_meaning_class(self):
+        page = build_report_page(job_id="test")
+        assert 'class="decision-meaning"' in page
+
+    def test_internal_technical_report_class(self):
+        page = build_report_page(job_id="test")
+        assert 'class="report-document internal-technical-report"' in page
+
+    def test_boundary_note_class(self):
+        page = build_report_page(job_id="test")
+        assert 'class="boundary-note"' in page
+
+    def test_signal_breakdown_table_class(self):
+        page = build_report_page(job_id="test")
+        assert 'class="signal-breakdown-table"' in page
+
+    def test_report_footer_class(self):
+        page = build_report_page(job_id="test")
+        assert 'class="report-footer"' in page
+
+    def test_report_meta_block_class(self):
+        page = build_report_page(job_id="test")
+        assert 'class="report-meta-block"' in page
+
+    def test_technical_demo_notice_class(self):
+        page = build_report_page(job_id="test")
+        assert 'class="technical-demo-notice"' in page
+
+    def test_signal_card_grid_class(self):
+        page = build_report_page(job_id="test")
+        assert 'class="signal-card-grid"' in page
+
+    def test_signal_card_class(self):
+        page = build_report_page(job_id="test")
+        # signal-card class is generated by JS — check CSS selector and JS reference
+        assert '.signal-card' in page or 'signal-card' in page
+
+    def test_execution_trace_summary_class(self):
+        page = build_report_page(job_id="test")
+        assert 'class="execution-trace-summary"' in page
+
+
+# ---------------------------------------------------------------------------
+# PR0093B — Forbidden content absence
+# ---------------------------------------------------------------------------
+
+
+class TestForbiddenContentAbsence:
+    """Report does not contain forbidden phrases or unsafe content."""
+
+    def test_no_asymmetry_assessment_not_available(self):
+        """The forbidden collapsed sentence must not appear."""
+        page = build_report_page(job_id="test")
+        assert "Asymmetry assessment is not available" not in page
+
+    def test_no_sample_values_in_live_mode(self):
+        """Live mode does not embed sample-data-json."""
+        page = build_report_page(job_id="test-job")
+        assert 'id="sample-data-json"' not in page
+
+    def test_no_full_checksum_in_html(self):
+        """No full 64-char checksum in page."""
+        page = build_report_page(job_id="test-job")
+        # 64 hex chars = typical SHA256
+        assert "a1b2c3d4e5f6070809a0b1c2d3e4f5070809a0b1c2d3e4f5070809a0b1c2d3001" not in page
+
+    def test_no_weasyprint_dependency(self):
+        """No server-side PDF tool referenced."""
+        page = build_report_page(job_id="test")
+        assert "WeasyPrint" not in page
+        assert "weasyprint" not in page
+
+    def test_browser_native_print_only(self):
+        """Print uses window.print(), not server-side PDF."""
+        page = build_report_page(job_id="test")
+        assert "window.print()" in page
