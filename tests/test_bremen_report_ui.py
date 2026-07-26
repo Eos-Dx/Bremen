@@ -1484,3 +1484,112 @@ class TestPR0093DVisualStructurePreserved:
         ]
         for cls in required:
             assert cls in page, f"Missing class: {cls}"
+
+
+# ---------------------------------------------------------------------------
+# PR0096 — Measurement reliability in report JSON contracts
+# ---------------------------------------------------------------------------
+
+
+class TestMeasurementReliabilityReportUI:
+    """PR0096: measurement_reliability wiring in report UI JSON builders."""
+
+    def test_external_measurement_reliability_passthrough(self):
+        """External report JSON passes through measurement_reliability from ds."""
+        from bremen.report_ui import build_external_report_json
+        report = {
+            "payload": {
+                "decision_support_report": {
+                    "prediction_summary": {
+                        "p_mri_needed": 0.5,
+                        "measurement_reliability": {
+                            "tier": "HIGH_TECHNICAL",
+                            "reason": "At least three accepted measurements per breast.",
+                            "left_measurement_count": 3,
+                            "right_measurement_count": 4,
+                        },
+                    },
+                },
+            },
+        }
+        result = build_external_report_json(report)
+        mr = result["prediction_summary"].get("measurement_reliability")
+        assert mr is not None
+        assert mr["tier"] == "HIGH_TECHNICAL"
+
+    def test_external_measurement_reliability_absent_when_no_ds(self):
+        """External report has no measurement_reliability when ds lacks it."""
+        from bremen.report_ui import build_external_report_json
+        result = build_external_report_json({})
+        mr = result["prediction_summary"].get("measurement_reliability")
+        # Should be None or absent (not present in ds.prediction_summary)
+        assert mr is None
+
+    def test_internal_measurement_reliability_in_decision_policy(self):
+        """Internal report JSON includes measurement_reliability in decision_policy."""
+        from bremen.report_ui import build_internal_report_json
+        report = {
+            "payload": {
+                "decision_support_report": {
+                    "prediction_summary": {
+                        "measurement_reliability": {
+                            "tier": "ACCEPTABLE_TECHNICAL",
+                            "reason": "At least two accepted measurements per breast.",
+                            "left_measurement_count": 2,
+                            "right_measurement_count": 3,
+                        },
+                    },
+                },
+            },
+        }
+        result = build_internal_report_json(report)
+        dp = result["decision_policy"]
+        assert "measurement_reliability" in dp
+        assert dp["measurement_reliability"]["tier"] == "ACCEPTABLE_TECHNICAL"
+
+    def test_internal_measurement_reliability_absent_when_no_ds(self):
+        """Internal report has no measurement_reliability when ds lacks it."""
+        from bremen.report_ui import build_internal_report_json
+        result = build_internal_report_json({})
+        dp = result["decision_policy"]
+        mr = dp.get("measurement_reliability")
+        assert mr is None
+
+    def test_external_no_top_level_reliability(self):
+        """No top-level 'reliability' key in external report."""
+        from bremen.report_ui import build_external_report_json
+        result = build_external_report_json({})
+        assert "reliability" not in result
+        assert "reliability_reason" not in result
+
+    def test_internal_no_top_level_reliability(self):
+        """No top-level 'reliability' key in internal report."""
+        from bremen.report_ui import build_internal_report_json
+        result = build_internal_report_json({})
+        assert "reliability" not in result
+        assert "reliability_reason" not in result
+
+    def test_js_measurement_reliability_in_prediction_summary(self):
+        """JS buildExternalReport includes measurement_reliability in prediction_summary."""
+        page = build_report_page(job_id="test")
+        assert "measurement_reliability" in page
+
+    def test_js_internal_measurement_reliability_in_decision_policy(self):
+        """JS buildInternalReport includes measurement_reliability in decision_policy."""
+        page = build_report_page(job_id="test")
+        assert "measurement_reliability" in page
+
+    def test_js_internal_rendering_measurement_reliability_section(self):
+        """JS renderInternalReport renders Measurement Reliability section."""
+        page = build_report_page(job_id="test")
+        assert "Measurement Reliability" in page
+        assert "measurement-reliability-table" in page
+
+    def test_no_clinical_reliability_in_page(self):
+        """No clinical/diagnostic/model/scientific reliability wording in page."""
+        page = build_report_page(job_id="test")
+        lower = page.lower()
+        assert "clinical reliability" not in lower
+        assert "diagnostic reliability" not in lower
+        assert "model reliability" not in lower
+        assert "scientific reliability" not in lower

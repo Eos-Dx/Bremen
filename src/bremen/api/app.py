@@ -310,6 +310,8 @@ def handle_submit_prediction(
             "threshold_value": float(payload.get("threshold_applied", 0.5)),
             "qc_status": "passed",
             "qc_flags": [],
+            "left_measurement_count": payload.get("left_measurement_count", 0),
+            "right_measurement_count": payload.get("right_measurement_count", 0),
         }
 
         # Build decision-support report

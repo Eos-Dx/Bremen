@@ -318,6 +318,9 @@ def build_external_report_json(report: dict) -> dict:
             "decision_policy_version": decision_policy_version,
             "qc_status": qc_status,
             "qc_flags": qc_flags,
+            "measurement_reliability": _get_path(
+                ds, "prediction_summary", "measurement_reliability"
+            ),
         },
         "decision_support": {
             "recommendation": _first_present(
@@ -492,6 +495,9 @@ def build_internal_report_json(report: dict) -> dict:
             "score": _format_score(score),
             "qc_status": qc_status,
             "qc_flags": qc_flags,
+            "measurement_reliability": _get_path(
+                external, "prediction_summary", "measurement_reliability"
+            ),
         },
         "input_summary": external["input_summary"],
         "execution_trace_summary": _normalize_execution_trace_summary(trace),
@@ -910,7 +916,7 @@ function buildExternalReport(report){
     limitations:['Decision-support output only, not a diagnostic result.','Not clinically validated.','Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment.'],
     model_metadata:{model_version:_firstPresent(model.model_version,report.model_version),feature_schema_version:_firstPresent(model.feature_schema_version,ds.feature_schema_version),threshold_version:policyId,threshold_value:thresholdValue},
     input_summary:{input_mode:_firstPresent(inputSummary.input_mode,report.input_mode,'\u2014'),explicit_refs_provided:_firstPresent(inputSummary.explicit_refs_provided,null),layout_category:_firstPresent(inputSummary.layout_category,'\u2014')},
-    prediction_summary:{p_mri_needed:formatScore(_firstPresent(prediction.p_mri_needed,ds.p_mri_needed,report.score)),decision_code:_firstPresent(prediction.decision_code,ds.decision_code,report.decision_code),decision_display_name:_firstPresent(prediction.decision_display_name,ds.decision_display_name,'Continue MRI evaluation'),decision_policy_id:policyId,decision_policy_version:policyVer,qc_status:_firstPresent(prediction.qc_status,ds.qc_status,payload.qc_status),qc_flags:_safeList(_firstPresent(prediction.qc_flags,ds.qc_flags,payload.qc_flags,[]))},
+    prediction_summary:{p_mri_needed:formatScore(_firstPresent(prediction.p_mri_needed,ds.p_mri_needed,report.score)),decision_code:_firstPresent(prediction.decision_code,ds.decision_code,report.decision_code),decision_display_name:_firstPresent(prediction.decision_display_name,ds.decision_display_name,'Continue MRI evaluation'),decision_policy_id:policyId,decision_policy_version:policyVer,qc_status:_firstPresent(prediction.qc_status,ds.qc_status,payload.qc_status),qc_flags:_safeList(_firstPresent(prediction.qc_flags,ds.qc_flags,payload.qc_flags,[])),measurement_reliability:prediction.measurement_reliability},
     decision_support:{recommendation:_firstPresent(ds.decision_support&&ds.decision_support.recommendation,prediction.decision_code,ds.decision_code)},
     symmetry_signals:{schema_status:_firstPresent(symmetry.schema_status,'unavailable'),measurement_summary:_safeDict(symmetry.measurement_summary),signals:(symmetry.signals||[]).map(function(s){return{label:_dash(s.label),difference_level:normalizeLevel(s.difference_level)}}),note:_firstPresent(symmetry.note,'Reference statistics are not yet available; qualitative asymmetry calibration is pending.')}
   };
@@ -931,7 +937,7 @@ function buildInternalReport(report){
     generated_at:external.generated_at,
     job_identity:{job_id:external.job_id,request_id:external.request_id,created_at:_firstPresent(report.created_at,payload.created_at),completed_at:_firstPresent(report.completed_at,payload.completed_at),status:_firstPresent(report.status,payload.status)},
     model_and_plugin:{model_version:external.model_metadata.model_version,model_checksum_prefix:checksumPrefix,feature_schema_version:external.model_metadata.feature_schema_version,plugin_id:_firstPresent(supporting.plugin_id,payload.plugin_id,'bremen.default'),plugin_version:_firstPresent(supporting.plugin_version,payload.plugin_version,'0.1'),report_schema_version:'v0.1'},
-    decision_policy:{decision_code:external.prediction_summary.decision_code,decision_policy_id:external.prediction_summary.decision_policy_id,decision_policy_version:external.prediction_summary.decision_policy_version,threshold_value:external.model_metadata.threshold_value,qc_status:external.prediction_summary.qc_status,qc_flags:external.prediction_summary.qc_flags},
+    decision_policy:{decision_code:external.prediction_summary.decision_code,decision_policy_id:external.prediction_summary.decision_policy_id,decision_policy_version:external.prediction_summary.decision_policy_version,threshold_value:external.model_metadata.threshold_value,qc_status:external.prediction_summary.qc_status,qc_flags:external.prediction_summary.qc_flags,measurement_reliability:external.prediction_summary.measurement_reliability},
     input_summary:external.input_summary,
     execution_trace_summary:normalizeTrace(trace),
     symmetry_signal_detail:{schema_status:_firstPresent(detail.schema_status,external.symmetry_signals.schema_status,'unavailable'),measurement_summary:_safeDict(_firstPresent(detail.measurement_summary,external.symmetry_signals.measurement_summary,{})),signals:_safeList(_firstPresent(detail.signals,external.symmetry_signals.signals,[])).map(function(s){return{label:_dash(s.label),feature_family:_safeList(s.feature_family),difference_level:normalizeLevel(s.difference_level)}}),note:_firstPresent(detail.note,external.symmetry_signals.note,'Named feature families shown for traceability. Raw magnitudes intentionally omitted.')}
@@ -1162,6 +1168,20 @@ function renderInternalReport(report){
   html+='<h2>Decision Policy</h2>';
   html+=renderFieldTable('decision-policy-table',[['Decision code',policy.decision_code],['Decision policy ID',policy.decision_policy_id],['Decision policy version',policy.decision_policy_version],['Threshold value',policy.threshold_value],['QC status',policy.qc_status],['QC flags',formatFlags(policy.qc_flags)]]);
   html+='</section>';
+
+  // 5b. Measurement reliability (PR0096)
+  var mr=policy.measurement_reliability||null;
+  if(mr){
+    html+='<section>';
+    html+='<h2>Measurement Reliability</h2>';
+    html+=renderFieldTable('measurement-reliability-table',[
+      ['Tier',mr.tier],
+      ['Reason',mr.reason],
+      ['Left count',mr.left_measurement_count],
+      ['Right count',mr.right_measurement_count]
+    ]);
+    html+='</section>';
+  }
 
   // 6. Boundary note
   html+='<section class="boundary-note">Checksum shown as prefix only. Bremen\'s demo routes are unauthenticated and public; this report never renders the full 64-character checksum, raw target/control references, feature values, or patient/session identifiers, regardless of audience \u2014 there is no separate authenticated surface to gate a fuller view behind.</section>';

@@ -46,6 +46,8 @@ class PreparedWorkflowInput:
     side_count: int
     position_count: int
     compatible: bool
+    left_measurement_count: int = 0
+    right_measurement_count: int = 0
     details: dict[str, Any] = field(default_factory=dict)
 
 
