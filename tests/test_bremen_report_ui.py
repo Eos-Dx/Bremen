@@ -208,31 +208,33 @@ class TestPrintSavePDF:
         assert "avoid" in page
 
     def test_print_css_preserves_accent_rail(self):
-        """@media print preserves recommendation hero background."""
+        """@media print preserves assessment hero background."""
         page = build_report_page(job_id="test-job")
-        assert ".recommendation-hero" in page
+        assert ".assessment-hero" in page
         assert "-webkit-print-color-adjust:exact" in page
 
     def test_print_color_adjust_covers_tinted_classes(self):
         """@media print includes print-color-adjust for all tinted/background classes."""
         page = build_report_page(job_id="test-job")
-        # Verify each backgrounded/tinted class has print-color-adjust
         covered_classes = [
-            ".recommendation-hero",
+            ".assessment-hero",
             ".technical-demo-notice",
             ".boundary-note",
             ".signal-card",
             ".level-dot.is-filled",
-            ".decision-meaning-card.is-current",
+            ".interpretation-card.is-current",
             ".trace-stage.completed",
             ".trace-stage.failed",
+            ".confidential-strip",
+            ".internal-assessment",
+            ".method-limitations",
+            ".internal-method-note",
         ]
         for cls in covered_classes:
             assert cls in page, f"Class {cls} missing from page"
-        # Verify print-color-adjust appears at least 16 times (8 classes)
         pca_count = page.count("print-color-adjust")
-        assert pca_count >= 16, (
-            f"print-color-adjust appears only {pca_count} times, expected >= 16"
+        assert pca_count >= 24, (
+            f"print-color-adjust appears only {pca_count} times, expected >= 24"
         )
 
 
@@ -281,14 +283,14 @@ class TestNotAvailableRendering:
     def test_not_available_internal_label(self):
         """not_available internal label references reference statistics."""
         page = build_report_page(job_id="test-job")
-        assert "Reference statistics unavailable" in page
+        assert "Reference calibration pending" in page
 
     def test_no_small_moderate_larger_fabrication(self):
         """Report UI does not fabricate small/moderate/larger for unavailable data."""
         page = build_report_page(job_id="test-job")
         # levelLabel returns 'Calibration pending' for not_available
         assert "Calibration pending" in page
-        assert "Reference statistics unavailable" in page
+        assert "Reference calibration pending" in page
 
 
 class TestSafetyBoundaries:
@@ -577,7 +579,7 @@ class TestSymmetrySignalDetail:
         assert "Moderate Difference" in page
         assert "Larger Difference" in page
         assert "Calibration pending" in page
-        assert "Reference statistics unavailable" in page
+        assert "Reference calibration pending" in page
 
 
 class TestDurationMsNullFix:
@@ -861,64 +863,83 @@ class TestInternalReportJSONContract:
 
 
 class TestReportHTMLStructure:
-    """Report HTML contains required report-document structure classes."""
+    """Report HTML contains required clinical-grade structure classes."""
 
     def test_report_document_class(self):
         page = build_report_page(job_id="test")
         assert 'class="report-document"' in page
 
-    def test_report_header_class(self):
+    def test_clinical_report_page_class(self):
         page = build_report_page(job_id="test")
-        assert 'class="report-header"' in page
+        assert 'clinical-report-page' in page
 
-    def test_recommendation_hero_class(self):
+    def test_report_masthead_class(self):
         page = build_report_page(job_id="test")
-        assert 'class="recommendation-hero"' in page
+        assert 'report-masthead' in page
 
-    def test_structural_comparison_class(self):
+    def test_report_eyebrow_class(self):
         page = build_report_page(job_id="test")
-        assert 'class="structural-comparison"' in page
+        assert 'report-eyebrow' in page
+
+    def test_assessment_hero_class(self):
+        page = build_report_page(job_id="test")
+        assert 'assessment-hero' in page
+
+    def test_assessment_metric_cards(self):
+        page = build_report_page(job_id="test")
+        assert 'assessment-metric-card' in page
+
+    def test_interpretation_grid_class(self):
+        page = build_report_page(job_id="test")
+        assert 'interpretation-grid' in page
+
+    def test_supporting_evidence_class(self):
+        page = build_report_page(job_id="test")
+        assert 'supporting-evidence' in page
+
+    def test_method_limitations_class(self):
+        page = build_report_page(job_id="test")
+        assert 'method-limitations' in page
 
     def test_decision_meaning_class(self):
         page = build_report_page(job_id="test")
-        assert 'class="decision-meaning"' in page
+        assert 'decision-meaning' in page
 
     def test_internal_technical_report_class(self):
         page = build_report_page(job_id="test")
-        assert 'class="report-document internal-technical-report"' in page
+        assert 'internal-technical-report' in page
 
     def test_boundary_note_class(self):
         page = build_report_page(job_id="test")
-        assert 'class="boundary-note"' in page
+        assert 'boundary-note' in page
 
     def test_signal_breakdown_table_class(self):
         page = build_report_page(job_id="test")
-        assert 'class="signal-breakdown-table"' in page
+        assert 'signal-breakdown-table' in page
 
     def test_report_footer_class(self):
         page = build_report_page(job_id="test")
-        assert 'class="report-footer"' in page
+        assert 'report-footer' in page
 
-    def test_report_meta_block_class(self):
+    def test_report_info_grid_class(self):
         page = build_report_page(job_id="test")
-        assert 'class="report-meta-block"' in page
+        assert 'report-info-grid' in page
 
     def test_technical_demo_notice_class(self):
         page = build_report_page(job_id="test")
-        assert 'class="technical-demo-notice"' in page
+        assert 'technical-demo-notice' in page
 
     def test_signal_card_grid_class(self):
         page = build_report_page(job_id="test")
-        assert 'class="signal-card-grid"' in page
+        assert 'signal-card-grid' in page
 
     def test_signal_card_class(self):
         page = build_report_page(job_id="test")
-        # signal-card class is generated by JS — check CSS selector and JS reference
         assert '.signal-card' in page or 'signal-card' in page
 
     def test_execution_trace_summary_class(self):
         page = build_report_page(job_id="test")
-        assert 'class="execution-trace-summary"' in page
+        assert 'execution-trace-summary' in page
 
 
 # ---------------------------------------------------------------------------
@@ -942,7 +963,6 @@ class TestForbiddenContentAbsence:
     def test_no_full_checksum_in_html(self):
         """No full 64-char checksum in page."""
         page = build_report_page(job_id="test-job")
-        # 64 hex chars = typical SHA256
         assert "a1b2c3d4e5f6070809a0b1c2d3e4f5070809a0b1c2d3e4f5070809a0b1c2d3001" not in page
 
     def test_no_weasyprint_dependency(self):
@@ -955,3 +975,162 @@ class TestForbiddenContentAbsence:
         """Print uses window.print(), not server-side PDF."""
         page = build_report_page(job_id="test")
         assert "window.print()" in page
+
+
+# ---------------------------------------------------------------------------
+# PR0093C — Clinical-grade visual structure tests
+# ---------------------------------------------------------------------------
+
+
+class TestClinicalGradeStructure:
+    """PR0093C: Clinical-grade report structure and layout."""
+
+    def test_clinical_report_page_class(self):
+        """External report has clinical-report-page class."""
+        page = build_report_page(job_id="test")
+        assert "clinical-report-page" in page
+
+    def test_report_masthead_present(self):
+        """External report has report-masthead class."""
+        page = build_report_page(job_id="test")
+        assert "report-masthead" in page
+
+    def test_report_eyebrow_present(self):
+        """External report has report-eyebrow class."""
+        page = build_report_page(job_id="test")
+        assert "report-eyebrow" in page
+
+    def test_mri_continuation_title(self):
+        """External report has MRI-Continuation Decision-Support Report title."""
+        page = build_report_page(job_id="test")
+        assert "MRI-Continuation Decision-Support Report" in page
+
+    def test_report_info_grid_present(self):
+        """External report has report-info-grid metadata block."""
+        page = build_report_page(job_id="test")
+        assert "report-info-grid" in page
+
+    def test_assessment_hero_present(self):
+        """External report has dark assessment hero."""
+        page = build_report_page(job_id="test")
+        assert "assessment-hero" in page
+
+    def test_assessment_metric_cards_present(self):
+        """External report has assessment-metric-card elements."""
+        page = build_report_page(job_id="test")
+        assert "assessment-metric-card" in page
+
+    def test_method_limitations_present(self):
+        """External report has method-limitations section."""
+        page = build_report_page(job_id="test")
+        assert "method-limitations" in page
+
+    def test_supporting_evidence_present(self):
+        """External report has supporting-evidence section."""
+        page = build_report_page(job_id="test")
+        assert "supporting-evidence" in page
+
+    def test_safety_footer_present(self):
+        """External report has report-footer safety disclaimer."""
+        page = build_report_page(job_id="test")
+        assert "report-footer" in page
+        assert "Decision support only" in page
+
+    def test_no_aramis_terms(self):
+        """No Aramis-specific terms in report."""
+        page = build_report_page(job_id="test")
+        assert "Tissue Risk Assessment" not in page
+        assert "TRA level" not in page
+        assert "biopsy recommended" not in page.lower()
+        assert "biopsy generally not recommended" not in page.lower()
+        assert "malignant-like patterns" not in page.lower()
+        assert "Method sensitivity" not in page
+        assert "Method specificity" not in page
+
+    def test_no_phi_fields(self):
+        """No PHI-style Aramis fields in report."""
+        page = build_report_page(job_id="test")
+        assert "Patient Surname" not in page
+        assert "Patient Name" not in page
+        assert "Operator" not in page or "operator" not in page.lower()
+        assert "Referring Physician" not in page
+
+    def test_all_required_css_classes(self):
+        """All 12 required PR0093C CSS classes are present."""
+        page = build_report_page(job_id="test")
+        required = [
+            "clinical-report-page",
+            "report-masthead",
+            "report-running-title",
+            "report-info-grid",
+            "assessment-hero",
+            "assessment-metric-card",
+            "interpretation-grid",
+            "supporting-evidence",
+            "method-limitations",
+            "confidential-strip",
+            "internal-assessment",
+            "internal-info-grid",
+            "internal-method-note",
+        ]
+        for cls in required:
+            assert cls in page, f"Missing clinical-grade class: {cls}"
+
+
+class TestInternalClinicalGrade:
+    """PR0093C: Internal report clinical-grade structure."""
+
+    def test_confidential_strip(self):
+        """Internal report has confidential/research-use strip."""
+        page = build_report_page(job_id="test")
+        assert "confidential-strip" in page
+        assert "RESEARCH USE ONLY" in page
+
+    def test_internal_technical_report_title(self):
+        """Internal report has Internal Technical Report title."""
+        page = build_report_page(job_id="test")
+        assert "Internal Technical Report" in page
+
+    def test_internal_analysis_info_grid(self):
+        """Internal report has internal-info-grid two-column layout."""
+        page = build_report_page(job_id="test")
+        assert "internal-info-grid" in page
+
+    def test_internal_assessment_hero(self):
+        """Internal report has internal-assessment hero block."""
+        page = build_report_page(job_id="test")
+        assert "internal-assessment" in page
+
+    def test_internal_boundary_note(self):
+        """Internal report has boundary-note section."""
+        page = build_report_page(job_id="test")
+        assert "boundary-note" in page
+
+    def test_internal_signal_breakdown_table(self):
+        """Internal report has signal-breakdown-table."""
+        page = build_report_page(job_id="test")
+        assert "signal-breakdown-table" in page
+
+    def test_internal_execution_trace(self):
+        """Internal report has execution-trace-summary."""
+        page = build_report_page(job_id="test")
+        assert "execution-trace-summary" in page
+
+    def test_internal_method_note(self):
+        """Internal report has internal-method-note section."""
+        page = build_report_page(job_id="test")
+        assert "internal-method-note" in page
+
+    def test_internal_safety_footer(self):
+        """Internal report footer contains CONFIDENTIAL language."""
+        page = build_report_page(job_id="test")
+        assert "NOT FOR CLINICAL DIAGNOSIS" in page
+
+    def test_no_raw_values_exposed(self):
+        """Internal report does not expose raw values, cutoffs, or PHI."""
+        page = build_report_page(job_id="test")
+        assert "raw_feature" not in page
+        assert "percentile_cutoff" not in page
+        assert "patient_name" not in page
+        assert "s3://" not in page
+        assert "arn:aws" not in page
