@@ -63,26 +63,57 @@ def _post(host, port, path, body):
         return exc.code, exc.read().decode("utf-8"), dict(exc.headers)
 
 
+
+# ---------------------------------------------------------------------------
+# Module-scoped shared server fixtures (PR0095b)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def _shared_server():
+    """Start a _ThreadingHTTPServer ONCE per module on a free port with synthetic model.
+
+    Uses ``allow_reuse_address=True``, ``server_close()``, and a 0.1s startup
+    sleep to preserve the original fixture's exact behavior — but only runs
+    once per module instead of once per test.
+    """
+    import time as _time
+    reset_for_tests()
+    host = "127.0.0.1"
+    port = _find_free_port()
+    handler = _make_handler(InMemoryJobStore(), version="test", load_model=True)
+    server = _ThreadingHTTPServer((host, port), handler)
+    server.allow_reuse_address = True
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    _time.sleep(0.1)
+    yield host, port
+    server.shutdown()
+    server.server_close()
+    thread.join(timeout=3)
+    reset_for_tests()
+
+
+@pytest.fixture
+def server_info(_shared_server):
+    """Per-test cheap-reset fixture sharing the module-scoped server.
+
+    Yields ``(host, port)`` (same signature as original per-test fixtures).
+    """
+    from bremen.api.model_state import ModelState
+    from bremen.api.server import _load_synthetic_model
+
+    host, port = _shared_server
+
+    ModelState.reset_for_tests()
+    _load_synthetic_model()
+    reset_for_tests()
+
+    yield host, port
+
+
 class TestControlRoomRoute:
     """Control Room default route replaces old /demo."""
-
-    @pytest.fixture
-    def server_info(self):
-        reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        handler = _make_handler(InMemoryJobStore(), version="test", load_model=True)
-        server = _ThreadingHTTPServer((host, port), handler)
-        server.allow_reuse_address = True
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        import time as _time
-        _time.sleep(0.1)
-        yield host, port
-        server.shutdown()
-        server.server_close()
-        thread.join(timeout=3)
-        reset_for_tests()
 
     def test_start_page_is_default_route(self, server_info):
         host, port = server_info
@@ -473,24 +504,6 @@ class TestEventPanelBehavior:
 class TestFileUpload:
     """File upload and staging endpoint integration."""
 
-    @pytest.fixture
-    def server_info(self):
-        reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        handler = _make_handler(InMemoryJobStore(), version="test", load_model=True)
-        server = _ThreadingHTTPServer((host, port), handler)
-        server.allow_reuse_address = True
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        import time as _time
-        _time.sleep(0.1)
-        yield host, port
-        server.shutdown()
-        server.server_close()
-        thread.join(timeout=3)
-        reset_for_tests()
-
     def test_stage_endpoint_accepts_file(self, server_info):
         host, port = server_info
         import urllib.request
@@ -556,24 +569,6 @@ class TestFileUpload:
 
 class TestLegacyCompatibility:
     """Workspace routes and APIs preserved."""
-
-    @pytest.fixture
-    def server_info(self):
-        reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        handler = _make_handler(InMemoryJobStore(), version="test", load_model=True)
-        server = _ThreadingHTTPServer((host, port), handler)
-        server.allow_reuse_address = True
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        import time as _time
-        _time.sleep(0.1)
-        yield host, port
-        server.shutdown()
-        server.server_close()
-        thread.join(timeout=3)
-        reset_for_tests()
 
     def test_health_responds_during_control_room(self, server_info):
         host, port = server_info

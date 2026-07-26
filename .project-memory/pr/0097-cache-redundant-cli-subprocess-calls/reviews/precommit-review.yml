@@ -1,0 +1,61 @@
+review:
+  status: valid
+  branch: 0095-speed-up-api-server-tests
+  head: 60fab939b40796ea51836a059ce0352eed3ac94f
+  direct_to_coder_exception: true
+  reviewed_files:
+    - tests/test_bremen_cli_entrypoint.py
+    - tests/test_bremen_demo_run.py
+    - tests/test_bremen_demo_smoke.py
+    - tests/test_bremen_model_v01_publication.py
+    - tests/test_bremen_publish_model_package_cli.py
+
+blockers: []
+
+warnings:
+  - "WARNING 1 (base branch changes): git diff main...HEAD includes 5 forbidden/fixture-touched files from PR0095 base branch work (test_bremen_api_server.py, test_bremen_control_room.py, test_bremen_execution_showcase.py, test_bremen_workspace_ui.py, test_bremen_logging.py). These are NOT from the PR0097 caching work but are present in the diff because the PR0097 caching was built on top of the PR0095 branch. The caching work itself (PR0097) only touched the 3 approved files."
+  - "WARNING 2 (HTTPServer fixture changes): test_bremen_demo_run.py and test_bremen_demo_smoke.py contain HTTPServer fixture refactoring (new _shared_server module-scoped fixture, refactored server_info) that differs from main. These changes originate from PR0095 base branch work, NOT from the PR0097 caching work. The PR0097-specific changes in these files are limited to: (a) adding the _cli_result_cache fixture, (b) converting 2 call sites in demo_run.py, (c) converting 2 call sites in demo_smoke.py."
+  - "WARNING 3 (speedup ratio): Five-file speedup computed as 57.69s / 42.03s = 1.37x (coder claimed 1.33x based on 43.26s). Full-suite speedup: 77.67s / 62.72s = 1.24x (coder claimed ~1.20x). Both are meaningfully improved — difference is within normal run-to-run variance, not a blocker."
+
+confirmed:
+  file1_fixture_single_definition: true
+  file1_group1_8_sites_exact: true
+  file1_group2_2_sites_exact: true
+  file1_group3_4_sites_exact: true
+  file1_group4_2_sites_exact: true
+  file1_parametrized_stub_tests_untouched: true
+  file1_assertions_unchanged: true
+  file2_zero_diff: true
+  file3_zero_diff_or_justified_real_finding: true
+  file4_httpserver_fixture_unchanged: false
+  file4_group_2_sites_exact: true
+  file4_main_help_test_untouched: true
+  file4_skip_prediction_test_byte_identical: true
+  file5_httpserver_fixtures_unchanged: false
+  file5_group_2_sites_exact: true
+  file5_untouched_tests_confirmed: true
+  cache_isolation_per_file_confirmed: true
+  no_scope_creep: true
+  five_file_test_count_matches_claim: true
+  five_file_timing_meaningfully_improved: true
+  full_suite_pass_count_matches_claim: true
+  full_suite_timing_matches_claim: true
+  implementation_report_correct_location: true
+  no_root_level_report_file: true
+  no_credentials_in_diff: true
+
+tests:
+  five_files_focused: "122 passed, 1 skipped in 42.03s"
+  full_suite: "2225 passed, 11 skipped, 62.72s"
+
+summary: |
+  PR0097 caching work is correctly implemented on branch 0095-speed-up-api-server-tests.
+  All 16 call sites in File 1 (8+2+4+2), 2 sites in File 4, and 2 sites in File 5
+  confirmed using per-file module-scoped _cli_result_cache fixtures. Files 2 and 3
+  verified with zero diff. All coder claims about call site counts, untouched tests,
+  and assertion preservation are confirmed. Three non-blocking warnings note:
+  (1) the diff includes PR0095 base branch files beyond caching scope,
+  (2) HTTPServer fixtures in files 4/5 differ from main due to PR0095 refactoring,
+  (3) actual measured speedup (1.37x/1.24x) slightly exceeds coder's reported figures.
+  Tests pass: 122/123 (1 skipped) in 42.03s for five files; 2225/2236 (11 skipped)
+  in 62.72s for full suite. No credentials or secrets in diff.

@@ -21,42 +21,45 @@ ROOT = Path(__file__).parents[1]
 SRC_BREMEN = ROOT / "src" / "bremen"
 
 
+@pytest.fixture(scope="module")
+def _cli_result_cache():
+    cache: dict[tuple[str, ...], subprocess.CompletedProcess] = {}
+
+    def _run(*args: str) -> subprocess.CompletedProcess:
+        key = tuple(args)
+        if key not in cache:
+            cache[key] = subprocess.run(
+                [sys.executable, *args], capture_output=True, text=True,
+            )
+        return cache[key]
+
+    return _run
+
+
 # ---------------------------------------------------------------------------
 # Help output tests (subprocess-based, no heavy imports)
 # ---------------------------------------------------------------------------
 
 
-def test_python_m_bremen_help_exits_0():
+def test_python_m_bremen_help_exits_0(_cli_result_cache):
     """python -m bremen --help exits 0."""
-    result = subprocess.run(
-        [sys.executable, "-m", "bremen", "--help"],
-        capture_output=True,
-        text=True,
-    )
+    result = _cli_result_cache("-m", "bremen", "--help")
     assert result.returncode == 0, (
         f"Exit code {result.returncode}: {result.stderr}"
     )
 
 
-def test_python_m_bremen_help_contains_bremen():
+def test_python_m_bremen_help_contains_bremen(_cli_result_cache):
     """python -m bremen --help output contains 'Bremen'."""
-    result = subprocess.run(
-        [sys.executable, "-m", "bremen", "--help"],
-        capture_output=True,
-        text=True,
-    )
+    result = _cli_result_cache("-m", "bremen", "--help")
     assert "Bremen" in result.stdout, (
         "Help output must reference Bremen"
     )
 
 
-def test_python_m_bremen_help_contains_disclaimer():
+def test_python_m_bremen_help_contains_disclaimer(_cli_result_cache):
     """python -m bremen --help output contains the 'Not a diagnostic replacement' disclaimer."""
-    result = subprocess.run(
-        [sys.executable, "-m", "bremen", "--help"],
-        capture_output=True,
-        text=True,
-    )
+    result = _cli_result_cache("-m", "bremen", "--help")
     # argparse wraps the description at 80 chars, so the disclaimer may
     # contain a newline. Check both halves.
     assert "Not a diagnostic" in result.stdout, (
@@ -67,38 +70,26 @@ def test_python_m_bremen_help_contains_disclaimer():
     )
 
 
-def test_python_m_bremen_help_contains_stubs():
+def test_python_m_bremen_help_contains_stubs(_cli_result_cache):
     """python -m bremen --help lists stub commands: preflight, run, report."""
-    result = subprocess.run(
-        [sys.executable, "-m", "bremen", "--help"],
-        capture_output=True,
-        text=True,
-    )
+    result = _cli_result_cache("-m", "bremen", "--help")
     for command in ("preflight", "run", "report"):
         assert command in result.stdout, (
             f"Help output must list '{command}' command"
         )
 
 
-def test_python_m_bremen_help_contains_preprocess():
+def test_python_m_bremen_help_contains_preprocess(_cli_result_cache):
     """python -m bremen --help lists the preprocess command."""
-    result = subprocess.run(
-        [sys.executable, "-m", "bremen", "--help"],
-        capture_output=True,
-        text=True,
-    )
+    result = _cli_result_cache("-m", "bremen", "--help")
     assert "preprocess" in result.stdout, (
         "Help output must list 'preprocess' command"
     )
 
 
-def test_python_m_bremen_no_args_exits_0():
+def test_python_m_bremen_no_args_exits_0(_cli_result_cache):
     """python -m bremen (no args) exits 0 and shows help."""
-    result = subprocess.run(
-        [sys.executable, "-m", "bremen"],
-        capture_output=True,
-        text=True,
-    )
+    result = _cli_result_cache("-m", "bremen")
     assert result.returncode == 0, (
         f"Exit code {result.returncode}: {result.stderr}"
     )
@@ -147,57 +138,37 @@ def test_stub_invocation_exits_1(command):
 
 
 class TestDemoRunCli:
-    def test_demo_run_help_exits_0(self):
+    def test_demo_run_help_exits_0(self, _cli_result_cache):
         """python -m bremen demo-run --help exits 0."""
-        result = subprocess.run(
-            [sys.executable, "-m", "bremen", "demo-run", "--help"],
-            capture_output=True,
-            text=True,
-        )
+        result = _cli_result_cache("-m", "bremen", "demo-run", "--help")
         assert result.returncode == 0, (
             f"Exit code {result.returncode}: {result.stderr}"
         )
 
-    def test_demo_run_in_main_help(self):
+    def test_demo_run_in_main_help(self, _cli_result_cache):
         """python -m bremen --help lists 'demo-run'."""
-        result = subprocess.run(
-            [sys.executable, "-m", "bremen", "--help"],
-            capture_output=True,
-            text=True,
-        )
+        result = _cli_result_cache("-m", "bremen", "--help")
         assert "demo-run" in result.stdout, (
             "Main help output must list 'demo-run' command"
         )
 
-    def test_demo_run_help_shows_options(self):
+    def test_demo_run_help_shows_options(self, _cli_result_cache):
         """demo-run --help shows --base-url, --timeout, --skip-prediction."""
-        result = subprocess.run(
-            [sys.executable, "-m", "bremen", "demo-run", "--help"],
-            capture_output=True,
-            text=True,
-        )
+        result = _cli_result_cache("-m", "bremen", "demo-run", "--help")
         assert "--base-url" in result.stdout
         assert "--timeout" in result.stdout
         assert "--skip-prediction" in result.stdout
 
-    def test_demo_run_pretty_in_help(self):
+    def test_demo_run_pretty_in_help(self, _cli_result_cache):
         """demo-run --help shows --pretty."""
-        result = subprocess.run(
-            [sys.executable, "-m", "bremen", "demo-run", "--help"],
-            capture_output=True,
-            text=True,
-        )
+        result = _cli_result_cache("-m", "bremen", "demo-run", "--help")
         assert "--pretty" in result.stdout, (
             "demo-run --help must list '--pretty' option"
         )
 
-    def test_demo_run_capture_dir_in_help(self):
+    def test_demo_run_capture_dir_in_help(self, _cli_result_cache):
         """demo-run --help shows --capture-dir."""
-        result = subprocess.run(
-            [sys.executable, "-m", "bremen", "demo-run", "--help"],
-            capture_output=True,
-            text=True,
-        )
+        result = _cli_result_cache("-m", "bremen", "demo-run", "--help")
         assert "--capture-dir" in result.stdout, (
             "demo-run --help must list '--capture-dir' option"
         )
@@ -208,13 +179,9 @@ class TestDemoRunCli:
 # ---------------------------------------------------------------------------
 
 
-def test_help_no_aramis():
+def test_help_no_aramis(_cli_result_cache):
     """python -m bremen --help output does not contain 'aramis' or 'Aramis'."""
-    result = subprocess.run(
-        [sys.executable, "-m", "bremen", "--help"],
-        capture_output=True,
-        text=True,
-    )
+    result = _cli_result_cache("-m", "bremen", "--help")
     assert "aramis" not in result.stdout.lower(), (
         "Help output must not contain 'aramis' (case-insensitive)"
     )
@@ -225,25 +192,17 @@ def test_help_no_aramis():
 # ---------------------------------------------------------------------------
 
 
-def test_serve_help_exits_0():
+def test_serve_help_exits_0(_cli_result_cache):
     """python -m bremen serve --help exits 0."""
-    result = subprocess.run(
-        [sys.executable, "-m", "bremen", "serve", "--help"],
-        capture_output=True,
-        text=True,
-    )
+    result = _cli_result_cache("-m", "bremen", "serve", "--help")
     assert result.returncode == 0, (
         f"Exit code {result.returncode}: {result.stderr}"
     )
 
 
-def test_serve_help_contains_host_and_port():
+def test_serve_help_contains_host_and_port(_cli_result_cache):
     """python -m bremen serve --help shows --host and --port options."""
-    result = subprocess.run(
-        [sys.executable, "-m", "bremen", "serve", "--help"],
-        capture_output=True,
-        text=True,
-    )
+    result = _cli_result_cache("-m", "bremen", "serve", "--help")
     assert "--host" in result.stdout, (
         "serve --help must show --host option"
     )
@@ -252,25 +211,17 @@ def test_serve_help_contains_host_and_port():
     )
 
 
-def test_serve_in_main_help():
+def test_serve_in_main_help(_cli_result_cache):
     """python -m bremen --help lists 'serve' as a command."""
-    result = subprocess.run(
-        [sys.executable, "-m", "bremen", "--help"],
-        capture_output=True,
-        text=True,
-    )
+    result = _cli_result_cache("-m", "bremen", "--help")
     assert "serve" in result.stdout, (
         "Main help output must list 'serve' command"
     )
 
 
-def test_main_help_shows_serve():
+def test_main_help_shows_serve(_cli_result_cache):
     """python -m bremen (no args) shows serve in help output."""
-    result = subprocess.run(
-        [sys.executable, "-m", "bremen"],
-        capture_output=True,
-        text=True,
-    )
+    result = _cli_result_cache("-m", "bremen")
     assert "serve" in result.stdout, (
         "No-arg help output must show 'serve' command"
     )

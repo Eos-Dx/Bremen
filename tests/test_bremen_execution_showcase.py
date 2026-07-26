@@ -122,27 +122,54 @@ class SyntheticUnavailableProvider(WorkflowProvider):
 
 
 # ---------------------------------------------------------------------------
+# Module-scoped shared server fixtures (PR0095b)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def _shared_server():
+    """Start an HTTPServer ONCE per module on a free port with synthetic model."""
+    from bremen.api.job_api_handler import reset_for_tests as _reset_handler
+    _reset_handler()
+    host = "127.0.0.1"
+    port = _find_free_port()
+    job_store = InMemoryJobStore()
+    handler = _make_handler(job_store, version="test", load_model=True)
+    server = HTTPServer((host, port), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield host, port
+    server.shutdown()
+    thread.join(timeout=2)
+    _reset_handler()
+
+
+@pytest.fixture
+def server_info(_shared_server):
+    """Per-test cheap-reset fixture sharing the module-scoped server.
+
+    Yields ``(host, port)`` (same signature as original per-test fixtures).
+    """
+    from bremen.api.model_state import ModelState
+    from bremen.api.server import _load_synthetic_model
+    from bremen.api.job_api_handler import reset_for_tests as _reset_handler
+
+    host, port = _shared_server
+
+    ModelState.reset_for_tests()
+    _load_synthetic_model()
+    _reset_handler()
+
+    yield host, port
+
+
+# ---------------------------------------------------------------------------
 # Showcase route tests
 # ---------------------------------------------------------------------------
 
 
 class TestShowcaseRoute:
     """Showcase route returns the real workspace page."""
-
-    @pytest.fixture
-    def server_info(self):
-        reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        yield host, port
-        server.shutdown()
-        thread.join(timeout=2)
-        reset_for_tests()
 
     def test_showcase_route_returns_html(self, server_info):
         host, port = server_info
@@ -247,21 +274,6 @@ class TestShowcaseRoute:
 
 class TestShowcaseJobAPI:
     """Showcase mode uses real job API and SSE."""
-
-    @pytest.fixture
-    def server_info(self):
-        reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        yield host, port
-        server.shutdown()
-        thread.join(timeout=2)
-        reset_for_tests()
 
     def test_job_api_has_execution_traces(self, server_info):
         """Job API response includes execution_traces for showcase."""
@@ -412,21 +424,6 @@ class TestGenericUnavailableProvider:
 
 class TestShowcaseProhibitedFields:
     """Showcase HTML must not contain prohibited data."""
-
-    @pytest.fixture
-    def server_info(self):
-        reset_for_tests()
-        host = "127.0.0.1"
-        port = _find_free_port()
-        job_store = InMemoryJobStore()
-        handler = _make_handler(job_store, version="test", load_model=True)
-        server = HTTPServer((host, port), handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        yield host, port
-        server.shutdown()
-        thread.join(timeout=2)
-        reset_for_tests()
 
     def test_no_feature_values_in_showcase_html(self, server_info):
         host, port = server_info
