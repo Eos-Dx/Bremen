@@ -1,0 +1,79 @@
+# Plan Review PR0095 — Speed up API server tests (targeted review)
+# Reviewed: 2026-07-26T18:37:32Z (updated)
+# Reviewer: plan-review-agent
+
+verdict: approve
+blockers: []
+warnings:
+  - |
+    STOP CONDITIONS section still says "all 23 classes classified" despite the
+    triage section correctly stating 25.  This is a stale copy in a non-normative
+    summary section and does not affect the correctness of the triage itself,
+    but should be cleaned up for consistency.
+checks:
+  scope: pass
+  plan-review-boundary: pass
+  validation-strategy: pass
+  safety-boundaries: pass
+  drift-gate: pass
+  evidence-completeness: pass
+  dirty-tree: pass
+duration_baseline:
+  command: python -m pytest tests/test_bremen_api_server.py -q --durations=20
+  plan_value: 49.32s
+  confirmed: true
+  match_with_file: true
+class_triage:
+  total_classes_file: 25
+  total_classes_plan_stated: 25
+  coverage: "All 25 test classes appear in exactly one bucket (B or C)"
+  bucket_A: "None — empty, correctly removed"
+  bucket_B: "TestHealth, TestModelVersion, TestSubmitPrediction,
+    TestSubmitPredictionModelNotReady, TestGetPrediction, TestDemoRoutes,
+    TestDemoReadiness, TestDemoH5ContainersList, TestDemoH5ContainersS3Listing,
+    TestDemoH5Upload, TestDemoH5Analyze, TestDemoH5AnalyzeFailureObservability,
+    TestQueryStringRouting, TestPR0087StartPageDisabledCards,
+    TestPR0089AModelScopedJobHistory, TestHealthLogSuppression,
+    TestRouteErrors, TestRequestID, TestStructuredLogging (19 classes)"
+  bucket_C: "TestImportSafety, TestMatadorRawRouteSuccess,
+    TestMatadorRawRouteFailures, TestSessionRouteNoRefs,
+    TestTypedStageFailure, TestPublicErrorSafety (6 classes)"
+  missing: []
+  double_counted: []
+  TestStructuredLogging_present: true
+  TestStructuredLogging_reason_specific: true
+  TestDemoH5ContainersS3Listing_single_bucket: true
+isolation_mechanism:
+  approach: "Per-call fresh fixture state via _invoke_handler"
+  shared_server_rejected: true
+  per_test_isolation: "Each _invoke_handler call creates fresh InMemoryJobStore,
+    fresh ModelState.reset_for_tests(), fresh registry"
+fake_socket_or_direct_call:
+  pattern: "_invoke_handler(method, path, body, headers) -> (status, headers, body)"
+  headers_assignment_fixed: true
+  unused_imports_removed: true
+  handler_sketch_consistent: true
+coverage_preservation:
+  tests_removed: 0
+  assertions_removed: 0
+  test_count_preserved: 104
+expected_improvement:
+  baseline: 49.32s
+  target: "≥30% reduction (≤34.5s)"
+  aspirational: "≥70% reduction (~6–10s)"
+  calculation_grounded: true
+validation:
+  - command: "python -m pytest tests/test_bremen_api_server.py -q --durations=20"
+    purpose: "Before/after runtime comparison"
+  - command: "python -m pytest -q"
+    purpose: "Full suite regression check"
+  - command: "grep -c 'def test_' tests/test_bremen_api_server.py"
+    purpose: "Test count unchanged (104)"
+  - command: "python -m compileall src tests"
+    purpose: "Syntax/import check"
+commit_readiness:
+  production_source_changes: false
+  new_dependencies: false
+  xdist_or_parallel: false
+  test_file_changes_only: true
+  plan_ends_with_coder: true
