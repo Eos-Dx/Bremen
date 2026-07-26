@@ -1134,3 +1134,353 @@ class TestInternalClinicalGrade:
         assert "patient_name" not in page
         assert "s3://" not in page
         assert "arn:aws" not in page
+
+
+
+# ---------------------------------------------------------------------------
+
+# PR0093D — Data contract fill tests
+# ---------------------------------------------------------------------------
+
+
+def _make_bremen_v02_report(
+    job_id="test-job-001",
+    request_id="req-001",
+    probability=0.782,
+    triage="CONTINUE_MRI",
+    threshold=0.413,
+    qc_status="passed",
+    qc_flags=None,
+    model_version="v0.1",
+    feature_schema_version="v0.1",
+    model_checksum="a1b2c3d4e5f60708",
+    created_at="2026-07-20T10:00:00Z",
+    completed_at="2026-07-20T10:00:05Z",
+    workflow_status="available",
+    signals=None,
+):
+    """Build a realistic BremenReportProvider v0.2 envelope dict."""
+    if qc_flags is None:
+        qc_flags = []
+    payload = {
+        "report_schema_version": "v0.2",
+        "report_type": "bremen_mri_triage",
+        "score_and_threshold": {
+            "p_mri_needed": probability,
+            "threshold": threshold,
+            "triage_recommendation": triage,
+        },
+        "measurement_qc_summary": {
+            "qc_status": qc_status,
+            "qc_flags": qc_flags,
+        },
+        "model_identity": {
+            "model_version": model_version,
+            "feature_schema_version": feature_schema_version,
+            "model_checksum": model_checksum,
+        },
+        "supporting_technical_evidence": {
+            "logistic_regression_probability": probability,
+        },
+        "audit_information": {
+            "job_id": job_id,
+            "workflow_id": "bremen",
+            "report_schema_version": "v0.2",
+            "generated_at": completed_at,
+        },
+        "workflow_readiness": {
+            "configured": True,
+            "model_ready": True,
+            "scientifically_certified": False,
+        },
+    }
+    if signals is not None:
+        payload["supporting_technical_evidence"]["symmetry_signal_detail"] = {
+            "schema_status": "populated",
+            "signals": signals,
+        }
+    return {
+        "report_id": f"report-{job_id}",
+        "workflow_id": "bremen",
+        "job_id": job_id,
+        "report_schema_version": "v0.2",
+        "generated_at": completed_at,
+        "workflow_status": workflow_status,
+        "model_id": "bremen-current",
+        "model_version": model_version,
+        "scientifically_certified": False,
+        "disclaimer": "Technical demo only.",
+        "payload": payload,
+    }
+
+
+class TestPR0093DInternalDataFill:
+    """PR0093D: Internal report JSON populates from real BremenReportProvider data."""
+
+    def test_job_identity_status(self):
+        """job_identity.status populated from workflow_status."""
+        from bremen.report_ui import build_internal_report_json
+        report = _make_bremen_v02_report(workflow_status="available")
+        result = build_internal_report_json(report)
+        assert result["job_identity"]["status"] == "available"
+
+    def test_job_identity_completed_at(self):
+        """job_identity.completed_at populated."""
+        from bremen.report_ui import build_internal_report_json
+        report = _make_bremen_v02_report(completed_at="2026-07-20T10:00:05Z")
+        result = build_internal_report_json(report)
+        assert result["job_identity"]["completed_at"] == "2026-07-20T10:00:05Z"
+
+    def test_decision_policy_code(self):
+        """decision_policy.decision_code populated from triage_recommendation."""
+        from bremen.report_ui import build_internal_report_json
+        report = _make_bremen_v02_report(triage="CONTINUE_MRI")
+        result = build_internal_report_json(report)
+        assert result["decision_policy"]["decision_code"] == "CONTINUE_MRI"
+
+    def test_decision_policy_threshold(self):
+        """decision_policy.threshold_value populated from score_and_threshold."""
+        from bremen.report_ui import build_internal_report_json
+        report = _make_bremen_v02_report(threshold=0.413)
+        result = build_internal_report_json(report)
+        assert result["decision_policy"]["threshold_value"] == 0.413
+
+    def test_decision_policy_qc_status(self):
+        """decision_policy.qc_status populated from measurement_qc_summary."""
+        from bremen.report_ui import build_internal_report_json
+        report = _make_bremen_v02_report(qc_status="passed")
+        result = build_internal_report_json(report)
+        assert result["decision_policy"]["qc_status"] == "passed"
+
+    def test_decision_policy_score(self):
+        """decision_policy.score populated from p_mri_needed."""
+        from bremen.report_ui import build_internal_report_json
+        report = _make_bremen_v02_report(probability=0.782)
+        result = build_internal_report_json(report)
+        assert result["decision_policy"]["score"] == 0.782
+
+    def test_model_version_populated(self):
+        """model_and_plugin.model_version populated from model_identity."""
+        from bremen.report_ui import build_internal_report_json
+        report = _make_bremen_v02_report(model_version="v0.2")
+        result = build_internal_report_json(report)
+        assert result["model_and_plugin"]["model_version"] == "v0.2"
+
+    def test_feature_schema_populated(self):
+        """model_and_plugin.feature_schema_version populated."""
+        from bremen.report_ui import build_internal_report_json
+        report = _make_bremen_v02_report(feature_schema_version="v0.1")
+        result = build_internal_report_json(report)
+        assert result["model_and_plugin"]["feature_schema_version"] == "v0.1"
+
+    def test_checksum_prefix_from_model_checksum(self):
+        """model_checksum_prefix extracted from model_identity.model_checksum."""
+        from bremen.report_ui import build_internal_report_json
+        report = _make_bremen_v02_report(model_checksum="a1b2c3d4e5f60708")
+        result = build_internal_report_json(report)
+        assert result["model_and_plugin"]["model_checksum_prefix"] == "a1b2c3d4"
+
+
+class TestPR0093DExternalDataFill:
+    """PR0093D: External report JSON populates from real BremenReportProvider data."""
+
+    def test_external_score_populated(self):
+        """prediction_summary.p_mri_needed populated from score_and_threshold."""
+        from bremen.report_ui import build_external_report_json
+        report = _make_bremen_v02_report(probability=0.782)
+        result = build_external_report_json(report)
+        assert result["prediction_summary"]["p_mri_needed"] == 0.782
+
+    def test_external_decision_code_populated(self):
+        """prediction_summary.decision_code populated from triage_recommendation."""
+        from bremen.report_ui import build_external_report_json
+        report = _make_bremen_v02_report(triage="CONTINUE_MRI")
+        result = build_external_report_json(report)
+        assert result["prediction_summary"]["decision_code"] == "CONTINUE_MRI"
+
+    def test_external_threshold_populated(self):
+        """model_metadata.threshold_value populated."""
+        from bremen.report_ui import build_external_report_json
+        report = _make_bremen_v02_report(threshold=0.413)
+        result = build_external_report_json(report)
+        assert result["model_metadata"]["threshold_value"] == 0.413
+
+    def test_external_qc_status_populated(self):
+        """prediction_summary.qc_status populated from measurement_qc_summary."""
+        from bremen.report_ui import build_external_report_json
+        report = _make_bremen_v02_report(qc_status="passed")
+        result = build_external_report_json(report)
+        assert result["prediction_summary"]["qc_status"] == "passed"
+
+    def test_external_model_version_populated(self):
+        """model_metadata.model_version populated from model_identity."""
+        from bremen.report_ui import build_external_report_json
+        report = _make_bremen_v02_report(model_version="v0.2")
+        result = build_external_report_json(report)
+        assert result["model_metadata"]["model_version"] == "v0.2"
+
+    def test_external_job_id_populated(self):
+        """job_id populated from envelope."""
+        from bremen.report_ui import build_external_report_json
+        report = _make_bremen_v02_report(job_id="job-abc")
+        result = build_external_report_json(report)
+        assert result["job_id"] == "job-abc"
+
+    def test_external_generated_at_populated(self):
+        """generated_at populated from envelope."""
+        from bremen.report_ui import build_external_report_json
+        report = _make_bremen_v02_report(completed_at="2026-07-20T10:00:05Z")
+        result = build_external_report_json(report)
+        assert result["generated_at"] == "2026-07-20T10:00:05Z"
+
+
+class TestPR0093DConsistency:
+    """PR0093D: External and Internal QC/status are consistent."""
+
+    def test_qc_status_consistent(self):
+        """qc_status is the same in External and Internal."""
+        from bremen.report_ui import build_external_report_json
+        from bremen.report_ui import build_internal_report_json
+        report = _make_bremen_v02_report(qc_status="passed")
+        ext = build_external_report_json(report)
+        internal = build_internal_report_json(report)
+        assert ext["prediction_summary"]["qc_status"] == internal["decision_policy"]["qc_status"]
+
+    def test_decision_code_consistent(self):
+        """decision_code is the same in External and Internal."""
+        from bremen.report_ui import build_external_report_json
+        from bremen.report_ui import build_internal_report_json
+        report = _make_bremen_v02_report(triage="CONTINUE_MRI")
+        ext = build_external_report_json(report)
+        internal = build_internal_report_json(report)
+        assert ext["prediction_summary"]["decision_code"] == internal["decision_policy"]["decision_code"]
+
+    def test_threshold_consistent(self):
+        """threshold_value is the same in External and Internal."""
+        from bremen.report_ui import build_external_report_json
+        from bremen.report_ui import build_internal_report_json
+        report = _make_bremen_v02_report(threshold=0.413)
+        ext = build_external_report_json(report)
+        internal = build_internal_report_json(report)
+        assert ext["model_metadata"]["threshold_value"] == internal["decision_policy"]["threshold_value"]
+
+
+class TestPR0093DSymmetryDetail:
+    """PR0093D: Symmetry signal detail rendering."""
+
+    def test_internal_signals_from_detail(self):
+        """Internal renders signal rows when symmetry_signal_detail exists."""
+        from bremen.report_ui import build_internal_report_json
+        signals = [
+            {"label": "Profile magnitude", "feature_family": ["sigma_l1", "sigma_r1"], "difference_level": "moderate"},
+            {"label": "Weighted asymmetry", "feature_family": ["meanrms1"], "difference_level": "small"},
+        ]
+        report = _make_bremen_v02_report(signals=signals)
+        result = build_internal_report_json(report)
+        assert len(result["symmetry_signal_detail"]["signals"]) == 2
+        assert result["symmetry_signal_detail"]["signals"][0]["difference_level"] == "moderate"
+
+    def test_internal_signals_from_external_fallback(self):
+        """If only external symmetry_signals exists, Internal mirrors labels/difference_level."""
+        from bremen.report_ui import build_internal_report_json
+        report = _make_bremen_v02_report()
+        report["payload"]["symmetry_signals"] = {
+            "schema_status": "unavailable",
+            "signals": [
+                {"label": "Profile magnitude", "difference_level": "not_available"},
+            ],
+        }
+        result = build_internal_report_json(report)
+        assert len(result["symmetry_signal_detail"]["signals"]) == 1
+        assert result["symmetry_signal_detail"]["signals"][0]["difference_level"] == "not_available"
+
+    def test_no_raw_values_in_signals(self):
+        """No raw values exposed in signal detail."""
+        from bremen.report_ui import build_internal_report_json
+        signals = [
+            {"label": "Test", "feature_family": ["f1"], "difference_level": "small"},
+        ]
+        report = _make_bremen_v02_report(signals=signals)
+        result = build_internal_report_json(report)
+        detail_str = _json.dumps(result["symmetry_signal_detail"])
+        assert "raw_feature" not in detail_str
+        assert "percentile_cutoff" not in detail_str
+        assert "s3://" not in detail_str
+
+
+class TestPR0093DOldJobFallback:
+    """PR0093D: Old jobs with missing data render safe fallbacks."""
+
+    def test_empty_report_no_crash(self):
+        """Empty/old report shape renders without crashing."""
+        from bremen.report_ui import build_external_report_json
+        from bremen.report_ui import build_internal_report_json
+        old_report = {"job_id": "old-job"}
+        ext = build_external_report_json(old_report)
+        internal = build_internal_report_json(old_report)
+        assert ext["job_id"] == "old-job"
+        assert internal["job_identity"]["job_id"] == "old-job"
+
+    def test_legacy_decision_support_report_still_works(self):
+        """Legacy decision_support_report shape still populates fields."""
+        from bremen.report_ui import build_external_report_json
+        report = {
+            "payload": {
+                "decision_support_report": {
+                    "prediction_summary": {
+                        "p_mri_needed": 0.5,
+                        "decision_code": "CONTINUE_MRI",
+                        "qc_status": "passed",
+                    },
+                    "model_metadata": {
+                        "model_version": "v0.1",
+                        "threshold_value": 0.3,
+                    },
+                },
+            },
+        }
+        result = build_external_report_json(report)
+        assert result["prediction_summary"]["p_mri_needed"] == 0.5
+        assert result["prediction_summary"]["decision_code"] == "CONTINUE_MRI"
+        assert result["model_metadata"]["threshold_value"] == 0.3
+
+
+class TestPR0093DHeroRendering:
+    """PR0093D: Internal hero renders real values."""
+
+    def test_hero_uses_policy_score(self):
+        """Internal hero JS references policy.score for Score metric."""
+        page = build_report_page(job_id="test")
+        assert "policy.score" in page
+        assert "policy.threshold_value" in page
+        assert "policy.qc_status" in page
+
+    def test_no_sample_json_embedded_in_live(self):
+        """Live mode does not embed sample-data-json script tag."""
+        page = build_report_page(job_id="test-job")
+        assert 'id="sample-data-json"' not in page
+
+
+class TestPR0093DVisualStructurePreserved:
+    """PR0093D: PR0093C visual structure classes remain."""
+
+    def test_all_clinical_grade_classes_present(self):
+        """All PR0093C clinical-grade classes still present."""
+        page = build_report_page(job_id="test")
+        required = [
+            "clinical-report-page",
+            "report-masthead",
+            "assessment-hero",
+            "assessment-metric-card",
+            "interpretation-grid",
+            "supporting-evidence",
+            "method-limitations",
+            "confidential-strip",
+            "internal-assessment",
+            "internal-info-grid",
+            "internal-method-note",
+            "signal-breakdown-table",
+            "execution-trace-summary",
+        ]
+        for cls in required:
+            assert cls in page, f"Missing class: {cls}"

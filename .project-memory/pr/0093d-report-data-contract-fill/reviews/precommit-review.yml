@@ -1,0 +1,21 @@
+status: valid
+head: 97c9dd716a5d15daae4546a32bbe6183a9899b70
+branch: 0093d-report-data-contract-fill
+blockers: []
+warnings: []
+changed_files:
+  - src/bremen/report_ui.py
+  - tests/test_bremen_report_ui.py
+working_tree_state: "2 modified tracked files. No staged files. No conflict markers."
+blocker_36_53_resolution: "Line 1172 of report_ui.py now reads 'Qualitative signal levels derived from the 15-feature contract' — 'buckets' completely removed. grep for 'bucket' returns no matches in report_ui.py or test file."
+privacy_test: "test_report_no_bucket_name PASSES (1/1). Word 'bucket' no longer in report HTML."
+report_ui_tests: "171/171 passed"
+api_server_tests: "104/104 passed"
+validation:
+  compileall: "PASS"
+  git_diff_check: "PASS"
+  privacy_test: "PASS"
+  report_ui_tests: "171/171 passed"
+  api_server_tests: "104/104 passed"
+scope_control: "Fix is a single text replacement in JS section-note: 'Qualitative buckets' → 'Qualitative signal levels'. No data mapping, no visual structure, no JSON contract changes."
+commit_readiness: true

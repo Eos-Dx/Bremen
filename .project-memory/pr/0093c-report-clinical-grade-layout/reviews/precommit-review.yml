@@ -1,65 +1,28 @@
-status: valid
-head: e6e9ddeaf44df0a082a9a9a9125af6d22b9d53d8
-branch: 0093c-report-clinical-grade-layout
-blockers: []
+status: blocked
+head: 97c9dd716a5d15daae4546a32bbe6183a9899b70
+branch: 0093d-report-data-contract-fill
+blockers:
+  - "BLOCKER 1: Branch mismatch. Required branch is '0093c-report-clinical-grade-layout' but current branch is '0093d-report-data-contract-fill'. Cannot review PR0093C on the wrong branch."
 warnings:
-  - "Pre-existing false positive in test_bremen_control_room.py::test_report_no_bucket_name — English word 'buckets' in boundary note text ('qualitative buckets derived from the 15-feature contract'). Outside allowed edit scope."
-  - "Minor CSS typo in method-limitations rule: closing brace missing before n.method-limitations h2 — functionally no impact since browser parses it as continuation."
+  - "Cannot perform conflict marker check, validation, or any PR0093C-specific review until the correct branch is checked out."
 changed_files:
   - src/bremen/report_ui.py
   - tests/test_bremen_report_ui.py
-working_tree_state: "2 modified tracked files. No staged files. No server.py or job_api_handler.py changes needed."
-business_objective: "Report now looks clinical-grade and investor-ready. Masthead with eyebrow label, dark assessment hero with metric cards, interpretation grid, method & limitations section, supporting evidence, and compact safety footer. The decision-support result is the dominant hero message. Safety language is present but visually secondary. Report feels mature, premium, and PDF-ready rather than dashboard-like."
-external_layout: "Clinical-grade External report structure: (1) report-masthead with Bremen brand + report-eyebrow 'NON-INVASIVE X-RAY DIFFRACTION ANALYSIS' + h1 title + subtitle + report-info-grid metadata, (2) assessment-hero dark block with kicker/title/subtitle/assessment-metric-card grid (Model Score, Threshold, QC Status, Decision Code), (3) decision-policy-text, (4) technical-demo-notice visually secondary, (5) supporting-evidence with signal-card-grid, (6) interpretation-grid with DEFER/CONTINUE cards, (7) method-limitations with structured list, (8) model-table-section, (9) report-footer. All 13 required clinical-grade classes verified in tests."
-internal_layout: "Clinical-grade Internal report structure: (1) confidential-strip 'CONFIDENTIAL — RESEARCH USE ONLY', (2) internal-report-header with brand + report-running-title + h1 + pills, (3) internal-assessment dark hero with decision code/score/threshold/QC, (4) internal-info-grid two-column (job identity + model/plugin), (5) decision-policy table, (6) boundary-note, (7) signal-breakdown-table with SIGNAL/FEATURE FAMILY/DIFFERENCE, (8) execution-trace-summary, (9) internal-method-note safety disclaimer, (10) report-footer with CONFIDENTIAL language."
-aramis_visual_lessons_used: "Report masthead discipline, dark assessment hero with metric cards, two-column analysis information grid, confidential strip header, method & limitations section, supporting evidence section, paper-like print layout with page-break-inside:avoid. Layout maturity inspired by Aramis PDF samples."
-aramis_content_not_copied: "No Tissue Risk Assessment / TRA terminology, no biopsy wording, no malignant-pattern wording, no sensitivity/specificity, no Patient Name/Surname/Age/Operator/Referring Physician, no raw feature values, no Aramis algorithm names or colors. All verified by test_no_aramis_terms and test_no_phi_fields assertions (144/144 pass)."
-bremen_terminology: "MRI continuation decision support, p_mri_needed score, decision threshold, QC status, left/right structural comparison, Calibration pending for not_available, Technical demonstration / not clinically validated / not diagnosis, Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment. 'Decision support only' in footer."
-not_available_rendering: "External: 'Calibration pending' for not_available signals. Internal: 'Reference calibration pending' for not_available signals. No fabrication of small/moderate/larger when data unavailable. Forbidden phrase 'Asymmetry assessment is not available' is absent from source (verified by test assertion)."
-print_pdf: "Browser-native window.print() + @media print CSS. print-color-adjust:exact on 12+ tinted/colored elements including new assessment-hero, confidential-strip, internal-assessment, method-limitations, internal-method-note. page-break-inside:avoid on assessment-hero, method-limitations, signal-card, signal-breakdown-table. No server-side PDF dependencies. No WeasyPrint/Chromium/Playwright/Puppeteer/Pango/Cairo."
-json_contracts: "PR0093B JSON contracts preserved. build_external_report_json() and build_internal_report_json() unchanged. Endpoints GET /demo/api/reports/{job_id}/external and /internal unchanged. Report HTML rendering consumes normalized JSON objects."
-tabs: "External/Internal tabs preserved. Tab switching, keyboard navigation, print buttons all functional. 144/144 tests pass."
-safety: "No raw feature values, deltas, percentile cutoffs, reference-statistic values, full checksums, S3 paths, manifest keys, ARNs, H5 paths, PHI, model internals, or coefficients exposed. Checksum prefix only (max 8 hex chars). Clinical wording: decision-support only, not diagnosis. No sample values in live reports. No Aramis terminology. Print: browser-native only."
-tests:
-  total: 144
-  all_passing: true
-  test_classes:
-    - "TestExternalTab (7)"
-    - "TestInternalTab (2)"
-    - "TestSampleMode (5)"
-    - "TestLiveModeNoSampleLeakage (3)"
-    - "TestPrintSavePDF (7)"
-    - "TestSymmetrySignals (6)"
-    - "TestNotAvailableRendering (3)"
-    - "TestSafetyBoundaries (12)"
-    - "TestServerSidePDFAbsence (3)"
-    - "TestDesignTokens (3)"
-    - "TestAccessibility (12)"
-    - "TestBackwardCompatibility (5)"
-    - "TestSymmetrySignalDetail (6)"
-    - "TestDurationMsNullFix (2)"
-    - "TestExternalQCStatusMapping (2)"
-    - "TestTabStructureOneShell (2)"
-    - "TestExternalReportJSONContract (10)"
-    - "TestInternalReportJSONContract (10)"
-    - "TestReportHTMLStructure (15)"
-    - "TestForbiddenContentAbsence (5)"
-    - "TestClinicalGradeStructure (13)"
-    - "TestInternalClinicalGrade (10)"
-  api_server_tests: "104/104 passed"
-  full_suite: "2197 passed, 1 failed (pre-existing false positive), 11 skipped"
-validation:
-  compileall: "PASS"
-  report_ui_tests: "144/144 passed"
-  api_server_tests: "104/104 passed"
-  full_suite: "2197 passed, 1 failed (pre-existing), 11 skipped"
-  git_diff_check: "clean"
-  nullms: "no nullms in source (only in test asserting absence)"
-  forbidden_phrase: "no 'Asymmetry assessment is not available' in source (only in test asserting absence)"
-  aramis_terms: "absent from source (only in test asserting absence)"
-  phi_fields: "absent from source (only in test asserting absence)"
-  pdf_deps: "no server-side PDF dependencies"
-  design_tokens: "all hex colors from BREMEN_DESIGN_SPEC_v1.md only"
-scope_control: "Only report_ui.py (CSS + JS layout upgrade) and test file (updated + added tests) changed. No server.py, no job_api_handler.py, no decision_support.py, no symmetry_signals.py, no new dependencies."
-implementation_report: "Accurate. File list matches actual diff. Test count (144) matches. All validation results verified. Business objective, Aramis lessons, safety decisions, and layout descriptions match the actual implementation."
-commit_readiness: true
+working_tree_state: "2 modified files on wrong branch; .project-memory/pr/0093c-report-clinical-grade-layout/reviews/ directory created for artifact"
+conflict_resolution: "CANNOT ASSESS — wrong branch checked out"
+business_objective: "CANNOT ASSESS — wrong branch checked out"
+external_layout: "CANNOT ASSESS — wrong branch checked out"
+internal_layout: "CANNOT ASSESS — wrong branch checked out"
+aramis_visual_lessons_used: "CANNOT ASSESS — wrong branch checked out"
+aramis_content_not_copied: "CANNOT ASSESS — wrong branch checked out"
+bremen_terminology: "CANNOT ASSESS — wrong branch checked out"
+not_available_rendering: "CANNOT ASSESS — wrong branch checked out"
+print_pdf: "CANNOT ASSESS — wrong branch checked out"
+json_contracts: "CANNOT ASSESS — wrong branch checked out"
+tabs: "CANNOT ASSESS — wrong branch checked out"
+safety: "CANNOT ASSESS — wrong branch checked out"
+tests: "CANNOT ASSESS — wrong branch checked out"
+validation: "CANNOT ASSESS — wrong branch checked out"
+scope_control: "CANNOT ASSESS — wrong branch checked out"
+implementation_report: "CANNOT ASSESS — wrong branch checked out"
+commit_readiness: false
