@@ -1058,7 +1058,7 @@ function renderInternalReport(report){
   // 7. Symmetry signal breakdown
   html+='<section>';
   html+='<h2>Symmetry Signal Breakdown</h2>';
-  html+='<p class="section-note">Qualitative buckets derived from the 15-feature contract. Raw magnitudes intentionally omitted \u2014 see boundary note above.</p>';
+  html+='<p class="section-note">Qualitative signal levels derived from the 15-feature contract. Raw magnitudes intentionally omitted \u2014 see boundary note above.</p>';
   html+='<table class="signal-breakdown-table"><thead><tr><th>SIGNAL</th><th>FEATURE FAMILY</th><th>DIFFERENCE</th></tr></thead><tbody>';
   for(var j=0;j<signals.length;j++){
     var sig=signals[j];
