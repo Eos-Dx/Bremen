@@ -1,0 +1,140 @@
+# Precommit Review — PR0096A: measurement_reliability report plumbing hotfix
+# Reviewer: precommit-review-agent
+# Reviewed: 2026-07-26T22:43:40Z
+
+status: valid
+head: 3393681feb71cfca01775d5300df903d8a36f532
+branch: 0096a-measurement-reliability-report-plumbing
+blockers: []
+warnings:
+  - "The regression tests test report_ui.py fallback resolution paths directly (payload.measurement_reliability set in test fixtures), not the full pipeline through BremenReportProvider._build_report(). This is appropriate for a focused plumbing regression test — the provider-level computation uses the same _compute_measurement_reliability() helper already tested in test_bremen_decision_support.py."
+changed_files:
+  - src/bremen/api/app.py
+  - src/bremen/api/report_bremen.py
+  - src/bremen/report_ui.py
+  - tests/test_bremen_report_ui.py
+working_tree_state:
+  staged: []
+  unstaged_modified:
+    - src/bremen/api/app.py
+    - src/bremen/api/report_bremen.py
+    - src/bremen/report_ui.py
+    - tests/test_bremen_report_ui.py
+  untracked:
+    - .project-memory/pr/0096a-measurement-reliability-report-plumbing/ (implementation-report.md and reviews/)
+  clean: true
+bug_summary:
+  observed: "Counts present in workflow_runs.bremen.result_summary but measurement_reliability null in report JSON."
+  broken_hop: "BremenReportProvider._build_report() never read left_measurement_count/right_measurement_count from workflow_result. build_external_report_json() only read measurement_reliability from legacy decision_support_report path (empty in v0.2)."
+  fix: "Three-part fix: (1) app.py removes default=0 so absent counts stay None, (2) report_bremen.py reads counts from workflow_result and computes measurement_reliability into v0.2 payload, (3) report_ui.py adds payload fallback path for measurement_reliability via _first_present()."
+broken_plumbing_hop:
+  source: "workflow_runs.bremen.result_summary (contains left_measurement_count, right_measurement_count)"
+  destination: "report JSON prediction_summary.measurement_reliability / decision_policy.measurement_reliability"
+  gap: "BremenReportProvider._build_report() did not extract counts from workflow_result dict; report_ui.py build_external_report_json() did not fall back to payload.measurement_reliability"
+  fix_gap: true
+fix_summary:
+  app_py: "Changed `payload.get('left_measurement_count', 0)` to `payload.get('left_measurement_count')` — absent counts now stay None instead of defaulting to 0 (which would fabricate LOW_TECHNICAL)."
+  report_bremen_py: "Added measurement_reliability computation: extracts left_count/right_count from workflow_result, calls _compute_measurement_reliability() (lazy-imported from decision_support.py), includes result in payload dict."
+  report_ui_py: "Changed measurement_reliability lookup from single-path _get_path(ds, 'prediction_summary', 'measurement_reliability') to _first_present() with three fallback paths: (1) legacy decision_support_report.prediction_summary, (2) legacy prediction_summary direct, (3) v0.2 payload direct (the new path)."
+  tests: "Added TestPR0096AReportPlumbing class with 6 regression tests: external with counts, internal with counts, absent-count external (no fabrication), absent-count internal (no fabrication), HIGH_TECHNICAL tier, legacy path compatibility."
+app_absent_count_fix:
+  implemented: true
+  details: "app.py line ~313-314: payload.get('left_measurement_count') and payload.get('right_measurement_count') without default=0. When counts absent from payload, value is None, flowing through to report_bremen.py where None+None check prevents reliability computation."
+  no_fabrication: true
+external_report_json:
+  measurement_reliability_nonnull_with_counts: true
+  justification: "payload.measurement_reliability set by BremenReportProvider._build_report() gets picked up by build_external_report_json() via _first_present(..., payload.get('measurement_reliability')) → prediction_summary.measurement_reliability"
+  absent_counts_stays_null: true
+  justification_absent: "When payload lacks measurement_reliability (counts absent), _first_present returns default=None → prediction_summary.measurement_reliability is None/absent"
+  exact_low_technical_for_1_1: "tier=LOW_TECHNICAL, reason='Fewer than two accepted measurements on one breast.', left=1, right=1"
+internal_report_json:
+  measurement_reliability_nonnull_with_counts: true
+  justification: "build_internal_report_json() reads external['prediction_summary']['measurement_reliability'] via _get_path() → placed in decision_policy.measurement_reliability"
+  absent_counts_stays_null: true
+  justification_absent: "When external dict lacks measurement_reliability, _get_path returns None → decision_policy.measurement_reliability is None/absent"
+regression_tests:
+  focused_tests_pass:
+    test_bremen_decision_support_py: "24 passed"
+    test_bremen_report_ui_py: "187 passed (6 new PR0096A tests)"
+    test_bremen_workflow_bremen_py: "36 passed"
+    test_bremen_api_server_py: "104 passed"
+  full_suite_pass:
+    total: "2269 passed, 11 skipped"
+    pr0096_baseline: "2263 passed"
+    new_tests_count: 6
+  test_coverage_gap: "The 6 PR0096A tests cover report_ui.py fallback resolution (payload already contains measurement_reliability). End-to-end pipeline through BremenReportProvider not directly tested at integration level — covered at unit level via existing _compute_measurement_reliability tests in test_bremen_decision_support.py."
+naming_guard:
+  top_level_reliability: false
+  top_level_reliability_reason: false
+  prediction_summary_reliability: false
+  prediction_summary_reliability_reason: false
+  only_measurement_reliability_key: true
+  measurement_qualifier_present: true
+  helper_named_measurement_reliability: true
+  clinical_wording: false
+  diagnostic_wording: false
+  model_reliability_wording: false
+  scientific_reliability_wording: false
+  evidence:
+    - "grep for '\"reliability\"' in source matches only measurement_reliability"
+    - "No bare 'reliability' or 'reliability_reason' keys in src/bremen/"
+    - "Tests explicitly assert no top-level reliability/reliability_reason"
+    - "Prohibited wording grep returns only test assertions that those terms are absent"
+safety:
+  no_raw_measurement_values: true
+  no_raw_refs: true
+  no_patient_identifiers: true
+  no_phi_exposed: true
+  prediction_not_blocked: true
+  no_new_request_schema_fields: true
+  terminology: "Measurement reliability / technical measurement reliability"
+  raw_exceptions_not_exposed: true
+  no_h5_paths_exposed: true
+validation:
+  compileall: "PASS"
+  git_diff_check: "CLEAN"
+  naming_guard_grep: "PASS — all reliability keys are measurement_reliability"
+  prohibited_wording_grep: "PASS — only test assertions reference prohibited terms"
+  test_decision_support: "24 passed"
+  test_report_ui: "187 passed"
+  test_workflow_bremen: "36 passed"
+  test_api_server: "104 passed"
+  full_suite: "2269 passed, 11 skipped"
+scope_control:
+  aramis_touched: false
+  pr0092_symmetry_signals_touched: false
+  pr0092_difference_level_touched: false
+  request_schema_changed: false
+  new_dependencies: false
+  docs_changed: false
+  roadmap_changed: false
+  requirements_changed: false
+  pyproject_changed: false
+  dockerfile_changed: false
+  infra_changed: false
+  github_actions_changed: false
+  files_outside_scope: []
+implementation_report:
+  exists: true
+  location: ".project-memory/pr/0096a-measurement-reliability-report-plumbing/implementation-report.md"
+  matches_diff: true
+  test_counts_match: true
+  details:
+    - "Files Changed table matches actual git diff output"
+    - "Bug Summary accurately describes the broken hop"
+    - "Fix Summary describes the three-part fix accurately"
+    - "Validation results match observed test output"
+commit_readiness:
+  compileall_pass: true
+  focused_tests_pass: true
+  full_suite_pass: true
+  git_diff_check_clean: true
+  naming_guard_verified: true
+  scope_control_verified: true
+  aramis_untouched: true
+  pr0092_untouched: true
+  no_new_dependencies: true
+  no_clinical_wording: true
+  no_request_schema_changes: true
+  implementation_report_matches: true
+  ready: true

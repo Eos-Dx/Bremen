@@ -318,8 +318,10 @@ def build_external_report_json(report: dict) -> dict:
             "decision_policy_version": decision_policy_version,
             "qc_status": qc_status,
             "qc_flags": qc_flags,
-            "measurement_reliability": _get_path(
-                ds, "prediction_summary", "measurement_reliability"
+            "measurement_reliability": _first_present(
+                _get_path(ds, "prediction_summary", "measurement_reliability"),
+                prediction_legacy.get("measurement_reliability"),
+                payload.get("measurement_reliability"),
             ),
         },
         "decision_support": {
