@@ -6,12 +6,433 @@ GET /demo/api/jobs/{job_id}/reports/bremen.
 
 PR0082b — Bremen Product-Grade Demo Redesign.
 PR0093 — Presentation-grade report renderer with Print/Save PDF.
+PR0093B — Report contract and layout parity with promised report artifacts.
 """
 
 from __future__ import annotations
 
 import json as _json
 from typing import Any
+
+# ---------------------------------------------------------------------------
+# Normalized report builders
+# ---------------------------------------------------------------------------
+
+REPORT_SCHEMA_VERSION = "v0.1"
+INTERNAL_REPORT_SCHEMA_VERSION = "v0.1"
+
+
+def _safe_dict(value: Any) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def _safe_list(value: Any) -> list:
+    return value if isinstance(value, list) else []
+
+
+def _dash(value: Any) -> str:
+    if value is None:
+        return "\u2014"
+    if value == "":
+        return "\u2014"
+    return str(value)
+
+
+def _get_path(obj: Any, *path: str, default: Any = None) -> Any:
+    cur = obj
+    for key in path:
+        if not isinstance(cur, dict):
+            return default
+        cur = cur.get(key)
+    return default if cur is None else cur
+
+
+def _first_present(*values: Any, default: Any = None) -> Any:
+    for value in values:
+        if value is not None and value != "":
+            return value
+    return default
+
+
+def _checksum_prefix(value: Any, length: int = 8) -> str | None:
+    if not value:
+        return None
+    text = str(value)
+    if len(text) <= length:
+        return text
+    return text[:length]
+
+
+def _report_id(job_id: str | None, generated_at: str | None) -> str:
+    safe_job = str(job_id or "unknown").replace("-", "")[:8]
+    safe_time = (
+        str(generated_at or "unknown")
+        .replace("-", "")
+        .replace(":", "")
+        .replace(".", "")
+    )
+    return f"{safe_time[:15]}_{safe_job}"
+
+
+def _format_score(value: Any) -> Any:
+    if isinstance(value, (int, float)):
+        return round(float(value), 3)
+    return value
+
+
+def _normalize_signal_level(level: Any) -> str:
+    if level in {"small", "moderate", "larger", "not_available"}:
+        return str(level)
+    return "not_available"
+
+
+def _external_signal(signal: Any) -> dict:
+    signal = _safe_dict(signal)
+    return {
+        "label": _dash(signal.get("label")),
+        "difference_level": _normalize_signal_level(signal.get("difference_level")),
+    }
+
+
+def _internal_signal(signal: Any) -> dict:
+    signal = _safe_dict(signal)
+    return {
+        "label": _dash(signal.get("label")),
+        "feature_family": _safe_list(signal.get("feature_family")),
+        "difference_level": _normalize_signal_level(signal.get("difference_level")),
+    }
+
+
+def build_external_report_json(report: dict) -> dict:
+    """Return the External report JSON contract.
+
+    This is the live API/report shape. It must match bremen_external_report.yaml
+    by key structure, but values must come from real job/report data.
+    """
+    report = _safe_dict(report)
+    payload = _safe_dict(report.get("payload"))
+    ds = _safe_dict(
+        _first_present(
+            payload.get("decision_support_report"),
+            report.get("decision_support_report"),
+            report.get("decision_support"),
+            default={},
+        )
+    )
+
+    prediction = _safe_dict(
+        _first_present(
+            ds.get("prediction_summary"),
+            payload.get("prediction_summary"),
+            report.get("prediction_summary"),
+            default={},
+        )
+    )
+
+    model = _safe_dict(
+        _first_present(
+            ds.get("model_metadata"),
+            payload.get("model_metadata"),
+            report.get("model_metadata"),
+            default={},
+        )
+    )
+
+    input_summary = _safe_dict(
+        _first_present(
+            ds.get("input_summary"),
+            payload.get("input_summary"),
+            report.get("input_summary"),
+            default={},
+        )
+    )
+
+    symmetry = _safe_dict(
+        _first_present(
+            ds.get("symmetry_signals"),
+            payload.get("symmetry_signals"),
+            report.get("symmetry_signals"),
+            default={},
+        )
+    )
+
+    generated_at = _first_present(
+        report.get("completed_at"),
+        report.get("created_at"),
+        payload.get("completed_at"),
+        payload.get("created_at"),
+        ds.get("generated_at"),
+    )
+
+    job_id = _first_present(
+        report.get("job_id"), payload.get("job_id"), ds.get("job_id")
+    )
+    request_id = _first_present(
+        report.get("request_id"), payload.get("request_id"), ds.get("request_id")
+    )
+
+    threshold_value = _first_present(
+        prediction.get("threshold_value"),
+        model.get("threshold_value"),
+        ds.get("threshold_value"),
+    )
+
+    decision_policy_id = _first_present(
+        prediction.get("decision_policy_id"),
+        model.get("threshold_version"),
+        ds.get("decision_policy_id"),
+    )
+
+    decision_policy_version = _first_present(
+        prediction.get("decision_policy_version"),
+        model.get("decision_policy_version"),
+        ds.get("decision_policy_version"),
+    )
+
+    return {
+        "output_type": "bremen_decision_support_report",
+        "report_schema_version": _first_present(
+            ds.get("report_schema_version"), REPORT_SCHEMA_VERSION
+        ),
+        "report_id": _first_present(
+            ds.get("report_id"), _report_id(job_id, generated_at)
+        ),
+        "generated_at": generated_at,
+        "job_id": job_id,
+        "request_id": request_id,
+        "patient_reference": _first_present(
+            ds.get("patient_reference"), report.get("patient_reference"), default="\u2014"
+        ),
+        "analysis_author": "Bremen demo environment",
+        "intended_use": (
+            "MRI continuation decision support only. Not a diagnosis, not clinically "
+            "validated, does not replace MRI, biopsy, radiologist, clinician, or clinical judgment."
+        ),
+        "limitations": [
+            "Decision-support output only, not a diagnostic result.",
+            "Not clinically validated.",
+            "Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment.",
+        ],
+        "model_metadata": {
+            "model_version": _first_present(
+                model.get("model_version"), report.get("model_version")
+            ),
+            "feature_schema_version": _first_present(
+                model.get("feature_schema_version"), ds.get("feature_schema_version")
+            ),
+            "threshold_version": decision_policy_id,
+            "threshold_value": threshold_value,
+        },
+        "input_summary": {
+            "input_mode": _first_present(
+                input_summary.get("input_mode"), report.get("input_mode"), default="\u2014"
+            ),
+            "explicit_refs_provided": _first_present(
+                input_summary.get("explicit_refs_provided"), default=None
+            ),
+            "layout_category": _first_present(
+                input_summary.get("layout_category"), default="\u2014"
+            ),
+        },
+        "prediction_summary": {
+            "p_mri_needed": _format_score(
+                _first_present(
+                    prediction.get("p_mri_needed"),
+                    ds.get("p_mri_needed"),
+                    report.get("score"),
+                )
+            ),
+            "decision_code": _first_present(
+                prediction.get("decision_code"),
+                ds.get("decision_code"),
+                report.get("decision_code"),
+            ),
+            "decision_display_name": _first_present(
+                prediction.get("decision_display_name"),
+                ds.get("decision_display_name"),
+                default="Continue MRI evaluation",
+            ),
+            "decision_policy_id": decision_policy_id,
+            "decision_policy_version": decision_policy_version,
+            "qc_status": _first_present(
+                prediction.get("qc_status"),
+                ds.get("qc_status"),
+                payload.get("qc_status"),
+            ),
+            "qc_flags": _safe_list(
+                _first_present(
+                    prediction.get("qc_flags"),
+                    ds.get("qc_flags"),
+                    payload.get("qc_flags"),
+                    default=[],
+                )
+            ),
+        },
+        "decision_support": {
+            "recommendation": _first_present(
+                _get_path(ds, "decision_support", "recommendation"),
+                prediction.get("decision_code"),
+                ds.get("decision_code"),
+            )
+        },
+        "symmetry_signals": {
+            "schema_status": _first_present(
+                symmetry.get("schema_status"), default="unavailable"
+            ),
+            "measurement_summary": _safe_dict(symmetry.get("measurement_summary")),
+            "signals": [
+                _external_signal(s) for s in _safe_list(symmetry.get("signals"))
+            ],
+            "note": _first_present(
+                symmetry.get("note"),
+                default="Reference statistics are not yet available; "
+                "qualitative asymmetry calibration is pending.",
+            ),
+        },
+    }
+
+
+def build_internal_report_json(report: dict) -> dict:
+    """Return the Internal report JSON contract.
+
+    This shape follows bremen_internal_report.yaml. It is still safe for
+    unauthenticated /demo/*: prefix checksum only, no raw values/cutoffs/PHI.
+    """
+    report = _safe_dict(report)
+    payload = _safe_dict(report.get("payload"))
+    external = build_external_report_json(report)
+
+    supporting = _safe_dict(
+        _first_present(
+            payload.get("supporting_technical_evidence"),
+            report.get("supporting_technical_evidence"),
+            default={},
+        )
+    )
+    detail = _safe_dict(
+        _first_present(
+            supporting.get("symmetry_signal_detail"),
+            payload.get("symmetry_signal_detail"),
+            report.get("symmetry_signal_detail"),
+            default={},
+        )
+    )
+
+    trace = _first_present(
+        payload.get("execution_trace_summary"),
+        report.get("execution_trace_summary"),
+        report.get("execution_trace"),
+        default={},
+    )
+
+    model_checksum_prefix = _checksum_prefix(
+        _first_present(
+            supporting.get("model_checksum_prefix"),
+            payload.get("model_checksum_prefix"),
+            report.get("model_checksum_prefix"),
+            report.get("model_checksum"),
+        )
+    )
+
+    return {
+        "output_type": "bremen_internal_report",
+        "report_schema_version": INTERNAL_REPORT_SCHEMA_VERSION,
+        "report_id": external["report_id"],
+        "generated_at": external["generated_at"],
+        "job_identity": {
+            "job_id": external["job_id"],
+            "request_id": external["request_id"],
+            "created_at": _first_present(
+                report.get("created_at"), payload.get("created_at")
+            ),
+            "completed_at": _first_present(
+                report.get("completed_at"), payload.get("completed_at")
+            ),
+            "status": _first_present(report.get("status"), payload.get("status")),
+        },
+        "model_and_plugin": {
+            "model_version": _get_path(external, "model_metadata", "model_version"),
+            "model_checksum_prefix": model_checksum_prefix,
+            "feature_schema_version": _get_path(
+                external, "model_metadata", "feature_schema_version"
+            ),
+            "plugin_id": _first_present(
+                supporting.get("plugin_id"),
+                payload.get("plugin_id"),
+                default="bremen.default",
+            ),
+            "plugin_version": _first_present(
+                supporting.get("plugin_version"),
+                payload.get("plugin_version"),
+                default="0.1",
+            ),
+            "report_schema_version": INTERNAL_REPORT_SCHEMA_VERSION,
+        },
+        "decision_policy": {
+            "decision_code": _get_path(external, "prediction_summary", "decision_code"),
+            "decision_policy_id": _get_path(
+                external, "prediction_summary", "decision_policy_id"
+            ),
+            "decision_policy_version": _get_path(
+                external, "prediction_summary", "decision_policy_version"
+            ),
+            "threshold_value": _get_path(external, "model_metadata", "threshold_value"),
+            "qc_status": _get_path(external, "prediction_summary", "qc_status"),
+            "qc_flags": _get_path(
+                external, "prediction_summary", "qc_flags", default=[]
+            ),
+        },
+        "input_summary": external["input_summary"],
+        "execution_trace_summary": _normalize_execution_trace_summary(trace),
+        "symmetry_signal_detail": {
+            "schema_status": _first_present(
+                detail.get("schema_status"),
+                _get_path(external, "symmetry_signals", "schema_status"),
+                default="unavailable",
+            ),
+            "measurement_summary": _safe_dict(
+                _first_present(
+                    detail.get("measurement_summary"),
+                    _get_path(external, "symmetry_signals", "measurement_summary"),
+                    default={},
+                )
+            ),
+            "signals": [
+                _internal_signal(s)
+                for s in _safe_list(
+                    _first_present(
+                        detail.get("signals"),
+                        _get_path(external, "symmetry_signals", "signals"),
+                        default=[],
+                    )
+                )
+            ],
+            "note": _first_present(
+                detail.get("note"),
+                _get_path(external, "symmetry_signals", "note"),
+                default="Named feature families shown for traceability. "
+                "Raw magnitudes intentionally omitted.",
+            ),
+        },
+    }
+
+
+def _normalize_execution_trace_summary(trace: Any) -> dict:
+    if isinstance(trace, list):
+        out: dict[str, int] = {}
+        for stage in trace:
+            if not isinstance(stage, dict):
+                continue
+            name = stage.get("name") or stage.get("stage")
+            duration = stage.get("duration_ms")
+            if not name or duration is None:
+                continue
+            out[str(name)] = duration
+        return out
+    if isinstance(trace, dict):
+        return {str(k): v for k, v in trace.items() if v is not None}
+    return {}
+
 
 # ---------------------------------------------------------------------------
 # Design tokens (from BREMEN_DESIGN_SPEC_v1.md)
@@ -54,15 +475,7 @@ _CSS = """
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg-page);color:var(--text-primary);line-height:1.5;-webkit-font-smoothing:antialiased}
 .report-page{max-width:1440px;margin:0 auto;padding:var(--sp-32);min-height:100vh;display:flex;flex-direction:column}
 
-/* Header */
-.report-header{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-24) 0;border-bottom:1px solid var(--border);margin-bottom:var(--sp-24);flex-wrap:wrap;gap:var(--sp-12)}
-.report-brand{font-size:var(--fs-22);font-weight:600;color:var(--text-primary)}
-.report-subtitle{font-size:var(--fs-13);color:var(--text-secondary);margin-top:var(--sp-4)}
-.report-nav{font-size:var(--fs-14)}
-.report-nav a{color:var(--accent);text-decoration:none}
-.report-nav a:hover{text-decoration:underline}
-
-/* Tabs */
+/* Tab chrome */
 .report-tabs{display:flex;align-items:center;gap:var(--sp-4);border-bottom:2px solid var(--border);margin-bottom:var(--sp-24);padding-bottom:0;position:relative}
 .tab-btn{background:none;border:none;color:var(--text-secondary);font-size:var(--fs-14);font-weight:500;padding:var(--sp-12) var(--sp-24);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:color 0.15s,border-color 0.15s}
 .tab-btn:hover{color:var(--text-primary)}
@@ -75,7 +488,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 @media(prefers-reduced-motion:reduce){.tab-btn{transition:none}}
 
 /* Content area */
-.report-content{flex:1;max-width:960px;margin:0 auto;width:100%}
+.report-content{flex:1;max-width:1100px;margin:0 auto;width:100%}
 .tab-panel[hidden]{display:none}
 
 /* Loading / error */
@@ -88,79 +501,112 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .report-error-title{font-size:var(--fs-17);font-weight:600;color:var(--status-error);margin-bottom:var(--sp-8)}
 .report-error-text{font-size:var(--fs-14);color:var(--text-secondary);margin-bottom:var(--sp-16)}
 
-/* Cards */
-.report-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-card);padding:var(--sp-24);margin-bottom:var(--sp-16)}
-.report-card-title{font-size:var(--fs-17);font-weight:600;color:var(--text-primary);margin-bottom:var(--sp-16);padding-bottom:var(--sp-12);border-bottom:1px solid var(--border)}
-.recommendation-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-card);padding:var(--sp-24);margin-bottom:var(--sp-16);border-left:3px solid var(--accent)}
-.recommendation-headline{font-size:var(--fs-22);font-weight:600;color:var(--text-primary);margin-bottom:var(--sp-8)}
-.recommendation-code{font-size:var(--fs-13);color:var(--text-secondary);font-family:monospace;margin-bottom:var(--sp-12)}
-.recommendation-score{display:flex;align-items:center;gap:var(--sp-12);margin-bottom:var(--sp-12)}
-.score-bar{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden;position:relative}
-.score-fill{height:100%;background:var(--accent);border-radius:4px;transition:width 500ms}
-.score-label{font-size:var(--fs-13);color:var(--text-secondary);white-space:nowrap}
-.score-threshold{position:absolute;top:-2px;width:2px;height:12px;background:var(--status-error)}
-.threshold-caption{font-size:var(--fs-11);color:var(--text-secondary);margin-top:var(--sp-4);font-family:monospace}
+/* ============ REPORT DOCUMENT LAYOUT ============ */
+.report-document{background:var(--bg-surface);padding:var(--sp-48) var(--sp-48);max-width:960px;margin:0 auto;border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-card)}
 
-/* QC badge */
-.qc-badge{display:inline-block;padding:var(--sp-4) var(--sp-12);border-radius:var(--radius-pill);font-size:var(--fs-13);font-weight:600}
-.qc-badge.passed{background:var(--tint-accent);color:var(--status-available);border:1px solid var(--status-available)}
-.qc-badge.failed{background:var(--tint-error);color:var(--status-error);border:1px solid var(--status-error)}
+/* Header area */
+.report-document .report-header{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:var(--sp-24);margin-bottom:var(--sp-24);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:var(--sp-12)}
+.report-document .report-brand{font-size:var(--fs-22);font-weight:600;color:var(--text-primary)}
+.report-document h1{font-size:var(--fs-22);font-weight:600;color:var(--text-primary);margin:var(--sp-4) 0 var(--sp-8) 0}
+.report-document h2{font-size:var(--fs-17);font-weight:600;color:var(--text-primary);margin:var(--sp-24) 0 var(--sp-12) 0;padding-bottom:var(--sp-8);border-bottom:1px solid var(--border)}
+.report-document h3{font-size:var(--fs-14);font-weight:600;color:var(--text-primary);margin:var(--sp-8) 0 var(--sp-4) 0}
+.report-document .report-subtitle{font-size:var(--fs-13);color:var(--text-secondary);margin-top:var(--sp-4);line-height:1.5}
+.report-document p{font-size:var(--fs-14);color:var(--text-primary);line-height:1.6;margin-bottom:var(--sp-12)}
 
-/* Signal chips */
-.signal-chip{display:inline-block;padding:var(--sp-4) var(--sp-12);border-radius:var(--radius-pill);font-size:var(--fs-13);font-weight:600;margin-right:var(--sp-8);white-space:nowrap}
-.signal-chip.small{background:var(--tint-accent);color:var(--status-available);border:1px solid var(--status-available)}
-.signal-chip.moderate{background:var(--tint-pending);color:var(--status-pending);border:1px solid var(--status-pending)}
-.signal-chip.larger{background:var(--tint-error);color:var(--status-error);border:1px solid var(--status-error)}
-.signal-chip.not_available{background:var(--bg-page);color:var(--status-unconfigured);border:1px solid var(--status-unconfigured)}
+/* Meta block */
+.report-meta-block{display:flex;flex-wrap:wrap;gap:var(--sp-8) var(--sp-24);font-size:var(--fs-11);color:var(--text-secondary);margin-top:var(--sp-12)}
+.report-meta-block div{display:flex;gap:var(--sp-4)}
+.report-meta-block dt{font-weight:600;color:var(--text-secondary)}
+.report-meta-block dd{color:var(--text-primary);font-family:monospace}
 
-/* Symmetry signal row */
-.symmetry-row{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-12) 0;border-bottom:1px solid var(--border);font-size:var(--fs-14);gap:var(--sp-12);flex-wrap:wrap}
-.symmetry-row:last-child{border-bottom:none}
-.symmetry-label{flex:1;color:var(--text-primary);min-width:200px}
-.symmetry-note{font-size:var(--fs-13);color:var(--text-secondary);margin-top:var(--sp-12);font-style:italic}
+/* Divider */
+.report-divider{height:1px;background:var(--border);margin:var(--sp-16) 0 var(--sp-24) 0}
 
-/* Summary note */
-.symmetry-summary{font-size:var(--fs-13);color:var(--text-secondary);margin-bottom:var(--sp-8)}
+/* Recommendation hero */
+.recommendation-hero{background:var(--accent);color:#FFFFFF;border-radius:var(--radius-card);padding:var(--sp-24) var(--sp-32);margin-bottom:var(--sp-24);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--sp-16)}
+.recommendation-hero .hero-kicker{font-size:var(--fs-11);font-weight:700;letter-spacing:1px;margin-bottom:var(--sp-4);opacity:0.85}
+.recommendation-hero .hero-title{font-size:var(--fs-22);font-weight:700;line-height:1.3}
+.recommendation-hero p{font-size:var(--fs-13);margin:0;color:rgba(255,255,255,0.9)}
+.recommendation-hero strong{color:#FFFFFF}
+.recommendation-left{flex:1;min-width:240px}
+.recommendation-right{flex:1;min-width:200px;text-align:right}
+@media(max-width:600px){.recommendation-hero{flex-direction:column;align-items:flex-start}.recommendation-right{text-align:left}}
 
-/* Signal detail table (internal) */
-.signal-detail-table{width:100%;border-collapse:collapse;font-size:var(--fs-13);margin:var(--sp-12) 0}
-.signal-detail-table th{text-align:left;padding:var(--sp-8) var(--sp-12);border-bottom:2px solid var(--border);color:var(--text-secondary);font-weight:600;font-size:var(--fs-11);text-transform:uppercase;letter-spacing:0.5px}
-.signal-detail-table td{padding:var(--sp-8) var(--sp-12);border-bottom:1px solid var(--border);color:var(--text-primary)}
-.signal-detail-table td.feature-family{font-family:monospace;font-size:var(--fs-11);color:var(--text-secondary);word-break:break-all}
-.signal-detail-table .detail-chip{font-weight:600}
+/* Decision policy text */
+.decision-policy-text{font-size:var(--fs-11);color:var(--text-secondary);font-style:italic;margin-bottom:var(--sp-24);padding-left:var(--sp-16);border-left:2px solid var(--border);line-height:1.5}
 
-/* Tech demo notice */
-.tech-demo-notice{background:var(--tint-pending);border:1px solid var(--status-pending);border-radius:var(--radius-card);padding:var(--sp-12) var(--sp-16);margin-bottom:var(--sp-16);font-size:var(--fs-13);color:var(--text-primary)}
-.tech-demo-notice strong{color:var(--status-pending)}
+/* Technical demo notice */
+.technical-demo-notice{background:var(--tint-pending);border:1px solid var(--status-pending);border-radius:var(--radius-card);padding:var(--sp-16) var(--sp-20);margin-bottom:var(--sp-24);font-size:var(--fs-13);color:var(--text-primary);line-height:1.6}
+.technical-demo-notice strong{color:var(--status-pending)}
 
-/* Sample mode banner */
-.sample-banner{background:var(--tint-error);border:2px solid var(--status-error);border-radius:var(--radius-card);padding:var(--sp-16) var(--sp-24);margin-bottom:var(--sp-24);text-align:center}
-.sample-banner-title{font-size:var(--fs-17);font-weight:700;color:var(--status-error);margin-bottom:var(--sp-8)}
-.sample-banner-text{font-size:var(--fs-13);color:var(--text-primary);line-height:1.6}
+/* Structural comparison */
+.structural-comparison{margin-bottom:var(--sp-24)}
+.structural-comparison>p{font-size:var(--fs-13);color:var(--text-secondary);margin-bottom:var(--sp-16)}
 
-/* Field table */
+/* Signal card grid */
+.signal-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--sp-12)}
+.signal-card{border:1px solid var(--border);border-radius:var(--radius-card);padding:var(--sp-16);background:var(--bg-surface)}
+.signal-card h3{font-size:var(--fs-13);font-weight:600;color:var(--text-primary);margin-bottom:var(--sp-8);line-height:1.4}
+.signal-card p{font-size:var(--fs-11);color:var(--text-secondary);margin:var(--sp-8) 0 0 0}
+
+/* Level dots */
+.level-dots{display:flex;gap:var(--sp-4);margin:var(--sp-8) 0}
+.level-dot{width:12px;height:12px;border-radius:50%;background:var(--border);border:1px solid var(--border)}
+.level-dot.is-filled{background:var(--accent);border-color:var(--accent)}
+.signal-level-small .level-dot.is-filled{background:var(--status-available);border-color:var(--status-available)}
+.signal-level-moderate .level-dot.is-filled{background:var(--status-pending);border-color:var(--status-pending)}
+.signal-level-larger .level-dot.is-filled{background:var(--status-error);border-color:var(--status-error)}
+
+/* Decision meaning */
+.decision-meaning{margin-bottom:var(--sp-24)}
+.decision-meaning-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-12)}
+@media(max-width:600px){.decision-meaning-grid{grid-template-columns:1fr}}
+.decision-meaning-card{border:1px solid var(--border);border-radius:var(--radius-card);padding:var(--sp-16);background:var(--bg-surface)}
+.decision-meaning-card h3{font-size:var(--fs-11);font-weight:700;letter-spacing:0.5px;color:var(--text-secondary);margin-bottom:var(--sp-4)}
+.decision-meaning-card p{font-size:var(--fs-12);color:var(--text-secondary);margin:0;line-height:1.5}
+.decision-meaning-card.is-current{border:2px solid var(--accent);background:var(--tint-accent)}
+.decision-meaning-card.is-current h3{color:var(--accent)}
+.decision-meaning-card.is-current p{color:var(--text-primary)}
+
+/* Model table section */
+.model-table-section{margin-bottom:var(--sp-24)}
 .field-table{width:100%}
-.field-row{display:flex;padding:var(--sp-8) 0;border-bottom:1px solid var(--border);font-size:var(--fs-14)}
+.field-row{display:flex;padding:var(--sp-6) 0;border-bottom:1px solid var(--border);font-size:var(--fs-13)}
 .field-row:last-child{border-bottom:none}
 .field-label{width:200px;flex-shrink:0;color:var(--text-secondary);font-weight:500;padding-right:var(--sp-16)}
 .field-value{flex:1;color:var(--text-primary);min-width:0;word-break:break-all}
 .field-value.mono{font-family:monospace;font-size:var(--fs-11)}
 
-/* Decision policy text */
-.decision-policy-text{font-size:var(--fs-14);color:var(--text-primary);line-height:1.7;margin-top:var(--sp-8);border-left:2px solid var(--accent);padding-left:var(--sp-16)}
+/* ============ INTERNAL REPORT ============ */
+.internal-technical-report h1{font-size:var(--fs-22);font-weight:600;color:var(--text-primary);margin:var(--sp-4) 0 var(--sp-8) 0}
+.internal-technical-report h2{font-size:var(--fs-17);font-weight:600;color:var(--text-primary);margin:var(--sp-24) 0 var(--sp-12) 0;padding-bottom:var(--sp-8);border-bottom:1px solid var(--border)}
+.internal-technical-report section{margin-bottom:var(--sp-24)}
 
-/* Explanation section */
-.explanation-section{font-size:var(--fs-14);color:var(--text-primary);line-height:1.7;margin-top:var(--sp-8)}
+/* Internal header */
+.internal-report-header{padding-bottom:var(--sp-24);border-bottom:1px solid var(--border);margin-bottom:var(--sp-24)}
+.internal-report-header .report-brand{font-size:var(--fs-22);font-weight:600;color:var(--text-primary)}
+.internal-report-header h1{font-size:var(--fs-22);font-weight:600;color:var(--text-primary);margin:var(--sp-4) 0 var(--sp-8) 0}
+.internal-report-header .report-subtitle{font-size:var(--fs-13);color:var(--text-secondary);margin-bottom:var(--sp-12)}
+.report-pill-row{display:flex;gap:var(--sp-8);flex-wrap:wrap}
+.report-pill{display:inline-block;padding:var(--sp-2) var(--sp-10);border-radius:var(--radius-pill);font-size:var(--fs-11);font-weight:600;border:1px solid var(--border)}
+.certification-pill{background:var(--tint-accent);color:var(--status-available);border-color:var(--status-available)}
+.demo-pill{background:var(--tint-pending);color:var(--status-pending);border-color:var(--status-pending)}
 
 /* Boundary note */
-.boundary-note{font-size:var(--fs-13);color:var(--text-secondary);font-style:italic;padding:var(--sp-12) var(--sp-16);background:var(--tint-pending);border-radius:var(--radius-card);margin:var(--sp-16) 0}
+.boundary-note{font-size:var(--fs-12);color:var(--text-secondary);font-style:italic;padding:var(--sp-12) var(--sp-16);background:var(--tint-pending);border-radius:var(--radius-card);margin:var(--sp-16) 0;line-height:1.6}
+
+/* Section note */
+.section-note{font-size:var(--fs-12);color:var(--text-secondary);margin-bottom:var(--sp-12);line-height:1.5}
+
+/* Signal breakdown table */
+.signal-breakdown-table{width:100%;border-collapse:collapse;font-size:var(--fs-13);margin:var(--sp-12) 0}
+.signal-breakdown-table th{text-align:left;padding:var(--sp-8) var(--sp-12);border-bottom:2px solid var(--border);color:var(--text-secondary);font-weight:600;font-size:var(--fs-11);text-transform:uppercase;letter-spacing:0.5px}
+.signal-breakdown-table td{padding:var(--sp-8) var(--sp-12);border-bottom:1px solid var(--border);color:var(--text-primary)}
+.signal-breakdown-table td:first-child{font-weight:500}
+.signal-breakdown-table td:nth-child(2){font-family:monospace;font-size:var(--fs-11);color:var(--text-secondary);word-break:break-all}
 
 /* Execution trace */
-.trace-toggle{background:none;border:none;color:var(--accent);font-size:var(--fs-14);font-weight:600;cursor:pointer;padding:var(--sp-8) 0;display:flex;align-items:center;gap:var(--sp-8)}
-.trace-toggle:hover{text-decoration:underline}
-.trace-toggle:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-.trace-content{display:none;margin-top:var(--sp-12)}
-.trace-content.open{display:block}
+.execution-trace-summary{margin-bottom:var(--sp-24)}
 .trace-stage{display:flex;align-items:center;gap:var(--sp-12);padding:var(--sp-8) var(--sp-12);border-left:2px solid var(--border);margin-bottom:var(--sp-4);font-size:var(--fs-13)}
 .trace-stage.completed{border-left-color:var(--status-available)}
 .trace-stage.failed{border-left-color:var(--status-error);background:var(--tint-error)}
@@ -170,41 +616,38 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .trace-stage-label{flex:1;color:var(--text-primary)}
 .trace-stage-dur{font-size:var(--fs-11);color:var(--text-secondary);font-family:monospace}
 
-/* Section spacing */
-.section-title{font-size:var(--fs-17);font-weight:600;color:var(--text-primary);margin:var(--sp-24) 0 var(--sp-12) 0;padding-bottom:var(--sp-8);border-bottom:1px solid var(--border)}
-
 /* Footer */
-.report-footer{text-align:center;padding:var(--sp-24) 0;font-size:var(--fs-13);color:var(--text-secondary);border-top:1px solid var(--border);margin-top:var(--sp-48)}
-.report-footer p{max-width:720px;margin:0 auto}
+.report-document .report-footer{text-align:center;padding:var(--sp-20) 0 0 0;font-size:var(--fs-11);color:var(--text-secondary);border-top:1px solid var(--border);margin-top:var(--sp-32);line-height:1.6}
+
+/* Sample banner */
+.sample-banner{background:var(--tint-error);border:2px solid var(--status-error);border-radius:var(--radius-card);padding:var(--sp-16) var(--sp-24);margin-bottom:var(--sp-24);text-align:center}
+.sample-banner-title{font-size:var(--fs-17);font-weight:700;color:var(--status-error);margin-bottom:var(--sp-8)}
+.sample-banner-text{font-size:var(--fs-13);color:var(--text-primary);line-height:1.6}
 
 /* Responsive */
-@media(max-width:768px){.report-page{padding:var(--sp-12)}.report-content{max-width:100%}.field-label{width:120px}.tab-btn{padding:var(--sp-8) var(--sp-12);font-size:var(--fs-13)}.print-button{padding:var(--sp-8) var(--sp-12);font-size:var(--fs-11)}.signal-detail-table td.feature-family{max-width:120px}}
+@media(max-width:768px){.report-page{padding:var(--sp-12)}.report-content{max-width:100%}.report-document{padding:var(--sp-16)}.tab-btn{padding:var(--sp-8) var(--sp-12);font-size:var(--fs-13)}.print-button{padding:var(--sp-8) var(--sp-12);font-size:var(--fs-11)}.field-label{width:120px}}
 
 /* Print */
 @media print {
   body{background:#FFFFFF;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .report-page{padding:0;max-width:100%}
   .report-nav,.report-tabs,.tab-btn,.tab-spacer,.print-button,
-  .trace-toggle,.trace-content,.report-loading,.report-error,
+  .report-loading,.report-error,
   .report-loading-spinner{display:none !important}
   .tab-panel[hidden]{display:none !important}
   .tab-panel:not([hidden]){display:block !important}
-  .recommendation-card{box-shadow:none;page-break-inside:avoid;border:1px solid #E3E7E6;border-left:3px solid #1F6F6B;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .report-card{box-shadow:none;page-break-inside:avoid;border:1px solid #E3E7E6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .score-bar{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .score-fill{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .score-threshold{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .signal-chip{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .qc-badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .tech-demo-notice{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .report-document{box-shadow:none;border:none;padding:0;max-width:100%;page-break-after:avoid}
+  .recommendation-hero{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .technical-demo-notice{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .boundary-note{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .decision-policy-text{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .sample-banner{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .trace-stage{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .signal-detail-table{page-break-inside:avoid}
-  .symmetry-row{page-break-inside:avoid}
-  .report-header{border-bottom:1px solid #E3E7E6}
-  .report-footer{border-top:1px solid #E3E7E6}
+  .signal-card{-webkit-print-color-adjust:exact;print-color-adjust:exact;page-break-inside:avoid}
+  .level-dot.is-filled{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .decision-meaning-card.is-current{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .signal-breakdown-table{page-break-inside:avoid}
+  .trace-stage.completed{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .trace-stage.failed{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .report-document .report-header{border-bottom:1px solid #E3E7E6}
+  .report-document .report-footer{border-top:1px solid #E3E7E6}
   .section-title{border-bottom:1px solid #E3E7E6}
 }
 """
@@ -243,289 +686,267 @@ function loadReport(jid){
   var content=document.getElementById('report-content');
   Promise.all([
     fetch(baseUrl+'/demo/api/jobs/'+jid).then(function(r){return r.json()}),
-    fetch(baseUrl+'/demo/api/jobs/'+jid+'/reports/bremen').then(function(r){return r.json()})
+    fetch(baseUrl+'/demo/api/jobs/'+jid+'/reports/bremen').then(function(r){return r.json()}),
+    fetch(baseUrl+'/demo/api/reports/'+jid+'/external').then(function(r){return r.json()}),
+    fetch(baseUrl+'/demo/api/reports/'+jid+'/internal').then(function(r){return r.json()})
   ]).then(function(results){
-    renderAll(results[0],results[1]);
+    renderAll(results[0],results[1],results[2],results[3]);
   }).catch(function(){
     content.innerHTML='<div class="report-error"><div class="report-error-title">Failed to load report</div><div class="report-error-text">Could not load the report data. The job may have expired or the server may be unavailable.</div></div>';
   });
 }
 
-function renderAll(job,reportData){
+function renderAll(job,reportData,extReport,intReport){
   var report=reportData.report||{};
-  renderExternalTab(job,report);
-  renderInternalTab(job,report,reportData);
+  renderExternalReport(extReport||buildExternalReport(report));
+  renderInternalReport(intReport||buildInternalReport(report));
 }
 
-/* ---------- External tab ---------- */
+/* ==========================================================
+   NORMALIZED REPORT BUILDERS (JS equivalents of Python builders)
+   ========================================================== */
 
-function renderExternalTab(job,report){
-  var panel=document.getElementById('panel-external');
-  var wfRun=job.workflow_runs?job.workflow_runs['bremen']:null;
-  var rs=wfRun?wfRun.result_summary||{}:{};
-  var dsr=rs.decision_support_report||{};
-  var decisionCode=rs.decision_code||'';
-  var decisionName=rs.decision_display_name||'';
-  var probability=rs.probability!==undefined?rs.probability:null;
-  var threshold=rs.threshold_applied!==undefined?rs.threshold_applied:null;
-  var modelId=job.input_summary?job.input_summary.model_id||'':'';
+function _safeDict(v){return v&&typeof v==='object'&&!Array.isArray(v)?v:{}}
+function _safeList(v){return Array.isArray(v)?v:[]}
+function _dash(v){return(v==null||v==='')?'\u2014':String(v)}
+function _firstPresent(){for(var i=0;i<arguments.length-1;i++){var a=arguments[i];if(a!=null&&a!=='')return a}return arguments[arguments.length-1]}
+function _checksumPrefix(v,len){len=len||8;if(!v)return null;var t=String(v);return t.length<=len?t:t.substring(0,len)}
 
-  var html='';
-
-  // Sample mode banner placeholder (hidden in live mode)
-  html+='<div id="sample-banner" class="sample-banner" hidden><div class="sample-banner-title">SYNTHETIC DEMONSTRATION SAMPLE</div><div class="sample-banner-text">Illustrative values only. Not generated from live runtime calibration. Not clinically validated. Not for patient or external distribution.</div></div>';
-
-  // Technical demo notice
-  html+='<div class="tech-demo-notice"><strong>Technical demo only.</strong> This report is produced by a technical product demo. It is not a clinical result. It is not clinically validated. It does not replace MRI, biopsy, a radiologist, a clinician, or clinical judgment.</div>';
-
-  if(decisionName){
-    html+='<div class="recommendation-card" role="alert">';
-    html+='<div class="recommendation-headline">'+escapeHtml(decisionName)+'</div>';
-    html+='<div class="recommendation-code">'+escapeHtml(decisionCode)+'</div>';
-    if(probability!==null){
-      var pct=Math.min(100,Math.max(0,probability*100));
-      html+='<div class="recommendation-score">';
-      html+='<div class="score-bar"><div class="score-fill" style="width:'+pct+'%"></div>';
-      if(threshold!==null){
-        var threshPct=Math.min(100,Math.max(0,threshold*100));
-        html+='<div class="score-threshold" style="left:'+threshPct+'%" title="Threshold: '+threshold.toFixed(3)+'"></div>';
-      }
-      html+='</div>';
-      html+='<span class="score-label">Score: '+probability.toFixed(3)+'</span>';
-      html+='</div>';
-      if(threshold!==null){
-        html+='<div class="threshold-caption">Threshold: '+threshold.toFixed(3)+'</div>';
-      }
-    }
-    html+='</div>';
-  }else if(report.status==='unavailable'||report.status==='job_not_found'){
-    html+='<div class="report-card"><div class="report-card-title">Report unavailable</div><p style="font-size:var(--fs-14);color:var(--text-secondary)">The report for this job is not available.</p></div>';
-  }
-
-  // QC Status — read from report payload (same authoritative source as Internal)
-  var extQcSummary=report.payload?report.payload.measurement_qc_summary||{}:{};
-  var qcStatus=extQcSummary.qc_status||rs.qc_status||'—';
-  var qcClass=qcStatus==='passed'?'passed':'failed';
-  html+='<div class="report-card">';
-  html+='<div class="report-card-title">Quality Control</div>';
-  html+='<span class="qc-badge '+qcClass+'">QC: '+escapeHtml(qcStatus)+'</span>';
-  var qcFlags=extQcSummary.qc_flags||rs.qc_flags||[];
-  if(qcFlags.length>0){
-    html+='<p style="font-size:var(--fs-13);color:var(--text-secondary);margin-top:var(--sp-8)">Flags: '+escapeHtml(qcFlags.join(', '))+'</p>';
-  }
-  html+='</div>';
-
-  // Left/Right Structural Comparison — Symmetry Signals
-  var symData=dsr.symmetry_signals||null;
-  html+='<div class="report-card">';
-  html+='<div class="report-card-title">Left/Right Structural Comparison</div>';
-  if(symData&&symData.signals&&symData.signals.length>0){
-    html+='<p class="symmetry-summary">'+escapeHtml(symData.measurement_summary||'')+'</p>';
-    for(var i=0;i<symData.signals.length;i++){
-      var sig=symData.signals[i];
-      var level=sig.difference_level||'not_available';
-      var chipLabel=levelChipLabel(level);
-      var chipClass='signal-chip '+level;
-      html+='<div class="symmetry-row">';
-      html+='<span class="symmetry-label">'+escapeHtml(sig.label||'')+'</span>';
-      html+='<span class="'+chipClass+'">'+escapeHtml(chipLabel)+'</span>';
-      html+='</div>';
-    }
-    if(symData.note){
-      html+='<p class="symmetry-note">'+escapeHtml(symData.note)+'</p>';
-    }
-  }else{
-    html+='<p style="font-size:var(--fs-14);color:var(--text-secondary)">Asymmetry assessment is not available.</p>';
-  }
-  html+='</div>';
-
-  // Explanation section
-  html+='<div class="report-card">';
-  html+='<div class="report-card-title">Explanation</div>';
-  if(decisionCode==='CONTINUE_MRI'){
-    html+='<div class="explanation-section">Based on the model output, MRI follow-up may be recommended for this patient. The model assessed features extracted from the target and contralateral control scan. The score exceeds the decision threshold, suggesting that MRI continuation should be considered by the reviewing clinician.</div>';
-  }else if(decisionCode==='MRI_REVIEW_DEFER'){
-    html+='<div class="explanation-section">Based on the model output, MRI follow-up may not be indicated for this patient. The model assessed features extracted from the target and contralateral control scan. The score is below the decision threshold, suggesting that MRI continuation may be deferred subject to clinician review.</div>';
-  }else{
-    html+='<div class="explanation-section">Model output is not conclusive. A qualified clinician must review the full case and determine the appropriate next steps.</div>';
-  }
-  html+='<div class="decision-policy-text" style="margin-top:var(--sp-16)">Decision policy: '+escapeHtml(rs.decision_policy_id||'bremen_mri_continuation_threshold')+' v'+escapeHtml(rs.decision_policy_version||'0.1.0')+'</div>';
-  html+='</div>';
-
-  // Model table
-  html+='<div class="report-card">';
-  html+='<div class="report-card-title">Model</div>';
-  html+='<div class="field-table">';
-  html+='<div class="field-row"><div class="field-label">Model</div><div class="field-value mono">'+escapeHtml(modelId||'—')+'</div></div>';
-  html+='<div class="field-row"><div class="field-label">Version</div><div class="field-value mono">'+escapeHtml(rs.model_version||job.model_version||'—')+'</div></div>';
-  html+='<div class="field-row"><div class="field-label">Feature schema</div><div class="field-value mono">'+escapeHtml(rs.feature_schema_version||'v0.1')+'</div></div>';
-  html+='<div class="field-row"><div class="field-label">Decision policy</div><div class="field-value mono">'+escapeHtml(rs.decision_policy_id||'bremen_mri_continuation_threshold')+'</div></div>';
-  html+='<div class="field-row"><div class="field-label">Certification</div><div class="field-value">Scientific certification: pending</div></div>';
-  html+='</div></div>';
-
-  // Report ID
-  html+='<div class="report-card">';
-  html+='<div class="report-card-title">Report</div>';
-  html+='<div class="field-table">';
-  html+='<div class="field-row"><div class="field-label">Report ID</div><div class="field-value mono">'+escapeHtml(report.report_id||dsr.report_schema_version||'—')+'</div></div>';
-  html+='<div class="field-row"><div class="field-label">Schema version</div><div class="field-value mono">'+escapeHtml(dsr.report_schema_version||'v0.1')+'</div></div>';
-  html+='</div></div>';
-
-  panel.innerHTML=html;
-  if(isSample&&sampleData){document.getElementById('sample-banner').hidden=false;}
+function buildExternalReport(report){
+  report=_safeDict(report);
+  var payload=_safeDict(report.payload);
+  var ds=_safeDict(_firstPresent(payload.decision_support_report,report.decision_support_report,report.decision_support,{}));
+  var prediction=_safeDict(_firstPresent(ds.prediction_summary,payload.prediction_summary,report.prediction_summary,{}));
+  var model=_safeDict(_firstPresent(ds.model_metadata,payload.model_metadata,report.model_metadata,{}));
+  var inputSummary=_safeDict(_firstPresent(ds.input_summary,payload.input_summary,report.input_summary,{}));
+  var symmetry=_safeDict(_firstPresent(ds.symmetry_signals,payload.symmetry_signals,report.symmetry_signals,{}));
+  var generatedAt=_firstPresent(report.completed_at,report.created_at,payload.completed_at,payload.created_at,ds.generated_at);
+  var rJobId=_firstPresent(report.job_id,payload.job_id,ds.job_id);
+  var rReqId=_firstPresent(report.request_id,payload.request_id,ds.request_id);
+  var thresholdValue=_firstPresent(prediction.threshold_value,model.threshold_value,ds.threshold_value);
+  var policyId=_firstPresent(prediction.decision_policy_id,model.threshold_version,ds.decision_policy_id);
+  var policyVer=_firstPresent(prediction.decision_policy_version,model.decision_policy_version,ds.decision_policy_version);
+  return {
+    output_type:'bremen_decision_support_report',
+    report_schema_version:_firstPresent(ds.report_schema_version,'v0.1'),
+    report_id:_firstPresent(ds.report_id,_reportId(rJobId,generatedAt)),
+    generated_at:generatedAt,job_id:rJobId,request_id:rReqId,
+    patient_reference:_firstPresent(ds.patient_reference,report.patient_reference,'\u2014'),
+    analysis_author:'Bremen demo environment',
+    intended_use:'MRI continuation decision support only. Not a diagnosis, not clinically validated, does not replace MRI, biopsy, radiologist, clinician, or clinical judgment.',
+    limitations:['Decision-support output only, not a diagnostic result.','Not clinically validated.','Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment.'],
+    model_metadata:{model_version:_firstPresent(model.model_version,report.model_version),feature_schema_version:_firstPresent(model.feature_schema_version,ds.feature_schema_version),threshold_version:policyId,threshold_value:thresholdValue},
+    input_summary:{input_mode:_firstPresent(inputSummary.input_mode,report.input_mode,'\u2014'),explicit_refs_provided:_firstPresent(inputSummary.explicit_refs_provided,null),layout_category:_firstPresent(inputSummary.layout_category,'\u2014')},
+    prediction_summary:{p_mri_needed:formatScore(_firstPresent(prediction.p_mri_needed,ds.p_mri_needed,report.score)),decision_code:_firstPresent(prediction.decision_code,ds.decision_code,report.decision_code),decision_display_name:_firstPresent(prediction.decision_display_name,ds.decision_display_name,'Continue MRI evaluation'),decision_policy_id:policyId,decision_policy_version:policyVer,qc_status:_firstPresent(prediction.qc_status,ds.qc_status,payload.qc_status),qc_flags:_safeList(_firstPresent(prediction.qc_flags,ds.qc_flags,payload.qc_flags,[]))},
+    decision_support:{recommendation:_firstPresent(ds.decision_support&&ds.decision_support.recommendation,prediction.decision_code,ds.decision_code)},
+    symmetry_signals:{schema_status:_firstPresent(symmetry.schema_status,'unavailable'),measurement_summary:_safeDict(symmetry.measurement_summary),signals:(symmetry.signals||[]).map(function(s){return{label:_dash(s.label),difference_level:normalizeLevel(s.difference_level)}}),note:_firstPresent(symmetry.note,'Reference statistics are not yet available; qualitative asymmetry calibration is pending.')}
+  };
 }
 
-/* ---------- Internal tab ---------- */
-
-function renderInternalTab(job,report,reportData){
-  var panel=document.getElementById('panel-internal');
-  var payload=report.payload||{};
-  var audit=payload.audit_information||{};
-  var modelIdent=payload.model_identity||{};
-  var qcSummary=payload.measurement_qc_summary||{};
-  var scoreThresh=payload.score_and_threshold||{};
-  var techEvidence=payload.supporting_technical_evidence||{};
-  var symDetail=techEvidence.symmetry_signal_detail||null;
-  var wfRun=job.workflow_runs?job.workflow_runs['bremen']:null;
-
-  // checksum prefix — max 8 hex chars
-  var rawChecksum=modelIdent.model_checksum||'';
-  var checksumPrefix=rawChecksum.length>=8?rawChecksum.substring(0,8):rawChecksum;
-
-  var html='';
-
-  // Job / Request identity
-  html+='<div class="section-title">Request / Job Identity</div>';
-  html+='<div class="report-card">';
-  html+='<div class="field-table">';
-  html+='<div class="field-row"><div class="field-label">Job ID</div><div class="field-value mono">'+escapeHtml(job.job_id||'—')+'</div></div>';
-  html+='<div class="field-row"><div class="field-label">Workflow</div><div class="field-value mono">bremen</div></div>';
-  html+='<div class="field-row"><div class="field-label">Source</div><div class="field-value mono">'+escapeHtml(job.input_summary?job.input_summary.container_id||job.input_summary.filename||'—':'—')+'</div></div>';
-  html+='<div class="field-row"><div class="field-label">Created</div><div class="field-value mono">'+escapeHtml(job.created_at?job.created_at.substring(0,19).replace('T',' '):'—')+'</div></div>';
-  html+='<div class="field-row"><div class="field-label">Completed</div><div class="field-value mono">'+escapeHtml(job.completed_at?job.completed_at.substring(0,19).replace('T',' '):'—')+'</div></div>';
-  html+='<div class="field-row"><div class="field-label">Duration</div><div class="field-value mono">'+escapeHtml(job.completed_at&&job.created_at?((new Date(job.completed_at)-new Date(job.created_at))/1000).toFixed(1)+'s':'—')+'</div></div>';
-  html+='</div></div>';
-
-  // Model / Runtime Plugin Details
-  html+='<div class="section-title">Model / Runtime Plugin Details</div>';
-  html+='<div class="report-card">';
-  html+='<div class="field-table">';
-  html+='<div class="field-row"><div class="field-label">Model ID</div><div class="field-value mono">'+escapeHtml(report.model_id||reportData.model_id||'—')+'</div></div>';
-  html+='<div class="field-row"><div class="field-label">Model version</div><div class="field-value mono">'+escapeHtml(report.model_version||modelIdent.model_version||'—')+'</div></div>';
-  html+='<div class="field-row"><div class="field-label">Feature schema version</div><div class="field-value mono">'+escapeHtml(modelIdent.feature_schema_version||'—')+'</div></div>';
-  html+='<div class="field-row"><div class="field-label">Checksum prefix</div><div class="field-value mono">'+escapeHtml(checksumPrefix||'—')+'</div></div>';
-  html+='<div class="field-row"><div class="field-label">Decision policy</div><div class="field-value mono">bremen_mri_continuation_threshold</div></div>';
-  html+='<div class="field-row"><div class="field-label">Policy version</div><div class="field-value mono">0.1.0</div></div>';
-  html+='<div class="field-row"><div class="field-label">Report schema version</div><div class="field-value mono">'+escapeHtml(payload.report_schema_version||report.report_schema_version||'—')+'</div></div>';
-  html+='</div></div>';
-
-  // Decision policy
-  html+='<div class="section-title">Decision Policy</div>';
-  html+='<div class="report-card">';
-  html+='<div class="field-table">';
-  html+='<div class="field-row"><div class="field-label">Policy</div><div class="field-value mono">bremen_mri_continuation_threshold</div></div>';
-  html+='<div class="field-row"><div class="field-label">Score</div><div class="field-value mono">'+escapeHtml(scoreThresh.p_mri_needed!==undefined?scoreThresh.p_mri_needed.toFixed(3):'—')+'</div></div>';
-  html+='<div class="field-row"><div class="field-label">Threshold</div><div class="field-value mono">'+escapeHtml(scoreThresh.threshold!==undefined?scoreThresh.threshold.toFixed(3):'—')+'</div></div>';
-  html+='<div class="field-row"><div class="field-label">Decision</div><div class="field-value mono">'+escapeHtml(scoreThresh.triage_recommendation||'—')+'</div></div>';
-  html+='</div></div>';
-
-  // QC Status
-  html+='<div class="section-title">QC Status</div>';
-  html+='<div class="report-card">';
-  var qcStatus2=qcSummary.qc_status||'—';
-  var qcClass2=qcStatus2==='passed'?'passed':'failed';
-  html+='<span class="qc-badge '+qcClass2+'">QC: '+escapeHtml(qcStatus2)+'</span>';
-  var qcFlags2=qcSummary.qc_flags||[];
-  if(qcFlags2.length>0){
-    html+='<p style="font-size:var(--fs-13);color:var(--text-secondary);margin-top:var(--sp-8)">Flags: '+escapeHtml(qcFlags2.join(', '))+'</p>';
-  }
-  html+='</div>';
-
-  // Symmetry signal breakdown
-  html+='<div class="section-title">Symmetry Signal Breakdown</div>';
-  html+='<div class="report-card">';
-  if(symDetail&&symDetail.signals&&symDetail.signals.length>0){
-    html+='<p class="symmetry-summary">'+escapeHtml(symDetail.measurement_summary||'')+'</p>';
-    html+='<table class="signal-detail-table">';
-    html+='<thead><tr><th>Signal</th><th>Feature Family</th><th>Level</th></tr></thead>';
-    html+='<tbody>';
-    for(var j=0;j<symDetail.signals.length;j++){
-      var dsig=symDetail.signals[j];
-      var dlevel=dsig.difference_level||'not_available';
-      var dchipLabel=detailLevelLabel(dlevel);
-      var dchipClass='signal-chip '+dlevel;
-      var famStr=(dsig.feature_family||[]).join(', ');
-      html+='<tr>';
-      html+='<td>'+escapeHtml(dsig.label||'')+'</td>';
-      html+='<td class="feature-family">'+escapeHtml(famStr)+'</td>';
-      html+='<td><span class="'+dchipClass+' detail-chip">'+escapeHtml(dchipLabel)+'</span></td>';
-      html+='</tr>';
-    }
-    html+='</tbody></table>';
-    if(symDetail.checksum_prefix){
-      html+='<p style="font-size:var(--fs-11);color:var(--text-secondary);margin-top:var(--sp-12);font-family:monospace">Checksum prefix: '+escapeHtml(symDetail.checksum_prefix)+'</p>';
-    }
-    if(symDetail.reference_artifact_version){
-      html+='<p style="font-size:var(--fs-11);color:var(--text-secondary);font-family:monospace">Reference artifact version: '+escapeHtml(symDetail.reference_artifact_version)+'</p>';
-    }
-    if(symDetail.note){
-      html+='<p class="symmetry-note">'+escapeHtml(symDetail.note)+'</p>';
-    }
-  }else{
-    html+='<p style="font-size:var(--fs-14);color:var(--text-secondary)">No symmetry signal data available.</p>';
-  }
-  html+='</div>';
-
-  // Execution trace
-  var traces=job.execution_traces||{};
-  var bremenTrace=traces['bremen']||null;
-  if(bremenTrace&&bremenTrace.stages&&bremenTrace.stages.length>0){
-    html+='<div class="section-title">Execution Trace</div>';
-    html+='<div class="report-card">';
-    bremenTrace.stages.forEach(function(stage){
-      var statusClass=stage.status||'not_started';
-      var icon=statusClass==='completed'?'&#10003;':statusClass==='failed'?'&#10007;':'&#9679;';
-      var iconClass=statusClass==='completed'?'completed':statusClass==='failed'?'failed':'';
-      html+='<div class="trace-stage '+statusClass+'">';
-      html+='<span class="trace-stage-icon '+iconClass+'">'+icon+'</span>';
-      html+='<span class="trace-stage-label">'+escapeHtml(stage.label||stage.stage_id||'')+'</span>';
-      if(stage.duration_ms!=null){html+='<span class="trace-stage-dur">'+stage.duration_ms+'ms</span>';}
-      html+='</div>';
-    });
-    html+='</div>';
-  }
-
-  // Boundary note
-  html+='<div class="boundary-note">Boundary note: This is a technical product demo of the Bremen MRI triage decision-support workflow. It is not a clinical result. It is not clinically validated.</div>';
-
-  panel.innerHTML=html;
+function buildInternalReport(report){
+  report=_safeDict(report);
+  var payload=_safeDict(report.payload);
+  var external=buildExternalReport(report);
+  var supporting=_safeDict(_firstPresent(payload.supporting_technical_evidence,report.supporting_technical_evidence,{}));
+  var detail=_safeDict(_firstPresent(supporting.symmetry_signal_detail,payload.symmetry_signal_detail,report.symmetry_signal_detail,{}));
+  var trace=_firstPresent(payload.execution_trace_summary,report.execution_trace_summary,report.execution_trace,{});
+  var checksumPrefix=_checksumPrefix(_firstPresent(supporting.model_checksum_prefix,payload.model_checksum_prefix,report.model_checksum_prefix,report.model_checksum));
+  return {
+    output_type:'bremen_internal_report',
+    report_schema_version:'v0.1',
+    report_id:external.report_id,
+    generated_at:external.generated_at,
+    job_identity:{job_id:external.job_id,request_id:external.request_id,created_at:_firstPresent(report.created_at,payload.created_at),completed_at:_firstPresent(report.completed_at,payload.completed_at),status:_firstPresent(report.status,payload.status)},
+    model_and_plugin:{model_version:external.model_metadata.model_version,model_checksum_prefix:checksumPrefix,feature_schema_version:external.model_metadata.feature_schema_version,plugin_id:_firstPresent(supporting.plugin_id,payload.plugin_id,'bremen.default'),plugin_version:_firstPresent(supporting.plugin_version,payload.plugin_version,'0.1'),report_schema_version:'v0.1'},
+    decision_policy:{decision_code:external.prediction_summary.decision_code,decision_policy_id:external.prediction_summary.decision_policy_id,decision_policy_version:external.prediction_summary.decision_policy_version,threshold_value:external.model_metadata.threshold_value,qc_status:external.prediction_summary.qc_status,qc_flags:external.prediction_summary.qc_flags},
+    input_summary:external.input_summary,
+    execution_trace_summary:normalizeTrace(trace),
+    symmetry_signal_detail:{schema_status:_firstPresent(detail.schema_status,external.symmetry_signals.schema_status,'unavailable'),measurement_summary:_safeDict(_firstPresent(detail.measurement_summary,external.symmetry_signals.measurement_summary,{})),signals:_safeList(_firstPresent(detail.signals,external.symmetry_signals.signals,[])).map(function(s){return{label:_dash(s.label),feature_family:_safeList(s.feature_family),difference_level:normalizeLevel(s.difference_level)}}),note:_firstPresent(detail.note,external.symmetry_signals.note,'Named feature families shown for traceability. Raw magnitudes intentionally omitted.')}
+  };
 }
 
-/* ---------- Helpers ---------- */
+function normalizeLevel(level){return(level==='small'||level==='moderate'||level==='larger'||level==='not_available')?level:'not_available'}
+function formatScore(v){return(typeof v==='number')?v.toFixed(3):v}
+function formatDate(d){return d?String(d).substring(0,19).replace('T',' '):'\u2014'}
+function formatFlags(flags){return _safeList(flags).join(', ')||'\u2014'}
+function measurementSummaryText(sym){var s=_safeDict(sym);var m=s.measurement_summary||{};return m.label||'Asymmetry assessment'}
 
-function levelChipLabel(level){
-  switch(level){
-    case 'small': return 'Small';
-    case 'moderate': return 'Moderate';
-    case 'larger': return 'Larger';
-    case 'not_available': return 'Calibration pending';
-    default: return 'Calibration pending';
-  }
+function _reportId(jid,gen){
+  var safeJob=(jid||'unknown').replace(/-/g,'').substring(0,8);
+  var safeTime=(gen||'unknown').replace(/-/g,'').replace(/:/g,'').replace(/\./g,'').substring(0,15);
+  return safeTime+'_'+safeJob;
 }
 
-function detailLevelLabel(level){
-  switch(level){
-    case 'small': return 'Small';
-    case 'moderate': return 'Moderate';
-    case 'larger': return 'Larger';
-    case 'not_available': return 'Reference statistics unavailable';
-    default: return 'Reference statistics unavailable';
-  }
+/* ---------- Level labels ---------- */
+
+function levelLabel(level){
+  if(level==='small')return'Small Difference';
+  if(level==='moderate')return'Moderate Difference';
+  if(level==='larger')return'Larger Difference';
+  return'Calibration pending';
 }
+
+/* ---------- Rendering helpers ---------- */
 
 function escapeHtml(str){
-  if(!str)return '';
+  if(!str)return'';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function escapeAttr(str){return escapeHtml(str)}
+
+function renderFieldTable(cls,rows){
+  var html='<div class="field-table '+cls+'">';
+  for(var i=0;i<rows.length;i++){
+    html+='<div class="field-row"><div class="field-label">'+escapeHtml(rows[i][0])+'</div><div class="field-value mono">'+escapeHtml(String(rows[i][1]!=null?rows[i][1]:'\u2014'))+'</div></div>';
+  }
+  html+='</div>';
+  return html;
+}
+
+function renderLevelDots(level){
+  var count=level==='small'?1:level==='moderate'?2:level==='larger'?3:0;
+  var html='<div class="level-dots" aria-label="'+escapeAttr(levelLabel(level))+'">';
+  for(var i=0;i<3;i++){html+='<span class="level-dot'+(i<count?' is-filled':'')+'"></span>';}
+  html+='</div>';
+  return html;
+}
+
+function renderExternalSignalCard(signal){
+  var level=signal.difference_level||'not_available';
+  return'<article class="signal-card signal-level-'+escapeAttr(level)+'"><h3>'+escapeHtml(signal.label||'\u2014')+'</h3>'+renderLevelDots(level)+'<p>'+escapeHtml(levelLabel(level))+'</p></article>';
+}
+
+/* ==========================================================
+   EXTERNAL REPORT RENDERER
+   ========================================================== */
+
+function renderExternalReport(report){
+  if(!report||report.error){return renderFallback('Report data is not available for this job.');}
+  var prediction=report.prediction_summary||{};
+  var model=report.model_metadata||{};
+  var signals=((report.symmetry_signals||{}).signals||[]);
+  var score=prediction.p_mri_needed;
+  var threshold=model.threshold_value;
+  var decisionCode=prediction.decision_code;
+  var decisionName=prediction.decision_display_name||'Continue MRI evaluation';
+
+  var decisionCard='';
+  if(decisionCode==='CONTINUE_MRI'||decisionCode==='MRI_REVIEW_DEFER'){
+    decisionCard='<div class="decision-meaning-card'+(decisionCode==='CONTINUE_MRI'?' is-current':'')+'"><h3>'+(decisionCode==='CONTINUE_MRI'?'CONTINUE MRI \u00B7 THIS RESULT':'MRI REVIEW DEFER')+'</h3><p>'+explanationText(decisionCode)+'</p></div>';
+  }
+
+  var html='';
+  html+='<article class="report-document external-report-document">';
+
+  // Header
+  html+='<header class="report-header"><div><div class="report-brand">Bremen</div><h1>MRI-Continuation Decision-Support Report</h1><p class="report-subtitle">For the referring clinician / breast-imaging radiologist</p></div><dl class="report-meta-block"><div><dt>Job ID</dt><dd>'+escapeHtml(report.job_id||'\u2014')+'</dd></div><div><dt>Request ID</dt><dd>'+escapeHtml(report.request_id||'\u2014')+'</dd></div><div><dt>Generated</dt><dd>'+escapeHtml(formatDate(report.generated_at))+'</dd></div><div><dt>Patient reference</dt><dd>'+escapeHtml(report.patient_reference||'\u2014')+'</dd></div></dl></header>';
+
+  html+='<div class="report-divider"></div>';
+
+  // Recommendation hero
+  html+='<section class="recommendation-hero" role="alert"><div class="recommendation-left"><div class="hero-kicker">RECOMMENDATION</div><div class="hero-title">'+escapeHtml(decisionName)+'</div></div><div class="recommendation-right"><p>Model score (p_mri_needed) <strong>'+escapeHtml(formatScore(score))+'</strong> \u00B7 threshold '+escapeHtml(formatScore(threshold))+'</p><p>QC status <strong>'+escapeHtml(prediction.qc_status||'\u2014')+'</strong></p></div></section>';
+
+  // Decision policy
+  html+='<p class="decision-policy-text">Decision policy '+escapeHtml(prediction.decision_policy_id||'\u2014')+' '+escapeHtml(prediction.decision_policy_version||'')+' \u00B7 score \u2265 threshold \u2192 MRI continuation flagged for clinician review</p>';
+
+  // Tech demo notice
+  html+='<section class="technical-demo-notice"><strong>Technical demo only. Not a diagnosis. Not clinically validated.</strong> Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment. This output is decision support only and requires qualified clinical review.</section>';
+
+  // Structural comparison
+  html+='<section class="structural-comparison"><h2>Left/right structural comparison</h2><p>Bremen compares structural symmetry between both breasts rather than scoring one pre-identified side. Each panel below is a different kind of comparison; more filled dots means a larger left/right difference was detected in that comparison. These are indicators for clinical context, not independent diagnostic findings.</p><div class="signal-card-grid">';
+  for(var i=0;i<signals.length;i++){html+=renderExternalSignalCard(signals[i]);}
+  html+='</div></section>';
+
+  // Decision meaning
+  html+='<section class="decision-meaning"><h2>What this recommendation means</h2><div class="decision-meaning-grid"><div class="decision-meaning-card"><h3>MRI REVIEW DEFER</h3><p>Score below threshold. MRI continuation may be deferred, subject to clinician review.</p></div>'+decisionCard+'</div></section>';
+
+  // Model table
+  html+='<section class="model-table-section"><h2>Model</h2>'+renderFieldTable('',[['Model',model.model_version],['Feature schema',model.feature_schema_version],['Decision policy',(prediction.decision_policy_id||'\u2014')+' '+(prediction.decision_policy_version||'')],['Scientific certification','Pending \u2014 research draft']])+'</section>';
+
+  // Footer
+  html+='<footer class="report-footer"><p>Bremen \u00B7 Eos-Dx \u00B7 This report is decision support only and does not constitute a diagnosis, a validated clinical result, or a substitute for radiologist or clinician judgment. Generated from a technical demonstration environment.</p></footer>';
+
+  html+='</article>';
+
+  document.getElementById('panel-external').innerHTML=html;
+}
+
+function explanationText(code){
+  if(code==='CONTINUE_MRI')return'Score at or above threshold. MRI continuation is flagged for clinician review.';
+  if(code==='MRI_REVIEW_DEFER')return'Score below threshold. MRI continuation may be deferred, subject to clinician review.';
+  return'Model output is not conclusive. A qualified clinician must review the full case.';
+}
+
+function renderFallback(msg){
+  var html='<article class="report-document"><p style="font-size:var(--fs-14);color:var(--text-secondary);text-align:center;padding:var(--sp-48)">'+escapeHtml(msg)+'</p></article>';
+  document.getElementById('panel-external').innerHTML=html;
+}
+
+/* ==========================================================
+   INTERNAL REPORT RENDERER
+   ========================================================== */
+
+function renderInternalReport(report){
+  if(!report||report.error){
+    var panel=document.getElementById('panel-internal');
+    panel.innerHTML='<article class="report-document internal-technical-report"><p style="font-size:var(--fs-14);color:var(--text-secondary);text-align:center;padding:var(--sp-48)">Internal report data is not available for this job.</p></article>';
+    return;
+  }
+  var job=report.job_identity||{};
+  var model=report.model_and_plugin||{};
+  var policy=report.decision_policy||{};
+  var detail=report.symmetry_signal_detail||{};
+  var signals=detail.signals||[];
+  var trace=report.execution_trace_summary||{};
+
+  var html='';
+  html+='<article class="report-document internal-technical-report">';
+
+  // Header
+  html+='<header class="internal-report-header"><div class="report-brand">Bremen</div><h1>Internal Technical Report</h1><p class="report-subtitle">Audit / provenance detail \u2014 not for patient or external distribution</p><div class="report-pill-row"><span class="report-pill certification-pill">Scientific certification: pending</span><span class="report-pill demo-pill">Technical demo only</span></div></header>';
+  html+='<div class="report-divider"></div>';
+
+  // Job identity
+  html+='<section><h2>Request &amp; job identity</h2>'+renderFieldTable('identity-table',[['Job ID',job.job_id],['Request ID',job.request_id],['Created',job.created_at],['Completed',job.completed_at],['Status',job.status]])+'</section>';
+
+  // Model & plugin
+  html+='<section><h2>Model &amp; runtime plugin</h2>'+renderFieldTable('model-plugin-table',[['Model version',model.model_version],['Model checksum (prefix)',model.model_checksum_prefix],['Feature schema version',model.feature_schema_version],['Plugin ID',model.plugin_id],['Plugin version',model.plugin_version],['Report schema version',model.report_schema_version]])+'</section>';
+
+  // Boundary note
+  html+='<section class="boundary-note">Checksum shown as prefix only. Bremen\'s demo routes are unauthenticated and public; this report never renders the full 64-character checksum, raw target/control references, feature values, or patient/session identifiers, regardless of audience \u2014 there is no separate authenticated surface to gate a fuller view behind.</section>';
+
+  // Decision policy
+  html+='<section><h2>Decision policy</h2>'+renderFieldTable('decision-policy-table',[['Decision code',policy.decision_code],['Decision policy ID',policy.decision_policy_id],['Decision policy version',policy.decision_policy_version],['Threshold value',policy.threshold_value],['QC status',policy.qc_status],['QC flags',formatFlags(policy.qc_flags)]])+'</section>';
+
+  // Symmetry signals
+  html+='<section><h2>Symmetry signal breakdown</h2><p class="section-note">Qualitative buckets derived from the 15-feature contract. Raw magnitudes intentionally omitted \u2014 see boundary note above.</p><table class="signal-breakdown-table"><thead><tr><th>SIGNAL</th><th>FEATURE FAMILY</th><th>DIFFERENCE</th></tr></thead><tbody>';
+  for(var j=0;j<signals.length;j++){
+    var sig=signals[j];
+    var level=sig.difference_level||'not_available';
+    var label=level==='not_available'?'Reference statistics unavailable':levelLabel(level);
+    html+='<tr><td>'+escapeHtml(sig.label||'\u2014')+'</td><td>'+escapeHtml((sig.feature_family||[]).join(', ')||'\u2014')+'</td><td>'+escapeHtml(label)+'</td></tr>';
+  }
+  html+='</tbody></table></section>';
+
+  // Execution trace
+  var traceKeys=Object.keys(trace);
+  if(traceKeys.length>0){
+    html+='<section class="execution-trace-summary"><h2>Execution trace (stage summary)</h2>';
+    var traceEntries=[];
+    for(var k=0;k<traceKeys.length;k++){
+      var stageName=traceKeys[k];
+      traceEntries.push([stageName,String(trace[stageName])+'ms']);
+    }
+    html+=renderFieldTable('',traceEntries);
+    html+='</section>';
+  }
+
+  // Footer
+  html+='<footer class="report-footer"><p>Bremen \u00B7 Eos-Dx \u00B7 Internal technical report. Not a diagnosis. Not clinically validated. Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment. Distribution limited to internal engineering, scientific, and product review.</p></footer>';
+
+  html+='</article>';
+  document.getElementById('panel-internal').innerHTML=html;
 }
 
 /* ---------- Tab switching ---------- */
@@ -629,17 +1050,6 @@ def build_report_page(
 </head>
 <body>
 <div class="report-page">
-  <div class="report-header">
-    <div>
-      <div class="report-brand">Bremen</div>
-      <div class="report-subtitle">MRI-Continuation Decision-Support Report</div>
-      <div class="report-subtitle" style="color:var(--text-secondary)">For referring clinician / breast-imaging radiologist</div>
-    </div>
-    <div class="report-nav">
-      <a href="/demo/control-room">Back to Control Room</a>
-    </div>
-  </div>
-
   <div class="report-tabs" role="tablist" aria-label="Report tabs">
     <button class="tab-btn" role="tab" id="tab-external-btn"
             aria-selected="true" aria-controls="panel-external"
@@ -671,10 +1081,6 @@ def build_report_page(
         <div class="report-loading-text">Loading report...</div>
       </div>
     </div>
-  </div>
-
-  <div class="report-footer">
-    <p>Bremen — MRI triage decision support. This report is produced by a technical product demo. It is not a clinical result. It is not clinically validated. Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment. The final decision must be made by a qualified clinician.</p>
   </div>
 </div>
 {sample_json}

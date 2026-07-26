@@ -1,0 +1,42 @@
+status: valid
+head: 1d1a92eb1c9b47d8fb67a9e01e3ca306844de4e2
+branch: 0093b-report-contract-layout-parity
+blockers: []
+warnings:
+  - "Pre-existing false positive: test_bremen_control_room.py::test_report_no_bucket_name matches English word 'buckets' in boundary note text ('qualitative buckets derived from the 15-feature contract'), not a bucket name or S3 reference. Documented in implementation-report.md."
+  - "All report_ui.py hex colors are the exact 13 approved BREMEN_DESIGN_SPEC_v1.md tokens. No new colors."
+changed_files:
+  - src/bremen/report_ui.py
+  - src/bremen/api/server.py
+  - src/bremen/api/job_api_handler.py
+  - tests/test_bremen_report_ui.py
+  - .project-memory/pr/0093b-report-contract-layout-parity/implementation-report.md
+working_tree_state: "4 modified tracked files + 1 untracked project-memory directory. No staged files. No decision_support.py changes."
+external_json_contract: "build_external_report_json() returns all 15 required top-level keys: output_type, report_schema_version, report_id, generated_at, job_id, request_id, patient_reference, analysis_author, intended_use, limitations, model_metadata, input_summary, prediction_summary, decision_support, symmetry_signals. Values sourced from real job/report data. Test class TestExternalReportJSONContract covers 10 assertions."
+internal_json_contract: "build_internal_report_json() returns all 10 required top-level keys: output_type, report_schema_version, report_id, generated_at, job_identity, model_and_plugin, decision_policy, input_summary, execution_trace_summary, symmetry_signal_detail. Checksum prefix limited to 8 hex chars. Test class TestInternalReportJSONContract covers 10 assertions."
+endpoints: "GET /demo/api/reports/{job_id}/external -> handle_external_report() in job_api_handler.py. GET /demo/api/reports/{job_id}/internal -> handle_internal_report() in job_api_handler.py. Both routes added in server.py _handle_demo_reports_route(). GET /demo/report/{job_id} unchanged for HTML page."
+external_visual_parity: "report-document class with report-header, report-meta-block, recommendation-hero (dark accent background with score/threshold/QC), technical-demo-notice, structural-comparison with signal-card-grid (level dots for small/moderate/larger/not_available), decision-meaning with decision-meaning-card grid, model-table-section with field-table, report-footer with safety disclaimer. HTML structure tests in TestReportHTMLStructure (14 assertions)."
+internal_visual_parity: "internal-technical-report class, internal-report-header with report-brand + h1 + report-pill-row (certification-pill, demo-pill), boundary-note, signal-breakdown-table with SIGNAL/FEATURE FAMILY/DIFFERENCE columns, execution-trace-summary, report-footer. HTML structure tests confirm all classes present."
+not_available_rendering: "External: levelLabel returns 'Calibration pending' for not_available. Internal: 'Reference statistics unavailable' for not_available. Forbidden phrase 'Asymmetry assessment is not available' is absent from rendered output (verified by TestForbiddenContentAbsence). No fabrication of small/moderate/larger for unavailable data."
+print_pdf: "Browser-native window.print() + @media print CSS only. print-color-adjust:exact on recommendation-hero, technical-demo-notice, boundary-note, signal-card, level-dot.is-filled, decision-meaning-card.is-current, trace-stage.completed, trace-stage.failed. page-break-inside:avoid on signal-card and signal-breakdown-table. No server-side PDF dependencies. No WeasyPrint/Chromium/Playwright/Puppeteer/Pango/Cairo."
+tabs: "Tab structure preserved. External/Internal tabs share single report-page shell. Print/Save PDF button per tab. @media print hides tabs, buttons, navigation. Tab switching via switchTab(). Keyboard navigation via ArrowRight/ArrowLeft. All tab-related tests pass."
+safety: "No raw feature values exposed. No percentile cutoffs exposed. Checksum prefix only (max 8 hex chars via _checksum_prefix()). No S3 paths, manifest keys, ARNs, H5 paths, PHI, model internals, coefficients, raw exceptions. Clinical wording: decision-support only, not diagnosis. No sample values in live reports. Safety language preserved in both External and Internal footers."
+tests:
+  report_ui: "116/116 passed in tests/test_bremen_report_ui.py"
+  api_server: "104/104 passed in tests/test_bremen_api_server.py"
+  full_suite: "2169 passed, 1 failed (pre-existing false positive), 11 skipped"
+  new_test_classes: "TestExternalReportJSONContract (10), TestInternalReportJSONContract (10), TestReportHTMLStructure (14), TestForbiddenContentAbsence (5)"
+  fixed_tests: "4 stale tests updated for new class names (signal-detail-table -> signal-breakdown-table, etc.)"
+validation:
+  compileall: "PASS"
+  report_ui_tests: "116/116 passed"
+  api_server_tests: "104/104 passed"
+  full_suite: "2169 passed, 1 failed (pre-existing), 11 skipped"
+  git_diff_check: "clean"
+  nullms: "no nullms in source (only in test asserting absence)"
+  forbidden_phrase: "no 'Asymmetry assessment is not available' in source (only in test asserting absence)"
+  pdf_deps: "no server-side PDF dependencies in source or dependencies"
+  design_tokens: "all 13 hex colors match BREMEN_DESIGN_SPEC_v1.md"
+scope_control: "Only allowed files changed: report_ui.py (normalized builders + CSS + JS), server.py (2 new route lines), job_api_handler.py (2 new handlers), test file (42 new/updated tests), implementation-report.md. No decision_support.py changes. No backend science changes. No new dependencies."
+implementation_report: "Accurate. File list matches actual diff. Validation results match. Test count (116) matches. External/Internal JSON contract shapes documented correctly. All 4 fixes (report contract, visual parity, not_available rendering, tab structure finding) documented with evidence."
+commit_readiness: true

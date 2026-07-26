@@ -326,6 +326,8 @@ def _make_handler(
                 _handle_demo_jobs_list(self)
             elif route_path.startswith("/demo/api/jobs/"):
                 _handle_demo_jobs_route(self)
+            elif route_path.startswith("/demo/api/reports/"):
+                _handle_demo_reports_route(self)
             else:
                 self._log_and_send_error(
                     f"Not found: {self.path}", status=404,
@@ -1669,5 +1671,24 @@ def _handle_demo_jobs_route(handler: BaseHTTPRequestHandler) -> None:
     m = _re.match(r"^/demo/api/jobs/([^/]+)$", route_path)
     if m:
         handle_job_get(handler, m.group(1))
+        return
+    handler._log_and_send_error(f"Not found: {handler.path}", status=404)
+
+
+def _handle_demo_reports_route(handler: BaseHTTPRequestHandler) -> None:
+    """Handle GET /demo/api/reports/{job_id}/external and /internal."""
+    import re as _re  # noqa: PLC0415
+    from urllib.parse import urlsplit as _urlsplit  # noqa: PLC0415
+    from .job_api_handler import (  # noqa: PLC0415
+        handle_external_report, handle_internal_report,
+    )
+    route_path = _urlsplit(handler.path).path
+    m = _re.match(r"^/demo/api/reports/([^/]+)/external$", route_path)
+    if m:
+        handle_external_report(handler, m.group(1))
+        return
+    m = _re.match(r"^/demo/api/reports/([^/]+)/internal$", route_path)
+    if m:
+        handle_internal_report(handler, m.group(1))
         return
     handler._log_and_send_error(f"Not found: {handler.path}", status=404)

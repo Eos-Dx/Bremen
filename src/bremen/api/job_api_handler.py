@@ -999,6 +999,60 @@ def handle_job_report(
     _send_json(handler, 200, result)
 
 
+def handle_external_report(handler: BaseHTTPRequestHandler, job_id: str) -> None:
+    """Handle GET /demo/api/reports/{job_id}/external.
+
+    Returns the normalized External report JSON matching
+    bremen_external_report.yaml contract shape.
+    """
+    from ..report_ui import build_external_report_json  # noqa: PLC0415
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+    if job is None:
+        _send_json(handler, 200, {"error": "Job not found", "job_id": job_id})
+        return
+    provider = _get_report_provider("bremen")
+    wf_run = job.workflow_runs.get("bremen")
+    if provider is None or wf_run is None:
+        _send_json(handler, 200, {"error": "Report not available", "job_id": job_id})
+        return
+    report = provider.generate_report(
+        job_id=job_id,
+        workflow_result=wf_run.result_summary,
+        model_identity=wf_run.model_identity,
+        readiness_snapshot=wf_run.readiness_snapshot,
+    )
+    external = build_external_report_json(report.to_dict())
+    _send_json(handler, 200, external)
+
+
+def handle_internal_report(handler: BaseHTTPRequestHandler, job_id: str) -> None:
+    """Handle GET /demo/api/reports/{job_id}/internal.
+
+    Returns the normalized Internal report JSON matching
+    bremen_internal_report.yaml contract shape.
+    """
+    from ..report_ui import build_internal_report_json  # noqa: PLC0415
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+    if job is None:
+        _send_json(handler, 200, {"error": "Job not found", "job_id": job_id})
+        return
+    provider = _get_report_provider("bremen")
+    wf_run = job.workflow_runs.get("bremen")
+    if provider is None or wf_run is None:
+        _send_json(handler, 200, {"error": "Report not available", "job_id": job_id})
+        return
+    report = provider.generate_report(
+        job_id=job_id,
+        workflow_result=wf_run.result_summary,
+        model_identity=wf_run.model_identity,
+        readiness_snapshot=wf_run.readiness_snapshot,
+    )
+    internal = build_internal_report_json(report.to_dict())
+    _send_json(handler, 200, internal)
+
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
