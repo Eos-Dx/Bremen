@@ -1,0 +1,129 @@
+# Precommit Review — PR0098: Persistent H5 upload endpoint and Patients List rename
+# Reviewer: precommit-review-agent
+# Reviewed: 2026-07-27T00:00:00Z
+
+status: valid
+head: ca9f42c5aa4b83b22d3056498d74ed5d477b10d7
+branch: 0098-persistent-h5-upload-and-catalog-rename
+blockers: []
+warnings:
+  - "startAnalysis() still has dead else-if branch for selectedSource.type==='upload' (line ~450). Since uploads now always set type='container', this branch is unreachable. Acceptable — harmless future-proofing for potential re-introduction of upload_id-based path."
+changed_files:
+  - src/bremen/control_room_ui.py
+  - tests/test_bremen_control_room.py
+  - tests/test_bremen_launch_flow.py
+  - tests/test_bremen_launch_flow.js
+  - tests/test_bremen_data_selection.py
+working_tree_state:
+  staged: []
+  unstaged_modified:
+    - src/bremen/control_room_ui.py
+    - tests/test_bremen_control_room.py
+    - tests/test_bremen_launch_flow.py
+    - tests/test_bremen_launch_flow.js
+    - tests/test_bremen_data_selection.py
+  untracked:
+    - .project-memory/pr/0098-persistent-h5-upload-and-catalog-rename/
+  dirty_tree: false
+upload_endpoint_switch:
+  handleFileSelect_fetch_url: "/demo/api/h5/containers"
+  old_stage_endpoint_removed: true
+  no_backend_routes_changed: true
+  no_api_stage_in_handleFileSelect: true
+success_path:
+  checks_data_status_uploaded: true
+  no_longer_checks_staged: true
+  selectedSource_type: "container"
+  selectedSource_id_field: "data.id"
+  selectedSource_filename_field: "data.filename"
+  selectedSource_size_field: "data.size_bytes"
+  status_text: "Uploaded: <filename>"
+  state_set: "ready_to_submit"
+catalog_refresh:
+  loadContainerCatalog_called_after_upload: true
+failure_path:
+  selectedSource_cleared_on_failure: true
+  state_set_to_idle: true
+  handles_storage_not_configured: true
+  handles_upload_disabled: true
+  handles_generic_error_with_message: true
+  handles_network_error: true
+  SOURCE_ERROR_dead_code_removed: true
+  MISSING_SOURCE_dead_code_removed: true
+rename_locations:
+  heading_text: "Patients List"
+  container_catalog_removed: true
+  refresh_button_text: "Refresh Patients"
+  refresh_catalog_removed: true
+  no_unnecessary_html_class_changes: true
+  only_heading_and_button_text_changed: true
+startanalysis_compatibility:
+  container_branch_sends_source_id: true
+  upload_now_uses_container_branch: true
+  old_upload_id_branch_dead_but_harmless: true
+tests:
+  test_bremen_control_room: "76 passed (8 new PR0098 tests)"
+  test_coverage:
+    handleFileSelect_targets_persistent_endpoint: true
+    success_creates_container_type_source: true
+    success_calls_load_container_catalog: true
+    failure_clears_selected_source: true
+    patients_list_heading: true
+    container_catalog_heading_removed: true
+    refresh_patients_button: true
+    dead_code_removed: true
+validation:
+  compileall: "PASS"
+  git_diff_check: "CLEAN"
+  focused_control_room_tests: "PASS (76 passed)"
+  full_suite: "2276 passed, 11 skipped"
+  upload_endpoint_grep:
+    "/demo/api/h5/containers": true
+    "/demo/api/stage_in_handleFileSelect": false
+  heading_grep:
+    "Patients List": true
+    "Container Catalog": false
+    "Refresh Patients": true
+    "Refresh Catalog": false
+scope_control:
+  backend_api_changed: false
+  backend_server_changed: false
+  docs_changed: false
+  requirements_changed: false
+  pyproject_changed: false
+  dockerfile_changed: false
+  infra_changed: false
+  github_actions_changed: false
+  new_routes_added: false
+  new_dependencies: false
+safety:
+  no_raw_s3_keys_in_ui: true
+  no_tmp_paths_in_ui: true
+  no_tracebacks_in_ui: true
+  no_raw_exceptions_in_ui: true
+  no_phi_in_ui: true
+  no_h5_internals_in_ui: true
+  tests_assert_safety_properties: true
+implementation_report:
+  exists: true
+  location: ".project-memory/pr/0098-persistent-h5-upload-and-catalog-rename/implementation-report.md"
+  matches_diff: true
+  details:
+    - "Files Changed table matches actual git diff (5 files)"
+    - "Upload endpoint switch correctly described"
+    - "Success/failure path details match source"
+    - "Heading rename locations match (line numbers align)"
+    - "Test additions match (8 new tests)"
+    - "Validation results match observed output (2276p/11s)"
+    - "No warnings about backend changes"
+commit_readiness:
+  compileall_pass: true
+  focused_tests_pass: true
+  full_suite_pass: true
+  git_diff_check_clean: true
+  no_backend_changes: true
+  no_new_dependencies: true
+  no_scope_creep: true
+  implementation_report_matches: true
+  public_safety_maintained: true
+  ready: true

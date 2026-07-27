@@ -322,27 +322,36 @@ function handleFileSelect(){
   setState('validating');
   var headers=new Headers();
   headers.append('X-H5-Filename',file.name);
-  fetch(baseUrl+'/demo/api/stage',{method:'POST',body:file,headers:headers})
+  fetch(baseUrl+'/demo/api/h5/containers',{method:'POST',body:file,headers:headers})
     .then(function(r){return r.json()})
     .then(function(data){
-      if(data.status==='staged'){
+      if(data.status==='uploaded'){
         var items=document.querySelectorAll('.cr-container-item');
         items.forEach(function(i){i.classList.remove('selected');i.setAttribute('aria-current','false')});
-        selectedSource={type:'upload',id:data.upload_id,filename:data.filename,size:data.size_bytes,stale:false};
+        selectedSource={type:'container',id:data.id,filename:data.filename,size:data.size_bytes,stale:false};
         var ss=document.getElementById('cr-source-status');
-        if(ss){ss.textContent='Upload ready: '+data.filename;ss.className='cr-source-status'}
+        if(ss){ss.textContent='Uploaded: '+data.filename;ss.className='cr-source-status'}
         setState('ready_to_submit');
-      }else{
+        loadContainerCatalog();
+      }else if(data.status==='storage_not_configured'){
+        selectedSource=null;
         var ss=document.getElementById('cr-source-status');
-        if(ss){ss.textContent='Upload failed: '+data.error;ss.className='cr-source-status stale'}
+        if(ss){ss.textContent='H5 storage not configured.';ss.className='cr-source-status stale'}
         setState('idle');
-        if(data.error_code==='SOURCE_ERROR'||data.error_code==='MISSING_SOURCE'){
-        }else{
-          selectedSource=null;
-        }
+      }else if(data.status==='upload_disabled'){
+        selectedSource=null;
+        var ss=document.getElementById('cr-source-status');
+        if(ss){ss.textContent='Uploads are currently disabled.';ss.className='cr-source-status stale'}
+        setState('idle');
+      }else{
+        selectedSource=null;
+        var ss=document.getElementById('cr-source-status');
+        if(ss){ss.textContent='Upload failed'+(data.error?': '+data.error:'');ss.className='cr-source-status stale'}
+        setState('idle');
       }
       updateReadiness();
     }).catch(function(){
+      selectedSource=null;
       var ss=document.getElementById('cr-source-status');
       if(ss){ss.textContent='Upload failed';ss.className='cr-source-status stale'}
       setState('idle');
@@ -810,13 +819,13 @@ def build_control_room_page(
       </div>
 
       <div class="cr-card">
-        <div class="cr-card-title">Container Catalog</div>
+        <div class="cr-card-title">Patients List</div>
         <div id="cr-catalog-status" class="cr-catalog-status">Loading...</div>
         <ul class="cr-container-list" id="cr-container-list" role="list" aria-label="Available containers">
           <li class="cr-empty">Loading containers...</li>
         </ul>
         <div style="margin-top:var(--sp-8)">
-          <button class="btn-small" onclick="loadContainerCatalog()" style="width:100%">Refresh Catalog</button>
+          <button class="btn-small" onclick="loadContainerCatalog()" style="width:100%">Refresh Patients</button>
         </div>
       </div>
 

@@ -930,7 +930,9 @@ class TestControlRoomLaunchJobPayload:
     def test_selection_kept_after_typed_error(self):
         """Selections kept after recoverable typed errors."""
         html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
-        assert "error_code" in html or "SOURCE_ERROR" in html
+        # Old SOURCE_ERROR/MISSING_SOURCE dead code was removed in PR0098.
+        # The function now always clears selectedSource on failure.
+        assert "selectedSource=null" in html or "selectedSource = null" in html
 
 
 class TestControlRoomLaunchUploadUX:
