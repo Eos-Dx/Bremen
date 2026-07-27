@@ -176,11 +176,13 @@ function renderContainerList() {
   } else {
     html = '<table><tr><th>Filename</th><th>Size</th><th></th></tr>';
     h5Containers.forEach(function(c) {
-      var selected = (c.id === selectedContainerId) ? ' style="background:#f0f7ff;"' : '';
-      html += '<tr' + selected + '><td>' + esc(c.filename) + '</td>';
+      var sid = c.source_id || c.id || '';
+      var sname = c.display_name || c.filename || 'unknown';
+      var selected = (sid === selectedContainerId) ? ' style="background:#f0f7ff;"' : '';
+      html += '<tr' + selected + '><td>' + esc(sname) + '</td>';
       html += '<td>' + (c.size_bytes || '?') + ' B</td>';
       html += '<td><button class="container-list-btn" onclick="selectContainer(\'' +
-        esc(c.id) + '\', \'' + esc(c.filename) + '\')">Select</button></td></tr>';
+        esc(sid) + '\', \'' + esc(sname) + '\')">Select</button></td></tr>';
     });
     html += '</table>';
   }
@@ -262,7 +264,7 @@ function analyzeH5() {
   fetch('/demo/api/h5/analyze', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ container_id: selectedContainerId })
+    body: JSON.stringify({ source_id: selectedContainerId })
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {

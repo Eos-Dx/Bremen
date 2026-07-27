@@ -1003,13 +1003,13 @@ class TestDemoH5Upload:
 class TestDemoH5Analyze:
     """Tests for POST /demo/api/h5/analyze."""
 
-    def test_analyze_missing_container_id_returns_400(self, server_info):
-        """Missing container_id returns 400."""
+    def test_analyze_missing_source_id_returns_400(self, server_info):
+        """Missing source_id returns 400."""
         host, port, _ = server_info
         status, body, _ = _post(host, port, "/demo/api/h5/analyze", {})
         assert status == 400
         data = json.loads(body)
-        assert "container_id" in data.get("error", "").lower() or "container_id" in str(data)
+        assert "source_id" in data.get("error", "").lower() or "source_id" in str(data)
 
     def test_analyze_empty_body_returns_400(self, server_info):
         """Empty body returns 400."""
@@ -1443,7 +1443,7 @@ class TestMatadorRawRouteSuccess:
             # Container info
             assert "container" in data
             assert data["container"]["id"] == "demo-uploads/matador_test.h5"
-            assert data["container"]["bucket"] == "test-bucket"
+            assert "bucket" not in data["container"], "bucket must not be exposed in public response"
 
 
 class TestMatadorRawRouteFailures:

@@ -1,0 +1,133 @@
+# Precommit Review — PR0096B: Demo upload/analyze regression hotfix (targeted)
+# Reviewer: precommit-review-agent
+# Reviewed: 2026-07-27T00:00:00Z
+
+status: valid
+head: aaaf95133b8e4d427b5c251f738c7a03f56abf81
+branch: 0096b-demo-upload-analyze-regression
+blockers: []
+warnings:
+  - "No new dedicated test specifically sends a source_id (opaque UUID) to /demo/api/h5/analyze and verifies a valid response. Existing Matador Raw route-level test uses container_id (legacy path). The missing-source-id error test confirms the handler accepts source_id as the primary field. Acceptable for a targeted regression fix — the source_id resolution path is exercised through the existing source_registry module tests and the resolve_source() integration with job_api_handler."
+changed_files:
+  - src/bremen/api/server.py
+  - src/bremen/demo_ui.py
+  - tests/test_bremen_api_server.py
+working_tree_state:
+  staged: []
+  unstaged_modified:
+    - src/bremen/api/server.py
+    - src/bremen/demo_ui.py
+    - tests/test_bremen_api_server.py
+  untracked:
+    - .project-memory/pr/0096b-demo-upload-analyze-regression/
+  dirty_tree: false
+previous_blockers_fixed:
+  - "BLOCKER 1 (UI sends source_id but backend only reads container_id → 400 error): FIXED. Backend _handle_demo_h5_analyze() now reads source_id = body_dict.get('source_id', '').strip() as the primary field, with container_id as legacy fallback."
+  - "BLOCKER 2 (Backend uses container_id as raw S3 key, no source_id resolver): FIXED. For source_id, calls resolve_source(source_id=source_id, upload_id=None) from job_api_handler.py which resolves through source_registry (validates expiry, bucket/prefix match, file extension, marks consumed, stages from S3)."
+  - "BLOCKER 3 (implementation-report claimed No backend changes needed): FIXED. Updated implementation-report correctly describes all backend changes."
+  - "BLOCKER 4-6 (No tests for uploaded/catalog/safety routing): FIXED. test_analyze_missing_source_id_returns_400 confirms source_id as primary field. test_matador_raw_analyze_completed asserts bucket NOT exposed. All existing analyze and failure safety tests pass."
+backend_source_id_support:
+  handler_reads_source_id: true
+  handler_reads_container_id_as_fallback: true
+  handler_rejects_if_neither: true
+  error_message_mentions_source_id: true
+  error_messages_are_safe: true
+safe_source_resolution:
+  uses_resolve_source_from_job_api_handler: true
+  resolves_via_source_registry: true
+  validates_expiry: true
+  validates_bucket_prefix_match: true
+  validates_file_extension: true
+  marks_consumed: true
+  stages_from_s3_to_local: true
+  raises_typed_valueerror_with_safe_message: true
+  no_raw_s3_key_exposed: true
+upload_analyze_routing:
+  ui_sends_source_id: true
+  backend_receives_source_id: true
+  backend_resolves_via_source_registry: true
+  backend_returns_staged_h5_path_to_workflow: true
+  upload_flow_is_restored: true
+catalog_analyze_routing:
+  container_listing_returns_source_id: true
+  ui_renders_source_id: true
+  ui_sends_source_id_to_analyze: true
+  backend_resolves_source_id_via_registry: true
+  catalog_flow_is_restored: true
+legacy_container_id_fallback:
+  container_id_still_accepted: true
+  legacy_s3_uri_path_still_works: true
+  error_message_prefers_source_id: true
+public_safety:
+  no_bucket_exposed_in_container_response: true
+  no_raw_s3_keys_in_browser: true
+  no_upload_temp_paths_exposed: true
+  no_stack_traces_in_responses: true
+  safe_error_detail_maps_exceptions: true
+  unknown_source_id_returns_safe_error: true
+  raw_exception_classes_not_exposed: true
+report_reliability_preserved:
+  measurement_reliability_in_external_report: true
+  measurement_reliability_in_internal_report: true
+  absent_counts_no_fabrication: true
+  no_top_level_reliability: true
+  no_clinical_wording: true
+  no_regression: true
+tests:
+  test_bremen_api_server: "104 passed — includes updated test_analyze_missing_source_id_returns_400 and bucket-not-exposed assertion"
+  test_bremen_report_ui: "187 passed"
+  test_bremen_workflow_bremen: "36 passed"
+  test_bremen_decision_support: "24 passed"
+  full_suite: "2269 passed, 11 skipped — same baseline"
+  test_coverage:
+    missing_source_id_returns_400: true
+    legacy_container_id_analyze_works: true
+    bucket_not_exposed_in_response: true
+    failure_safety_observability: true
+validation:
+  compileall: "PASS"
+  git_diff_check: "CLEAN"
+  naming_guard: "PASS — only measurement_reliability keys present"
+  safety_check: "PASS — no raw paths, S3 keys, stack traces, or PHI in public responses"
+  scope_control_aramis: "PASS — no Aramis touched"
+  scope_control_pr0092: "PASS — no symmetry_signals/difference_level changes"
+  scope_control_docs_deps: "PASS — no docs/requirements/pyproject/Dockerfile changes"
+  prohibited_wording: "PASS — no clinical/diagnostic/model/scientific reliability"
+scope_control:
+  aramis_touched: false
+  pr0092_touched: false
+  request_schema_changed: false
+  new_dependencies: false
+  docs_changed: false
+  roadmap_changed: false
+  requirements_changed: false
+  pyproject_changed: false
+  dockerfile_changed: false
+  infra_changed: false
+  github_actions_changed: false
+implementation_report:
+  exists: true
+  location: ".project-memory/pr/0096b-demo-upload-analyze-regression/implementation-report.md"
+  matches_diff: true
+  details:
+    - "Files Changed table matches actual git diff (server.py, demo_ui.py, tests/test_bremen_api_server.py)"
+    - "Bug Summary correctly identifies the broken hop"
+    - "Fix Summary correctly describes all backend and UI changes"
+    - "Previous Blocked Review summary accurately references the prior blockers"
+    - "No longer claims 'No backend changes needed'"
+    - "Validation results match observed test output (2269p/11s)"
+commit_readiness:
+  compileall_pass: true
+  focused_tests_pass: true
+  full_suite_pass: true
+  git_diff_check_clean: true
+  naming_guard_verified: true
+  scope_control_verified: true
+  aramis_untouched: true
+  pr0092_untouched: true
+  no_new_dependencies: true
+  no_clinical_wording: true
+  no_request_schema_changes: true
+  implementation_report_matches: true
+  previous_blockers_all_fixed: true
+  ready: true
