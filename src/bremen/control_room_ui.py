@@ -108,6 +108,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .cr-stage-icon.failed{color:var(--status-error)}
 .cr-stage-icon.pending{color:var(--border)}
 .cr-stage-label{flex:1;color:var(--text-primary)}
+.cr-stage-caption{font-size:var(--fs-11);color:var(--text-secondary);margin-top:2px}
 .cr-stage-dur{font-size:var(--fs-11);color:var(--text-secondary);font-family:monospace}
 .cr-decision-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-card);padding:var(--sp-20) var(--sp-24);border-left:3px solid var(--accent);margin-top:var(--sp-8)}
 .cr-decision-headline{font-size:var(--fs-22);font-weight:600;color:var(--text-primary);margin-bottom:var(--sp-4)}
@@ -183,13 +184,17 @@ var selectedModelId=null;
 var selectedModelWorkflowId='bremen';
 var STAGE_MAP={
   'runtime.request.accepted':'stage-input',
-  'runtime.input.preparation.completed':'stage-source',
   'runtime.normalization.completed':'stage-xrd',
   'runtime.workflow.resolved':'stage-workflow',
-  'runtime.artifact.verification.completed':'stage-artifact',
-  'runtime.model.validation.completed':'stage-artifact',
+  'runtime.artifact.verification.completed':'stage-artifact-verified',
+  'runtime.artifact.loaded':'stage-artifact-loaded',
+  'runtime.artifact.adapted':'stage-artifact-adapted',
+  'runtime.model.validation.completed':'stage-model-validated',
+  'runtime.input.preparation.completed':'stage-source',
+  'runtime.features.produced':'stage-features-produced',
   'runtime.features.validation.completed':'stage-features',
   'runtime.inference.completed':'stage-inference',
+  'runtime.output.validation.completed':'stage-output-validated',
   'runtime.decision.completed':'stage-decision',
   'runtime.report.completed':'stage-report',
   'runtime.request.completed':'stage-complete'
@@ -197,9 +202,12 @@ var STAGE_MAP={
 var FAIL_MAP={
   'runtime.normalization.failed':'stage-xrd',
   'runtime.workflow.failed':'stage-workflow',
+  'runtime.artifact.verification.failed':'stage-artifact-verified',
+  'runtime.model.validation.failed':'stage-model-validated',
   'runtime.input.preparation.failed':'stage-source',
-  'runtime.features.failed':'stage-features',
-  'runtime.inference.failed':'stage-inference'
+  'runtime.features.failed':'stage-features-produced',
+  'runtime.inference.failed':'stage-inference',
+  'runtime.output.validation.failed':'stage-output-validated'
 };
 
 function init(){
@@ -604,12 +612,13 @@ function connectSSE(jobId){
     fetchDecision(jobId);
     if(eventSource){eventSource.close();eventSource=null}
     setState('completed');
+    collapseEventPanel('completed');
     loadJobHistory();
   });
   eventSource.onopen=function(){setConnectionState('live');setState('running')};
   eventSource.onerror=function(){
     if(eventSource&&eventSource.readyState===EventSource.CLOSED){
-      setConnectionState('disconnected');setState('failed');
+      setConnectionState('disconnected');setState('failed');collapseEventPanel('failed');
     }else{setConnectionState('reconnecting');setState('reconnecting')}
   };
 }
@@ -634,15 +643,15 @@ function updatePipeline(ev){
   if(isFail||status==='failed'){
     el.className='cr-stage failed';
     var icon=el.querySelector('.cr-stage-icon');
-    if(icon){icon.textContent='\\u2717';icon.className='cr-stage-icon failed'}
+    if(icon){icon.textContent='\u2717';icon.className='cr-stage-icon failed'}
   }else if(status==='completed'){
     el.className='cr-stage completed';
     var icon=el.querySelector('.cr-stage-icon');
-    if(icon){icon.textContent='\\u2713';icon.className='cr-stage-icon completed'}
+    if(icon){icon.textContent='\u2713';icon.className='cr-stage-icon completed'}
   }else if(status==='started'||status==='resolved'){
     el.className='cr-stage active';
     var icon=el.querySelector('.cr-stage-icon');
-    if(icon){icon.textContent='\\u25CF';icon.className='cr-stage-icon active'}
+    if(icon){icon.textContent='\u25CF';icon.className='cr-stage-icon active'}
   }
   var dur=el.querySelector('.cr-stage-dur');
   if(dur&&ev.duration_ms){dur.textContent=ev.duration_ms+' ms'}
@@ -651,6 +660,8 @@ function updatePipeline(ev){
 function addEventRow(ev){
   var panel=document.getElementById('cr-event-list');
   if(!panel)return;
+  var emptyEl=document.getElementById('cr-event-empty');
+  if(emptyEl){emptyEl.style.display='none'}
   var status=ev.status||'';
   var cls='cr-event-row';
   if(status==='completed')cls+=' completed';
@@ -676,7 +687,7 @@ function resetPipeline(){
   stages.forEach(function(s){
     s.className='cr-stage';
     var icon=s.querySelector('.cr-stage-icon');
-    if(icon){icon.textContent='\\u25CF';icon.className='cr-stage-icon pending'}
+    if(icon){icon.textContent='\u25CF';icon.className='cr-stage-icon pending'}
     var dur=s.querySelector('.cr-stage-dur');
     if(dur){dur.textContent=''}
   });
@@ -714,17 +725,24 @@ function fetchDecision(jobId){
       var thresh=rs.threshold_applied!==undefined?rs.threshold_applied:null;
       var card=document.getElementById('cr-decision-card');
       if(!card)return;
-      var html='<div class="cr-decision-headline">'+name+'</div>';
-      html+='<div class="cr-decision-code">'+code+'</div>';
+      var isDefer=(code==='MRI_REVIEW_DEFER');
+      var iconChar=isDefer?'\u23F8':'\u2795';
+      var headline=isDefer?'MRI can wait':'MRI recommended';
+      var explanation=isDefer
+        ?'Both breasts looked similar in this scan. This is not a diagnosis \u2014 a clinician makes the final decision.'
+        :'Differences were detected in this scan. This is not a diagnosis \u2014 a clinician makes the final decision.';
+      var html='<div class="cr-decision-headline"><span style="margin-right:8px">'+iconChar+'</span>'+headline+'</div>';
+      html+='<div style="font-size:var(--fs-14);color:var(--text-secondary);margin-bottom:var(--sp-8)">Ask your clinician to confirm</div>';
+      html+='<div style="font-size:var(--fs-13);color:var(--text-secondary);margin-bottom:var(--sp-12);line-height:1.5">'+explanation+'</div>';
       if(prob!==null&&thresh!==null){
         var pct=Math.min(100,Math.max(0,prob*100));
         var threshPct=Math.min(100,Math.max(0,thresh*100));
-        html+='<div class="cr-decision-score"><div class="cr-score-bar"><div class="cr-score-fill" style="width:'+pct+'%"></div><div class="cr-score-threshold" style="left:'+threshPct+'%"></div></div><span class="cr-score-label">Score: '+prob.toFixed(3)+'</span></div>';
+        html+='<div class="cr-decision-score"><div class="cr-score-bar"><div class="cr-score-fill" style="width:'+pct+'%"></div><div class="cr-score-threshold" style="left:'+threshPct+'%"></div></div></div>';
+        html+='<div style="font-size:var(--fs-13);color:var(--text-secondary);margin-bottom:var(--sp-4)">Score '+prob.toFixed(3)+' &middot; Threshold '+thresh.toFixed(3)+'</div>';
       }
-      html+='<div class="cr-decision-meta">Policy: '+policy+'</div>';
-      html+='<span class="cr-badge pending">Certification: pending</span>';
-      html+='<span class="cr-badge not_configured" style="margin-left:4px">Technical demo only</span>';
-      html+='<br><a class="cr-report-link" href="'+baseUrl+'/demo/report/'+jobId+'" target="_blank" rel="noopener">Open report</a>';
+      html+='<a class="cr-report-link" href="'+baseUrl+'/demo/report/'+jobId+'" target="_blank" rel="noopener">Open report</a>';
+      html+='<hr style="border:none;border-top:1px solid var(--border);margin:var(--sp-12) 0">';
+      html+='<div style="font-size:var(--fs-11);color:var(--text-secondary)">'+code+' \u00B7 '+policy+' <span class="cr-badge pending">Certification: pending</span> <span class="cr-badge not_configured" style="margin-left:4px">Technical demo only</span></div>';
       card.innerHTML=html;
       card.classList.remove('hidden');
     }).catch(function(){});
@@ -750,6 +768,22 @@ function filterEvents(filter){
     else if(filter==='failed'&&r.classList.contains('failed')){r.classList.remove('hidden')}
     else{r.classList.add('hidden')}
   });
+}
+
+function collapseEventPanel(outcome){
+  var panel=document.getElementById('cr-event-list');
+  var actions=document.querySelector('.cr-event-actions');
+  if(!panel)return;
+  var now=new Date();
+  var ts=now.toISOString().substring(11,19);
+  var completedCount=eventCache.filter(function(e){return e.status==='completed'}).length;
+  var totalCount=eventCache.length;
+  if(outcome==='completed'){
+    panel.innerHTML='<div style="padding:var(--sp-8) var(--sp-12);font-size:var(--fs-13);color:var(--status-available)">Analysis complete \u00B7 '+completedCount+' of '+totalCount+' events \u00B7 '+ts+'</div>';
+  }else{
+    panel.innerHTML='<div style="padding:var(--sp-8) var(--sp-12);font-size:var(--fs-13);color:var(--status-error)">Analysis stopped \u00B7 '+ts+'</div>';
+  }
+  if(actions){actions.style.display='none'}
 }
 
 window.loadContainerCatalog=loadContainerCatalog;
@@ -849,12 +883,7 @@ def build_control_room_page(
         <div class="cr-pipeline" role="list" aria-label="Execution stages">
           <div class="cr-stage" id="stage-input">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Input accepted</span>
-            <span class="cr-stage-dur"></span>
-          </div>
-          <div class="cr-stage" id="stage-source">
-            <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Source validated</span>
+            <span class="cr-stage-label">Request accepted</span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-xrd">
@@ -867,9 +896,34 @@ def build_control_room_page(
             <span class="cr-stage-label">Bremen workflow resolved</span>
             <span class="cr-stage-dur"></span>
           </div>
-          <div class="cr-stage" id="stage-artifact">
+          <div class="cr-stage" id="stage-artifact-verified">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Model artifact prepared</span>
+            <span class="cr-stage-label">Model artifact verified</span>
+            <span class="cr-stage-dur"></span>
+          </div>
+          <div class="cr-stage" id="stage-artifact-loaded">
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-label">Model artifact loaded</span>
+            <span class="cr-stage-dur"></span>
+          </div>
+          <div class="cr-stage" id="stage-artifact-adapted">
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-label">Model artifact adapted</span>
+            <span class="cr-stage-dur"></span>
+          </div>
+          <div class="cr-stage" id="stage-model-validated">
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-label">Model validated</span>
+            <span class="cr-stage-dur"></span>
+          </div>
+          <div class="cr-stage" id="stage-source">
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-label">Input prepared</span>
+            <span class="cr-stage-dur"></span>
+          </div>
+          <div class="cr-stage" id="stage-features-produced">
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-label">Features produced</span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-features">
@@ -880,6 +934,11 @@ def build_control_room_page(
           <div class="cr-stage" id="stage-inference">
             <span class="cr-stage-icon pending">&#9679;</span>
             <span class="cr-stage-label">Inference completed</span>
+            <span class="cr-stage-dur"></span>
+          </div>
+          <div class="cr-stage" id="stage-output-validated">
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-label">Output validated</span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-decision">
