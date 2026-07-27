@@ -276,14 +276,15 @@ function loadContainerCatalog(){
         var sizeLabel=size>1048576?(size/1048576).toFixed(1)+' MB':(size>1024?(size/1024).toFixed(1)+' KB':size+' B');
         var modified=c.last_modified?c.last_modified.substring(0,10):'';
         var sid=c.source_id||'';
+        var stableKey=c.stable_source_key||sid;
         var isPrev=prevSelectedId===sid;
         if(isPrev){prevSelectedStillAvailable=true}
-        var isAnalyzed=analyzedSourceKeys[sid]&&analyzedSourceKeys[sid][selectedModelId||''];
+        var isAnalyzed=analyzedSourceKeys[stableKey]&&analyzedSourceKeys[stableKey][selectedModelId||''];
         var patientName=c.patient_display_name||patientNamesBySource[sid]||'';
         var primaryTitle=patientName||name;
         var secondaryMeta=(patientName&&patientName!==name)?(name+' \u00B7 '+sizeLabel+' | '+modified):(sizeLabel+' | '+modified);
         var itemClass='cr-container-item'+(isPrev?' selected':'')+(isAnalyzed?' analyzed':'');
-        html+='<li class="'+itemClass+'" data-source-id="'+sid+'" data-sname="'+name.replace(/\'/g,'')+'" data-ssize="'+size+'" tabindex="0" role="button" aria-current="'+(isPrev?'true':'false')+'"'+(isAnalyzed?' aria-disabled="true" title="Already analyzed with this model"':'')+'>'+
+        html+='<li class="'+itemClass+'" data-source-id="'+sid+'" data-stable-key="'+stableKey+'" data-sname="'+name.replace(/\'/g,'')+'" data-ssize="'+size+'" tabindex="0" role="button" aria-current="'+(isPrev?'true':'false')+'"'+(isAnalyzed?' aria-disabled="true" title="Already analyzed with this model"':'')+'>'+
           '<span class="cr-container-name">'+primaryTitle+'</span>'+
           '<span class="cr-container-meta">'+secondaryMeta+(isAnalyzed?' | Already analyzed':'')+'</span>'+
           '</li>';
@@ -293,17 +294,19 @@ function loadContainerCatalog(){
       items.forEach(function(item){
         item.addEventListener('click',function(){
           var sid=item.getAttribute('data-source-id');
+          var sk=item.getAttribute('data-stable-key')||sid;
           var name=item.getAttribute('data-sname');
           var size=parseInt(item.getAttribute('data-ssize')||'0');
-          selectContainer(item,sid,name,size);
+          selectContainer(item,sid,name,size,sk);
         });
         item.addEventListener('keydown',function(e){
           if(e.key==='Enter'||e.key===' '){
             e.preventDefault();
             var sid=item.getAttribute('data-source-id');
+            var sk=item.getAttribute('data-stable-key')||sid;
             var name=item.getAttribute('data-sname');
             var size=parseInt(item.getAttribute('data-ssize')||'0');
-            selectContainer(item,sid,name,size);
+            selectContainer(item,sid,name,size,sk);
           }
         });
       });
@@ -320,13 +323,13 @@ function loadContainerCatalog(){
     });
 }
 
-function selectContainer(el,sid,filename,size){
+function selectContainer(el,sid,filename,size,stableKey){
   if(el.classList.contains('analyzed'))return;
   var items=document.querySelectorAll('.cr-container-item');
   items.forEach(function(i){i.classList.remove('selected');i.setAttribute('aria-current','false')});
   el.classList.add('selected');
   el.setAttribute('aria-current','true');
-  selectedSource={type:'container',id:sid,filename:filename,size:size,stale:false};
+  selectedSource={type:'container',id:sid,filename:filename,size:size,stale:false,stableKey:stableKey||sid};
   document.getElementById('cr-file-input').value='';
   var ss=document.getElementById('cr-source-status');
   if(ss){ss.textContent='Patient: '+filename;ss.className='cr-source-status'}
@@ -465,7 +468,7 @@ function updateReadiness(){
   var hasValidSource=selectedSource!==null&&selectedSource.id&&!selectedSource.stale;
   var hasValidModel=selectedModelId!==null&&modelReady;
   var notActive=!isSubmitting&&jobState!=='submitting'&&jobState!=='connecting'&&jobState!=='running'&&jobState!=='reconnecting';
-  var isAnalyzed=selectedSource&&analyzedSourceKeys[selectedSource.id]&&analyzedSourceKeys[selectedSource.id][selectedModelId||''];
+  var isAnalyzed=selectedSource&&analyzedSourceKeys[selectedSource.stableKey||selectedSource.id]&&analyzedSourceKeys[selectedSource.stableKey||selectedSource.id][selectedModelId||''];
   var canSubmit=hasValidSource&&hasValidModel&&notActive&&!isAnalyzed;
   btn.disabled=!canSubmit;
   var ss=document.getElementById('cr-source-status');
@@ -486,7 +489,7 @@ function startAnalysis(){
     if(ss){ss.textContent='Cannot analyze: the selected source is no longer available.';ss.className='cr-source-status stale'}
     return;
   }
-  if(analyzedSourceKeys[selectedSource.id]&&analyzedSourceKeys[selectedSource.id][selectedModelId])return;
+  if(analyzedSourceKeys[selectedSource.stableKey||selectedSource.id]&&analyzedSourceKeys[selectedSource.stableKey||selectedSource.id][selectedModelId])return;
   isSubmitting=true;
   setState('submitting');
   resetPipeline();
@@ -990,77 +993,77 @@ def build_control_room_page(
         <div class="cr-pipeline" role="list" aria-label="Execution stages">
           <div class="cr-stage" id="stage-input">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Request accepted<span class="cr-stage-caption">The analysis request was received and assigned to a Control Room job.</span></span>
+            <span class="cr-stage-label">Request accepted<span class="cr-stage-caption" title="The analysis request was received and assigned to a Control Room job.">Request received</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-xrd">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Canonical XRD created<span class="cr-stage-caption">The H5 measurements were converted into the canonical XRD case format used by Bremen.</span></span>
+            <span class="cr-stage-label">Canonical XRD created<span class="cr-stage-caption" title="The H5 measurements were converted into the canonical XRD case format used by Bremen.">Scan normalized</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-workflow">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Bremen workflow resolved<span class="cr-stage-caption">The system selected the Bremen workflow for the current model and source.</span></span>
+            <span class="cr-stage-label">Bremen workflow resolved<span class="cr-stage-caption" title="The system selected the Bremen workflow for the current model and source.">Workflow selected</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-artifact-verified">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Model artifact verified<span class="cr-stage-caption">The selected model artifact was found and its safe metadata/integrity checks passed.</span></span>
+            <span class="cr-stage-label">Model artifact verified<span class="cr-stage-caption" title="The selected model artifact was found and its safe metadata/integrity checks passed.">Package checked</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-artifact-loaded">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Model artifact loaded<span class="cr-stage-caption">The verified model package was loaded into the runtime for analysis.</span></span>
+            <span class="cr-stage-label">Model artifact loaded<span class="cr-stage-caption" title="The verified model package was loaded into the runtime for analysis.">Model loaded</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-artifact-adapted">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Model artifact adapted<span class="cr-stage-caption">The model package was adapted to the runtime interface when required.</span></span>
+            <span class="cr-stage-label">Model artifact adapted<span class="cr-stage-caption" title="The model package was adapted to the runtime interface when required.">Adapter applied</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-model-validated">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Model validated<span class="cr-stage-caption">The loaded model was checked against the expected schema, metadata, and readiness contract.</span></span>
+            <span class="cr-stage-label">Model validated<span class="cr-stage-caption" title="The loaded model was checked against the expected schema, metadata, and readiness contract.">Contract checked</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-source">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Input prepared<span class="cr-stage-caption">The accepted measurements were arranged into the Bremen model input structure.</span></span>
+            <span class="cr-stage-label">Input prepared<span class="cr-stage-caption" title="The accepted measurements were arranged into the Bremen model input structure.">Measurements arranged</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-features-produced">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Features produced<span class="cr-stage-caption">The runtime calculated the model input features from the prepared measurements.</span></span>
+            <span class="cr-stage-label">Features produced<span class="cr-stage-caption" title="The runtime calculated the model input features from the prepared measurements.">Features calculated</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-features">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Feature contract validated<span class="cr-stage-caption">Feature count, order, names, and finite values were checked before inference.</span></span>
+            <span class="cr-stage-label">Feature contract validated<span class="cr-stage-caption" title="Feature count, order, names, and finite values were checked before inference.">Feature schema checked</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-inference">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Inference completed<span class="cr-stage-caption">The model produced the probability score and raw prediction output.</span></span>
+            <span class="cr-stage-label">Inference completed<span class="cr-stage-caption" title="The model produced the probability score and raw prediction output.">Score produced</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-output-validated">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Output validated<span class="cr-stage-caption">The model output was checked for expected fields and valid finite values.</span></span>
+            <span class="cr-stage-label">Output validated<span class="cr-stage-caption" title="The model output was checked for expected fields and valid finite values.">Output checked</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-decision">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Decision policy applied<span class="cr-stage-caption">The score was compared with the configured threshold to produce the public recommendation.</span></span>
+            <span class="cr-stage-label">Decision policy applied<span class="cr-stage-caption" title="The score was compared with the configured threshold to produce the public recommendation.">Threshold applied</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-report">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Report generated<span class="cr-stage-caption">A safe demo report payload was created from the completed workflow result.</span></span>
+            <span class="cr-stage-label">Report generated<span class="cr-stage-caption" title="A safe demo report payload was created from the completed workflow result.">Report created</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-complete">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Analysis complete<span class="cr-stage-caption">The analysis reached terminal success and the Control Room is ready to show the result.</span></span>
+            <span class="cr-stage-label">Analysis complete<span class="cr-stage-caption" title="The analysis reached terminal success and the Control Room is ready to show the result.">Run finished</span></span>
             <span class="cr-stage-dur"></span>
           </div>
         </div>

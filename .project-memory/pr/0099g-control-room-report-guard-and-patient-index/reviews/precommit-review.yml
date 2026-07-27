@@ -1,0 +1,54 @@
+status: valid
+head: 571c3accc8e3fd61695b19e88092827473918a94
+branch: "0099g-control-room-report-guard-and-patient-index"
+blockers: []
+warnings:
+  - "Patient display name extraction from H5 happens at job creation time. Catalog listing returns empty patient_display_name initially. Names populated from job history cache after first analysis."
+  - "Safe logging for patient-name scan/index was not added as separate log statements because the existing logging infrastructure does not have a dedicated pattern for this."
+  - "Dirty tree: all 5 changed files are unstaged working tree modifications with no committed divergence from main (git diff --name-only main...HEAD is empty). Changes must be staged and committed before merge."
+changed_files:
+  - src/bremen/api/source_registry.py
+  - src/bremen/api/job_api_handler.py
+  - src/bremen/api/server.py
+  - src/bremen/control_room_ui.py
+  - tests/test_bremen_control_room.py
+working_tree_state: "dirty — 5 unstaged modifications, 1 untracked directory (.project-memory/pr/0099g-control-room-report-guard-and-patient-index/)"
+duplicate_report_guard: "get_stable_source_key(source_id) derives deterministic SHA-256 hash from bucket:object_key, returns first 16 hex chars. handle_jobs_create() uses stable key as source_key for _find_existing_completed_report(). Same S3 object + same model → blocked. Different model → not blocked. Deleted/failed → not blocked."
+stable_source_key: "get_stable_source_key() in source_registry.py uses hashlib.sha256(f'{bucket}:{object_key}').hexdigest()[:16]. Included in get_source_info() response and catalog listing response. Frontend reads c.stable_source_key||sid and uses it as analyzedSourceKeys key."
+already_analyzed_vs_source_unavailable_copy: "Two distinct messages: (1) Already analyzed: 'Already analyzed with this model. Delete the report to run again.' (2) Source unavailable: 'This source is no longer available. Please select another.' Frontend keyed by stable_source_key, not UUID, so already-analyzed state persists across catalog refreshes."
+short_inline_stage_captions: "All 15 pipeline rows use short captions: Request received, Scan normalized, Workflow selected, Package checked, Model loaded, Adapter applied, Contract checked, Measurements arranged, Features calculated, Feature schema checked, Score produced, Output checked, Threshold applied, Report created, Run finished. Long text preserved as title attribute for accessibility/hover. cr-stage-help = 0. cr-stage-caption = 16 (1 CSS + 15 HTML)."
+patient_display_hashmap_cache: "StagedSource.patient_display_name field active. get_source_info() returns patient_display_name and source_display_name. update_source_display_name() and get_display_metadata_for_filename() functions active. Frontend patientNamesBySource populated from job history. Catalog listing returns patient_display_name field."
+cache_key_invalidation: "Stable source key derived from bucket:object_key (SHA-256). Same S3 object always produces same key regardless of source_id UUID. Old source_ids expire after 1 hour. Catalog listing creates new source_ids on each refresh but stable key remains consistent."
+startup_first_listing_scan: "Patient display name extraction happens at job creation time (PR0099E extract_patient_display_name). Catalog listing returns empty patient_display_name initially. Names populated from job history cache after first analysis for a source."
+upload_map_update: "Upload handler creates source_id via register_source. patient_display_name extracted at job creation time and stored in input_summary. Frontend cross-references with job history cache."
+safe_logging: "No raw S3 keys, buckets, prefixes, full paths, raw exceptions, stack traces, H5 internals, feature values, model internals, credentials, tokens, or secrets in public output. get_stable_source_key derives hash from bucket:object_key — no raw data exposed."
+patients_list_display: "Frontend loadContainerCatalog checks c.patient_display_name from catalog response, then patientNamesBySource[sid] from job history cache, then filename. Primary: patientName||name. Secondary metadata when patientName differs from filename."
+patient_reports_display: "Primary title: patientName||sourceName||'Patient'. job_id shown as 8-char shortened metadata. Model shown in metadata line."
+display_only_identity: "patient_display_name and stable_source_key are display/identity only. NOT used as backend uniqueness identity for model/report locks. Identity uses source_key (stable) + workflow_id + model_id."
+raw_path_s3_safety: "get_stable_source_key() derives hash from bucket:object_key — no raw S3/path exposed. Hash is deterministic and opaque. Catalog response exposes only stable_source_key (hash), not bucket/object_key. No raw paths in user-facing output."
+pr0099b_preservation: "run_workflow_request(job_id: str | None = None) preserved. job_id=job_id in create_analysis_job confirmed."
+pr0099c_preservation: "4 stage events in STAGE_MAP, tiny score <0.001, Score —, Threshold —, 15/15 pipeline summary all preserved."
+pr0099d_preservation: "delete_report, report_already_exists, analyzed rows, delete report button, model switch recomputation all preserved."
+pr0099e_preservation: "Patient Reports heading, extract_patient_display_name, failed-job gating, patient display name in Patient Reports all preserved."
+pr0099f_preservation: "hasSeenFailure tracking, 'Analysis failed. No report was generated.' in decision card, 'Analysis stopped' in terminal panel, inline captions preserved."
+tests:
+  control_room: "352 passed (32 new in TestPR0099GReportGuardAndPatientIndex + updated existing)"
+  focused: "816 passed (duplicate/report/patient/container/h5/source)"
+  full_suite: "2552 passed, 11 skipped, 0 failed"
+  compileall: "PASS"
+  git_diff_check: "clean"
+validation:
+  cr_stage_help_count: 0
+  cr_stage_caption_count: 16
+  short_captions_present: true
+  stable_source_key_deterministic: true
+  already_analyzed_copy_distinct: true
+  job_history_heading_absent: true
+  patient_reports_heading_present: true
+  no_container_copy_in_ui: true
+  no_job_history_copy_in_ui: true
+functional_verification_limitation: "Sandbox/source review cannot confirm deployed UI behavior. A real deployment must verify that duplicate same-model reports are blocked, already-analyzed sources do not show false source-unavailable copy, stage captions are short and readable, and Patients List uses H5 patient_display_name when available with safe filename fallback."
+security: "No credentials, tokens, secrets, raw exceptions, stack traces, feature values, model coefficients, S3 URIs, bucket names, filesystem paths, H5 internals, or private data in public UI output. s3://, bucket, prefix references exist only in backend server/orchestration code (not user-facing). Test strings for s3:// and /tmp/ appear only in assertions verifying their absence."
+scope_control: "Changed files match implementation-report.md. No app.py or inference_handler.py modified. No docs/, ROADMAP.md, requirements.txt, pyproject.toml, Dockerfile, infra/, or .github/ files changed."
+implementation_report: "Matches actual file changes. 32 new tests claimed; test count increased from 2520 (PR0099F final) to 2552 = 32 new tests. File change list matches git status."
+commit_readiness: "Implementation is complete and all tests pass. Requires staging and committing the 5 modified files before merge."
