@@ -202,17 +202,21 @@ def mark_source_stale(source_id: str) -> None:
 
 def get_source_info(source_id: str) -> dict[str, Any] | None:
     """Return safe display metadata for a source_id, or None if unknown."""
+    import hashlib
     with _lock:
         source = _registry.get(source_id)
         if source is None:
             return None
         pdn = source.patient_display_name or ""
+        raw = f"{source.bucket}:{source.object_key}"
+        stable_key = hashlib.sha256(raw.encode()).hexdigest()[:16]
         return {
             "source_id": source.source_id,
             "filename": source.filename,
             "size_bytes": source.size_bytes,
             "patient_display_name": pdn,
             "source_display_name": pdn or source.filename or "Patient",
+            "stable_source_key": stable_key,
         }
 
 
@@ -247,6 +251,25 @@ def get_display_metadata_for_filename(filename: str) -> dict[str, str]:
                     "patient_display_name": source.patient_display_name,
                 }
     return {}
+
+
+def get_stable_source_key(source_id: str) -> str:
+    """Return a deterministic stable key for a source_id.
+
+    Uses the object_key from the registry to derive a stable identity
+    that is consistent across catalog listings.  The source_id UUID
+    changes on each listing, but the object_key is stable.
+
+    Returns empty string if source_id not found.
+    """
+    import hashlib
+    with _lock:
+        source = _registry.get(source_id)
+        if source is None:
+            return ""
+        # Derive stable key from object_key
+        raw = f"{source.bucket}:{source.object_key}"
+        return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
 def reset_for_tests() -> None:

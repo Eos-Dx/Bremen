@@ -698,7 +698,7 @@ def _handle_demo_h5_containers_list(
         # Replace raw S3 keys with opaque source_ids from the registry.
         # The browser receives only source_id, display_name, size_bytes,
         # and last_modified — never the S3 key.
-        from .source_registry import register_source  # noqa: PLC0415
+        from .source_registry import register_source, get_stable_source_key  # noqa: PLC0415
 
         bucket = config["h5_bucket"]
         prefix = config["h5_prefix"]
@@ -723,6 +723,7 @@ def _handle_demo_h5_containers_list(
                 "source_id": source_id,
                 "display_name": filename,
                 "patient_display_name": "",
+                "stable_source_key": get_stable_source_key(source_id),
                 "size_bytes": size,
                 "last_modified": last_mod,
                 "workflow_id": wf,

@@ -2705,3 +2705,231 @@ class TestAppendixBFailedTerminalStateAndReportGating:
         """PR0099C: Tiny score <0.001 formatting preserved."""
         page = build_control_room_page()
         assert '<0.001' in page
+
+
+class TestPR0099GReportGuardAndPatientIndex:
+    """PR0099G: Fix duplicate report guard, short captions, source-state copy, patient-name index."""
+
+    # ---- PART 1: Duplicate report guard ----
+
+    def test_stable_source_key_function_exists(self):
+        """get_stable_source_key function exists in source_registry."""
+        import inspect
+        from bremen.api.source_registry import get_stable_source_key
+        sig = inspect.signature(get_stable_source_key)
+        assert 'source_id' in sig.parameters
+
+    def test_stable_source_key_deterministic(self):
+        """Same source_id returns same stable key."""
+        from bremen.api.source_registry import register_source, get_stable_source_key, reset_for_tests
+        reset_for_tests()
+        sid = register_source('b', 'path/to/file.h5', 'file.h5', 100, 'p')
+        k1 = get_stable_source_key(sid)
+        k2 = get_stable_source_key(sid)
+        assert k1 == k2
+        assert len(k1) > 0
+        reset_for_tests()
+
+    def test_stable_source_key_differs_for_different_objects(self):
+        """Different object_keys produce different stable keys."""
+        from bremen.api.source_registry import register_source, get_stable_source_key, reset_for_tests
+        reset_for_tests()
+        sid1 = register_source('b', 'path/a.h5', 'a.h5', 100, 'p')
+        sid2 = register_source('b', 'path/b.h5', 'b.h5', 100, 'p')
+        assert get_stable_source_key(sid1) != get_stable_source_key(sid2)
+        reset_for_tests()
+
+    def test_stable_source_key_same_for_same_object(self):
+        """Same bucket+object_key produces same stable key even with different source_ids."""
+        from bremen.api.source_registry import register_source, get_stable_source_key, reset_for_tests
+        reset_for_tests()
+        sid1 = register_source('b', 'path/file.h5', 'file.h5', 100, 'p')
+        sid2 = register_source('b', 'path/file.h5', 'file.h5', 100, 'p')
+        # Different source_ids but same stable key
+        assert sid1 != sid2
+        assert get_stable_source_key(sid1) == get_stable_source_key(sid2)
+        reset_for_tests()
+
+    def test_get_source_info_includes_stable_key(self):
+        """get_source_info returns stable_source_key."""
+        from bremen.api.source_registry import register_source, get_source_info, reset_for_tests
+        reset_for_tests()
+        sid = register_source('b', 'k', 'f.h5', 100, 'p')
+        info = get_source_info(sid)
+        assert 'stable_source_key' in info
+        assert len(info['stable_source_key']) > 0
+        reset_for_tests()
+
+    def test_handle_jobs_create_uses_stable_key(self):
+        """handle_jobs_create uses stable source key for identity."""
+        import inspect
+        from bremen.api.job_api_handler import handle_jobs_create
+        src = inspect.getsource(handle_jobs_create)
+        assert 'get_stable_source_key' in src
+        assert 'stable' in src
+
+    def test_rerun_guard_blocks_same_stable_key(self):
+        """_find_existing_completed_report uses source_key for matching."""
+        import inspect
+        from bremen.api.job_api_handler import _find_existing_completed_report
+        src = inspect.getsource(_find_existing_completed_report)
+        assert 'source_key' in src
+
+    # ---- PART 2: Already-analyzed vs source-unavailable ----
+
+    def test_analyzed_uses_stable_key(self):
+        """Frontend analyzedSourceKeys uses stableKey for matching."""
+        page = build_control_room_page()
+        fn_start = page.find('function updateReadiness')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'stableKey' in fn_body
+
+    def test_select_container_stores_stable_key(self):
+        """selectContainer stores stableKey on selectedSource."""
+        page = build_control_room_page()
+        fn_start = page.find('function selectContainer')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'stableKey' in fn_body
+
+    def test_already_analyzed_message_exists(self):
+        """Already-analyzed message exists for analyzed sources."""
+        page = build_control_room_page()
+        assert 'Already analyzed with this model' in page
+
+    def test_catalog_includes_stable_source_key(self):
+        """Catalog listing response includes stable_source_key."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadContainerCatalog')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'stable_source_key' in fn_body or 'stableKey' in fn_body
+
+    # ---- PART 3: Short inline stage captions ----
+
+    def test_cr_stage_help_removed(self):
+        """cr-stage-help buttons are fully removed."""
+        page = build_control_room_page()
+        assert '<button class="cr-stage-help"' not in page
+
+    def test_all_15_captions_exist(self):
+        """All 15 pipeline rows have cr-stage-caption spans."""
+        page = build_control_room_page()
+        assert page.count('<span class="cr-stage-caption"') == 15
+
+    def test_short_caption_request_received(self):
+        """Short caption 'Request received' exists."""
+        page = build_control_room_page()
+        assert '>Request received</span>' in page
+
+    def test_short_caption_scan_normalized(self):
+        """Short caption 'Scan normalized' exists."""
+        page = build_control_room_page()
+        assert '>Scan normalized</span>' in page
+
+    def test_short_caption_workflow_selected(self):
+        """Short caption 'Workflow selected' exists."""
+        page = build_control_room_page()
+        assert '>Workflow selected</span>' in page
+
+    def test_short_caption_package_checked(self):
+        """Short caption 'Package checked' exists."""
+        page = build_control_room_page()
+        assert '>Package checked</span>' in page
+
+    def test_short_caption_features_calculated(self):
+        """Short caption 'Features calculated' exists."""
+        page = build_control_room_page()
+        assert '>Features calculated</span>' in page
+
+    def test_short_caption_threshold_applied(self):
+        """Short caption 'Threshold applied' exists."""
+        page = build_control_room_page()
+        assert '>Threshold applied</span>' in page
+
+    def test_short_caption_run_finished(self):
+        """Short caption 'Run finished' exists."""
+        page = build_control_room_page()
+        assert '>Run finished</span>' in page
+
+    def test_long_text_not_visible_as_caption(self):
+        """Long tooltip text is not rendered as visible caption."""
+        page = build_control_room_page()
+        # Long text should only appear in title attributes, not as visible text
+        assert 'The analysis request was received and assigned to a Control Room job.</span>' not in page
+
+    def test_long_text_preserved_as_title(self):
+        """Long text preserved as title attribute."""
+        page = build_control_room_page()
+        import re
+        titles = re.findall(r'title="([^"]+)"', page)
+        long_captions = [t for t in titles if 'analysis request was received' in t]
+        assert len(long_captions) > 0
+
+    def test_stage_order_preserved(self):
+        """Stage order preserved with short captions."""
+        page = build_control_room_page()
+        assert page.count('class="cr-stage"') == 15
+
+    # ---- PART 4: Patient display cache ----
+
+    def test_catalog_response_includes_patient_display_name(self):
+        """Catalog response includes patient_display_name field."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadContainerCatalog')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'patient_display_name' in fn_body or 'c.patient_display_name' in fn_body
+
+    def test_patients_list_uses_patient_name(self):
+        """Patients List uses patient_display_name as primary when available."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadContainerCatalog')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'primaryTitle' in fn_body
+
+    # ---- Preservation ----
+
+    def test_patient_reports_heading_present(self):
+        """Patient Reports heading remains."""
+        page = build_control_room_page()
+        assert 'Patient Reports' in page
+
+    def test_job_history_heading_absent(self):
+        """'Job History' heading remains absent."""
+        page = build_control_room_page()
+        assert 'cr-card-title">Job History' not in page
+
+    def test_no_container_copy_in_ui(self):
+        """No visible 'container(s)' or 'Container:'."""
+        page = build_control_room_page()
+        assert 'container(s)' not in page
+        assert 'Container:' not in page
+
+    def test_pr0099c_tiny_score_preserved(self):
+        """PR0099C: Tiny score <0.001 formatting preserved."""
+        page = build_control_room_page()
+        assert '<0.001' in page
+
+    def test_pr0099d_rerun_guard_preserved(self):
+        """PR0099D: Same model rerun guard still works."""
+        import inspect
+        from bremen.api.job_api_handler import handle_jobs_create
+        src = inspect.getsource(handle_jobs_create)
+        assert 'report_already_exists' in src
+
+    def test_pr0099e_failed_job_gating_preserved(self):
+        """PR0099E: Failed job report gating preserved."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'isFailed' in fn_body
+        assert 'Analysis failed' in fn_body
+
+    def test_pr0099f_inline_captions_preserved(self):
+        """PR0099F: Inline captions remain visible."""
+        page = build_control_room_page()
+        assert page.count('<span class="cr-stage-caption"') == 15

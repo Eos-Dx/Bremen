@@ -962,7 +962,13 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
         return
 
     # Compute source_key for stable identity
+    # Use stable key from registry for catalog sources (source_id UUIDs change per listing)
     source_key = source_id or upload_id or container_id or ""
+    if source_id:
+        from .source_registry import get_stable_source_key  # noqa: PLC0415
+        stable = get_stable_source_key(source_id)
+        if stable:
+            source_key = stable
 
     # ---- Rerun guard: block duplicate analysis ----
     if source_key and workflow_id and model_id:
