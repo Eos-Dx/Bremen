@@ -584,3 +584,80 @@ class TestLegacyCompatibility:
         host, port = server_info
         status, _, _ = _get(host, port, "/model/version")
         assert status == 200
+
+
+class TestPR0098PersistentUpload:
+    """PR0098: Control Room upload uses persistent S3-backed endpoint."""
+
+    def test_handle_file_select_posts_to_persistent_endpoint(self):
+        """handleFileSelect() fetches /demo/api/h5/containers, not /demo/api/stage."""
+        page = build_control_room_page()
+        assert "/demo/api/h5/containers" in page
+        # The old ephemeral endpoint must NOT be referenced in handleFileSelect
+        # (It may still appear in other test fixtures, but not in the page JS)
+        # Find handleFileSelect function body and check it uses the persistent endpoint
+        idx = page.find("function handleFileSelect")
+        assert idx > 0, "handleFileSelect function not found"
+        end_idx = page.find("function ", idx + 10)
+        if end_idx == -1:
+            end_idx = len(page)
+        fn_body = page[idx:end_idx]
+        assert "/demo/api/h5/containers" in fn_body, "handleFileSelect must use /demo/api/h5/containers"
+        # Verify the old endpoint is not in this function
+        assert "/demo/api/stage" not in fn_body, "handleFileSelect must not use /demo/api/stage"
+
+    def test_successful_upload_selects_container_type_source(self):
+        """Successful upload sets selectedSource with type='container' and returned id."""
+        page = build_control_room_page()
+        # Check the success path uses 'uploaded' status and sets type='container'
+        idx = page.find("data.status==='uploaded'")
+        assert idx > 0, "Success path must check data.status==='uploaded'"
+        # Check that selectedSource is set with type:'container'
+        assert "type:'container'" in page or 'type:"container"' in page
+        # Check that data.id is used (not data.upload_id)
+        assert "data.id" in page
+        # Check upload_id is NOT used in the success path
+        fn_start = page.find("function handleFileSelect")
+        fn_end = page.find("function ", fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert "data.upload_id" not in fn_body, "Must use data.id not data.upload_id"
+
+    def test_successful_upload_calls_load_container_catalog(self):
+        """Successful upload refreshes the container catalog."""
+        page = build_control_room_page()
+        # Find handleFileSelect function body
+        fn_start = page.find("function handleFileSelect")
+        fn_end = page.find("function ", fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        # Verify loadContainerCatalog() is called in the success path
+        assert "loadContainerCatalog()" in fn_body, "Success path must call loadContainerCatalog()"
+
+    def test_upload_failure_clears_selected_source(self):
+        """Upload failure sets selectedSource=null and state=idle."""
+        page = build_control_room_page()
+        # Find handleFileSelect function
+        fn_start = page.find("function handleFileSelect")
+        fn_end = page.find("function ", fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        # Failure paths must set selectedSource=null
+        assert "selectedSource=null" in fn_body, "Failure must clear selectedSource"
+        # Failure paths must set state to idle
+        assert "setState('idle')" in fn_body, "Failure must set state to idle"
+        # Old dead code error_code checks must be removed
+        assert "SOURCE_ERROR" not in fn_body, "SOURCE_ERROR dead code must be removed"
+        assert "MISSING_SOURCE" not in fn_body, "MISSING_SOURCE dead code must be removed"
+
+    def test_patients_list_heading_present(self):
+        """Patients List heading is present in the UI."""
+        page = build_control_room_page()
+        assert "Patients List" in page
+
+    def test_container_catalog_heading_removed(self):
+        """Container Catalog heading is no longer present."""
+        page = build_control_room_page()
+        assert "Container Catalog" not in page
+
+    def test_refresh_patients_button_text(self):
+        """Refresh button says 'Refresh Patients'."""
+        page = build_control_room_page()
+        assert "Refresh Patients" in page

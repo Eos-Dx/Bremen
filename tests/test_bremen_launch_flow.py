@@ -176,7 +176,7 @@ class TestControlRoomLaunchFlow:
         assert "PASS: Analyze sends correct payload" in output, (
             "Job payload test did not pass"
         )
-        assert "PASS: Upload path sends upload_id instead of source_id" in output, (
+        assert "PASS: Upload path sends source_id instead of upload_id" in output, (
             "Upload payload test did not pass"
         )
         assert "PASS: Duplicate Analyze activation creates exactly one request" in output, (

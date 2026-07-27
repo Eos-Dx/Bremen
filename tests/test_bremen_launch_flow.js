@@ -824,15 +824,15 @@ async function runAllTests() {
     assert(firstItem.classList.has("selected"), "Item should be selected after keyboard Enter");
   });
 
-  // ---- Test 7: Upload path sends upload_id ----
-  await test("Upload path sends upload_id instead of source_id", async () => {
+  // ---- Test 7: Upload path sends source_id (persistent S3-backed) ----
+  await test("Upload path sends source_id instead of upload_id", async () => {
     _resetGlobals();
     const doc = buildControlRoomDom();
     setupGlobalMocks();
-    _setMockFetchResponse("http://localhost:8000/demo/api/stage", {
-      status: "staged", upload_id: "upload-001", filename: "test.h5", size_bytes: 1000,
-    });
     setupMockResponses();
+    _setMockFetchResponse("http://localhost:8000/demo/api/h5/containers", {
+      status: "uploaded", id: "s3://bucket/prefix/test.h5", filename: "test.h5", size_bytes: 1000,
+    });
     _globalDocument = doc;
     global.document = doc;
     loadJS(process.argv[2]);
@@ -846,7 +846,7 @@ async function runAllTests() {
     await flushPromises();
 
     const status = document.getElementById("cr-source-status");
-    assert(status.textContent.includes("Upload ready"), "Status should show upload ready");
+    assert(status.textContent.includes("Uploaded"), "Status should show Uploaded");
 
     // Click Analyze
     const btn = document.getElementById("cr-analyze-btn");
@@ -858,10 +858,10 @@ async function runAllTests() {
     );
     assert(jobPosts.length === 1, "Exactly one POST to /demo/api/jobs");
     const payload = JSON.parse(jobPosts[0].options.body);
-    assert(payload.upload_id !== undefined, "Payload must contain upload_id");
-    assert(payload.source_id === undefined, "Payload must NOT contain source_id for upload");
+    assert(payload.source_id !== undefined, "Payload must contain source_id");
+    assert(payload.upload_id === undefined, "Payload must NOT contain upload_id");
     assert(payload.h5_path === undefined, "Payload must NOT contain h5_path");
-    assertEqual(payload.upload_id, "upload-001", "upload_id should match");
+    assertEqual(payload.source_id, "s3://bucket/prefix/test.h5", "source_id should match returned id");
   });
 
   // ---- Test 8: Duplicate Analyze creates one request ----
