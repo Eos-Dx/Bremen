@@ -82,6 +82,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .cr-container-item.selected{border-left-color:var(--accent);background:var(--tint-accent);border:2px solid var(--accent);border-left-width:2px;padding:calc(var(--sp-8) - 1px) calc(var(--sp-12) - 1px)}
 .cr-container-name{font-size:var(--fs-13);color:var(--text-primary);font-weight:500}
 .cr-container-meta{font-size:var(--fs-11);color:var(--text-secondary)}
+.cr-container-item.analyzed{opacity:0.5;cursor:not-allowed;pointer-events:none}
+.btn-delete-report{background:none;border:1px solid var(--border);color:var(--text-secondary);font-size:var(--fs-11);padding:2px 8px;border-radius:4px;cursor:pointer;margin-left:8px}
+.btn-delete-report:hover{border-color:var(--status-error);color:var(--status-error)}
 .cr-catalog-status{font-size:var(--fs-11);color:var(--text-secondary);margin-bottom:var(--sp-8)}
 .cr-source-status{font-size:var(--fs-11);color:var(--text-secondary);margin-top:var(--sp-4);min-height:16px}
 .cr-source-status.stale{color:var(--status-pending)}
@@ -187,6 +190,7 @@ var isSubmitting=false;
 var selectedSource=null;
 var selectedModelId=null;
 var selectedModelWorkflowId='bremen';
+var analyzedSourceKeys={};
 var STAGE_MAP={
   'runtime.request.accepted':'stage-input',
   'runtime.normalization.completed':'stage-xrd',
@@ -255,12 +259,12 @@ function loadContainerCatalog(){
       }
       var containers=data.containers||[];
       if(containers.length===0){
-        if(status){status.textContent='No containers found.';status.className='cr-badge unavailable'}
-        if(list){list.innerHTML='<li class="cr-empty">No H5 containers found.</li>'}
+        if(status){status.textContent='No patients found.';status.className='cr-badge unavailable'}
+        if(list){list.innerHTML='<li class="cr-empty">No patients found.</li>'}
         updateReadiness();
         return;
       }
-      if(status){status.textContent=containers.length+' container(s)';status.className='cr-badge available'}
+      if(status){status.textContent=containers.length+' patient(s) available';status.className='cr-badge available'}
       var html='';
       var prevSelectedId=selectedSource&&selectedSource.type==='container'?selectedSource.id:null;
       var prevSelectedStillAvailable=false;
@@ -272,9 +276,11 @@ function loadContainerCatalog(){
         var sid=c.source_id||'';
         var isPrev=prevSelectedId===sid;
         if(isPrev){prevSelectedStillAvailable=true}
-        html+='<li class="cr-container-item'+(isPrev?' selected':'')+'" data-source-id="'+sid+'" data-sname="'+name.replace(/\'/g,'')+'" data-ssize="'+size+'" tabindex="0" role="button" aria-current="'+(isPrev?'true':'false')+'">'+
+        var isAnalyzed=analyzedSourceKeys[sid]&&analyzedSourceKeys[sid][selectedModelId||''];
+        var itemClass='cr-container-item'+(isPrev?' selected':'')+(isAnalyzed?' analyzed':'');
+        html+='<li class="'+itemClass+'" data-source-id="'+sid+'" data-sname="'+name.replace(/\'/g,'')+'" data-ssize="'+size+'" tabindex="0" role="button" aria-current="'+(isPrev?'true':'false')+'"'+(isAnalyzed?' aria-disabled="true" title="Already analyzed with this model"':'')+'>'+
           '<span class="cr-container-name">'+name+'</span>'+
-          '<span class="cr-container-meta">'+sizeLabel+' | '+modified+'</span>'+
+          '<span class="cr-container-meta">'+sizeLabel+' | '+modified+(isAnalyzed?' | Already analyzed':'')+'</span>'+
           '</li>';
       });
       if(list){list.innerHTML=html}
@@ -298,7 +304,7 @@ function loadContainerCatalog(){
       });
       if(prevSelectedId&&!prevSelectedStillAvailable){
         var ss=document.getElementById('cr-source-status');
-        if(ss){ss.textContent='Previously selected container is no longer available. Please select another.';ss.className='cr-source-status stale'}
+        if(ss){ss.textContent='Previously selected patient is no longer available. Please select another.';ss.className='cr-source-status stale'}
         selectedSource.stale=true;
       }
       updateReadiness();
@@ -310,6 +316,7 @@ function loadContainerCatalog(){
 }
 
 function selectContainer(el,sid,filename,size){
+  if(el.classList.contains('analyzed'))return;
   var items=document.querySelectorAll('.cr-container-item');
   items.forEach(function(i){i.classList.remove('selected');i.setAttribute('aria-current','false')});
   el.classList.add('selected');
@@ -317,7 +324,7 @@ function selectContainer(el,sid,filename,size){
   selectedSource={type:'container',id:sid,filename:filename,size:size,stale:false};
   document.getElementById('cr-file-input').value='';
   var ss=document.getElementById('cr-source-status');
-  if(ss){ss.textContent='Container: '+filename;ss.className='cr-source-status'}
+  if(ss){ss.textContent='Patient: '+filename;ss.className='cr-source-status'}
   setState('source_selected');
   updateReadiness();
 }
@@ -453,23 +460,28 @@ function updateReadiness(){
   var hasValidSource=selectedSource!==null&&selectedSource.id&&!selectedSource.stale;
   var hasValidModel=selectedModelId!==null&&modelReady;
   var notActive=!isSubmitting&&jobState!=='submitting'&&jobState!=='connecting'&&jobState!=='running'&&jobState!=='reconnecting';
-  var canSubmit=hasValidSource&&hasValidModel&&notActive;
+  var isAnalyzed=selectedSource&&analyzedSourceKeys[selectedSource.id]&&analyzedSourceKeys[selectedSource.id][selectedModelId||''];
+  var canSubmit=hasValidSource&&hasValidModel&&notActive&&!isAnalyzed;
   btn.disabled=!canSubmit;
   var ss=document.getElementById('cr-source-status');
   if(selectedSource&&selectedSource.stale&&ss){
     ss.textContent='This source is no longer available. Please select another.';
+    ss.className='cr-source-status stale';
+  }else if(isAnalyzed&&ss){
+    ss.textContent='Already analyzed with this model. Delete the report to run again.';
     ss.className='cr-source-status stale';
   }
 }
 
 function startAnalysis(){
   if(isSubmitting)return;
-  if(!selectedSource||!selectedModelId||!modelReady)return;
+  if(!selectedSource||!selectedSource.id||!selectedModelId||!modelReady)return;
   if(selectedSource.stale){
     var ss=document.getElementById('cr-source-status');
     if(ss){ss.textContent='Cannot analyze: the selected source is no longer available.';ss.className='cr-source-status stale'}
     return;
   }
+  if(analyzedSourceKeys[selectedSource.id]&&analyzedSourceKeys[selectedSource.id][selectedModelId])return;
   isSubmitting=true;
   setState('submitting');
   resetPipeline();
@@ -574,6 +586,18 @@ function loadJobHistory(){
       var jobs=data.jobs||[];
       var list=document.getElementById('cr-job-list');
       if(!list)return;
+      // Build analyzed source index from completed jobs
+      analyzedSourceKeys={};
+      jobs.forEach(function(j){
+        if(j.overall_status!=='completed')return;
+        var sk=j.source_key||'';
+        var mid=j.model_id||'';
+        if(!sk||!mid)return;
+        if(!analyzedSourceKeys[sk])analyzedSourceKeys[sk]={};
+        if(j.report_available)analyzedSourceKeys[sk][mid]=j.job_id;
+      });
+      // Re-render patients list with analyzed state
+      loadContainerCatalog();
       if(jobs.length===0){
         list.innerHTML='<div class="cr-empty">No analysis jobs yet.</div>';
         return;
@@ -585,22 +609,46 @@ function loadJobHistory(){
         var ts=j.created_at?j.created_at.substring(11,19):'';
         var decision=j.decision_display_name||j.triage_recommendation||'';
         var model=j.model_id||'';
-        var reportAvail=j.report_available?'&#128196; ':'';
+        var reportAvail=j.report_available;
+        var reportDeleted=j.report_deleted;
         var sourceName=j.source_display_name||'';
         var dc=j.decision_code||'';
         var railClass='';
         if(dc==='MRI_REVIEW_DEFER')railClass=' defer';
         else if(dc==='CONTINUE_MRI')railClass=' continue';
+        var statusText='';
+        if(reportAvail){statusText='&#128196; '+(decision||'Report available')}
+        else if(reportDeleted){statusText='Report deleted'}
+        else{statusText=decision||(status==='completed'?'Completed':status)}
+        var deleteBtn='';
+        if(reportAvail){
+          deleteBtn=' <button class="btn-delete-report" onclick="event.stopPropagation();deleteReport(\''+j.job_id+'\',\''+selectedModelWorkflowId+'\')" title="Delete report">Delete report</button>';
+        }
         html+='<div class="cr-history-item '+status+railClass+'" onclick="openJob(\''+j.job_id+'\')">'+
           '<div class="cr-history-header"><span class="cr-history-id">'+j.job_id.substring(0,8)+'</span>'+
           '<span class="cr-history-time">'+ts+'</span></div>'+
           (sourceName?'<div class="cr-history-source">'+sourceName+'</div>':'')+
-          '<div class="cr-history-detail">'+reportAvail+(decision?decision:(status==='completed'?'Completed':status))+'</div>'+
+          '<div class="cr-history-detail">'+statusText+deleteBtn+'</div>'+
           '<div class="cr-history-meta">'+(model?'Model: '+model.substring(0,16):'')+'</div>'+
           '</div>';
       });
       list.innerHTML=html;
     }).catch(function(){});
+}
+
+function deleteReport(jobId,workflowId){
+  if(!confirm('Delete this generated report? The patient file will remain available. You can run this model again after deletion.'))return;
+  fetch(baseUrl+'/demo/api/jobs',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'delete_report',job_id:jobId,workflow_id:workflowId})
+  }).then(function(r){return r.json()}).then(function(data){
+    if(data.status==='deleted'){
+      var card=document.getElementById('cr-decision-card');
+      if(card&&currentJobId===jobId){card.innerHTML='';card.className='cr-decision-card hidden'}
+      loadJobHistory();
+    }
+  }).catch(function(){});
 }
 
 function openJob(jobId){
@@ -823,6 +871,7 @@ window.loadJobHistory=loadJobHistory;
 window.openJob=openJob;
 window.toggleAutoScroll=toggleAutoScroll;
 window.filterEvents=filterEvents;
+window.deleteReport=deleteReport;
 
 init();
 })();

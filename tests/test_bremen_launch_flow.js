@@ -772,7 +772,7 @@ async function runAllTests() {
     firstItem.click();
     assert(firstItem.classList.has("selected"), "Clicked item should have selected class");
     const status = document.getElementById("cr-source-status");
-    assert(status.textContent.includes("Container:"), "Source status should show container name");
+    assert(status.textContent.includes("Patient:"), "Source status should show patient name");
   });
 
   // ---- Test 4: Analyze becomes enabled ----

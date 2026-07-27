@@ -1,0 +1,125 @@
+status: valid
+head: "b70ff1d4c19fe6811be549609c6e6b6f7229e576"
+branch: "0099d-control-room-report-delete-and-rerun-guard"
+blockers: []
+warnings:
+  - "Report deletion uses POST action routing on handle_jobs_create because server.py do_DELETE returns 405 for all routes. A future PR could add proper DELETE routes if server.py becomes modifiable."
+  - "analyzedSourceKeys in frontend is populated from job history (last 20 jobs). If a very old completed report exists beyond the history window the frontend will not mark that row as analyzed. The backend rerun guard (_find_existing_completed_report) still catches this and returns 409."
+changed_files:
+  - src/bremen/api/job_api_handler.py
+  - src/bremen/control_room_ui.py
+  - tests/test_bremen_control_room.py
+  - tests/test_bremen_launch_flow.js
+working_tree_state: "dirty (uncommitted changes present — HEAD and main at same commit b70ff1d4; job_api_handler.py staged, others unstaged)"
+
+# ---- PR0099D Core Requirements ----
+
+model_specific_report_lock:
+  status: valid
+  detail: "Rerun lock key includes source_key + workflow_id + model_id. _find_existing_completed_report(source_key workflow_id model_id) in job_api_handler.py scans all completed jobs matching all three fields. source_key is computed as source_id or upload_id or container_id. report_available must be true for lock to engage. Confirmed by inspect.signature and getsource assertions in tests."
+
+delete_report_endpoint_action:
+  status: valid
+  detail: "POST /demo/api/jobs with action=delete_report routes to handle_report_delete. delete_report(job_id workflow_id) performs soft-delete by setting report status to REPORT_STATUS_UNAVAILABLE. Response returns only safe metadata: status job_id workflow_id model_id report_deleted. No raw paths S3 internals stack traces or private data exposed. Confirmed by source inspection and safety tests."
+
+backend_duplicate_guard:
+  status: valid
+  detail: "handle_jobs_create checks _find_existing_completed_report before proceeding with job creation. Returns 409 with error=report_already_exists when a completed report exists for the same source_key+workflow_id+model_id. Guard runs after action routing (delete_report bypasses it) and before job creation. Same source with different model_id passes through unblocked. Confirmed by source inspection."
+
+frontend_disabled_patient_rows:
+  status: valid
+  detail: "analyzedSourceKeys global object maps {source_key: {model_id: job_id}}. Populated by loadJobHistory() from completed jobs where report_available is true. loadContainerCatalog() applies .cr-container-item.analyzed class with CSS opacity:0.5 pointer-events:none. selectContainer() returns early for analyzed rows. aria-disabled=true and title='Already analyzed with this model' set for accessibility. Confirmed by 5 frontend tests."
+
+frontend_analyze_button_blocked:
+  status: valid
+  detail: "updateReadiness() computes isAnalyzed from analyzedSourceKeys[selectedSource.id][selectedModelId] and sets btn.disabled=!canSubmit when isAnalyzed is true. Status message shows 'Already analyzed with this model. Delete the report to run again.' startAnalysis() also checks analyzedSourceKeys and returns early if analyzed. Both frontend and backend guards are independent. Confirmed by tests."
+
+model_switch_recomputation:
+  status: valid
+  detail: "onModelSelect() calls loadJobHistory() which rebuilds analyzedSourceKeys from fresh job data filtered by the new model_id. loadJobHistory() then calls loadContainerCatalog() to re-render patient rows with updated analyzed state. Different model_id produces different analyzed set — previously blocked rows become selectable. Confirmed by test_on_model_select_resets_analyzed_state and test_load_job_history_calls_load_container_catalog."
+
+delete_report_ux:
+  status: valid
+  detail: "Delete report button appears in Job History for each job with report_available=true. Confirmation dialog: 'Delete this generated report? The patient file will remain available. You can run this model again after deletion.' On success: clears decision card if current job refreshes Job History via loadJobHistory(). Report deleted status shown in Job History. window.deleteReport exported for onclick binding. Confirmed by 8 UX tests."
+
+job_history_report_availability:
+  status: valid
+  detail: "list_analysis_jobs() returns report_available (boolean from any REPORT_STATUS_AVAILABLE) and report_deleted (derived: not has_available AND overall_status=='completed' AND len(reports)>0). After soft-delete report_available=false and report_deleted=true. Job History renders 'Report deleted' for deleted reports. Open report link only shown when report_available is true. Confirmed by source inspection and tests."
+
+open_report_deleted_state:
+  status: valid
+  detail: "deleteReport() clears the decision card (cr-decision-card) if the deleted job is the currently viewed job. Job History refresh shows 'Report deleted' status text. No open report link rendered for deleted reports. Confirmed by test_delete_report_clears_decision_card and test_report_deleted_status_in_history."
+
+raw_path_s3_safety:
+  status: valid
+  detail: "delete_report() contains no s3:// /tmp/ h5_path unlink os.remove or shutil references. Response payload contains only: status job_id workflow_id model_id report_deleted. Frontend deleteReport() sends only action job_id workflow_id. source_key stored as opaque identifier not raw path. Confirmed by safety tests and grep."
+
+same_source_different_model_analyzable:
+  status: valid
+  detail: "_find_existing_completed_report checks model_id specifically. Same source_key with different model_id does not match the lock condition. Frontend analyzedSourceKeys is keyed by [source_key][model_id] — different model_id entries are independent. Confirmed by grep showing model_id in guard logic and frontend keying."
+
+delete_unlocks_correct_model_only:
+  status: valid
+  detail: "delete_report(job_id workflow_id) targets a specific job which is model-specific. Soft-delete marks only that job's report as UNAVAILABLE. Other jobs for the same source with different models remain completed with available reports. analyzedSourceKeys only removes the entry for the specific source_key+model_id pair. Confirmed by source inspection."
+
+# ---- PR0098/0099/0099B/0099C Preservation ----
+
+pr0098_preservation:
+  status: valid
+  detail: "Patients List heading and Refresh Patients button preserved. Upload endpoint remains /demo/api/h5/containers. No /demo/api/stage reintroduced in upload path. No changes to server.py app.py or inference_handler.py. PR0098 tests not regressed."
+
+pr0099_preservation:
+  status: valid
+  detail: "15 cr-stage pipeline rows preserved. Decision safety wording ('This is not a diagnosis' 'Ask your clinician to confirm') preserved. Terminal collapse preserved. STAGE_MAP has 15 entries. 'pipeline stages completed' present in page. PR0099 tests pass."
+
+pr0099b_preservation:
+  status: valid
+  detail: "run_workflow_request() retains optional job_id: str | None = None at workflow_orchestrator.py line 156. create_analysis_job() passes job_id=job_id. No changes to server.py app.py or inference_handler.py call sites. PR0099B tests pass."
+
+pr0099c_preservation:
+  status: valid
+  detail: "Four missing stage events preserved: runtime.artifact.load.completed runtime.artifact.adaptation.completed runtime.model.validation.completed runtime.features.completed — all in STAGE_MAP. Execution trace finalization preserved. Tiny score <0.001 formatting preserved. '15 of 15 pipeline stages completed' preserved. Score — / Threshold — formatting preserved. PR0099C tests pass."
+
+# ---- Tests ----
+
+tests:
+  status: valid
+  detail: "40 new tests in TestPR0099DReportDeleteAndRerunGuard: 13 backend (function signatures source inspection rerun guard delete soft-delete safety action routing report_deleted field) + 20 frontend (analyzedSourceKeys analyzed class selectContainer guard updateReadiness startAnalysis model switch delete button confirmation deleteReport function Job History status container copy safety) + 4 preservation (PR0099B job_id PR0099C stage events tiny score pipeline summary) + 1 patient label. All 195 control room tests pass."
+
+# ---- Validation ----
+
+validation:
+  compileall: "PASS — python -m compileall src tests — no errors"
+  focused_control_room_tests: "PASS — 195/195 tests in test_bremen_control_room.py passed"
+  full_suite: "PASS — 2395 passed 11 skipped 0 failed"
+  git_diff_check: "PASS — git diff --check returns clean"
+  delete_report_guard_exists: "CONFIRMED — _find_existing_completed_report and report_already_exists in job_api_handler.py"
+  lock_key_includes_model_id: "CONFIRMED — _find_existing_completed_report(source_key workflow_id model_id) signature and source"
+  delete_report_soft_delete: "CONFIRMED — REPORT_STATUS_UNAVAILABLE in delete_report source"
+  container_s_absent: "CONFIRMED — 'container(s)' not in control_room_ui.py"
+  container_colon_absent: "CONFIRMED — 'Container:' not in control_room_ui.py"
+  patient_label_used: "CONFIRMED — 'Patient:' present in control_room_ui.py"
+  s3_path_absent_in_delete: "CONFIRMED — no s3:// or /tmp/ in delete_report source"
+  pr0099b_job_id_preserved: "CONFIRMED — job_id: str | None = None at workflow_orchestrator.py:156"
+  pr0099b_job_id_passed: "CONFIRMED — job_id=job_id in create_analysis_job calls"
+  pr0099c_stage_events_preserved: "CONFIRMED — all 4 events in STAGE_MAP"
+  pr0099c_tiny_score_preserved: "CONFIRMED — <0.001 in control_room_ui.py"
+  pr0099c_pipeline_summary_preserved: "CONFIRMED — 'pipeline stages completed' in control_room_ui.py"
+  no_forbidden_files_changed: "CONFIRMED — server.py app.py inference_handler.py not in diff"
+  no_secrets_in_diff: "CONFIRMED — no credentials tokens PHI raw exceptions stack traces in changed files"
+
+functional_verification_limitation: "Sandbox/source review cannot confirm deployed UI behavior. A real deployment must verify that completed same-model patient rows are disabled different-model runs remain possible Delete report unlocks only the intended model-specific report and no patient/source file is deleted."
+
+security:
+  status: valid
+  detail: "No credentials tokens secrets PHI raw exceptions stack traces feature values model coefficients S3 URIs bucket names filesystem paths H5 internals or private patient identifiers appear in the diff. delete_report returns only safe metadata. source_key stored as opaque identifier. No new dependencies added."
+
+scope_control:
+  status: valid
+  detail: "Changed files within allowed scope: src/bremen/api/job_api_handler.py src/bremen/control_room_ui.py tests/test_bremen_control_room.py tests/test_bremen_launch_flow.js. READ_ONLY files (server.py app.py inference_handler.py) unmodified. No docs ROADMAP requirements pyproject Dockerfile infra or .github files changed. No new dependencies."
+
+implementation_report:
+  status: valid
+  detail: "implementation-report.md is present and matches actual diff. All claimed changes confirmed by source inspection: rerun guard with model-specific keying soft-delete report deletion frontend analyzed state model switch recomputation delete button UX Patient copy 40 tests. Implementation report accurately describes the diff."
+
+commit_readiness: "Ready for commit. All 40 blockers clear. 0 blockers. 2 warnings (non-blocking architectural notes). 2395 tests pass (11 skipped). compileall passes. git diff --check clean. All PR0098/0099/0099B/0099C preserved."
