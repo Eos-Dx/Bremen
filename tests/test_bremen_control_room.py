@@ -1365,3 +1365,318 @@ class TestAppendixAModelReportBinding:
         assert 'terminal_event_types' in src
         assert 'runtime.workflow.completed' in src
         assert 'runtime.request.completed' in src
+
+
+class TestPR0099DReportDeleteAndRerunGuard:
+    """PR0099D: Control Room model-specific report deletion and rerun guard."""
+
+    # ---- PART 1: Backend model-specific report lock ----
+
+    def test_find_existing_completed_report_function_exists(self):
+        """_find_existing_completed_report function exists in job_api_handler."""
+        import inspect
+        from bremen.api.job_api_handler import _find_existing_completed_report
+        sig = inspect.signature(_find_existing_completed_report)
+        assert 'source_key' in sig.parameters
+        assert 'workflow_id' in sig.parameters
+        assert 'model_id' in sig.parameters
+
+    def test_rerun_guard_blocks_same_source_workflow_model(self):
+        """Same source + workflow + model with completed report blocks duplicate."""
+        import inspect
+        from bremen.api.job_api_handler import handle_jobs_create
+        src = inspect.getsource(handle_jobs_create)
+        assert 'report_already_exists' in src
+        assert '_find_existing_completed_report' in src
+
+    def test_rerun_guard_uses_source_key_identity(self):
+        """Rerun guard uses source_key for identity matching."""
+        import inspect
+        from bremen.api.job_api_handler import handle_jobs_create
+        src = inspect.getsource(handle_jobs_create)
+        assert 'source_key' in src
+
+    def test_create_analysis_job_accepts_source_key(self):
+        """create_analysis_job accepts source_key parameter."""
+        import inspect
+        from bremen.api.job_api_handler import create_analysis_job
+        sig = inspect.signature(create_analysis_job)
+        assert 'source_key' in sig.parameters
+
+    def test_input_summary_stores_source_key(self):
+        """create_analysis_job stores source_key in input_summary."""
+        import inspect
+        from bremen.api.job_api_handler import create_analysis_job
+        src = inspect.getsource(create_analysis_job)
+        assert '"source_key": source_key' in src
+
+    def test_list_analysis_jobs_returns_source_key(self):
+        """list_analysis_jobs returns source_key in summary."""
+        import inspect
+        from bremen.api.job_api_handler import list_analysis_jobs
+        src = inspect.getsource(list_analysis_jobs)
+        assert 'source_key' in src
+
+    # ---- PART 2: Report deletion ----
+
+    def test_delete_report_function_exists(self):
+        """delete_report function exists."""
+        import inspect
+        from bremen.api.job_api_handler import delete_report
+        sig = inspect.signature(delete_report)
+        assert 'job_id' in sig.parameters
+        assert 'workflow_id' in sig.parameters
+
+    def test_delete_report_soft_deletes(self):
+        """delete_report sets report status to UNAVAILABLE (soft delete)."""
+        import inspect
+        from bremen.api.job_api_handler import delete_report
+        src = inspect.getsource(delete_report)
+        assert 'REPORT_STATUS_UNAVAILABLE' in src
+
+    def test_delete_report_returns_safe_response(self):
+        """delete_report returns safe JSON with no paths or internals."""
+        import inspect
+        from bremen.api.job_api_handler import delete_report
+        src = inspect.getsource(delete_report)
+        assert 's3://' not in src
+        assert '/tmp/' not in src
+        assert 'h5_path' not in src
+        assert '"status": "deleted"' in src
+
+    def test_delete_report_does_not_delete_source(self):
+        """delete_report does not delete source files or catalog entries."""
+        import inspect
+        from bremen.api.job_api_handler import delete_report
+        src = inspect.getsource(delete_report)
+        assert 'unlink' not in src
+        assert 'os.remove' not in src
+        assert 'shutil' not in src
+
+    def test_handle_report_delete_function_exists(self):
+        """handle_report_delete function exists for POST action routing."""
+        import inspect
+        from bremen.api.job_api_handler import handle_report_delete
+        sig = inspect.signature(handle_report_delete)
+        assert 'handler' in sig.parameters
+        assert 'body' in sig.parameters
+
+    def test_handle_jobs_create_routes_delete_report_action(self):
+        """handle_jobs_create routes action=delete_report."""
+        import inspect
+        from bremen.api.job_api_handler import handle_jobs_create
+        src = inspect.getsource(handle_jobs_create)
+        assert 'delete_report' in src
+        assert 'action' in src
+
+    def test_list_analysis_jobs_has_report_deleted_field(self):
+        """list_analysis_jobs returns report_deleted field."""
+        import inspect
+        from bremen.api.job_api_handler import list_analysis_jobs
+        src = inspect.getsource(list_analysis_jobs)
+        assert 'report_deleted' in src
+
+    # ---- PART 3: Frontend disabled patient rows ----
+
+    def test_analyzed_source_keys_variable_exists(self):
+        """analyzedSourceKeys global variable exists."""
+        page = build_control_room_page()
+        assert 'analyzedSourceKeys' in page
+
+    def test_load_job_history_populates_analyzed_source_keys(self):
+        """loadJobHistory populates analyzedSourceKeys from job data."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'analyzedSourceKeys' in fn_body
+        assert 'source_key' in fn_body
+
+    def test_container_item_has_analyzed_class(self):
+        """Container items get analyzed class when already analyzed."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadContainerCatalog')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'analyzed' in fn_body
+        assert 'isAnalyzed' in fn_body
+
+    def test_analyzed_row_cannot_be_selected(self):
+        """selectContainer prevents selection of analyzed rows."""
+        page = build_control_room_page()
+        fn_start = page.find('function selectContainer')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'analyzed' in fn_body
+
+    def test_analyzed_css_class_exists(self):
+        """CSS class for analyzed/disabled state exists."""
+        page = build_control_room_page()
+        assert '.cr-container-item.analyzed' in page
+
+    # ---- PART 4: Analyze button blocked for analyzed sources ----
+
+    def test_update_readiness_checks_analyzed_state(self):
+        """updateReadiness checks analyzedSourceKeys for blocked state."""
+        page = build_control_room_page()
+        fn_start = page.find('function updateReadiness')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'analyzedSourceKeys' in fn_body
+
+    def test_update_readiness_shows_analyzed_message(self):
+        """updateReadiness shows 'Already analyzed' message."""
+        page = build_control_room_page()
+        assert 'Already analyzed with this model' in page
+
+    def test_start_analysis_checks_analyzed_state(self):
+        """startAnalysis checks analyzedSourceKeys before submitting."""
+        page = build_control_room_page()
+        fn_start = page.find('function startAnalysis')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'analyzedSourceKeys' in fn_body
+
+    # ---- PART 5: Model switch recomputes disabled state ----
+
+    def test_on_model_select_resets_analyzed_state(self):
+        """onModelSelect calls loadJobHistory which recomputes analyzedSourceKeys."""
+        page = build_control_room_page()
+        fn_start = page.find('function onModelSelect')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'loadJobHistory()' in fn_body
+
+    def test_load_job_history_calls_load_container_catalog(self):
+        """loadJobHistory calls loadContainerCatalog to re-render with analyzed state."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'loadContainerCatalog()' in fn_body
+
+    # ---- PART 6: Delete report UX ----
+
+    def test_delete_report_button_in_job_history(self):
+        """Delete report button appears in job history for available reports."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'btn-delete-report' in fn_body
+        assert 'Delete report' in fn_body
+
+    def test_delete_report_confirmation_text(self):
+        """Delete report has proper confirmation text."""
+        page = build_control_room_page()
+        assert 'Delete this generated report?' in page
+        assert 'patient file will remain available' in page
+
+    def test_delete_report_function_exists_in_page(self):
+        """deleteReport function exists in the page."""
+        page = build_control_room_page()
+        assert 'function deleteReport' in page
+
+    def test_delete_report_posts_action(self):
+        """deleteReport sends POST with action=delete_report."""
+        page = build_control_room_page()
+        fn_start = page.find('function deleteReport')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'action' in fn_body
+        assert 'delete_report' in fn_body
+
+    def test_delete_report_clears_decision_card(self):
+        """deleteReport clears decision card if it was the current job."""
+        page = build_control_room_page()
+        fn_start = page.find('function deleteReport')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'cr-decision-card' in fn_body
+
+    def test_delete_report_refreshes_job_history(self):
+        """deleteReport calls loadJobHistory after success."""
+        page = build_control_room_page()
+        fn_start = page.find('function deleteReport')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'loadJobHistory()' in fn_body
+
+    def test_report_deleted_status_in_history(self):
+        """Job history shows 'Report deleted' for deleted reports."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'Report deleted' in fn_body
+
+    def test_delete_report_window_export(self):
+        """deleteReport is exported on window."""
+        page = build_control_room_page()
+        assert 'window.deleteReport' in page
+
+    # ---- PART 7: No visible container copy ----
+
+    def test_no_visible_container_s(self):
+        """No visible 'container(s)' in the UI."""
+        page = build_control_room_page()
+        assert 'container(s)' not in page
+
+    def test_no_visible_container_colon(self):
+        """No visible 'Container:' in the UI."""
+        page = build_control_room_page()
+        assert 'Container:' not in page
+
+    def test_patient_label_used(self):
+        """Patient label used instead of container."""
+        page = build_control_room_page()
+        assert 'Patient:' in page or 'patient' in page.lower()
+
+    # ---- PART 8: Safety ----
+
+    def test_no_s3_or_path_in_delete_logic(self):
+        """Delete report logic does not expose S3 or paths."""
+        import inspect
+        from bremen.api.job_api_handler import delete_report
+        src = inspect.getsource(delete_report)
+        assert 's3://' not in src
+        assert '/tmp/' not in src
+        assert 'h5_path' not in src
+
+    def test_no_container_copy_in_analyzed_message(self):
+        """Analyzed message does not use container terminology."""
+        page = build_control_room_page()
+        fn_start = page.find('function updateReadiness')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'container' not in fn_body.lower()
+
+    # ---- PART 9: PR0099B/0099C preservation ----
+
+    def test_pr0099b_job_id_identity_preserved(self):
+        """PR0099B: run_workflow_request still accepts optional job_id."""
+        from bremen.api.workflow_orchestrator import run_workflow_request
+        import inspect
+        sig = inspect.signature(run_workflow_request)
+        assert 'job_id' in sig.parameters
+
+    def test_pr0099c_stage_events_preserved(self):
+        """PR0099C: All 4 missing stage events still emitted."""
+        import inspect
+        from bremen.api.workflow_bremen import BremenProvider
+        src = inspect.getsource(BremenProvider.prepare_artifact)
+        assert 'runtime.artifact.load.completed' in src
+        assert 'runtime.artifact.adaptation.completed' in src
+        assert 'runtime.model.validation.completed' in src
+        src2 = inspect.getsource(BremenProvider.execute)
+        assert 'runtime.features.completed' in src2
+
+    def test_pr0099c_tiny_score_preserved(self):
+        """PR0099C: Tiny score <0.001 formatting preserved."""
+        page = build_control_room_page()
+        assert '<0.001' in page
+
+    def test_pr0099c_pipeline_summary_preserved(self):
+        """PR0099C: 15 pipeline stages summary preserved."""
+        page = build_control_room_page()
+        assert 'pipeline stages completed' in page

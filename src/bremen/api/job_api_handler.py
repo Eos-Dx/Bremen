@@ -373,6 +373,7 @@ def create_analysis_job(
     h5_path: str = "",
     model_id: str | None = None,
     registry: WorkflowRegistry | None = None,
+    source_key: str = "",
 ) -> AnalysisJob:
     """Create and execute an analysis job synchronously.
 
@@ -422,6 +423,7 @@ def create_analysis_job(
         "container_id": container_id or "",
         "workflow_id": workflow_id,
         "model_id": model_id,
+        "source_key": source_key or "",
     }
 
     job = AnalysisJob(
@@ -566,6 +568,7 @@ def list_analysis_jobs(
         # Add model information from input_summary
         if j.input_summary:
             summary["model_id"] = j.input_summary.get("model_id")
+            summary["source_key"] = j.input_summary.get("source_key", "")
             summary["source_display_name"] = (
                 j.input_summary.get("filename") or
                 j.input_summary.get("container_id") or
@@ -588,9 +591,17 @@ def list_analysis_jobs(
                 summary["model_version"] = wf_run.model_identity.get("model_version")
 
         # Add report availability
-        summary["report_available"] = any(
+        has_available = any(
             rm.status == REPORT_STATUS_AVAILABLE
             for rm in j.reports.values()
+        )
+        summary["report_available"] = has_available
+        # Derive report_deleted: job completed but no available report
+        # (soft-deleted via delete_report action)
+        summary["report_deleted"] = (
+            not has_available
+            and j.overall_status == "completed"
+            and len(j.reports) > 0
         )
 
         # Apply model_id filter (server-side)
@@ -716,6 +727,102 @@ def _generate_job_reports(job: AnalysisJob) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Rerun guard and report deletion
+# ---------------------------------------------------------------------------
+
+
+def _find_existing_completed_report(
+    source_key: str,
+    workflow_id: str,
+    model_id: str,
+) -> tuple[str, str] | None:
+    """Check if a completed report exists for source + workflow + model.
+
+    Returns (job_id, workflow_id) if found, None otherwise.
+    """
+    if not source_key or not model_id:
+        return None
+    with _jobs_lock:
+        for job in _jobs.values():
+            if job.overall_status != "completed":
+                continue
+            isk = job.input_summary or {}
+            if isk.get("source_key") != source_key:
+                continue
+            if isk.get("model_id") != model_id:
+                continue
+            if workflow_id not in job.requested_workflows:
+                continue
+            # Check for completed report
+            rm = job.reports.get(workflow_id)
+            if rm and rm.status == REPORT_STATUS_AVAILABLE:
+                return (job.job_id, workflow_id)
+    return None
+
+
+def delete_report(
+    job_id: str,
+    workflow_id: str,
+) -> dict[str, Any]:
+    """Delete a report for a specific job/workflow.
+
+    Returns a result dict with status and metadata.
+    Does NOT delete source files, catalog entries, or other model reports.
+    """
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+    if job is None:
+        return {"status": "not_found", "error": "report_not_found"}
+
+    rm = job.reports.get(workflow_id)
+    if rm is None:
+        return {"status": "not_found", "error": "report_not_found"}
+
+    model_id = (job.input_summary or {}).get("model_id", "")
+
+    # Soft-delete: mark report as unavailable
+    with _jobs_lock:
+        job.reports[workflow_id] = ReportMetadata(
+            report_id=rm.report_id,
+            workflow_id=rm.workflow_id,
+            report_schema_version=rm.report_schema_version,
+            status=REPORT_STATUS_UNAVAILABLE,
+            generated_at=rm.generated_at,
+            model_id=rm.model_id,
+            model_version=rm.model_version,
+            scientifically_certified=rm.scientifically_certified,
+        )
+
+    return {
+        "status": "deleted",
+        "job_id": job_id,
+        "workflow_id": workflow_id,
+        "model_id": model_id,
+        "report_deleted": True,
+    }
+
+
+def handle_report_delete(
+    handler: BaseHTTPRequestHandler,
+    body: dict[str, Any],
+) -> None:
+    """Handle report deletion request via POST action."""
+    job_id = body.get("job_id", "")
+    workflow_id = body.get("workflow_id", "bremen")
+    if not job_id:
+        _send_json(handler, 400, {
+            "error": "job_id is required for report deletion.",
+        })
+        return
+
+    result = delete_report(job_id, workflow_id)
+    if result["status"] == "not_found":
+        _send_json(handler, 404, result)
+    else:
+        _send_json(handler, 200, result)
+
+
+# ---------------------------------------------------------------------------
 # Job API route handlers
 # ---------------------------------------------------------------------------
 
@@ -753,14 +860,22 @@ def handle_jobs_list(handler: BaseHTTPRequestHandler) -> None:
 
 
 def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
-    """Handle POST /demo/api/jobs — create an analysis job.
+    """Handle POST /demo/api/jobs — create an analysis job or delete a report.
 
     Accepts the new Control Room contract with model_id, source_id/upload_id,
     and preserves legacy h5_path and container_id for backward compatibility.
+
+    Also handles action=delete_report for report deletion.
     """
     body = _read_json_body(handler)
     if body is None:
         _send_json(handler, 400, {"error": "Invalid JSON body"})
+        return
+
+    # ---- Action routing ----
+    action = body.get("action", "")
+    if action == "delete_report":
+        handle_report_delete(handler, body)
         return
 
     # ---- Parse request body ----
@@ -784,6 +899,27 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
             "error_code": "AMBIGUOUS_SOURCE",
         })
         return
+
+    # Compute source_key for stable identity
+    source_key = source_id or upload_id or container_id or ""
+
+    # ---- Rerun guard: block duplicate analysis ----
+    if source_key and workflow_id and model_id:
+        existing = _find_existing_completed_report(
+            source_key, workflow_id, model_id,
+        )
+        if existing is not None:
+            _send_json(handler, 409, {
+                "status": "blocked",
+                "error": "report_already_exists",
+                "message": (
+                    "A report already exists for this source and model. "
+                    "Delete the report to run again."
+                ),
+                "job_id": existing[0],
+                "workflow_id": existing[1],
+            })
+            return
 
     try:
         # Derive effective source display name for Job History.
@@ -830,6 +966,7 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
             workflow_id=workflow_id,
             h5_path=h5_path,
             model_id=model_id,
+            source_key=source_key,
         )
 
         _send_json(handler, 201, {
