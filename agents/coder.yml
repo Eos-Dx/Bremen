@@ -8,7 +8,7 @@ metadata:
 models:
   coder_model:
     provider: anthropic
-    model: deepseek-v4-flash
+    model: mimo-v2.5-pro
     base_url: https://api.openmodel.ai
     max_tokens: 40000
     temperature: 0
@@ -126,7 +126,7 @@ agents:
     add_date: true
     add_environment_info: true
     redact_secrets: true
-    max_iterations: 20
+    max_iterations: 40
 
     toolsets:
       - type: filesystem
