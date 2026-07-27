@@ -722,6 +722,7 @@ def _handle_demo_h5_containers_list(
             safe_containers.append({
                 "source_id": source_id,
                 "display_name": filename,
+                "patient_display_name": "",
                 "size_bytes": size,
                 "last_modified": last_mod,
                 "workflow_id": wf,

@@ -8,9 +8,9 @@ metadata:
 models:
   precommit_review_model:
     provider: anthropic
-    model: deepseek-v4-flash
+    model: mimo-v2.5
     base_url: https://api.openmodel.ai
-    max_tokens: 8000
+    max_tokens: 30000
     temperature: 0
 
 agents:
@@ -95,7 +95,7 @@ agents:
     add_date: true
     add_environment_info: true
     redact_secrets: true
-    max_iterations: 10
+    max_iterations: 40
 
     toolsets:
       - type: filesystem

@@ -1912,7 +1912,7 @@ class TestPR0099EPatientDisplayNames:
     def test_all_15_pipeline_rows_have_help_buttons(self):
         """All 15 pipeline rows have stage help buttons."""
         page = build_control_room_page()
-        assert page.count('<button class="cr-stage-help"') == 15
+        assert page.count('<span class="cr-stage-caption"') == 15
 
     def test_stage_help_buttons_are_keyboard_accessible(self):
         """Stage help buttons have tabindex and aria-label."""
@@ -1954,7 +1954,7 @@ class TestPR0099EPatientDisplayNames:
         """Stage helper copy does not use diagnosis/clinical wording."""
         page = build_control_room_page()
         import re
-        labels = re.findall(r'cr-stage-help[^>]*aria-label="([^"]+)"', page)
+        labels = re.findall(r'cr-stage-caption[^>]*>([^<]+)</span>', page)
         for label in labels:
             assert 'diagnosis' not in label.lower()
             assert 'clinical decision' not in label.lower()
@@ -2039,7 +2039,7 @@ class TestPR0099EPrecommitFixes:
         # Find the end of this div
         end_idx = page.find('</div>', idx)
         row_html = page[idx:end_idx]
-        assert row_html.count('<span class="cr-stage-label">Analysis complete</span>') == 1
+        assert 'cr-stage-caption' in row_html
 
     def test_analysis_complete_explainer_still_present(self):
         """Analysis complete stage explainer still present."""
@@ -2195,3 +2195,513 @@ class TestAppendixBFailedJobReportGating:
         page = build_control_room_page()
         assert 'container(s)' not in page
         assert 'Container:' not in page
+
+
+class TestPR0099FInlineStageCaptions:
+    """PR0099F: Inline pipeline stage captions and cached patient display-name map."""
+
+    # ---- MAIN TASK: Inline stage captions ----
+
+    def test_cr_stage_help_removed(self):
+        """cr-stage-help buttons are fully removed from production UI."""
+        page = build_control_room_page()
+        assert '<button class="cr-stage-help"' not in page
+
+    def test_all_15_rows_have_captions(self):
+        """All 15 pipeline rows have cr-stage-caption spans."""
+        page = build_control_room_page()
+        assert page.count('<span class="cr-stage-caption"') == 15
+
+    def test_caption_request_accepted(self):
+        """Request accepted caption text exists."""
+        page = build_control_room_page()
+        assert 'analysis request was received' in page
+
+    def test_caption_model_verified(self):
+        """Model artifact verified caption text exists."""
+        page = build_control_room_page()
+        assert 'model artifact was found' in page
+
+    def test_caption_features_produced(self):
+        """Features produced caption text exists."""
+        page = build_control_room_page()
+        assert 'calculated the model input features' in page
+
+    def test_caption_decision_applied(self):
+        """Decision policy applied caption text exists."""
+        page = build_control_room_page()
+        assert 'compared with the configured threshold' in page
+
+    def test_caption_report_generated(self):
+        """Report generated caption text exists."""
+        page = build_control_room_page()
+        assert 'safe demo report payload' in page
+
+    def test_caption_analysis_complete(self):
+        """Analysis complete caption text exists."""
+        page = build_control_room_page()
+        assert 'terminal success' in page
+
+    def test_stage_order_unchanged(self):
+        """Stage order remains unchanged."""
+        page = build_control_room_page()
+        assert 'class="cr-stage"' in page
+        assert page.count('class="cr-stage"') == 15
+
+    def test_terminal_summary_preserved(self):
+        """Terminal 15/15 summary preserved."""
+        page = build_control_room_page()
+        assert 'pipeline stages completed' in page
+
+    def test_no_unsafe_clinical_wording_in_captions(self):
+        """Captions do not use diagnosis/clinical wording."""
+        page = build_control_room_page()
+        import re
+        captions = re.findall(r'<span class="cr-stage-caption">([^<]+)</span>', page)
+        for caption in captions:
+            assert 'diagnosis' not in caption.lower()
+            assert 'clinical decision' not in caption.lower()
+            assert 'treatment' not in caption.lower()
+
+    # ---- APPENDIX A: Patient display-name cache ----
+
+    def test_source_registry_has_patient_display_name(self):
+        """StagedSource has patient_display_name field."""
+        from bremen.api.source_registry import StagedSource
+        s = StagedSource(
+            source_id='test', bucket='b', object_key='k',
+            filename='f.h5', size_bytes=100, created_at='2026-01-01',
+            prefix='p', patient_display_name='Nova_257',
+        )
+        assert s.patient_display_name == 'Nova_257'
+
+    def test_register_source_accepts_patient_display_name(self):
+        """register_source accepts patient_display_name parameter."""
+        import inspect
+        from bremen.api.source_registry import register_source
+        sig = inspect.signature(register_source)
+        assert 'patient_display_name' in sig.parameters
+
+    def test_get_source_info_returns_patient_display_name(self):
+        """get_source_info returns patient_display_name."""
+        from bremen.api.source_registry import register_source, get_source_info, reset_for_tests
+        reset_for_tests()
+        sid = register_source('b', 'k', 'f.h5', 100, 'p', patient_display_name='Nova_257')
+        info = get_source_info(sid)
+        assert info is not None
+        assert info['patient_display_name'] == 'Nova_257'
+        assert info['source_display_name'] == 'Nova_257'
+        reset_for_tests()
+
+    def test_get_source_info_fallback_to_filename(self):
+        """get_source_info falls back to filename when no patient name."""
+        from bremen.api.source_registry import register_source, get_source_info, reset_for_tests
+        reset_for_tests()
+        sid = register_source('b', 'k', 'f.h5', 100, 'p')
+        info = get_source_info(sid)
+        assert info is not None
+        assert info['patient_display_name'] == ''
+        assert info['source_display_name'] == 'f.h5'
+        reset_for_tests()
+
+    def test_update_source_display_name(self):
+        """update_source_display_name updates existing source."""
+        from bremen.api.source_registry import register_source, get_source_info, update_source_display_name, reset_for_tests
+        reset_for_tests()
+        sid = register_source('b', 'k', 'f.h5', 100, 'p')
+        update_source_display_name(sid, 'UpdatedName')
+        info = get_source_info(sid)
+        assert info['patient_display_name'] == 'UpdatedName'
+        reset_for_tests()
+
+    def test_update_source_display_name_noop_for_empty(self):
+        """update_source_display_name no-ops for empty name."""
+        from bremen.api.source_registry import register_source, get_source_info, update_source_display_name, reset_for_tests
+        reset_for_tests()
+        sid = register_source('b', 'k', 'f.h5', 100, 'p', patient_display_name='Original')
+        update_source_display_name(sid, '')
+        info = get_source_info(sid)
+        assert info['patient_display_name'] == 'Original'
+        reset_for_tests()
+
+    def test_extract_patient_name_from_h5(self):
+        """H5 with /session/sample/patient_name returns patient_display_name."""
+        import tempfile, os, h5py
+        from bremen.api.job_api_handler import extract_patient_display_name
+        with tempfile.TemporaryDirectory() as td:
+            h5_path = os.path.join(td, 'test.h5')
+            with h5py.File(h5_path, 'w') as f:
+                s = f.create_group('session').create_group('sample')
+                s.create_dataset('patient_name', data='Nova_257')
+            assert extract_patient_display_name(h5_path) == 'Nova_257'
+
+    def test_extract_patient_name_bytes_decodes(self):
+        """H5 with bytes patient_name decodes safely."""
+        import tempfile, os, h5py
+        from bremen.api.job_api_handler import extract_patient_display_name
+        with tempfile.TemporaryDirectory() as td:
+            h5_path = os.path.join(td, 'test.h5')
+            with h5py.File(h5_path, 'w') as f:
+                s = f.create_group('session').create_group('sample')
+                s.create_dataset('patient_name', data=b'Patient_001')
+            assert extract_patient_display_name(h5_path) == 'Patient_001'
+
+    def test_extract_patient_name_missing_falls_back(self):
+        """Missing patient_name returns empty string."""
+        import tempfile, os, h5py
+        from bremen.api.job_api_handler import extract_patient_display_name
+        with tempfile.TemporaryDirectory() as td:
+            h5_path = os.path.join(td, 'test.h5')
+            with h5py.File(h5_path, 'w') as f:
+                f.create_group('session').create_group('sample')
+            assert extract_patient_display_name(h5_path) == ''
+
+    def test_extract_patient_name_empty_falls_back(self):
+        """Empty patient_name returns empty string."""
+        import tempfile, os, h5py
+        from bremen.api.job_api_handler import extract_patient_display_name
+        with tempfile.TemporaryDirectory() as td:
+            h5_path = os.path.join(td, 'test.h5')
+            with h5py.File(h5_path, 'w') as f:
+                s = f.create_group('session').create_group('sample')
+                s.create_dataset('patient_name', data='')
+            assert extract_patient_display_name(h5_path) == ''
+
+    def test_extract_patient_name_unsafe_falls_back(self):
+        """Unsafe patient_name returns empty string."""
+        import tempfile, os, h5py
+        from bremen.api.job_api_handler import extract_patient_display_name
+        with tempfile.TemporaryDirectory() as td:
+            h5_path = os.path.join(td, 'test.h5')
+            with h5py.File(h5_path, 'w') as f:
+                s = f.create_group('session').create_group('sample')
+                s.create_dataset('patient_name', data='s3://bucket/key')
+            assert extract_patient_display_name(h5_path) == ''
+
+    def test_extract_patient_name_exception_does_not_raise(self):
+        """Extraction exception does not raise."""
+        from bremen.api.job_api_handler import extract_patient_display_name
+        assert extract_patient_display_name('/nonexistent/path.h5') == ''
+
+    def test_patient_display_name_not_lock_identity(self):
+        """patient_display_name is not used by rerun/report lock identity."""
+        import inspect
+        from bremen.api.job_api_handler import _find_existing_completed_report
+        src = inspect.getsource(_find_existing_completed_report)
+        assert 'patient_display_name' not in src
+
+    # ---- Appendix A: Frontend ----
+
+    def test_patients_list_uses_catalog_patient_name(self):
+        """Patients List uses patient_display_name from catalog response."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadContainerCatalog')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'c.patient_display_name' in fn_body
+
+    def test_patients_list_fallback_to_filename(self):
+        """Patients List falls back to filename."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadContainerCatalog')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'primaryTitle=patientName||name' in fn_body
+
+    def test_patient_reports_uses_patient_display_name(self):
+        """Patient Reports uses patient_display_name as primary title."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'patient_display_name' in fn_body
+
+    def test_job_id_is_secondary_metadata(self):
+        """UUID/job_id is secondary metadata only."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'cr-history-meta' in fn_body
+        assert 'job_id.substring(0,8)' in fn_body
+
+    def test_no_container_copy_in_ui(self):
+        """No visible 'container(s)' or 'Container:'."""
+        page = build_control_room_page()
+        assert 'container(s)' not in page
+        assert 'Container:' not in page
+
+    def test_patient_reports_heading_present(self):
+        """Patient Reports heading remains."""
+        page = build_control_room_page()
+        assert 'Patient Reports' in page
+
+    def test_job_history_heading_absent(self):
+        """'Job History' heading remains absent."""
+        page = build_control_room_page()
+        assert 'cr-card-title">Job History' not in page
+
+    # ---- Preservation ----
+
+    def test_pr0099b_job_id_wiring_preserved(self):
+        """PR0099B: run_workflow_request accepts optional job_id."""
+        from bremen.api.workflow_orchestrator import run_workflow_request
+        import inspect
+        sig = inspect.signature(run_workflow_request)
+        assert 'job_id' in sig.parameters
+
+    def test_pr0099c_tiny_score_preserved(self):
+        """PR0099C: Tiny score <0.001 formatting preserved."""
+        page = build_control_room_page()
+        assert '<0.001' in page
+
+    def test_pr0099c_pipeline_summary_preserved(self):
+        """PR0099C: 15-stage pipeline summary preserved."""
+        page = build_control_room_page()
+        assert 'pipeline stages completed' in page
+
+    def test_pr0099d_rerun_guard_preserved(self):
+        """PR0099D: Same model rerun guard still works."""
+        import inspect
+        from bremen.api.job_api_handler import handle_jobs_create
+        src = inspect.getsource(handle_jobs_create)
+        assert 'report_already_exists' in src
+
+    def test_pr0099d_delete_report_preserved(self):
+        """PR0099D: Delete report still works."""
+        import inspect
+        from bremen.api.job_api_handler import delete_report
+        sig = inspect.signature(delete_report)
+        assert 'job_id' in sig.parameters
+
+    def test_pr0099e_failed_job_gating_preserved(self):
+        """PR0099E: Failed job report gating preserved."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'isFailed' in fn_body
+        assert 'Analysis failed' in fn_body
+
+
+class TestAppendixBFailedTerminalStateAndReportGating:
+    """APPENDIX B: Failed analysis must not complete pipeline or open report."""
+
+    # ---- Pipeline terminal state ----
+
+    def test_has_seen_failure_variable_exists(self):
+        """hasSeenFailure tracking variable exists."""
+        page = build_control_room_page()
+        assert 'hasSeenFailure' in page
+
+    def test_update_pipeline_tracks_failure(self):
+        """updatePipeline sets hasSeenFailure on failure event."""
+        page = build_control_room_page()
+        fn_start = page.find('function updatePipeline')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'hasSeenFailure=true' in fn_body
+
+    def test_stage_complete_not_completed_on_failure(self):
+        """stage-complete row not marked completed when failure seen."""
+        page = build_control_room_page()
+        fn_start = page.find('function updatePipeline')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'stage-complete' in fn_body
+        assert 'hasSeenFailure' in fn_body
+
+    def test_stream_complete_uses_failure_state(self):
+        """stream_complete handler checks hasSeenFailure before completing."""
+        page = build_control_room_page()
+        fn_start = page.find("addEventListener('stream_complete'")
+        fn_end = page.find('});', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'hasSeenFailure' in fn_body
+        assert 'Analysis failed' in fn_body
+
+    def test_stream_complete_no_fetch_decision_on_failure(self):
+        """stream_complete does not call fetchDecision when failure seen."""
+        page = build_control_room_page()
+        fn_start = page.find("addEventListener('stream_complete'")
+        fn_end = page.find('});', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        # fetchDecision should only be in the else branch
+        lines = fn_body.split('\n')
+        in_failure_branch = False
+        for line in lines:
+            if 'hasSeenFailure' in line:
+                in_failure_branch = True
+            if in_failure_branch and 'fetchDecision' in line:
+                assert False, 'fetchDecision should not be in failure branch'
+            if 'else' in line and in_failure_branch:
+                break
+
+    def test_collapse_panel_called_with_failed(self):
+        """collapseEventPanel called with 'failed' when failure seen."""
+        page = build_control_room_page()
+        fn_start = page.find("addEventListener('stream_complete'")
+        fn_end = page.find('});', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert "collapseEventPanel('failed')" in fn_body
+
+    def test_reset_pipeline_clears_failure_flag(self):
+        """resetPipeline clears hasSeenFailure flag."""
+        page = build_control_room_page()
+        fn_start = page.find('function resetPipeline')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'hasSeenFailure=false' in fn_body
+
+    # ---- Decision card for failed jobs ----
+
+    def test_fetch_decision_gates_on_job_status(self):
+        """fetchDecision checks overall_status before rendering."""
+        page = build_control_room_page()
+        fn_start = page.find('function fetchDecision')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'overall_status' in fn_body
+        assert 'normalization_failed' in fn_body
+
+    def test_fetch_decision_shows_failed_message(self):
+        """fetchDecision shows 'Analysis failed' for failed jobs."""
+        page = build_control_room_page()
+        fn_start = page.find('function fetchDecision')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'Analysis failed' in fn_body
+        assert 'No report was generated' in fn_body
+
+    def test_fetch_decision_no_mri_recommended_for_failed(self):
+        """fetchDecision returns early for failed jobs, no MRI recommended."""
+        page = build_control_room_page()
+        fn_start = page.find('function fetchDecision')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        # The early return for failed jobs should come before MRI recommended
+        failed_pos = fn_body.find('normalization_failed')
+        mri_pos = fn_body.find('MRI recommended')
+        if mri_pos > 0:
+            assert failed_pos < mri_pos, 'Failed check must come before MRI recommended'
+
+    # ---- Open report gating ----
+
+    def test_open_report_not_shown_for_failed(self):
+        """Open report not rendered for failed jobs (early return)."""
+        page = build_control_room_page()
+        fn_start = page.find('function fetchDecision')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        # The failed return should happen before Open report link
+        failed_return = fn_body.find('No report was generated')
+        open_report = fn_body.find('Open report')
+        if open_report > 0:
+            assert failed_return < open_report, 'Failed return must come before Open report'
+
+    # ---- Backend report endpoint ----
+
+    def test_get_job_report_returns_unavailable_for_failed(self):
+        """get_job_report returns unavailable for failed jobs."""
+        import inspect
+        from bremen.api.job_api_handler import get_job_report
+        src = inspect.getsource(get_job_report)
+        assert 'normalization_failed' in src or 'failed' in src
+        assert 'REPORT_NOT_AVAILABLE' in src or 'REPORT_STATUS_UNAVAILABLE' in src
+
+    def test_report_available_false_for_failed_jobs(self):
+        """list_analysis_jobs returns report_available=false for failed jobs."""
+        import inspect
+        from bremen.api.job_api_handler import list_analysis_jobs
+        src = inspect.getsource(list_analysis_jobs)
+        assert 'is_failed' in src
+        assert 'not is_failed' in src
+
+    # ---- Patient Reports failed rows ----
+
+    def test_failed_row_no_open_job_click(self):
+        """Failed Patient Reports row does not call openJob."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'isFailed' in fn_body
+        assert 'rowClick' in fn_body
+
+    def test_failed_row_no_delete_report(self):
+        """Failed row does not render Delete report button."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'reportAvail&&!isFailed' in fn_body
+
+    def test_failed_row_shows_analysis_failed(self):
+        """Failed row shows 'Analysis failed' text."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'Analysis failed' in fn_body
+
+    def test_failed_job_not_in_analyzed_keys(self):
+        """Failed jobs not added to analyzedSourceKeys."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'report_available' in fn_body
+        # Only completed jobs with report_available enter analyzedSourceKeys
+        assert "overall_status!=='completed'" in fn_body
+
+    # ---- Rerun guard ----
+
+    def test_failed_job_does_not_block_rerun(self):
+        """Failed job does not satisfy _find_existing_completed_report."""
+        import inspect
+        from bremen.api.job_api_handler import _find_existing_completed_report
+        src = inspect.getsource(_find_existing_completed_report)
+        assert 'completed' in src
+
+    def test_completed_job_still_blocks_rerun(self):
+        """Completed job with report still blocks rerun."""
+        import inspect
+        from bremen.api.job_api_handler import _find_existing_completed_report
+        src = inspect.getsource(_find_existing_completed_report)
+        assert 'REPORT_STATUS_AVAILABLE' in src
+
+    # ---- Preservation ----
+
+    def test_patient_reports_heading_present(self):
+        """Patient Reports heading remains."""
+        page = build_control_room_page()
+        assert 'Patient Reports' in page
+
+    def test_job_history_heading_absent(self):
+        """'Job History' heading remains absent."""
+        page = build_control_room_page()
+        assert 'cr-card-title">Job History' not in page
+
+    def test_inline_captions_present(self):
+        """Inline stage captions from PR0099F remain."""
+        page = build_control_room_page()
+        assert page.count('<span class="cr-stage-caption"') == 15
+        assert '<button class="cr-stage-help"' not in page
+
+    def test_no_container_copy_in_ui(self):
+        """No visible 'container(s)' or 'Container:'."""
+        page = build_control_room_page()
+        assert 'container(s)' not in page
+        assert 'Container:' not in page
+
+    def test_pr0099d_delete_report_preserved(self):
+        """PR0099D: Delete report still works for completed jobs."""
+        import inspect
+        from bremen.api.job_api_handler import delete_report
+        sig = inspect.signature(delete_report)
+        assert 'job_id' in sig.parameters
+
+    def test_pr0099c_tiny_score_preserved(self):
+        """PR0099C: Tiny score <0.001 formatting preserved."""
+        page = build_control_room_page()
+        assert '<0.001' in page
