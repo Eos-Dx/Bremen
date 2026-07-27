@@ -110,7 +110,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .cr-stage-label{flex:1;color:var(--text-primary)}
 .cr-stage-caption{font-size:var(--fs-11);color:var(--text-secondary);margin-top:2px}
 .cr-stage-dur{font-size:var(--fs-11);color:var(--text-secondary);font-family:monospace}
-.cr-decision-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-card);padding:var(--sp-16) var(--sp-20);border-left:3px solid var(--accent);margin-top:var(--sp-8)}
+.cr-decision-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-card);padding:var(--sp-16) var(--sp-20) var(--sp-16) var(--sp-24);border-left:3px solid var(--accent);margin-top:var(--sp-8)}
 .cr-decision-card.defer{border-left-color:var(--status-available)}
 .cr-decision-card.continue{border-left-color:var(--status-pending)}
 .cr-decision-headline{font-size:var(--fs-22);font-weight:600;color:var(--text-primary);margin-bottom:var(--sp-4)}

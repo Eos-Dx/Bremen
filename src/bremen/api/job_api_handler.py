@@ -455,6 +455,7 @@ def create_analysis_job(
             registry=cat_registry,
             event_store=_event_store,
             model_id=model_id,
+            job_id=job_id,
         )
     else:
         mw_result = run_workflow_request(
@@ -463,6 +464,7 @@ def create_analysis_job(
             registry=registry,
             event_store=_event_store,
             model_id=model_id,
+            job_id=job_id,
         )
 
     # Update job from result
@@ -784,6 +786,24 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
         return
 
     try:
+        # Derive effective source display name for Job History.
+        # Prefer upload_id lookup for filename, then source_id, then container_id.
+        effective_container_id = container_id
+        if source_provided:
+            # For source_id, derive a safe basename from the opaque ID.
+            # Do NOT expose raw S3 keys, bucket names, or prefixes.
+            raw = source_id.split("/")[-1] if "/" in source_id else source_id
+            effective_container_id = raw if raw else "Patient"
+        elif upload_provided:
+            # For upload_id, look up the staged upload for its filename.
+            from .job_api_handler import _staged_uploads, _uploads_lock  # noqa: PLC0415
+            with _uploads_lock:
+                upload_rec = _staged_uploads.get(upload_id)
+            if upload_rec is not None:
+                effective_container_id = upload_rec.filename or "Patient"
+            else:
+                effective_container_id = "Patient"
+
         # Resolve source — new Control Room path
         if source_provided or upload_provided:
             resolved_path = resolve_source(source_id, upload_id)
@@ -800,7 +820,7 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
         _cleanup_expired_uploads()
 
         job = create_analysis_job(
-            container_id=container_id,
+            container_id=effective_container_id,
             workflow_id=workflow_id,
             h5_path=h5_path,
             model_id=model_id,

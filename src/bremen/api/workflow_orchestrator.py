@@ -153,6 +153,7 @@ def run_workflow_request(
     registry: WorkflowRegistry | None = None,
     event_store: Any = None,  # BoundedEventStore | None
     model_id: str | None = None,
+    job_id: str | None = None,
 ) -> MultiWorkflowResult:
     """Normalize an H5 container once, then execute the requested workflow.
 
@@ -182,7 +183,7 @@ def run_workflow_request(
     results, and overall status.
     """
     request_id = str(uuid.uuid4())
-    job_id = str(uuid.uuid4())
+    job_id = job_id or str(uuid.uuid4())
     t_start = _time.monotonic()
 
     _log.info(
