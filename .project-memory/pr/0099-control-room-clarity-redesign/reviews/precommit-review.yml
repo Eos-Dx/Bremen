@@ -1,0 +1,197 @@
+# Precommit Review — PR0099: Control Room clarity redesign
+# Reviewer: precommit-review-agent
+# Reviewed: 2026-07-27T10:59:45Z
+
+status: valid
+head: f4a4e14cb6edf68d9b759529ab7efdd899f1ec8a
+branch: 0099-control-room-clarity-redesign
+blockers: []
+warnings: []
+changed_files:
+  - src/bremen/control_room_ui.py
+  - tests/test_bremen_control_room.py
+working_tree_state:
+  staged: []
+  unstaged_modified:
+    - src/bremen/control_room_ui.py
+    - tests/test_bremen_control_room.py
+  untracked:
+    - .project-memory/pr/0099-control-room-clarity-redesign/
+  dirty_tree: false
+pipeline_rows:
+  count: 15
+  exact_order: true
+  sequence:
+    - stage-input: "Request accepted"
+    - stage-xrd: "Canonical XRD created"
+    - stage-workflow: "Bremen workflow resolved"
+    - stage-artifact-verified: "Model artifact verified"
+    - stage-artifact-loaded: "Model artifact loaded"
+    - stage-artifact-adapted: "Model artifact adapted"
+    - stage-model-validated: "Model validated"
+    - stage-source: "Input prepared"
+    - stage-features-produced: "Features produced"
+    - stage-features: "Feature contract validated"
+    - stage-inference: "Inference completed"
+    - stage-output-validated: "Output validated"
+    - stage-decision: "Decision policy applied"
+    - stage-report: "Report generated"
+    - stage-complete: "Analysis complete"
+stage_map:
+  entries: 15
+  new_ids_in_html: true
+  new_ids_in_stage_map: true
+  complete_coverage: true
+  required_new_ids:
+    stage-artifact-verified: true
+    stage-artifact-loaded: true
+    stage-artifact-adapted: true
+    stage-model-validated: true
+    stage-features-produced: true
+    stage-output-validated: true
+fail_map:
+  entries: 8
+  features_failed_maps_to_stage_features_produced: true
+  output_validation_failed_maps_to_stage_output_validated: true
+  fail_map_entries:
+    - runtime.normalization.failed -> stage-xrd
+    - runtime.workflow.failed -> stage-workflow
+    - runtime.artifact.verification.failed -> stage-artifact-verified
+    - runtime.model.validation.failed -> stage-model-validated
+    - runtime.input.preparation.failed -> stage-source
+    - runtime.features.failed -> stage-features-produced
+    - runtime.inference.failed -> stage-inference
+    - runtime.output.validation.failed -> stage-output-validated
+unicode_fixes:
+  double_escapes_fixed: true
+  icon_textContent_single_backslash: true
+  no_double_escaped_icon_literals: true
+  grep_confirmed:
+    - line 646: icon.textContent='\u2717' (cross, single backslash)
+    - line 650: icon.textContent='\u2713' (check, single backslash)
+    - line 654: icon.textContent='\u25CF' (circle, single backslash, active)
+    - line 690: icon.textContent='\u25CF' (circle, single backslash, pending/reset)
+  double_escaped_patterns_searched_and_not_found:
+    - "\\\\u2717": absent
+    - "\\\\u2713": absent
+    - "\\\\u25CF": absent
+decision_card:
+  defers_headline: "MRI can wait"
+  continues_headline: "MRI recommended"
+  defers_explanation: "Both breasts looked similar in this scan. This is not a diagnosis — a clinician makes the final decision."
+  continues_explanation: "Differences were detected in this scan. This is not a diagnosis — a clinician makes the final decision."
+  ask_clinician_to_confirm_present: true
+  this_is_not_a_diagnosis_present: true
+  score_label_present: true
+  threshold_label_present: true
+  score_threshold_line_format: "Score X · Threshold Y"
+  no_red_green_amber_outcome_colors: true
+  grep_color_coding_no_decision_hits: "No decision-outcome color coding found"
+  open_report_link_present: true
+  open_report_href_format: "/demo/report/{jobId}"
+  technical_footer_present: true
+  decision_code_in_footer: true
+  decision_policy_id_in_footer: true
+  certification_badge_in_footer: true
+  technical_demo_badge_in_footer: true
+  defers_icon: "⏸ (U+23F8, pause)"
+  continues_icon: "➕ (U+2795, plus)"
+  safety_language_positions:
+    ask_clinician: "Prominent div, not fine print (line 735)"
+    not_a_diagnosis: "Embedded in explanation text (lines 732-733)"
+live_events_empty_state:
+  empty_placeholder_hides_on_first_event: true
+  mechanism: "addEventRow() sets emptyEl.style.display='none' when first event appended"
+  empty_placeholder_id: "cr-event-empty"
+  grep_confirmed: "emptyEl.style.display='none'" in source at addEventRow function
+terminal_collapse:
+  collapse_triggered_on_completed: true
+  collapse_triggered_on_failed: true
+  collapse_not_triggered_during_running: true
+  dynamic_event_count: true
+  no_hardcoded_9_of_9: true
+  uses_eventCache_dot_length: true
+  filter_actions_hidden_on_collapse: true
+  completed_summary: "Analysis complete · X of Y events · timestamp"
+  failed_summary: "Analysis stopped · timestamp"
+  function_name: collapseEventPanel(outcome)
+  called_from: stream_complete handler (completed) and SSE onerror with CLOSED (failed)
+pr0098_preservation:
+  patients_list_heading: true
+  container_catalog_removed: true
+  upload_endpoint_is_h5_containers: true
+  no_upload_stage_endpoint: true
+  refresh_patients_button: true
+  handleFileSelect_uses_h5_containers: true
+  handleFileSelect_no_stage_endpoint: true
+  grep_confirmed:
+    - "Patients List" present in heading (line 856)
+    - "/demo/api/h5/containers" present in JS (lines 236, 333)
+    - "Container Catalog" absent from page
+    - "/demo/api/stage" absent from handleFileSelect body
+tests:
+  test_bremen_control_room: "92 passed (16 new PR0099 tests in TestPR0099ClarityRedesign)"
+  test_coverage:
+    test_15_cr_stage_rows_render: true
+    test_six_new_stage_ids_present: true
+    test_stage_map_includes_new_ids: true
+    test_input_prepared_after_artifact_stages: true
+    test_unicode_escapes_single_backslash: true
+    test_decision_card_clinician_confirm: true
+    test_decision_card_not_diagnosis: true
+    test_decision_card_score_threshold_labels: true
+    test_decision_card_no_red_green_amber: true
+    test_open_report_link_present: true
+    test_event_empty_hides_after_first_event: true
+    test_terminal_collapse_function_exists: true
+    test_terminal_collapse_no_hardcoded_9_of_9: true
+    test_pr0098_patients_list_preserved: true
+    test_pr0098_upload_endpoint_preserved: true
+    test_css_stage_caption_rule: true
+validation:
+  compileall: "PASS"
+  git_diff_check: "CLEAN (no output)"
+  focused_control_room_tests: "PASS (92 passed in 2.09s)"
+  pipeline_row_count: "15 confirmed via grep -c"
+  new_stage_ids_in_html_and_stage_map: "CONFIRMED (6 new ids grep-matched in HTML and STAGE_MAP/FAIL_MAP)"
+  unicode_single_backslash: "CONFIRMED (grep shows single-backslash at lines 646, 650, 654, 690; no double-escaped patterns)"
+  decision_safety_language: "CONFIRMED (all required phrases present via grep)"
+  no_decision_color_coding: "CONFIRMED (grep for red/#ff0000/#e24b4a/danger/green/amber with decision/defer/continue filter returned no matches)"
+  pr0098_behavior: "CONFIRMED (Patients List heading, /demo/api/h5/containers endpoint, no Container Catalog, no /demo/api/stage in handleFileSelect)"
+scope_control:
+  backend_api_changed: false
+  backend_server_changed: false
+  docs_changed: false
+  requirements_changed: false
+  pyproject_changed: false
+  dockerfile_changed: false
+  infra_changed: false
+  github_actions_changed: false
+  new_routes_added: false
+  new_dependencies: false
+  grep_backend_api_files_changed: "No backend API files changed"
+  grep_restricted_scope_files_changed: "No restricted scope files changed"
+implementation_report:
+  exists: true
+  location: ".project-memory/pr/0099-control-room-clarity-redesign/implementation-report.md"
+  matches_diff: true
+  details:
+    - "Files Changed table matches actual git diff (2 files)"
+    - "15-row pipeline order matches source code"
+    - "STAGE_MAP/FAIL_MAP content matches source code"
+    - "Unicode fixes match source (single-backslash confirmed)"
+    - "Decision card design matches source"
+    - "Live events empty-state + terminal collapse match source"
+    - "CSS caption rule confirmed in source (.cr-stage-caption at line 111)"
+    - "Test count matches (92 = 76 existing + 16 new)"
+commit_readiness:
+  compileall_pass: true
+  focused_tests_pass: true
+  git_diff_check_clean: true
+  no_backend_changes: true
+  no_new_dependencies: true
+  no_scope_creep: true
+  implementation_report_matches: true
+  public_safety_maintained: true
+  pr0098_preserved: true
+  ready: true

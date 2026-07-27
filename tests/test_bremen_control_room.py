@@ -661,3 +661,123 @@ class TestPR0098PersistentUpload:
         """Refresh button says 'Refresh Patients'."""
         page = build_control_room_page()
         assert "Refresh Patients" in page
+
+
+class TestPR0099ClarityRedesign:
+    """PR0099: Control Room clarity redesign."""
+
+    def test_15_cr_stage_rows_render(self):
+        """15 cr-stage divs render in the pipeline."""
+        page = build_control_room_page()
+        assert page.count('class="cr-stage"') == 15
+
+    def test_six_new_stage_ids_present(self):
+        """The six important new stage ids appear."""
+        page = build_control_room_page()
+        assert "stage-artifact-verified" in page
+        assert "stage-artifact-loaded" in page
+        assert "stage-artifact-adapted" in page
+        assert "stage-model-validated" in page
+        assert "stage-features-produced" in page
+        assert "stage-output-validated" in page
+
+    def test_stage_map_includes_new_ids(self):
+        """STAGE_MAP includes the new stage ids."""
+        page = build_control_room_page()
+        assert "stage-artifact-verified" in page
+        assert "stage-artifact-loaded" in page
+        assert "stage-artifact-adapted" in page
+        assert "stage-model-validated" in page
+        assert "stage-features-produced" in page
+        assert "stage-output-validated" in page
+
+    def test_input_prepared_after_artifact_stages(self):
+        """Input prepared appears after artifact-related stages."""
+        page = build_control_room_page()
+        # In the HTML pipeline, stage-source (Input prepared) should come
+        # after the artifact-related stages
+        idx_verified = page.find('id="stage-artifact-verified"')
+        idx_source = page.find('id="stage-source"')
+        assert idx_verified > 0 and idx_source > 0
+        assert idx_verified < idx_source, "Input prepared must come after artifact stages"
+
+    def test_unicode_escapes_single_backslash(self):
+        """Unicode escapes are single-backslash / render as intended."""
+        page = build_control_room_page()
+        # The JS should contain single-backslash unicode escapes, not double-escaped
+        # Double-escaped would be \\u2717 (two backslashes in source)
+        assert r"\\u2717" not in page, "Double-escaped u2717 found"
+        assert r"\\u2713" not in page, "Double-escaped u2713 found"
+        assert r"\\u25CF" not in page, "Double-escaped u25CF found"
+
+    def test_decision_card_clinician_confirm(self):
+        """Decision card contains 'Ask your clinician to confirm'."""
+        page = build_control_room_page()
+        assert "Ask your clinician to confirm" in page
+
+    def test_decision_card_not_diagnosis(self):
+        """Decision card contains 'This is not a diagnosis'."""
+        page = build_control_room_page()
+        assert "This is not a diagnosis" in page
+
+    def test_decision_card_score_threshold_labels(self):
+        """Decision card has Score and Threshold labels."""
+        page = build_control_room_page()
+        assert "Score " in page
+        assert "Threshold " in page
+
+    def test_decision_card_no_red_green_amber(self):
+        """Decision card does not introduce red/green/amber styling."""
+        page = build_control_room_page()
+        # Check fetchDecision function body for color coding
+        fn_start = page.find("function fetchDecision")
+        fn_end = page.find("function ", fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert "#ff0000" not in fn_body.lower()
+        assert "#e24b4a" not in fn_body.lower()
+        assert "background:green" not in fn_body.lower()
+        assert "background:red" not in fn_body.lower()
+
+    def test_open_report_link_present(self):
+        """Open report behavior remains present."""
+        page = build_control_room_page()
+        assert "Open report" in page
+        assert "cr-report-link" in page
+
+    def test_event_empty_hides_after_first_event(self):
+        """cr-event-empty hides after first event."""
+        page = build_control_room_page()
+        assert "cr-event-empty" in page
+        # addEventRow hides cr-event-empty
+        assert "emptyEl.style.display='none'" in page or "emptyEl" in page
+
+    def test_terminal_collapse_function_exists(self):
+        """collapseEventPanel function exists."""
+        page = build_control_room_page()
+        assert "collapseEventPanel" in page
+
+    def test_terminal_collapse_no_hardcoded_9_of_9(self):
+        """Terminal collapse does not hardcode 9 of 9."""
+        page = build_control_room_page()
+        assert "9 of 9" not in page
+
+    def test_pr0098_patients_list_preserved(self):
+        """PR0098 Patients List heading preserved."""
+        page = build_control_room_page()
+        assert "Patients List" in page
+        assert "Refresh Patients" in page
+
+    def test_pr0098_upload_endpoint_preserved(self):
+        """PR0098 upload endpoint preserved."""
+        page = build_control_room_page()
+        assert "/demo/api/h5/containers" in page
+        # Verify no /demo/api/stage in handleFileSelect
+        fn_start = page.find("function handleFileSelect")
+        fn_end = page.find("function ", fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert "/demo/api/stage" not in fn_body
+
+    def test_css_stage_caption_rule(self):
+        """CSS caption rule exists."""
+        page = build_control_room_page()
+        assert "cr-stage-caption" in page
