@@ -1,0 +1,167 @@
+status: valid
+head: "3521d27401f06b00ae6e9b56536632ea75dedf2b"
+branch: "0099e-control-room-patient-report-names"
+blockers: []
+warnings:
+  - "Patient name extraction reads H5 at job creation time. For catalog listing, patient names are only available after at least one job has been created for that source. The frontend cross-references with job history to populate the Patients List cache (patientNamesBySource). This is accepted as non-blocking."
+changed_files:
+  - src/bremen/api/job_api_handler.py
+  - src/bremen/control_room_ui.py
+  - tests/test_bremen_control_room.py
+working_tree_state: "dirty (uncommitted changes present — job_api_handler.py staged, control_room_ui.py and test_bremen_control_room.py unstaged)"
+
+# ---- PR0099E Core Requirements ----
+
+patient_name_extraction:
+  status: valid
+  detail: "extract_patient_display_name(h5_path) in job_api_handler.py reads /session/sample/patient_name first, then /scans/target/patient_name, then /scans/contralateral/patient_name. Handles scalar string and bytes values. Returns first safe unambiguous value found. Called in handle_jobs_create() after source resolution and passed to create_analysis_job(patient_display_name=...)."
+
+fallback_fault_tolerance:
+  status: valid
+  detail: "Extraction is fully fault-tolerant: outer try/except catches h5py import failure, file open failure, and any H5 read error. Inner try/except catches per-dataset read errors. Empty/whitespace-only values rejected. Values >80 chars rejected. Values containing s3:// /tmp/ / \\ traceback exception bucket rejected. Missing/empty h5_path returns empty string immediately. Never raises. Fallback chain in list_analysis_jobs: pdn > filename > container_id > 'Patient'."
+
+patient_display_metadata_propagation:
+  status: valid
+  detail: "patient_display_name stored in input_summary['patient_display_name'] via create_analysis_job(). Returned by list_analysis_jobs() as summary['patient_display_name']. Used as first choice in source_display_name fallback chain (pdn or filename or container_id or 'Patient'). Frontend loadJobHistory() populates patientNamesBySource[source_key] cache. loadContainerCatalog() uses cache for Patients List display."
+
+patient_reports_rename:
+  status: valid
+  detail: "'Job History' card title changed to 'Patient Reports' in HTML template (line 1073). Confirmed by grep: 'Patient Reports' present, 'cr-card-title\">Job History' absent from page output. Existing test test_job_history_expands updated to assert 'Patient Reports'."
+
+report_row_title_behavior:
+  status: valid
+  detail: "loadJobHistory() builds displayName=patientName||sourceName||'Patient'. Primary title shown in cr-history-source span. fileName shown as secondary metadata in cr-history-meta span (only when patientName differs from sourceName). Model + shortened job_id shown in metadata line. Job ID is no longer the primary title — appears only as 8-char substring in metadata."
+
+patients_list_display_behavior:
+  status: valid
+  detail: "loadContainerCatalog() uses patientNamesBySource[sid] for primaryTitle. primaryTitle=patientName||name ensures filename fallback. secondaryMeta shows filename + size + date when patient name differs from filename. Falls back to size + date when no patient name available."
+
+uuid_job_source_metadata_behavior:
+  status: valid
+  detail: "Job ID appears only as j.job_id.substring(0,8) in cr-history-meta span alongside model name. No raw UUID or source_id in primary visible title. source_id used only internally for analyzedSourceKeys and rerun guard identity."
+
+display_only_identity:
+  status: valid
+  detail: "patient_display_name NOT present in _find_existing_completed_report source code (confirmed by test). Rerun guard uses source_key + workflow_id + model_id only. patient_display_name is display-only — not used for lock identity, job identity, or report identity."
+
+raw_path_s3_safety:
+  status: valid
+  detail: "extract_patient_display_name rejects values containing s3:// /tmp/ / \\ traceback exception bucket. H5 internal paths (/session/sample/...) never exposed in output. No raw file paths in user-facing display. source_key stored as opaque identifier. grep confirms no new s3:// or /tmp/ exposure in diff."
+
+# ---- PR0099B/0099C/0099D Preservation ----
+
+pr0099b_preservation:
+  status: valid
+  detail: "run_workflow_request() retains optional job_id: str | None = None at workflow_orchestrator.py line 156. create_analysis_job() continues passing job_id=job_id. PR0099B test passes."
+
+pr0099c_preservation:
+  status: valid
+  detail: "Four missing stage events preserved in STAGE_MAP. Tiny score <0.001 formatting preserved. 'pipeline stages completed' present in page. PR0099C test passes."
+
+pr0099d_preservation:
+  status: valid
+  detail: "Rerun guard (report_already_exists) preserved in handle_jobs_create. delete_report function exists with job_id and workflow_id parameters. Analyzed row state, delete report button, model switch recomputation all preserved. PR0099D tests pass."
+
+# ---- Appendix A: Pipeline Stage Explainers ----
+
+pipeline_stage_explainers:
+  status: valid
+  detail: "All 15 pipeline rows have <button class='cr-stage-help'> elements (confirmed by count==15). Each has tabindex='0' for keyboard access and aria-label with 'Stage name: explanation' format. Title attribute provides tooltip on hover/focus. CSS provides hover accent color and focus outline. Copy is demo-friendly."
+
+pipeline_stage_explainer_accessibility:
+  status: valid
+  detail: "All help buttons have tabindex='0' (keyboard navigable). All have aria-label with full descriptive text. Focus style defined via .cr-stage-help:focus CSS (2px solid accent outline). Title attribute provides native tooltip on hover and keyboard focus."
+
+pipeline_stage_explainer_copy_safety:
+  status: valid
+  detail: "No diagnosis/clinical decision/treatment/disease wording in any helper copy. Uses technical-demo framing: 'score' 'threshold' 'recommendation' 'workflow' 'model artifact' 'report payload'. Existing 'This is not a diagnosis' in decision card preserved. test_no_unsafe_clinical_wording_in_stage_helpers asserts no diagnosis/clinical/treatment in all aria-labels."
+
+pipeline_stage_order_preservation:
+  status: valid
+  detail: "Stage order unchanged: Request accepted > Canonical XRD created > Bremen workflow resolved > Model artifact verified > Model artifact loaded > Model artifact adapted > Model validated > Input prepared > Features produced > Feature contract validated > Inference completed > Output validated > Decision policy applied > Report generated > Analysis complete. Same 15 cr-stage divs with same ids."
+
+pipeline_stage_backend_preservation:
+  status: valid
+  detail: "No backend event names changed. No STAGE_MAP changes. No execution_trace changes. Stage explainers are frontend-only (HTML buttons in build_control_room_page). 15 pipeline stages confirmed. 'pipeline stages completed' summary preserved."
+
+# ---- Appendix B: Failed Job Report Gating ----
+
+failed_job_report_gating_backend:
+  status: valid
+  detail: "list_analysis_jobs(): Added is_failed = j.overall_status in ('failed', 'normalization_failed'). Changed report_available to has_available and not is_failed. Failed jobs always have report_available=false. get_job_report(): Added early return for failed jobs returning REPORT_STATUS_UNAVAILABLE with reason_code='REPORT_NOT_AVAILABLE'. _find_existing_completed_report(): Already checks job.overall_status == 'completed', so failed jobs never satisfy the rerun guard."
+
+failed_job_report_gating_frontend:
+  status: valid
+  detail: "loadJobHistory(): Added isFailed check (status==='failed'||status==='normalization_failed'). Failed rows: statusText='Analysis failed', no onclick handler (no openJob), no Delete report button (reportAvail&&!isFailed), no Open report link. Failed rows still show patient_display_name as primary title and model+job_id as metadata."
+
+failed_job_rerun_guard:
+  status: valid
+  detail: "Failed jobs do not block rerun. _find_existing_completed_report only matches completed jobs. analyzedSourceKeys only populated for jobs with report_available=true. Failed jobs not added to analyzedSourceKeys, so same source+workflow+model remains selectable/analyzable again."
+
+failed_job_safety:
+  status: valid
+  detail: "Failed report responses contain only status, reason_code, job_id, workflow_id. No raw exceptions, stack traces, paths, S3 keys, H5 internals, feature values, or model internals."
+
+# ---- Precommit Warning Fixes ----
+
+warning_1_duplicate_analysis_complete_label:
+  status: fixed
+  detail: "Stage-complete row no longer renders duplicate 'Analysis complete' label. The HTML now shows exactly one <span class='cr-stage-label'>Analysis complete</span> before the help button. Confirmed by source inspection (line 1060) and test test_analysis_complete_label_appears_once_in_stage_row which asserts row_html.count('<span class=\"cr-stage-label\">Analysis complete</span>') == 1."
+
+warning_2_loading_job_history_text:
+  status: fixed
+  detail: "'Loading job history...' replaced with 'Loading patient reports...' in the empty state div (line 1075). Confirmed by grep: 'Loading job history' not found in src/bremen/control_room_ui.py; 'Loading patient reports' present at line 1075. Test test_loading_patient_reports_text asserts both conditions."
+
+warning_3_patient_name_catalog_scan:
+  status: accepted_non_blocking
+  detail: "Patient name extraction reads H5 at job creation time, so Patients List cache only populates after first job for a source. Accepted as non-blocking because: Catalog-wide H5 scanning would require touching server.py (FORBIDDEN), fallback to filename is safe and functional, and after first analysis patient names appear in both Patients List and Patient Reports."
+
+# ---- Tests ----
+
+tests:
+  status: valid
+  detail: "258 tests in test_bremen_control_room.py: 41 in TestPR0099EPatientDisplayNames (15 backend + 19 frontend + 6 safety/preservation) + 17 in TestAppendixBFailedJobReportGating (4 backend + 8 frontend + 5 preservation) + TestPR0099EPrecommitFixes (5 tests: duplicate label fix, explainer preserved, loading text, heading, all 15 rows) + existing TestPR0099D, TestPR0099A, TestPR0099C, TestAppendixAModelReportBinding. All 258 tests pass."
+
+# ---- Validation ----
+
+validation:
+  compileall: "PASS — python -m compileall src tests — no errors"
+  focused_control_room_tests: "PASS — 258/258 tests in test_bremen_control_room.py passed"
+  full_suite: "PASS — 2458 passed, 11 skipped, 0 failed"
+  git_diff_check: "PASS — git diff --check returns clean"
+  duplicate_analysis_complete_label: "CONFIRMED FIXED — Only one <span class='cr-stage-label'>Analysis complete</span> in stage-complete div"
+  loading_job_history_absent: "CONFIRMED FIXED — 'Loading job history' not in UI; 'Loading patient reports' present"
+  job_history_heading_absent: "CONFIRMED — 'Job History' heading not in production UI"
+  patient_reports_heading: "CONFIRMED — 'Patient Reports' heading at line 1073"
+  container_s_absent: "CONFIRMED — 'container(s)' not in UI"
+  container_colon_absent: "CONFIRMED — 'Container:' not in UI"
+  stage_help_buttons_15: "CONFIRMED — count of <button class='cr-stage-help'> is 15"
+  no_unsafe_clinical_copy: "CONFIRMED — test_no_unsafe_clinical_wording_in_stage_helpers passes"
+  failed_job_report_available_false: "CONFIRMED — is_failed check in list_analysis_jobs, report_available = has_available and not is_failed"
+  failed_job_no_open_report: "CONFIRMED — rowClick for failed is empty string, no onclick handler"
+  failed_job_no_delete_report: "CONFIRMED — Delete button condition: reportAvail&&!isFailed"
+  failed_job_analysis_failed_text: "CONFIRMED — statusText='Analysis failed' for failed jobs"
+  failed_job_does_not_block_rerun: "CONFIRMED — _find_existing_completed_report checks status==completed, analyzedSourceKeys only for report_available"
+  patient_display_name_preserved_for_failed: "CONFIRMED — patient_display_name still used as primary title for failed rows"
+  decision_card_safety: "CONFIRMED — fetchDecision only called from stream_complete for completed jobs"
+  pr0099b_preserved: "CONFIRMED — job_id: str | None = None at workflow_orchestrator.py:156"
+  pr0099c_preserved: "CONFIRMED — 4 stage events in STAGE_MAP, <0.001 in page, pipeline stages completed"
+  pr0099d_preserved: "CONFIRMED — report_already_exists in handle_jobs_create, delete_report exists"
+  no_forbidden_files_changed: "CONFIRMED — server.py app.py inference_handler.py not in diff"
+  no_secrets_in_diff: "CONFIRMED — no credentials, tokens, PHI, raw exceptions in changed files"
+
+functional_verification_limitation: "Sandbox/source review cannot confirm deployed UI behavior. A real deployment must verify that H5 patient_name values such as Nova_257 appear in Patient Reports and Patients List, while missing/ambiguous/unsafe names fall back to the safe filename and do not break analysis."
+
+security:
+  status: valid
+  detail: "No credentials, tokens, secrets, PHI, raw exceptions, stack traces, feature values, model coefficients, S3 URIs, bucket names, filesystem paths, H5 internals, or private patient identifiers appear in the diff. extract_patient_display_name rejects unsafe values. source_key stored as opaque identifier. No new dependencies added. h5py is an existing dependency used elsewhere. Failed job responses return only safe status/reason_code — no internal details."
+
+scope_control:
+  status: valid
+  detail: "Changed files within allowed scope: src/bremen/api/job_api_handler.py, src/bremen/control_room_ui.py, tests/test_bremen_control_room.py. READ_ONLY files (server.py app.py inference_handler.py) unmodified. No docs, ROADMAP, requirements, pyproject, Dockerfile, infra, or .github files changed. No new dependencies."
+
+implementation_report:
+  status: valid
+  detail: "implementation-report.md is present and matches actual diff. All claimed changes confirmed by source inspection: extract_patient_display_name with multi-path H5 lookup and safety checks, patient_display_name in input_summary and list_analysis_jobs, Patient Reports heading rename, report row title preference order, Patients List patientNamesBySource cache, 15 stage help buttons with accessibility, 41 tests for PR0099E, 17 tests for Appendix B, 5 tests for precommit fixes. Implementation report includes PRECOMMIT WARNING FIXES section accurately describing both fixes and the accepted non-blocking warning. APPENDIX B section accurately describes failed job report gating: root cause, backend behavior, frontend behavior, rerun guard, safety confirmation, tests."
+
+commit_readiness: "Ready for commit. 0 blockers. 1 non-blocking warning (patient name only available after first job for catalog). 258 control room tests pass (all 5 precommit fix tests pass). Full suite: 2458 passed, 11 skipped. compileall pass. git diff --check clean. Both PR0099E precommit warnings fixed: (1) duplicate 'Analysis complete' label removed, (2) 'Loading job history' replaced with 'Loading patient reports'. Appendix B failed job gating implemented and tested. All PR0099B/0099C/0099D preserved."

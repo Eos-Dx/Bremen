@@ -361,6 +361,49 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def extract_patient_display_name(h5_path: str) -> str:
+    """Safely extract patient display name from H5 metadata.
+
+    Reads /session/sample/patient_name from the H5 file.
+    Returns empty string if unavailable, unsafe, or extraction fails.
+    Never raises — fault-tolerant by design.
+    """
+    if not h5_path:
+        return ""
+    try:
+        import h5py  # noqa: PLC0415
+        with h5py.File(h5_path, "r") as f:
+            for sample_path in ["/session/sample", "/scans/target", "/scans/contralateral"]:
+                full = f"{sample_path}/patient_name"
+                if full not in f:
+                    continue
+                try:
+                    item = f[full]
+                    raw = item[()]
+                    if isinstance(raw, bytes):
+                        val = raw.decode("utf-8")
+                    elif isinstance(raw, str):
+                        val = raw
+                    else:
+                        val = str(raw)
+                    val = val.strip()
+                    if not val:
+                        continue
+                    # Safety checks
+                    if len(val) > 80:
+                        continue
+                    if "s3://" in val or "/tmp/" in val or "/" in val:
+                        continue
+                    if any(c in val for c in ["\\", "traceback", "exception", "bucket"]):
+                        continue
+                    return val
+                except Exception:
+                    continue
+    except Exception:
+        pass
+    return ""
+
+
 # ---------------------------------------------------------------------------
 # Job creation and management
 # ---------------------------------------------------------------------------
@@ -374,6 +417,7 @@ def create_analysis_job(
     model_id: str | None = None,
     registry: WorkflowRegistry | None = None,
     source_key: str = "",
+    patient_display_name: str = "",
 ) -> AnalysisJob:
     """Create and execute an analysis job synchronously.
 
@@ -424,6 +468,7 @@ def create_analysis_job(
         "workflow_id": workflow_id,
         "model_id": model_id,
         "source_key": source_key or "",
+        "patient_display_name": patient_display_name or "",
     }
 
     job = AnalysisJob(
@@ -569,7 +614,10 @@ def list_analysis_jobs(
         if j.input_summary:
             summary["model_id"] = j.input_summary.get("model_id")
             summary["source_key"] = j.input_summary.get("source_key", "")
+            pdn = j.input_summary.get("patient_display_name", "")
+            summary["patient_display_name"] = pdn
             summary["source_display_name"] = (
+                pdn or
                 j.input_summary.get("filename") or
                 j.input_summary.get("container_id") or
                 "Patient"
@@ -595,11 +643,13 @@ def list_analysis_jobs(
             rm.status == REPORT_STATUS_AVAILABLE
             for rm in j.reports.values()
         )
-        summary["report_available"] = has_available
+        # Failed jobs never have available reports
+        is_failed = j.overall_status in ("failed", "normalization_failed")
+        summary["report_available"] = has_available and not is_failed
         # Derive report_deleted: job completed but no available report
         # (soft-deleted via delete_report action)
         summary["report_deleted"] = (
-            not has_available
+            not summary["report_available"]
             and j.overall_status == "completed"
             and len(j.reports) > 0
         )
@@ -659,6 +709,17 @@ def get_job_report(job_id: str, workflow_id: str) -> dict[str, Any]:
     if job is None:
         return {
             "report": {"status": "job_not_found"},
+            "job_id": job_id,
+            "workflow_id": workflow_id,
+        }
+
+    # Failed jobs do not have valid reports
+    if job.overall_status in ("failed", "normalization_failed"):
+        return {
+            "report": {
+                "status": REPORT_STATUS_UNAVAILABLE,
+                "reason_code": "REPORT_NOT_AVAILABLE",
+            },
             "job_id": job_id,
             "workflow_id": workflow_id,
         }
@@ -961,12 +1022,16 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
         # Clean up expired uploads periodically
         _cleanup_expired_uploads()
 
+        # Extract patient display name from H5 metadata (fault-tolerant)
+        patient_display_name = extract_patient_display_name(h5_path)
+
         job = create_analysis_job(
             container_id=effective_container_id,
             workflow_id=workflow_id,
             h5_path=h5_path,
             model_id=model_id,
             source_key=source_key,
+            patient_display_name=patient_display_name,
         )
 
         _send_json(handler, 201, {

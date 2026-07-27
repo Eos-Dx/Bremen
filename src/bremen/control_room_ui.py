@@ -112,6 +112,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .cr-stage-icon.pending{color:var(--border)}
 .cr-stage-label{flex:1;color:var(--text-primary)}
 .cr-stage-caption{font-size:var(--fs-11);color:var(--text-secondary);margin-top:2px}
+.cr-stage-help{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--border);background:none;color:var(--text-secondary);font-size:var(--fs-10);cursor:pointer;flex-shrink:0;padding:0;line-height:1}
+.cr-stage-help:hover{background:var(--tint-accent);border-color:var(--accent)}
+.cr-stage-help:focus{outline:2px solid var(--accent);outline-offset:1px}
 .cr-stage-dur{font-size:var(--fs-11);color:var(--text-secondary);font-family:monospace}
 .cr-decision-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-card);padding:var(--sp-16) var(--sp-20) var(--sp-16) var(--sp-24);border-left:3px solid var(--accent);margin-top:var(--sp-8)}
 .cr-decision-card.defer{border-left-color:var(--status-available)}
@@ -191,6 +194,7 @@ var selectedSource=null;
 var selectedModelId=null;
 var selectedModelWorkflowId='bremen';
 var analyzedSourceKeys={};
+var patientNamesBySource={};
 var STAGE_MAP={
   'runtime.request.accepted':'stage-input',
   'runtime.normalization.completed':'stage-xrd',
@@ -277,10 +281,13 @@ function loadContainerCatalog(){
         var isPrev=prevSelectedId===sid;
         if(isPrev){prevSelectedStillAvailable=true}
         var isAnalyzed=analyzedSourceKeys[sid]&&analyzedSourceKeys[sid][selectedModelId||''];
+        var patientName=patientNamesBySource[sid]||'';
+        var primaryTitle=patientName||name;
+        var secondaryMeta=(patientName&&patientName!==name)?(name+' \u00B7 '+sizeLabel+' | '+modified):(sizeLabel+' | '+modified);
         var itemClass='cr-container-item'+(isPrev?' selected':'')+(isAnalyzed?' analyzed':'');
         html+='<li class="'+itemClass+'" data-source-id="'+sid+'" data-sname="'+name.replace(/\'/g,'')+'" data-ssize="'+size+'" tabindex="0" role="button" aria-current="'+(isPrev?'true':'false')+'"'+(isAnalyzed?' aria-disabled="true" title="Already analyzed with this model"':'')+'>'+
-          '<span class="cr-container-name">'+name+'</span>'+
-          '<span class="cr-container-meta">'+sizeLabel+' | '+modified+(isAnalyzed?' | Already analyzed':'')+'</span>'+
+          '<span class="cr-container-name">'+primaryTitle+'</span>'+
+          '<span class="cr-container-meta">'+secondaryMeta+(isAnalyzed?' | Already analyzed':'')+'</span>'+
           '</li>';
       });
       if(list){list.innerHTML=html}
@@ -588,6 +595,7 @@ function loadJobHistory(){
       if(!list)return;
       // Build analyzed source index from completed jobs
       analyzedSourceKeys={};
+      patientNamesBySource={};
       jobs.forEach(function(j){
         if(j.overall_status!=='completed')return;
         var sk=j.source_key||'';
@@ -595,6 +603,7 @@ function loadJobHistory(){
         if(!sk||!mid)return;
         if(!analyzedSourceKeys[sk])analyzedSourceKeys[sk]={};
         if(j.report_available)analyzedSourceKeys[sk][mid]=j.job_id;
+        if(j.patient_display_name&&!patientNamesBySource[sk])patientNamesBySource[sk]=j.patient_display_name;
       });
       // Re-render patients list with analyzed state
       loadContainerCatalog();
@@ -611,25 +620,31 @@ function loadJobHistory(){
         var model=j.model_id||'';
         var reportAvail=j.report_available;
         var reportDeleted=j.report_deleted;
+        var patientName=j.patient_display_name||'';
         var sourceName=j.source_display_name||'';
+        var displayName=patientName||sourceName||'Patient';
+        var fileName=(!patientName&&sourceName)?sourceName:'';
         var dc=j.decision_code||'';
         var railClass='';
         if(dc==='MRI_REVIEW_DEFER')railClass=' defer';
         else if(dc==='CONTINUE_MRI')railClass=' continue';
         var statusText='';
-        if(reportAvail){statusText='&#128196; '+(decision||'Report available')}
+        var isFailed=status==='failed'||status==='normalization_failed';
+        if(isFailed){statusText='Analysis failed'}
+        else if(reportAvail){statusText='&#128196; '+(decision||'Report available')}
         else if(reportDeleted){statusText='Report deleted'}
         else{statusText=decision||(status==='completed'?'Completed':status)}
         var deleteBtn='';
-        if(reportAvail){
+        if(reportAvail&&!isFailed){
           deleteBtn=' <button class="btn-delete-report" onclick="event.stopPropagation();deleteReport(\''+j.job_id+'\',\''+selectedModelWorkflowId+'\')" title="Delete report">Delete report</button>';
         }
-        html+='<div class="cr-history-item '+status+railClass+'" onclick="openJob(\''+j.job_id+'\')">'+
-          '<div class="cr-history-header"><span class="cr-history-id">'+j.job_id.substring(0,8)+'</span>'+
+        var rowClick=isFailed?'':' onclick="openJob(\''+j.job_id+'\')"';
+        html+='<div class="cr-history-item '+status+railClass+'"'+rowClick+'>'+
+          '<div class="cr-history-header"><span class="cr-history-source">'+displayName+'</span>'+
           '<span class="cr-history-time">'+ts+'</span></div>'+
-          (sourceName?'<div class="cr-history-source">'+sourceName+'</div>':'')+
+          (fileName?'<div class="cr-history-meta">'+fileName+'</div>':'')+
           '<div class="cr-history-detail">'+statusText+deleteBtn+'</div>'+
-          '<div class="cr-history-meta">'+(model?'Model: '+model.substring(0,16):'')+'</div>'+
+          '<div class="cr-history-meta">'+(model?'Model: '+model.substring(0,16):'')+' &middot; '+j.job_id.substring(0,8)+'</div>'+
           '</div>';
       });
       list.innerHTML=html;
@@ -959,76 +974,91 @@ def build_control_room_page(
           <div class="cr-stage" id="stage-input">
             <span class="cr-stage-icon pending">&#9679;</span>
             <span class="cr-stage-label">Request accepted</span>
+            <button class="cr-stage-help" tabindex="0" aria-label="Request accepted: The analysis request was received and assigned to a Control Room job." title="The analysis request was received and assigned to a Control Room job.">?</button>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-xrd">
             <span class="cr-stage-icon pending">&#9679;</span>
             <span class="cr-stage-label">Canonical XRD created</span>
+            <button class="cr-stage-help" tabindex="0" aria-label="Canonical XRD created: The H5 measurements were converted into the canonical XRD case format used by Bremen." title="The H5 measurements were converted into the canonical XRD case format used by Bremen.">?</button>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-workflow">
             <span class="cr-stage-icon pending">&#9679;</span>
             <span class="cr-stage-label">Bremen workflow resolved</span>
+            <button class="cr-stage-help" tabindex="0" aria-label="Bremen workflow resolved: The system selected the Bremen workflow for the current model and source." title="The system selected the Bremen workflow for the current model and source.">?</button>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-artifact-verified">
             <span class="cr-stage-icon pending">&#9679;</span>
             <span class="cr-stage-label">Model artifact verified</span>
+            <button class="cr-stage-help" tabindex="0" aria-label="Model artifact verified: The selected model artifact was found and its safe metadata/integrity checks passed." title="The selected model artifact was found and its safe metadata/integrity checks passed.">?</button>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-artifact-loaded">
             <span class="cr-stage-icon pending">&#9679;</span>
             <span class="cr-stage-label">Model artifact loaded</span>
+            <button class="cr-stage-help" tabindex="0" aria-label="Model artifact loaded: The verified model package was loaded into the runtime for analysis." title="The verified model package was loaded into the runtime for analysis.">?</button>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-artifact-adapted">
             <span class="cr-stage-icon pending">&#9679;</span>
             <span class="cr-stage-label">Model artifact adapted</span>
+            <button class="cr-stage-help" tabindex="0" aria-label="Model artifact adapted: The model package was adapted to the runtime interface when required." title="The model package was adapted to the runtime interface when required.">?</button>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-model-validated">
             <span class="cr-stage-icon pending">&#9679;</span>
             <span class="cr-stage-label">Model validated</span>
+            <button class="cr-stage-help" tabindex="0" aria-label="Model validated: The loaded model was checked against the expected schema, metadata, and readiness contract." title="The loaded model was checked against the expected schema, metadata, and readiness contract.">?</button>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-source">
             <span class="cr-stage-icon pending">&#9679;</span>
             <span class="cr-stage-label">Input prepared</span>
+            <button class="cr-stage-help" tabindex="0" aria-label="Input prepared: The accepted measurements were arranged into the Bremen model input structure." title="The accepted measurements were arranged into the Bremen model input structure.">?</button>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-features-produced">
             <span class="cr-stage-icon pending">&#9679;</span>
             <span class="cr-stage-label">Features produced</span>
+            <button class="cr-stage-help" tabindex="0" aria-label="Features produced: The runtime calculated the model input features from the prepared measurements." title="The runtime calculated the model input features from the prepared measurements.">?</button>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-features">
             <span class="cr-stage-icon pending">&#9679;</span>
             <span class="cr-stage-label">Feature contract validated</span>
+            <button class="cr-stage-help" tabindex="0" aria-label="Feature contract validated: Feature count, order, names, and finite values were checked before inference." title="Feature count, order, names, and finite values were checked before inference.">?</button>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-inference">
             <span class="cr-stage-icon pending">&#9679;</span>
             <span class="cr-stage-label">Inference completed</span>
+            <button class="cr-stage-help" tabindex="0" aria-label="Inference completed: The model produced the probability score and raw prediction output." title="The model produced the probability score and raw prediction output.">?</button>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-output-validated">
             <span class="cr-stage-icon pending">&#9679;</span>
             <span class="cr-stage-label">Output validated</span>
+            <button class="cr-stage-help" tabindex="0" aria-label="Output validated: The model output was checked for expected fields and valid finite values." title="The model output was checked for expected fields and valid finite values.">?</button>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-decision">
             <span class="cr-stage-icon pending">&#9679;</span>
             <span class="cr-stage-label">Decision policy applied</span>
+            <button class="cr-stage-help" tabindex="0" aria-label="Decision policy applied: The score was compared with the configured threshold to produce the public recommendation." title="The score was compared with the configured threshold to produce the public recommendation.">?</button>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-report">
             <span class="cr-stage-icon pending">&#9679;</span>
             <span class="cr-stage-label">Report generated</span>
+            <button class="cr-stage-help" tabindex="0" aria-label="Report generated: A safe demo report payload was created from the completed workflow result." title="A safe demo report payload was created from the completed workflow result.">?</button>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-complete">
             <span class="cr-stage-icon pending">&#9679;</span>
             <span class="cr-stage-label">Analysis complete</span>
+            <button class="cr-stage-help" tabindex="0" aria-label="Analysis complete: The analysis reached terminal success and the Control Room is ready to show the result." title="The analysis reached terminal success and the Control Room is ready to show the result.">?</button>
             <span class="cr-stage-dur"></span>
           </div>
         </div>
@@ -1040,9 +1070,9 @@ def build_control_room_page(
     <!-- Right column: 360px -->
     <div class="cr-right">
       <div class="cr-card" style="flex:1;display:flex;flex-direction:column;min-height:0">
-        <div class="cr-card-title">Job History</div>
+        <div class="cr-card-title">Patient Reports</div>
         <div class="cr-history-list" id="cr-job-list">
-          <div class="cr-empty">Loading job history...</div>
+          <div class="cr-empty">Loading patient reports...</div>
         </div>
       </div>
 
