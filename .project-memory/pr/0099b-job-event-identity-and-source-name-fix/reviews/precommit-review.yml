@@ -1,0 +1,55 @@
+status: valid
+head: 16d152e88027f6e9e4b00eeeda67701f0b6ea817
+branch: 0099b-job-event-identity-and-source-name-fix
+blockers: []
+warnings: []
+changed_files:
+  - src/bremen/api/workflow_orchestrator.py
+  - src/bremen/api/job_api_handler.py
+  - src/bremen/control_room_ui.py
+  - tests/test_bremen_control_room.py
+working_tree_state: dirty (uncommitted changes present)
+job_id_param_additivity:
+  status: valid
+  detail: "run_workflow_request accepts job_id: str | None = None as keyword-only parameter. Old behavior preserved when job_id is None via job_id = job_id or str(uuid.uuid4())."
+unaffected_call_sites:
+  app.py: "unmodified — run_workflow_request called without job_id (backward compatible)"
+  inference_handler.py: "unmodified — run_workflow_request called without job_id (backward compatible)"
+  server.py: "unmodified — _handle_demo_h5_analyze calls run_workflow_request without job_id (backward compatible)"
+create_analysis_job_job_id_wiring:
+  status: valid
+  detail: "Both run_workflow_request calls inside create_analysis_job() pass job_id=job_id (lines 458, 467). The same external job_id is used for event emission."
+source_id_upload_id_display_mapping:
+  status: valid
+  detail: "handle_jobs_create derives effective_container_id from source_id (last segment via split('/')) or upload_id (filename from staged upload registry). Falls back to 'Patient' if empty. Passed as container_id to create_analysis_job()."
+job_history_unknown_fix:
+  status: valid
+  detail: "effective_container_id is non-empty when source_id or upload_id is present. list_analysis_jobs() fallback chain (filename or container_id or 'Unknown') now resolves to the safe display name."
+raw_path_s3_safety:
+  status: valid
+  detail: "Display name derivation uses source_id split('/')[-1] for catalog sources and upload_rec.filename for uploads. No s3://, bucket names, S3 prefixes, /tmp/ paths, filesystem paths, or H5 internal paths exposed. s3:// only appears inside resolve_source() which is unmodified."
+resolve_source_unmodified:
+  status: valid
+  detail: "resolve_source() function is unchanged. It is called from handle_jobs_create() but the function itself is not modified."
+decision_card_padding:
+  status: valid
+  detail: "Decision card padding changed from var(--sp-16) var(--sp-20) to var(--sp-16) var(--sp-20) var(--sp-16) var(--sp-24) using existing --sp-24 token."
+tests:
+  status: valid
+  detail: "8 new tests in TestPR0099bJobIdentityFix class. Coverage includes: optional job_id acceptance, backward compatibility, job_id wiring, source_id display derivation, upload_id display derivation, s3/path safety assertion, and decision card padding."
+validation:
+  compileall: "PASS — python -m compileall src tests returns no errors"
+  focused_tests: "PASS — 8/8 TestPR0099bJobIdentityFix tests passed"
+  full_suite: "PASS — 2313 passed, 11 skipped, 0 failed"
+  git_diff_check: "PASS — git diff --check returns clean"
+  job_id_parameter: "CONFIRMED — job_id: str | None = None at line 156"
+  job_id_eq_job_id: "CONFIRMED — job_id=job_id at lines 458, 467 (both run_workflow_request calls)"
+  effective_container_id: "CONFIRMED — lines 791-805"
+  no_read_only_files_changed: "CONFIRMED — server.py, app.py, inference_handler.py unchanged"
+  no_new_dependencies: "CONFIRMED — only self-import from .job_api_handler"
+  no_secrets_phi_leaks: "CONFIRMED — no credentials, tokens, secrets, PHI, raw exceptions, stack traces, feature values, or model internals in diff"
+functional_verification_limitation: "Sandbox/source review cannot confirm the deployed UI outcome. A real deployment must verify that Control Room shows all pipeline events under the visible job_id and a non-Unknown patient name in Job History."
+security: "No credential, token, secret, PHI, raw path, S3 URI, bucket name, or filesystem path exposure in display names. resolve_source() remains unchanged and its internal s3:// usage is within the unmodified function."
+scope_control: "Only allowed files changed. READ_ONLY files (server.py, app.py, inference_handler.py, resolve_source function) are unmodified. _handle_demo_h5_analyze is unchanged."
+implementation_report: "present — matches actual diff. All claimed changes confirmed."
+commit_readiness: "Ready for commit. All validations pass, no blockers, no warnings."

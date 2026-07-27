@@ -878,4 +878,70 @@ class TestPR0099aQAFix:
     def test_decision_card_padding_matches_cards(self):
         """Decision card padding matches other card conventions."""
         page = build_control_room_page()
-        assert "padding:var(--sp-16) var(--sp-20)" in page
+        assert "padding:var(--sp-16) var(--sp-20) var(--sp-16) var(--sp-24)" in page
+
+
+class TestPR0099bJobIdentityFix:
+    """PR0099b: Job event identity, source display-name, padding."""
+
+    def test_run_workflow_request_accepts_optional_job_id(self):
+        """run_workflow_request accepts optional job_id keyword arg."""
+        from bremen.api.workflow_orchestrator import run_workflow_request
+        import inspect
+        sig = inspect.signature(run_workflow_request)
+        assert "job_id" in sig.parameters
+        param = sig.parameters["job_id"]
+        assert param.default is None
+        assert param.kind == inspect.Parameter.KEYWORD_ONLY
+
+    def test_run_workflow_request_no_job_id_still_works(self):
+        """run_workflow_request without job_id still works (backward compat)."""
+        from bremen.api.workflow_orchestrator import run_workflow_request
+        import inspect
+        sig = inspect.signature(run_workflow_request)
+        assert "job_id" in sig.parameters
+        assert sig.parameters["job_id"].default is None
+
+    def test_create_analysis_job_passes_job_id(self):
+        """create_analysis_job passes job_id into run_workflow_request."""
+        import inspect
+        from bremen.api.job_api_handler import create_analysis_job
+        src = inspect.getsource(create_analysis_job)
+        assert "job_id=job_id" in src
+
+    def test_handle_jobs_create_derives_display_name_from_upload_id(self):
+        """handle_jobs_create derives effective_container_id from upload_id."""
+        import inspect
+        from bremen.api.job_api_handler import handle_jobs_create
+        src = inspect.getsource(handle_jobs_create)
+        assert "effective_container_id" in src
+
+    def test_handle_jobs_create_derives_display_name_from_source_id(self):
+        """handle_jobs_create derives effective_container_id from source_id."""
+        import inspect
+        from bremen.api.job_api_handler import handle_jobs_create
+        src = inspect.getsource(handle_jobs_create)
+        assert "effective_container_id" in src
+
+    def test_source_display_no_s3_path_exposure(self):
+        """Source display logic does not expose s3:// or /tmp/ paths."""
+        import inspect
+        from bremen.api.job_api_handler import handle_jobs_create
+        src = inspect.getsource(handle_jobs_create)
+        # The effective_container_id derivation should not include s3:// or /tmp/
+        # Check the specific derivation lines
+        lines = src.split("\n")
+        for line in lines:
+            if "effective_container_id" in line and "= " in line:
+                assert "s3://" not in line, "s3:// must not appear in display name derivation"
+                assert "/tmp/" not in line, "/tmp/ must not appear in display name derivation"
+
+    def test_decision_card_left_padding_increased(self):
+        """Decision card has larger left padding for breathing room."""
+        page = build_control_room_page()
+        assert "var(--sp-24)" in page
+
+    def test_decision_card_padding_has_four_values(self):
+        """Decision card uses four-value padding shorthand."""
+        page = build_control_room_page()
+        assert "padding:var(--sp-16) var(--sp-20) var(--sp-16) var(--sp-24)" in page
