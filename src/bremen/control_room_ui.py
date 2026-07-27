@@ -112,9 +112,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .cr-stage-icon.pending{color:var(--border)}
 .cr-stage-label{flex:1;color:var(--text-primary)}
 .cr-stage-caption{font-size:var(--fs-11);color:var(--text-secondary);margin-top:2px}
-.cr-stage-help{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--border);background:none;color:var(--text-secondary);font-size:var(--fs-10);cursor:pointer;flex-shrink:0;padding:0;line-height:1}
-.cr-stage-help:hover{background:var(--tint-accent);border-color:var(--accent)}
-.cr-stage-help:focus{outline:2px solid var(--accent);outline-offset:1px}
 .cr-stage-dur{font-size:var(--fs-11);color:var(--text-secondary);font-family:monospace}
 .cr-decision-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-card);padding:var(--sp-16) var(--sp-20) var(--sp-16) var(--sp-24);border-left:3px solid var(--accent);margin-top:var(--sp-8)}
 .cr-decision-card.defer{border-left-color:var(--status-available)}
@@ -195,6 +192,7 @@ var selectedModelId=null;
 var selectedModelWorkflowId='bremen';
 var analyzedSourceKeys={};
 var patientNamesBySource={};
+var hasSeenFailure=false;
 var STAGE_MAP={
   'runtime.request.accepted':'stage-input',
   'runtime.normalization.completed':'stage-xrd',
@@ -281,7 +279,7 @@ function loadContainerCatalog(){
         var isPrev=prevSelectedId===sid;
         if(isPrev){prevSelectedStillAvailable=true}
         var isAnalyzed=analyzedSourceKeys[sid]&&analyzedSourceKeys[sid][selectedModelId||''];
-        var patientName=patientNamesBySource[sid]||'';
+        var patientName=c.patient_display_name||patientNamesBySource[sid]||'';
         var primaryTitle=patientName||name;
         var secondaryMeta=(patientName&&patientName!==name)?(name+' \u00B7 '+sizeLabel+' | '+modified):(sizeLabel+' | '+modified);
         var itemClass='cr-container-item'+(isPrev?' selected':'')+(isAnalyzed?' analyzed':'');
@@ -689,10 +687,18 @@ function connectSSE(jobId){
     setConnectionState('live');
     isSubmitting=false;
     updateReadiness();
-    fetchDecision(jobId);
+    if(hasSeenFailure){
+      setState('failed');
+      collapseEventPanel('failed');
+      // Show failed message in decision card
+      var card=document.getElementById('cr-decision-card');
+      if(card){card.innerHTML='<div style="font-size:var(--fs-14);color:var(--status-error);padding:var(--sp-8) 0">Analysis failed. No report was generated.</div>';card.className='cr-decision-card';card.classList.remove('hidden')}
+    }else{
+      fetchDecision(jobId);
+      setState('completed');
+      collapseEventPanel('completed');
+    }
     if(eventSource){eventSource.close();eventSource=null}
-    setState('completed');
-    collapseEventPanel('completed');
     loadJobHistory();
   });
   eventSource.onopen=function(){setConnectionState('live');setState('running')};
@@ -721,10 +727,13 @@ function updatePipeline(ev){
   if(!el)return;
   var isFail=FAIL_MAP[stage]!==undefined;
   if(isFail||status==='failed'){
+    hasSeenFailure=true;
     el.className='cr-stage failed';
     var icon=el.querySelector('.cr-stage-icon');
     if(icon){icon.textContent='\u2717';icon.className='cr-stage-icon failed'}
   }else if(status==='completed'){
+    // Do not mark stage-complete as completed if any failure was seen
+    if(id==='stage-complete'&&hasSeenFailure)return;
     el.className='cr-stage completed';
     var icon=el.querySelector('.cr-stage-icon');
     if(icon){icon.textContent='\u2713';icon.className='cr-stage-icon completed'}
@@ -763,6 +772,7 @@ function addEventRow(ev){
 }
 
 function resetPipeline(){
+  hasSeenFailure=false;
   var stages=document.querySelectorAll('.cr-stage');
   stages.forEach(function(s){
     s.className='cr-stage';
@@ -795,6 +805,13 @@ function fetchDecision(jobId){
   fetch(baseUrl+'/demo/api/jobs/'+jobId)
     .then(function(r){return r.json()})
     .then(function(job){
+      // Failed jobs must not render decision/report
+      var jobStatus=job.overall_status||'';
+      if(jobStatus==='failed'||jobStatus==='normalization_failed'){
+        var card=document.getElementById('cr-decision-card');
+        if(card){card.innerHTML='<div style="font-size:var(--fs-14);color:var(--status-error);padding:var(--sp-8) 0">Analysis failed. No report was generated.</div>';card.className='cr-decision-card';card.classList.remove('hidden')}
+        return;
+      }
       var wf=job.workflow_runs?job.workflow_runs['bremen']:null;
       if(!wf||!wf.result_summary)return;
       var rs=wf.result_summary;
@@ -973,92 +990,77 @@ def build_control_room_page(
         <div class="cr-pipeline" role="list" aria-label="Execution stages">
           <div class="cr-stage" id="stage-input">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Request accepted</span>
-            <button class="cr-stage-help" tabindex="0" aria-label="Request accepted: The analysis request was received and assigned to a Control Room job." title="The analysis request was received and assigned to a Control Room job.">?</button>
+            <span class="cr-stage-label">Request accepted<span class="cr-stage-caption">The analysis request was received and assigned to a Control Room job.</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-xrd">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Canonical XRD created</span>
-            <button class="cr-stage-help" tabindex="0" aria-label="Canonical XRD created: The H5 measurements were converted into the canonical XRD case format used by Bremen." title="The H5 measurements were converted into the canonical XRD case format used by Bremen.">?</button>
+            <span class="cr-stage-label">Canonical XRD created<span class="cr-stage-caption">The H5 measurements were converted into the canonical XRD case format used by Bremen.</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-workflow">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Bremen workflow resolved</span>
-            <button class="cr-stage-help" tabindex="0" aria-label="Bremen workflow resolved: The system selected the Bremen workflow for the current model and source." title="The system selected the Bremen workflow for the current model and source.">?</button>
+            <span class="cr-stage-label">Bremen workflow resolved<span class="cr-stage-caption">The system selected the Bremen workflow for the current model and source.</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-artifact-verified">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Model artifact verified</span>
-            <button class="cr-stage-help" tabindex="0" aria-label="Model artifact verified: The selected model artifact was found and its safe metadata/integrity checks passed." title="The selected model artifact was found and its safe metadata/integrity checks passed.">?</button>
+            <span class="cr-stage-label">Model artifact verified<span class="cr-stage-caption">The selected model artifact was found and its safe metadata/integrity checks passed.</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-artifact-loaded">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Model artifact loaded</span>
-            <button class="cr-stage-help" tabindex="0" aria-label="Model artifact loaded: The verified model package was loaded into the runtime for analysis." title="The verified model package was loaded into the runtime for analysis.">?</button>
+            <span class="cr-stage-label">Model artifact loaded<span class="cr-stage-caption">The verified model package was loaded into the runtime for analysis.</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-artifact-adapted">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Model artifact adapted</span>
-            <button class="cr-stage-help" tabindex="0" aria-label="Model artifact adapted: The model package was adapted to the runtime interface when required." title="The model package was adapted to the runtime interface when required.">?</button>
+            <span class="cr-stage-label">Model artifact adapted<span class="cr-stage-caption">The model package was adapted to the runtime interface when required.</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-model-validated">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Model validated</span>
-            <button class="cr-stage-help" tabindex="0" aria-label="Model validated: The loaded model was checked against the expected schema, metadata, and readiness contract." title="The loaded model was checked against the expected schema, metadata, and readiness contract.">?</button>
+            <span class="cr-stage-label">Model validated<span class="cr-stage-caption">The loaded model was checked against the expected schema, metadata, and readiness contract.</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-source">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Input prepared</span>
-            <button class="cr-stage-help" tabindex="0" aria-label="Input prepared: The accepted measurements were arranged into the Bremen model input structure." title="The accepted measurements were arranged into the Bremen model input structure.">?</button>
+            <span class="cr-stage-label">Input prepared<span class="cr-stage-caption">The accepted measurements were arranged into the Bremen model input structure.</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-features-produced">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Features produced</span>
-            <button class="cr-stage-help" tabindex="0" aria-label="Features produced: The runtime calculated the model input features from the prepared measurements." title="The runtime calculated the model input features from the prepared measurements.">?</button>
+            <span class="cr-stage-label">Features produced<span class="cr-stage-caption">The runtime calculated the model input features from the prepared measurements.</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-features">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Feature contract validated</span>
-            <button class="cr-stage-help" tabindex="0" aria-label="Feature contract validated: Feature count, order, names, and finite values were checked before inference." title="Feature count, order, names, and finite values were checked before inference.">?</button>
+            <span class="cr-stage-label">Feature contract validated<span class="cr-stage-caption">Feature count, order, names, and finite values were checked before inference.</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-inference">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Inference completed</span>
-            <button class="cr-stage-help" tabindex="0" aria-label="Inference completed: The model produced the probability score and raw prediction output." title="The model produced the probability score and raw prediction output.">?</button>
+            <span class="cr-stage-label">Inference completed<span class="cr-stage-caption">The model produced the probability score and raw prediction output.</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-output-validated">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Output validated</span>
-            <button class="cr-stage-help" tabindex="0" aria-label="Output validated: The model output was checked for expected fields and valid finite values." title="The model output was checked for expected fields and valid finite values.">?</button>
+            <span class="cr-stage-label">Output validated<span class="cr-stage-caption">The model output was checked for expected fields and valid finite values.</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-decision">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Decision policy applied</span>
-            <button class="cr-stage-help" tabindex="0" aria-label="Decision policy applied: The score was compared with the configured threshold to produce the public recommendation." title="The score was compared with the configured threshold to produce the public recommendation.">?</button>
+            <span class="cr-stage-label">Decision policy applied<span class="cr-stage-caption">The score was compared with the configured threshold to produce the public recommendation.</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-report">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Report generated</span>
-            <button class="cr-stage-help" tabindex="0" aria-label="Report generated: A safe demo report payload was created from the completed workflow result." title="A safe demo report payload was created from the completed workflow result.">?</button>
+            <span class="cr-stage-label">Report generated<span class="cr-stage-caption">A safe demo report payload was created from the completed workflow result.</span></span>
             <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-complete">
             <span class="cr-stage-icon pending">&#9679;</span>
-            <span class="cr-stage-label">Analysis complete</span>
-            <button class="cr-stage-help" tabindex="0" aria-label="Analysis complete: The analysis reached terminal success and the Control Room is ready to show the result." title="The analysis reached terminal success and the Control Room is ready to show the result.">?</button>
+            <span class="cr-stage-label">Analysis complete<span class="cr-stage-caption">The analysis reached terminal success and the Control Room is ready to show the result.</span></span>
             <span class="cr-stage-dur"></span>
           </div>
         </div>

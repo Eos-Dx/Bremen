@@ -1,0 +1,57 @@
+status: valid
+head: 736f4346aa580fc3811ebf717a091be60109c9df
+branch: "0099f-inline-stage-captions"
+blockers: []
+warnings:
+  - "_display_cache dict declared in source_registry.py but not actively used; patient_display_name field on StagedSource serves the caching purpose instead."
+  - "Dirty tree: all 4 changed files are unstaged working tree modifications with no committed divergence from main (git diff --name-only main...HEAD is empty). Changes must be staged and committed before merge."
+changed_files:
+  - src/bremen/control_room_ui.py
+  - src/bremen/api/source_registry.py
+  - src/bremen/api/server.py
+  - tests/test_bremen_control_room.py
+working_tree_state: "dirty — 4 unstaged modifications, 1 untracked directory (.project-memory/pr/0099f-inline-stage-captions/)"
+inline_stage_captions: true
+rows_converted: 15
+caption_text_preservation: "All 15 cr-stage-caption spans use exact existing helper/title text from PR0099E. No rewriting or paraphrasing."
+cr_stage_help_removal: "grep -c 'cr-stage-help' src/bremen/control_room_ui.py = 0. All 15 button elements and CSS rules (.cr-stage-help, :hover, :focus) removed."
+patient_display_map_cache: "StagedSource.patient_display_name field added; _display_cache dict declared (unused); update_source_display_name() and get_display_metadata_for_filename() functions added in source_registry.py."
+cache_key_invalidation: "Keyed by source_id (UUID). Catalog listing creates new source_ids on refresh; old entries expire after 1 hour. No ETag/last_modified needed."
+patient_name_extraction: "Reuses PR0099E extract_patient_display_name(h5_path) from job_api_handler.py. Path: /session/sample/patient_name with /scans/target/ and /scans/contralateral/ fallbacks."
+fallback_fault_tolerance: "Chain: patient_display_name -> filename -> 'Patient'. Extraction never raises; returns empty string on failure."
+upload_map_update: "Catalog listing includes patient_display_name field (initially empty; populated by frontend cross-reference with job history cache). Upload creates source_id via register_source."
+catalog_listing_map_update: "server.py _handle_demo_h5_containers_list includes 'patient_display_name': '' in each container entry."
+patients_list_display: "Frontend loadContainerCatalog checks c.patient_display_name from catalog response, then patientNamesBySource[sid] from job history cache, then filename. Primary: patientName||name."
+patient_reports_display: "Primary title: patientName||sourceName||'Patient'. job_id shown as 8-char shortened metadata. Model shown in metadata line."
+display_only_identity: "patient_display_name not used in rerun guard (_find_existing_completed_report uses source_key), job identity (job_id), or report identity (job_id + workflow_id)."
+phi_demo_safety: "patient_display_name treated as potentially identifying; displayed only as explicit product requirement for demo files. No additional patient metadata exposed."
+pr0099b_preservation: "run_workflow_request(job_id: str | None = None) preserved. job_id=job_id in create_analysis_job confirmed."
+pr0099c_preservation: "4 stage events in STAGE_MAP, tiny score <0.001, Score —, Threshold —, 15/15 pipeline summary all preserved."
+pr0099d_preservation: "delete_report, report_already_exists, analyzed rows, delete report button, model switch recomputation all preserved."
+pr0099e_preservation: "Patient Reports heading, extract_patient_display_name, failed-job gating, patient display name in Patient Reports all preserved."
+tests:
+  control_room: "295 passed (37 new in TestPR0099FInlineStageCaptions + 3 updated)"
+  container_h5_patient: "318 passed"
+  full_suite: "2495 passed, 11 skipped, 0 failed"
+  compileall: "PASS"
+  git_diff_check: "clean"
+validation:
+  cr_stage_help_count: 0
+  cr_stage_caption_count: 16
+  job_history_heading_absent: true
+  patient_reports_heading_present: true
+  no_container_copy_in_ui: true
+  no_job_history_copy_in_ui: true
+functional_verification_limitation: "Sandbox/source review cannot confirm deployed UI behavior. A real deployment must verify that stage captions are visible without hover, patient names appear in Patients List and Patient Reports from the cache/map when available, new uploads update the map, and fallback filenames still display when patient_name is absent or unsafe."
+security: "No credentials, tokens, secrets, raw exceptions, stack traces, feature values, model coefficients, S3 URIs, bucket names, filesystem paths, H5 internals, or private data in public UI output. s3://, bucket, prefix references exist only in backend server/orchestration code (not user-facing). Test strings for s3:// and /tmp/ appear only in assertions verifying their absence."
+scope_control: "Changed files match implementation-report.md. No app.py or inference_handler.py modified. No docs/, ROADMAP.md, requirements.txt, pyproject.toml, Dockerfile, infra/, or .github/ files changed."
+implementation_report: "Matches actual file changes. 37 new tests claimed; test count increased from 2458 (PR0099E final) to 2495 = 37 new tests. File change list matches git status."
+failed_terminal_state: "stream_complete handler checks hasSeenFailure flag; if true, calls setState('failed') and collapseEventPanel('failed') showing 'Analysis stopped' not 'Analysis complete'. Stage-complete row blocked from 'completed' class when hasSeenFailure is true."
+failure_precedence: "hasSeenFailure boolean set to true when any FAIL_MAP event is seen. Overrides all subsequent stage-completion logic. In stream_complete, failed path takes precedence over fetchDecision/completed path. In updatePipeline, stage-complete completion blocked when hasSeenFailure is true."
+failed_decision_card_behavior: "Decision card shows 'Analysis failed. No report was generated.' in error color. Neither fetchDecision nor stream_complete renders MRI recommended/defer/score/threshold/Open report for failed jobs. fetchDecision early-returns with same message when job.overall_status is failed or normalization_failed."
+failed_open_report_gating: "Open report link is only rendered inside fetchDecision after the failed job early-return. fetchDecision is never called when hasSeenFailure is true. Additionally, fetchDecision's own early-return checks overall_status and returns before the Open report HTML. Double-gated."
+failed_patient_reports_row: "Failed rows show 'Analysis failed' text, no MRI recommended/defer, no Open report link, no Delete report button. Row has no onclick handler (not clickable). Row has 'failed' CSS class with red left rail."
+failed_backend_report_endpoint: "get_job_report returns REPORT_STATUS_UNAVAILABLE with reason_code REPORT_NOT_AVAILABLE for failed/normalization_failed jobs. No synthetic report shell generated. No raw exceptions, stack traces, paths, S3 keys, H5 internals, feature values, model internals, PHI, credentials, or secrets exposed."
+failed_rerun_guard: "Failed jobs excluded from analyzedSourceKeys (overall_status!=='completed' check). Backend rerun guard checks overall_status=='completed'. Failed jobs never block same source + workflow + model rerun."
+completed_report_preservation: "Completed jobs with report_available=true still render Open report, still enter analyzedSourceKeys, still block rerun. Delete report button still shown. All existing PR0099D behavior preserved."
+commit_readiness: "Implementation is complete and all tests pass. Requires staging and committing the 4 modified files before merge."

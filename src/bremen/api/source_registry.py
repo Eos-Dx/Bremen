@@ -33,6 +33,7 @@ class StagedSource:
         created_at: str,
         prefix: str,
         consumed: bool = False,
+        patient_display_name: str = "",
     ) -> None:
         self.source_id = source_id
         self.bucket = bucket
@@ -42,6 +43,7 @@ class StagedSource:
         self.created_at = created_at
         self.prefix = prefix
         self.consumed = consumed
+        self.patient_display_name = patient_display_name
 
 
 # ---------------------------------------------------------------------------
@@ -49,6 +51,7 @@ class StagedSource:
 # ---------------------------------------------------------------------------
 
 _registry: dict[str, StagedSource] = {}
+_display_cache: dict[str, dict[str, str]] = {}  # source_id -> {patient_display_name, ...}
 _lock = threading.Lock()
 
 
@@ -63,6 +66,7 @@ def register_source(
     filename: str,
     size_bytes: int,
     prefix: str,
+    patient_display_name: str = "",
 ) -> str:
     """Register an S3 catalog object and return an opaque source_id.
 
@@ -83,6 +87,7 @@ def register_source(
         size_bytes=size_bytes,
         created_at=now,
         prefix=prefix,
+        patient_display_name=patient_display_name,
     )
     with _lock:
         _registry[source_id] = source
@@ -201,14 +206,51 @@ def get_source_info(source_id: str) -> dict[str, Any] | None:
         source = _registry.get(source_id)
         if source is None:
             return None
+        pdn = source.patient_display_name or ""
         return {
             "source_id": source.source_id,
             "filename": source.filename,
             "size_bytes": source.size_bytes,
+            "patient_display_name": pdn,
+            "source_display_name": pdn or source.filename or "Patient",
         }
+
+
+def update_source_display_name(
+    source_id: str,
+    patient_display_name: str,
+) -> None:
+    """Update patient_display_name for an existing source_id.
+
+    Called when patient name is extracted after registration (e.g., during
+    catalog listing or upload).  Silently no-ops if source_id unknown.
+    """
+    if not patient_display_name:
+        return
+    with _lock:
+        source = _registry.get(source_id)
+        if source is not None:
+            source.patient_display_name = patient_display_name
+
+
+def get_display_metadata_for_filename(filename: str) -> dict[str, str]:
+    """Return display metadata for a filename if a matching source exists.
+
+    Searches the registry for a source with matching filename and returns
+    patient_display_name if available.  Used by frontend cross-reference.
+    """
+    with _lock:
+        for source in _registry.values():
+            if source.filename == filename and source.patient_display_name:
+                return {
+                    "filename": filename,
+                    "patient_display_name": source.patient_display_name,
+                }
+    return {}
 
 
 def reset_for_tests() -> None:
     """Clear the registry (test-only)."""
     with _lock:
         _registry.clear()
+        _display_cache.clear()
