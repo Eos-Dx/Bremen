@@ -1041,6 +1041,7 @@ def _handle_demo_h5_analyze(
         handler.wfile.write(body)
         return
 
+    source_id = body_dict.get("source_id", "").strip()
     container_id = body_dict.get("container_id", "").strip()
     workflow_id = body_dict.get("workflow_id", "bremen")
 
@@ -1050,16 +1051,16 @@ def _handle_demo_h5_analyze(
         "detail": f"Analyze requested (workflow={workflow_id})",
     })
 
-    if not container_id:
+    if not source_id and not container_id:
         events.append({
             "event": "h5_container_unavailable",
             "timestamp": _now(),
-            "detail": "Missing container_id",
+            "detail": "Missing source_id or container_id",
         })
         body = _json.dumps({
             "status": "failed",
             "events": events,
-            "error": "container_id is required",
+            "error": "source_id is required",
             "request_id": request_id,
             "job_id": job_id,
             "technical_demo_only": True,
@@ -1075,31 +1076,97 @@ def _handle_demo_h5_analyze(
     events.append({
         "event": "container_selected",
         "timestamp": _now(),
-        "detail": f"Container: {container_id}",
+        "detail": f"Source: {source_id or container_id}",
     })
 
-    # Check storage configured
-    config = read_demo_h5_config()
-    if config["h5_bucket"] is None:
+    # --- Resolve source to local h5_path ---
+    staged_path = None
+    resolved_via = source_id or container_id
+    if source_id:
+        # New opaque source_id path — resolve via source registry
+        from .job_api_handler import resolve_source  # noqa: PLC0415
+        try:
+            h5_path = resolve_source(source_id=source_id, upload_id=None)
+            staged_path = type("", (), {"name": h5_path})()  # lightweight wrapper for .name
+            staged_path._h5_path = h5_path
+        except ValueError as exc:
+            events.append({
+                "event": "h5_container_unavailable",
+                "timestamp": _now(),
+                "detail": str(exc),
+            })
+            body = _json.dumps({
+                "status": "failed",
+                "events": events,
+                "error": str(exc),
+                "request_id": request_id,
+                "job_id": job_id,
+                "technical_demo_only": True,
+            }).encode("utf-8")
+            handler.send_response(400)
+            handler.send_header("Content-Type", "application/json")
+            handler.send_header("Content-Length", str(len(body)))
+            handler.send_header("X-Request-ID", request_id)
+            handler.end_headers()
+            handler.wfile.write(body)
+            return
+    else:
+        # Legacy container_id path — resolve via S3 URI
+        from ..demo_config import read_demo_h5_config as _read_cfg  # noqa: PLC0415
+        _config = _read_cfg()
+        if _config["h5_bucket"] is None:
+            events.append({
+                "event": "storage_not_configured",
+                "timestamp": _now(),
+                "detail": "Demo H5 bucket not configured",
+            })
+            body = _json.dumps({
+                "status": "failed",
+                "events": events,
+                "request_id": request_id,
+                "job_id": job_id,
+                "technical_demo_only": True,
+            }).encode("utf-8")
+            handler.send_response(503)
+            handler.send_header("Content-Type", "application/json")
+            handler.send_header("Content-Length", str(len(body)))
+            handler.send_header("X-Request-ID", request_id)
+            handler.end_headers()
+            handler.wfile.write(body)
+            return
+        s3_uri = f"s3://{_config['h5_bucket']}/{container_id}"
         events.append({
-            "event": "storage_not_configured",
+            "event": "h5_staging_started",
             "timestamp": _now(),
-            "detail": "Demo H5 bucket not configured",
+            "detail": f"Staging from {_config['h5_bucket']}",
         })
-        body = _json.dumps({
-            "status": "failed",
-            "events": events,
-            "request_id": request_id,
-            "job_id": job_id,
-            "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(503)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-        return
+        try:
+            staged_path = stage_h5_input(s3_uri)
+            events.append({
+                "event": "h5_staging_completed",
+                "timestamp": _now(),
+                "detail": f"Staged: {staged_path.name}",
+            })
+        except Exception as exc:
+            events.append({
+                "event": "h5_container_unavailable",
+                "timestamp": _now(),
+                "detail": f"S3 download failed: {type(exc).__name__}",
+            })
+            body = _json.dumps({
+                "status": "failed",
+                "events": events,
+                "request_id": request_id,
+                "job_id": job_id,
+                "technical_demo_only": True,
+            }).encode("utf-8")
+            handler.send_response(200)
+            handler.send_header("Content-Type", "application/json")
+            handler.send_header("Content-Length", str(len(body)))
+            handler.send_header("X-Request-ID", request_id)
+            handler.end_headers()
+            handler.wfile.write(body)
+            return
 
     # Check model ready
     if not ModelState.is_ready():
@@ -1126,43 +1193,6 @@ def _handle_demo_h5_analyze(
         handler.wfile.write(body)
         return
 
-    # Stage H5 from S3
-    s3_uri = f"s3://{config['h5_bucket']}/{container_id}"
-
-    events.append({
-        "event": "h5_staging_started",
-        "timestamp": _now(),
-        "detail": f"Staging from {config['h5_bucket']}",
-    })
-
-    try:
-        staged_path = stage_h5_input(s3_uri)
-        events.append({
-            "event": "h5_staging_completed",
-            "timestamp": _now(),
-            "detail": f"Staged: {staged_path.name}",
-        })
-    except Exception as exc:
-        events.append({
-            "event": "h5_container_unavailable",
-            "timestamp": _now(),
-            "detail": f"S3 download failed: {type(exc).__name__}",
-        })
-        body = _json.dumps({
-            "status": "failed",
-            "events": events,
-            "request_id": request_id,
-            "job_id": job_id,
-            "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(200)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-        return
-
     # Run through the canonical orchestrator
     events.append({
         "event": "canonical_normalization_started",
@@ -1171,8 +1201,13 @@ def _handle_demo_h5_analyze(
     })
 
     try:
+        h5_path_str = (
+            staged_path._h5_path
+            if hasattr(staged_path, "_h5_path")
+            else str(staged_path)
+        )
         mw_result = run_workflow_request(
-            h5_path=str(staged_path),
+            h5_path=h5_path_str,
             workflow_id=workflow_id,
         )
 
@@ -1216,8 +1251,7 @@ def _handle_demo_h5_analyze(
                     "prediction_id": payload.get("prediction_id"),
                 },
                 "container": {
-                    "id": container_id,
-                    "bucket": config["h5_bucket"],
+                    "id": resolved_via,
                 },
                 "request_id": request_id,
                 "job_id": job_id,
