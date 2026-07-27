@@ -385,6 +385,19 @@ class BremenProvider(WorkflowProvider):
                 error=f"Feature construction failed: {exc}",
             )
 
+        # Emit runtime.features.completed after successful feature construction
+        if context:
+            fv_values = getattr(features, "feature_values", None)
+            produced_count = len(fv_values) if fv_values is not None else 0
+            context.emit(
+                "runtime.features.completed",
+                "features", "completed",
+                details={
+                    "feature_schema_version": "v0.1",
+                    "produced_count": produced_count,
+                },
+            )
+
         if context:
             self.validate_features(features, context)
 
@@ -438,6 +451,41 @@ class BremenProvider(WorkflowProvider):
                 "validation_status": validation_status,
             },
         )
+
+        # Emit artifact load completed and adaptation completed
+        # after the combined verification operation.
+        context.emit(
+            "runtime.artifact.load.completed",
+            "artifact", "completed",
+            details={
+                "model_id": self._model_id,
+                "model_version": self._model_version or "unknown",
+                "checksum_status": checksum_status,
+            },
+        )
+
+        adaptation_details = {
+            "model_id": self._model_id,
+            "adaptation_applied": adaptation_applied,
+        }
+        context.emit(
+            "runtime.artifact.adaptation.completed",
+            "artifact", "completed",
+            details=adaptation_details,
+        )
+
+        # Emit model validation completed when model is validated
+        if validation_status == "completed":
+            context.emit(
+                "runtime.model.validation.completed",
+                "model", "completed",
+                details={
+                    "model_id": self._model_id,
+                    "model_version": self._model_version or "unknown",
+                    "model_schema_version": "v0.1",
+                    "checksum_status": checksum_status,
+                },
+            )
 
         return PreparedArtifact(
             model_id=self._model_id,

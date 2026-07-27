@@ -118,14 +118,43 @@ def build_trace_from_events(
     last = wf_events[-1]
     current = stages[-1].stage_id if stages else ""
 
+    # Determine trace status.
+    # If all canonical stages have events, the workflow fully completed.
+    # Otherwise, check for terminal workflow completion events that signal
+    # overall completion even if some individual stage events are sparse
+    # (e.g. missing runtime.features.completed due to legacy emission gaps).
+    terminal_event_types = {
+        "runtime.workflow.completed",
+        "runtime.request.completed",
+    }
+    has_terminal_completed = any(
+        ev.event_type in terminal_event_types
+        and ev.status == "completed"
+        for ev in wf_events
+    )
+    has_terminal_failed = any(
+        ev.event_type == "runtime.workflow.failed"
+        and ev.status == "failed"
+        for ev in wf_events
+    )
+
+    if completed_count == len(stage_order):
+        trace_status = "completed"
+    elif has_terminal_failed:
+        trace_status = "failed"
+    elif has_terminal_completed and completed_count > 0:
+        # Terminal event signals workflow completed even if some
+        # individual stages are missing events.
+        trace_status = "completed"
+    elif completed_count > 0:
+        trace_status = "running"
+    else:
+        trace_status = "not_started"
+
     return ExecutionTraceSummary(
         workflow_id=workflow_id,
         current_stage=current,
-        status=(
-            "completed" if completed_count == len(stage_order)
-            else "running" if completed_count > 0
-            else "not_started"
-        ),
+        status=trace_status,
         started_at=first.timestamp,
         completed_at=last.timestamp,
         duration_ms=sum(

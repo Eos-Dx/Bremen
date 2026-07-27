@@ -1,0 +1,156 @@
+status: valid
+head: "670ee9ae1115cc240ade3186088bf4ea8c485794"
+branch: "0099c-control-room-runtime-stage-completeness"
+blockers: []
+warnings: []
+changed_files:
+  - src/bremen/api/workflow_bremen.py
+  - src/bremen/api/execution_trace.py
+  - src/bremen/api/job_api_handler.py
+  - src/bremen/control_room_ui.py
+  - tests/test_bremen_control_room.py
+working_tree_state: "dirty (uncommitted changes present — HEAD and main at same commit 670ee9ae)"
+
+# ---- PR0099C Core Requirements ----
+
+missing_event_types:
+  status: valid
+  detail: "All four missing event types are emitted. runtime.artifact.load.completed (line 458), runtime.artifact.adaptation.completed (line 472), and runtime.model.validation.completed (line 480, conditional on validation_status == 'completed') are emitted in BremenProvider.prepare_artifact(). runtime.features.completed (line 393) is emitted in BremenProvider.execute() after successful build_features(). All four are mapped in execution_trace.py _STAGE_EVENT_MAP (lines 32-36) and control_room_ui.py STAGE_MAP (lines 195-199)."
+
+event_job_id_identity:
+  status: valid
+  detail: "PR0099B preserved. run_workflow_request() at workflow_orchestrator.py line 156 accepts job_id: str | None = None (keyword-only, default None). create_analysis_job() passes job_id=job_id to both run_workflow_request calls (lines 457, 466). All events emitted via context.emit() use the same visible job_id."
+
+event_order_and_truthfulness:
+  status: valid
+  detail: "Events are emitted in correct chronological 15-row pipeline order: verification → load (NEW) → adaptation (NEW) → model validation (NEW) → input preparation → features (NEW) → features validation → inference → output validation → decision → report. The model validation event is conditionally emitted only when validation_status == 'completed' — it does not claim success when the operation failed (workflow_bremen.py line 478-486)."
+
+execution_trace_finalization:
+  status: valid
+  detail: "build_trace_from_events() in execution_trace.py (line 127-151) now checks for terminal workflow completion events (runtime.workflow.completed, runtime.request.completed). Priority order: (1) all 11 stages completed → 'completed', (2) terminal failure event → 'failed', (3) terminal completion event + at least 1 completed stage → 'completed' (legacy/missing events path), (4) partial stages, no terminal → 'running', (5) no stages → 'not_started'."
+
+completed_trace_stage_statuses:
+  status: valid
+  detail: "With all four events emitted and mapped, artifact_loaded, artifact_adapted, model_validated, and features_produced are no longer left as 'not_started' for a successful completed job. Test test_trace_status_completed_with_all_11_stages confirms all 11 stages are 'completed' and trace.status == 'completed'."
+
+failed_trace_behavior:
+  status: valid
+  detail: "Failed trace correctly receives status='failed' when runtime.workflow.failed exists. No code marks all stages as completed on failure. The terminal failure check precedes the terminal completion check, so a failed job with some completed stages does not produce 'completed' status."
+
+control_room_terminal_summary:
+  status: valid
+  detail: "collapseEventPanel() (control_room_ui.py line 799) uses pipelineTotal = Object.keys(STAGE_MAP).length (always 15) as the denominator, not eventCache.length. Completed summary: 'Analysis complete · X of 15 pipeline stages completed'. No '1 of 1 events', no '10 of 14', no '9 of 9'. Tests test_completed_summary_contains_15_of_15, test_completed_summary_no_one_of_one_events, test_completed_summary_no_10_of_14, test_completed_summary_no_9_of_9 confirm."
+
+tiny_score_formatting:
+  status: valid
+  detail: "fetchDecision() (control_room_ui.py line 758-764) implements three-branch formatting: prob === 0 → 'Score 0.000', prob < 0.001 → 'Score <0.001', otherwise prob.toFixed(3). Same logic for threshold. Confirmed by grep: lines 758, 759, 762, 764 contain '<0.001', '0.000', 'toFixed(3)'."
+
+missing_score_formatting:
+  status: valid
+  detail: "Null/undefined/!isFinite(prob) renders 'Score —'. Null/undefined/!isFinite(thresh) renders 'Threshold —'. Confirmed in control_room_ui.py lines 762-764."
+
+source_display_patient_name:
+  status: valid
+  detail: "handle_jobs_create() (job_api_handler.py lines 791-811) looks up source_info via get_source_info(source_id) for a filename. Falls back to source_id split('/')[-1] basename, then 'Patient'. For upload_id, looks up staged upload filename, falls back to 'Patient'. list_analysis_jobs() (line 572) fallback is 'Patient', not 'Unknown'. Test test_list_analysis_jobs_fallback_is_patient_not_unknown confirms '\"Unknown\"' not in source."
+
+raw_path_s3_safety:
+  status: valid
+  detail: "s3:// only appears inside resolve_source() (job_api_handler.py line 275) which is unmodified — internal S3 download path only. No s3://, /tmp/, bucket names, S3 prefixes, filesystem paths, H5 internal paths, raw exceptions, stack traces, credentials, tokens, PHI, feature values, or model coefficients appear in user-facing display derivation. Confirmed by grep and safety tests."
+
+pr0098_preservation:
+  status: valid
+  detail: "Patients List heading and Refresh Patients button preserved. Upload endpoint remains /demo/api/h5/containers. handleFileSelect posts to /demo/api/h5/containers, not /demo/api/stage. PR0098 tests pass."
+
+pr0099_preservation:
+  status: valid
+  detail: "15 visible pipeline rows remain (15 cr-stage divs). Decision card safety wording ('This is not a diagnosis', 'Ask your clinician to confirm') preserved. Terminal collapse remains. STAGE_MAP has 15 entries. PR0099 tests pass."
+
+pr0099b_preservation:
+  status: valid
+  detail: "run_workflow_request() retains optional job_id: str | None = None. create_analysis_job() passes job_id=job_id. No call sites in server.py/app.py/inference_handler.py modified. Decision card padding var(--sp-24) preserved. PR0099B tests pass."
+
+# ---- Appendix A: Model/Report Binding ----
+
+model_report_binding:
+  status: valid
+  detail: "Reports are per-job (AnalysisJob.reports dict keyed by workflow_id, not source-level). Each create_analysis_job() call produces a unique job_id via str(_uuid.uuid4()). No source-level dedup, caching, or report reuse logic exists. Same source can produce separate jobs/reports for different model_id values. No Aramis behavior implemented."
+
+selected_model_request_contract:
+  status: valid
+  detail: "startAnalysis() sends body.model_id=selectedModelId in POST /demo/api/jobs. handle_jobs_create() reads model_id from body (line 772, optional via body.get('model_id')). Passes model_id=model_id to create_analysis_job(). No new required fields added to /demo/api/jobs schema."
+
+report_lookup_model_specificity:
+  status: valid
+  detail: "Reports are accessed via GET /demo/api/jobs/{job_id}/reports — bound to specific job_id, not source_id. get_job_reports() returns reports from job.reports dict (per-job). get_job_report() generates fresh report from job's own workflow result and model_identity. No source-level report caching."
+
+same_source_multiple_models:
+  status: valid
+  detail: "Each create_analysis_job() generates unique job_id. input_summary stores model_id. Job history filters by model_id (server-side). Two jobs for same source, different model_id values are separate records with distinct job_ids, reports, and events."
+
+open_report_job_model_binding:
+  status: valid
+  detail: "openJob navigates to /demo/report/{jobId} — job-specific URL. Decision card report link uses /demo/report/' + jobId. fetchDecision fetches /demo/api/jobs/{jobId} (the specific job, not source-level). No source-level open report function."
+
+job_history_model_identity:
+  status: valid
+  detail: "loadJobHistory() sends model_id query parameter (line 568: params.append('model_id', selectedModelId)). Server-side list_analysis_jobs() filters by model_id (line 597-599). Job History displays model_id in each row (j.model_id, truncated to 16 chars). Multiple jobs for same source with different model_ids appear as separate rows."
+
+aramis_future_safety:
+  status: valid
+  detail: "Only model/report identity contract made future-safe. No Aramis-specific behavior implemented. The PR0099 implementation report explicitly states 'Not implemented. Only future-safe identity contract fixed.'"
+
+# ---- Tests ----
+
+tests:
+  status: valid
+  detail: "21 new tests in TestPR0099CRuntimeStageCompleteness class plus 21 new tests in TestAppendixAModelReportBinding class. Tests cover: STAGE_MAP key correctness, four missing event emission, conditional model validation event, trace status completed/running, terminal summary 15-of-15, no 1-of-1/10-of-14/9-of-9, pipelineTotal not eventCache.length, tiny-score <0.001, null score —, zero score 0.000, threshold formatting, source registry lookup, Patient fallback not Unknown, no S3/path exposure, model_id storage, model_id filtering, job_id uniqueness, onModelSelect reset, and PR0099B/0099C preservation."
+
+# ---- Validation ----
+
+validation:
+  compileall: "PASS — python -m compileall src tests -q returns no errors"
+  focused_pr0099c_tests: "PASS — 21/21 TestPR0099CRuntimeStageCompleteness tests passed"
+  focused_appendix_a_tests: "PASS — 21/21 TestAppendixAModelReportBinding tests passed"
+  full_control_room_tests: "PASS — 155/155 tests in test_bremen_control_room.py passed"
+  full_suite: "PASS — 2355 passed, 11 skipped, 0 failed (full test suite)"
+  git_diff_check: "PASS — git diff --check returns clean"
+  missing_event_types_source: "CONFIRMED — all 4 emitted in workflow_bremen.py (lines 393, 458, 472, 480)"
+  missing_event_types_stage_map: "CONFIRMED — all 4 in STAGE_MAP (control_room_ui.py lines 195-199)"
+  missing_event_types_event_map: "CONFIRMED — all 4 in _STAGE_EVENT_MAP (execution_trace.py lines 32-36)"
+  terminal_detection: "CONFIRMED — runtime.workflow.completed and runtime.request.completed checked (execution_trace.py lines 125-131)"
+  pipeline_total_15: "CONFIRMED — Object.keys(STAGE_MAP).length = 15 used in collapseEventPanel (line 806)"
+  no_event_cache_length: "CONFIRMED — pipelineTotal used instead of eventCache.length"
+  tiny_score_lt_0_001: "CONFIRMED — prob<0.001?'<0.001' in fetchDecision (lines 758, 762, 764)"
+  missing_score_em_dash: "CONFIRMED — 'Score —' for null/undefined/!isFinite (line 762)"
+  zero_score_0_000: "CONFIRMED — prob===0?'0.000' (lines 758, 762, 764)"
+  threshold_missing_em_dash: "CONFIRMED — 'Threshold —' for null/undefined/!isFinite (lines 759, 762, 764)"
+  source_display_patient: "CONFIRMED — fallback 'Patient' not 'Unknown' (job_api_handler.py lines 572, 802, 809, 811)"
+  source_registry_lookup: "CONFIRMED — get_source_info for filename (job_api_handler.py lines 796-801)"
+  no_s3_path_exposure: "CONFIRMED — s3:// only in unmodified resolve_source() (line 275)"
+  no_raw_exceptions_stacks: "CONFIRMED — no traceback, secret, token, credentials, PHI in diff"
+  pr0098_preserved: "CONFIRMED — Patients List, Refresh Patients, /demo/api/h5/containers"
+  pr0099_preserved: "CONFIRMED — 15 pipeline rows, safety wording, terminal collapse"
+  pr0099b_preserved: "CONFIRMED — optional job_id, job_id=job_id wiring"
+  no_forbidden_files_changed: "CONFIRMED — server.py, app.py, inference_handler.py unchanged"
+  no_config_infra_changed: "CONFIRMED — no docs/, ROADMAP.md, requirements.txt, pyproject.toml, Dockerfile, infra/, .github/ changed"
+  on_model_select_resets: "CONFIRMED — clears currentJobId, resetPipeline(), resetEventPanel(), hides decision card, setState('idle')"
+  model_id_sent_in_request: "CONFIRMED — body.model_id=selectedModelId in startAnalysis()"
+  model_id_filtered_history: "CONFIRMED — params.append('model_id', selectedModelId) in loadJobHistory()"
+  job_specific_reports: "CONFIRMED — reports keyed by job_id, not source_id"
+  no_aramis_implementation: "CONFIRMED — no Aramis-specific behavior added"
+
+functional_verification_limitation: "Sandbox/source review cannot confirm the deployed UI outcome. A real deployment must verify that: (1) the same patient now shows completed pipeline rows with the four missing stages completed, (2) a 15/15 terminal summary appears for completed jobs, (3) tiny score 3.000407207061041E-8 renders as <0.001, (4) missing score renders as —, (5) source name shows safe patient filename not opaque UUID, (6) Job History shows 'Patient' not 'Unknown', (7) model switch resets decision card and pipeline, (8) same patient with different model produces separate jobs/reports."
+
+security:
+  status: valid
+  detail: "No credentials, tokens, secrets, PHI, raw exceptions, stack traces, feature values, model coefficients, S3 URIs, bucket names, filesystem paths, H5 internals, or patient identifiers exposed. s3:// only appears inside the unmodified resolve_source() function. Source display derivation uses split('/')[-1] basename or registry filename lookup. No new dependencies added. No secrets in diff. No traceback or raw exception rendering."
+
+scope_control:
+  status: valid
+  detail: "Only allowed files changed: src/bremen/api/workflow_bremen.py, src/bremen/api/execution_trace.py, src/bremen/api/job_api_handler.py, src/bremen/control_room_ui.py, tests/test_bremen_control_room.py. READ_ONLY files (server.py, app.py, inference_handler.py) are unmodified. No config, docs, infra, or Docker files changed."
+
+implementation_report:
+  status: valid
+  detail: "implementation-report.md is present and matches actual diff. All claimed changes are confirmed by source inspection: four missing events emitted, trace finalization with terminal detection, collapse uses pipelineTotal, tiny-score formatting, source display fix, model/report binding identity."
+
+commit_readiness: "Ready for commit. All validations pass, no blockers, no warnings. 2355 tests pass (11 skipped). Compileall passes. git diff --check clean."

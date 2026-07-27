@@ -569,7 +569,7 @@ def list_analysis_jobs(
             summary["source_display_name"] = (
                 j.input_summary.get("filename") or
                 j.input_summary.get("container_id") or
-                "Unknown"
+                "Patient"
             )
 
         # Add decision information from first workflow run
@@ -792,8 +792,14 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
         if source_provided:
             # For source_id, derive a safe basename from the opaque ID.
             # Do NOT expose raw S3 keys, bucket names, or prefixes.
-            raw = source_id.split("/")[-1] if "/" in source_id else source_id
-            effective_container_id = raw if raw else "Patient"
+            # First try to look up the source registry for a display filename.
+            from .source_registry import get_source_info  # noqa: PLC0415
+            source_info = get_source_info(source_id)
+            if source_info and source_info.get("filename"):
+                effective_container_id = source_info["filename"]
+            else:
+                raw = source_id.split("/")[-1] if "/" in source_id else source_id
+                effective_container_id = raw if raw else "Patient"
         elif upload_provided:
             # For upload_id, look up the staged upload for its filename.
             from .job_api_handler import _staged_uploads, _uploads_lock  # noqa: PLC0415
