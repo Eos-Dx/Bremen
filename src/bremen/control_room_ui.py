@@ -192,11 +192,11 @@ var STAGE_MAP={
   'runtime.normalization.completed':'stage-xrd',
   'runtime.workflow.resolved':'stage-workflow',
   'runtime.artifact.verification.completed':'stage-artifact-verified',
-  'runtime.artifact.loaded':'stage-artifact-loaded',
-  'runtime.artifact.adapted':'stage-artifact-adapted',
+  'runtime.artifact.load.completed':'stage-artifact-loaded',
+  'runtime.artifact.adaptation.completed':'stage-artifact-adapted',
   'runtime.model.validation.completed':'stage-model-validated',
   'runtime.input.preparation.completed':'stage-source',
-  'runtime.features.produced':'stage-features-produced',
+  'runtime.features.completed':'stage-features-produced',
   'runtime.features.validation.completed':'stage-features',
   'runtime.inference.completed':'stage-inference',
   'runtime.output.validation.completed':'stage-output-validated',
@@ -437,6 +437,12 @@ function onModelSelect(sel){
   selectedModelId=sel.value;
   var opt=sel.options[sel.selectedIndex];
   selectedModelWorkflowId=opt.getAttribute('data-workflow')||'bremen';
+  currentJobId=null;
+  resetPipeline();
+  resetEventPanel();
+  var card=document.getElementById('cr-decision-card');
+  if(card){card.innerHTML='';card.className='cr-decision-card hidden'}
+  setState('idle');
   loadJobHistory();
   updateReadiness();
 }
@@ -749,7 +755,13 @@ function fetchDecision(jobId){
         var pct=Math.min(100,Math.max(0,prob*100));
         var threshPct=Math.min(100,Math.max(0,thresh*100));
         html+='<div class="cr-decision-score"><div class="cr-score-bar"><div class="cr-score-fill" style="width:'+pct+'%"></div><div class="cr-score-threshold" style="left:'+threshPct+'%"></div></div></div>';
-        html+='<div style="font-size:var(--fs-13);color:var(--text-secondary);margin-bottom:var(--sp-4)">Score '+prob.toFixed(3)+' &middot; Threshold '+thresh.toFixed(3)+'</div>';
+        var scoreLabel='Score '+(prob===0?'0.000':(prob<0.001?'<0.001':prob.toFixed(3)));
+        var threshLabel='Threshold '+(thresh===0?'0.000':(thresh<0.001?'<0.001':thresh.toFixed(3)));
+        html+='<div style="font-size:var(--fs-13);color:var(--text-secondary);margin-bottom:var(--sp-4)">'+scoreLabel+' \u00B7 '+threshLabel+'</div>';
+      }else if(prob===null||prob===undefined||!isFinite(prob)){
+        html+='<div style="font-size:var(--fs-13);color:var(--text-secondary);margin-bottom:var(--sp-4)">Score — &middot; '+(thresh!==null&&thresh!==undefined&&isFinite(thresh)?'Threshold '+(thresh===0?'0.000':(thresh<0.001?'<0.001':thresh.toFixed(3))):'Threshold —')+'</div>';
+      }else{
+        html+='<div style="font-size:var(--fs-13);color:var(--text-secondary);margin-bottom:var(--sp-4)">Score '+(prob===0?'0.000':(prob<0.001?'<0.001':prob.toFixed(3)))+' \u00B7 '+(thresh!==null&&thresh!==undefined&&isFinite(thresh)?'Threshold '+(thresh===0?'0.000':(thresh<0.001?'<0.001':thresh.toFixed(3))):'Threshold —')+'</div>';
       }
       html+='<a class="cr-report-link" href="'+baseUrl+'/demo/report/'+jobId+'" target="_blank" rel="noopener">Open report</a>';
       html+='<hr style="border:none;border-top:1px solid var(--border);margin:var(--sp-12) 0">';
@@ -791,9 +803,9 @@ function collapseEventPanel(outcome){
   var now=new Date();
   var ts=now.toISOString().substring(11,19);
   var completedCount=eventCache.filter(function(e){return e.status==='completed'}).length;
-  var totalCount=eventCache.length;
+  var pipelineTotal=Object.keys(STAGE_MAP).length;
   if(outcome==='completed'){
-    panel.innerHTML='<div style="padding:var(--sp-8) var(--sp-12);font-size:var(--fs-13);color:var(--status-available)">Analysis complete \u00B7 '+completedCount+' of '+totalCount+' events \u00B7 '+ts+'</div>';
+    panel.innerHTML='<div style="padding:var(--sp-8) var(--sp-12);font-size:var(--fs-13);color:var(--status-available)">Analysis complete \u00B7 '+completedCount+' of '+pipelineTotal+' pipeline stages completed \u00B7 '+ts+'</div>';
   }else{
     panel.innerHTML='<div style="padding:var(--sp-8) var(--sp-12);font-size:var(--fs-13);color:var(--status-error)">Analysis stopped \u00B7 '+ts+'</div>';
   }

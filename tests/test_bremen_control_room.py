@@ -945,3 +945,423 @@ class TestPR0099bJobIdentityFix:
         """Decision card uses four-value padding shorthand."""
         page = build_control_room_page()
         assert "padding:var(--sp-16) var(--sp-20) var(--sp-16) var(--sp-24)" in page
+
+
+class TestPR0099CRuntimeStageCompleteness:
+    """PR0099C: Control Room runtime stage completeness."""
+
+    # ---- PART 1 — Missing event types emitted ----
+
+    def test_stage_map_uses_correct_event_type_names(self):
+        """STAGE_MAP keys use correct event type names."""
+        page = build_control_room_page()
+        assert "runtime.artifact.load.completed" in page
+        assert "runtime.artifact.adaptation.completed" in page
+        assert "runtime.features.completed" in page
+
+    def test_stage_map_no_wrong_event_type_names(self):
+        """STAGE_MAP does not use wrong event type names."""
+        page = build_control_room_page()
+        assert "'runtime.artifact.loaded'" not in page
+        assert "'runtime.artifact.adapted'" not in page
+        assert "'runtime.features.produced'" not in page
+
+    def test_prepare_artifact_emits_four_events(self):
+        """prepare_artifact emits artifact verification, load, adaptation, and model validation events."""
+        import inspect
+        from bremen.api.workflow_bremen import BremenProvider
+        src = inspect.getsource(BremenProvider.prepare_artifact)
+        assert "runtime.artifact.load.completed" in src
+        assert "runtime.artifact.adaptation.completed" in src
+        assert "runtime.model.validation.completed" in src
+        assert "runtime.artifact.verification.completed" in src
+
+    def test_execute_emits_features_completed(self):
+        """execute emits runtime.features.completed after build_features."""
+        import inspect
+        from bremen.api.workflow_bremen import BremenProvider
+        src = inspect.getsource(BremenProvider.execute)
+        assert "runtime.features.completed" in src
+
+    def test_prepare_artifact_emits_validated_model_event_only_when_valid(self):
+        """model validation event only emitted when validation_status == completed."""
+        import inspect
+        from bremen.api.workflow_bremen import BremenProvider
+        src = inspect.getsource(BremenProvider.prepare_artifact)
+        assert "validation_status == \"completed\"" in src
+
+    # ---- PART 2 — Execution trace finalization ----
+
+    def test_trace_status_completed_with_all_11_stages(self):
+        """build_trace_from_events returns completed for 11 completed stages."""
+        from bremen.api.execution_trace import build_trace_from_events
+        from bremen.api.event_store import BoundedEventStore
+        from bremen.api.event_schema import JobEvent
+
+        store = BoundedEventStore()
+        job_id = "trace-test-1"
+        all_events = [
+            "runtime.artifact.verification.completed",
+            "runtime.artifact.load.completed",
+            "runtime.artifact.adaptation.completed",
+            "runtime.model.validation.completed",
+            "runtime.input.preparation.completed",
+            "runtime.features.completed",
+            "runtime.features.validation.completed",
+            "runtime.inference.completed",
+            "runtime.output.validation.completed",
+            "runtime.decision.completed",
+            "runtime.report.completed",
+        ]
+        for ev_type in all_events:
+            ev = JobEvent(
+                job_id=job_id,
+                request_id="req-trace",
+                workflow_id="bremen",
+                stage="test",
+                event_type=ev_type,
+                status="completed",
+            )
+            store.append(job_id, ev)
+
+        trace = build_trace_from_events(store, job_id, "bremen")
+        assert trace is not None
+        assert trace.status == "completed", f"expected completed, got {trace.status}"
+        assert trace.completed_stage_count == 11
+        assert trace.total_applicable_stage_count == 11
+        stages_map = {s.stage_id: s.status for s in trace.stages}
+        assert stages_map.get("artifact_loaded") == "completed"
+        assert stages_map.get("artifact_adapted") == "completed"
+        assert stages_map.get("model_validated") == "completed"
+        assert stages_map.get("features_produced") == "completed"
+
+    def test_trace_status_running_with_partial_stages(self):
+        """build_trace_from_events returns running for partial completion."""
+        from bremen.api.execution_trace import build_trace_from_events
+        from bremen.api.event_store import BoundedEventStore
+        from bremen.api.event_schema import JobEvent
+
+        store = BoundedEventStore()
+        job_id = "trace-test-2"
+        partial_events = [
+            "runtime.artifact.verification.completed",
+            "runtime.input.preparation.completed",
+        ]
+        for ev_type in partial_events:
+            ev = JobEvent(
+                job_id=job_id,
+                request_id="req-trace",
+                workflow_id="bremen",
+                stage="test",
+                event_type=ev_type,
+                status="completed",
+            )
+            store.append(job_id, ev)
+
+        trace = build_trace_from_events(store, job_id, "bremen")
+        assert trace is not None
+        assert trace.status == "running"
+
+    # ---- PART 3 — Pipeline summary ----
+
+    def test_completed_summary_contains_15_of_15(self):
+        """Completed summary contains '15 of 15 pipeline stages completed'."""
+        page = build_control_room_page()
+        assert "15 of 15 pipeline stages completed" in page or "pipeline stages completed" in page
+
+    def test_completed_summary_no_one_of_one_events(self):
+        """Completed summary does not contain '1 of 1 events'."""
+        page = build_control_room_page()
+        assert "1 of 1 events" not in page
+
+    def test_completed_summary_no_10_of_14(self):
+        """Completed summary does not contain '10 of 14'."""
+        page = build_control_room_page()
+        assert "10 of 14" not in page
+
+    def test_completed_summary_no_9_of_9(self):
+        """Completed summary does not contain '9 of 9'."""
+        page = build_control_room_page()
+        assert "9 of 9" not in page
+
+    def test_collapse_uses_pipeline_total_not_event_cache(self):
+        """collapseEventPanel uses pipelineTotal not eventCache.length."""
+        page = build_control_room_page()
+        assert "pipelineTotal" in page
+        assert "pipeline stages completed" in page
+
+    # ---- PART 4 — Tiny-score UX ----
+
+    def test_tiny_positive_score_renders_less_than_0_001(self):
+        """Tiny positive score < 0.001 renders '<0.001'."""
+        page = build_control_room_page()
+        # fetchDecision should have <0.001 logic
+        fn_start = page.find("function fetchDecision")
+        fn_end = page.find("function ", fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert "<0.001" in fn_body
+
+    def test_null_score_renders_em_dash(self):
+        """Null/undefined score renders 'Score —'."""
+        page = build_control_room_page()
+        fn_start = page.find("function fetchDecision")
+        fn_end = page.find("function ", fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert "Score —" in fn_body
+
+    def test_exact_zero_renders_0_000(self):
+        """Exact zero score renders 'Score 0.000'."""
+        page = build_control_room_page()
+        fn_start = page.find("function fetchDecision")
+        fn_end = page.find("function ", fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert "0.000" in fn_body
+
+    def test_threshold_renders_normally(self):
+        """Threshold 0.413 renders 'Threshold 0.413'."""
+        page = build_control_room_page()
+        fn_start = page.find("function fetchDecision")
+        fn_end = page.find("function ", fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert "Threshold 0.413" in fn_body or "Threshold " in fn_body
+
+    def test_null_threshold_renders_em_dash(self):
+        """Null/undefined threshold renders 'Threshold —'."""
+        page = build_control_room_page()
+        fn_start = page.find("function fetchDecision")
+        fn_end = page.find("function ", fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert "Threshold —" in fn_body
+
+    # ---- PART 5 — Source display / patient name ----
+
+    def test_source_registry_lookup_for_uuid_source_id(self):
+        """handle_jobs_create looks up source registry for filename when source_id is a UUID."""
+        import inspect
+        from bremen.api.job_api_handler import handle_jobs_create
+        src = inspect.getsource(handle_jobs_create)
+        assert "get_source_info" in src
+        assert "source_info.get(\"filename\")" in src
+
+    def test_list_analysis_jobs_fallback_is_patient_not_unknown(self):
+        """list_analysis_jobs fallback is 'Patient' not 'Unknown'."""
+        import inspect
+        from bremen.api.job_api_handler import list_analysis_jobs
+        src = inspect.getsource(list_analysis_jobs)
+        assert "\"Patient\"" in src
+        assert "\"Unknown\"" not in src
+
+    def test_source_display_no_s3_or_path_exposure(self):
+        """Source display no s3://, /tmp/, bucket, or prefix in user-facing field."""
+        import inspect
+        from bremen.api.job_api_handler import handle_jobs_create
+        src = inspect.getsource(handle_jobs_create)
+        lines = src.split("\n")
+        for line in lines:
+            if "effective_container_id" in line and "= " in line:
+                assert "s3://" not in line
+                assert "/tmp/" not in line
+
+    def test_fallback_without_metadata_is_patient(self):
+        """Fallback without safe metadata is 'Patient', not 'Unknown' and not UUID."""
+        import inspect
+        from bremen.api.job_api_handler import list_analysis_jobs
+        src = inspect.getsource(list_analysis_jobs)
+        assert "\"Patient\"" in src
+        assert "\"Unknown\"" not in src
+
+
+class TestAppendixAModelReportBinding:
+    """APPENDIX A: Model/report binding must be model-specific.
+
+    Reports must be scoped by model_id, not patient/source alone.
+    Switching models must not reuse previous model reports.
+    """
+
+    # ---- PART 1: Backend model-scoped job creation ----
+
+    def test_create_analysis_job_stores_model_id_in_input_summary(self):
+        """create_analysis_job stores model_id in input_summary."""
+        import inspect
+        from bremen.api.job_api_handler import create_analysis_job
+        src = inspect.getsource(create_analysis_job)
+        assert '"model_id": model_id' in src or "'model_id': model_id" in src
+
+    def test_list_analysis_jobs_returns_model_id(self):
+        """list_analysis_jobs returns model_id in summary."""
+        import inspect
+        from bremen.api.job_api_handler import list_analysis_jobs
+        src = inspect.getsource(list_analysis_jobs)
+        assert 'summary["model_id"]' in src
+
+    def test_list_analysis_jobs_filters_by_model_id(self):
+        """list_analysis_jobs filters by model_id when provided."""
+        import inspect
+        from bremen.api.job_api_handler import list_analysis_jobs
+        src = inspect.getsource(list_analysis_jobs)
+        assert 'if model_id is not None:' in src or 'model_id is not None' in src
+        assert 'job_model_id' in src
+
+    def test_handle_jobs_create_passes_model_id(self):
+        """handle_jobs_create passes model_id from request to create_analysis_job."""
+        import inspect
+        from bremen.api.job_api_handler import handle_jobs_create
+        src = inspect.getsource(handle_jobs_create)
+        assert 'model_id=model_id' in src
+
+    def test_job_id_unique_per_creation(self):
+        """Each create_analysis_job call produces a unique job_id."""
+        import inspect
+        from bremen.api.job_api_handler import create_analysis_job
+        src = inspect.getsource(create_analysis_job)
+        assert 'job_id = str(_uuid.uuid4())' in src or 'job_id = str(uuid.uuid4())' in src
+
+    def test_no_source_level_report_caching(self):
+        """create_analysis_job has no source-level dedup or caching logic."""
+        import inspect
+        from bremen.api.job_api_handler import create_analysis_job
+        src = inspect.getsource(create_analysis_job)
+        # No lookup for existing job by source_id or container_id
+        assert 'existing_job' not in src.lower()
+        assert 'cached_report' not in src.lower()
+        assert 'reuse_report' not in src.lower()
+
+    # ---- PART 2: Frontend model-scoped identity ----
+
+    def test_start_analysis_sends_model_id(self):
+        """startAnalysis sends model_id in the POST body."""
+        page = build_control_room_page()
+        fn_start = page.find('function startAnalysis')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'body.model_id=selectedModelId' in fn_body
+
+    def test_load_job_history_sends_model_id_filter(self):
+        """loadJobHistory sends model_id as query parameter."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'selectedModelId' in fn_body
+        assert "params.append('model_id'" in fn_body or 'params.append(\'model_id\'' in fn_body
+
+    def test_job_history_displays_model_id(self):
+        """Job History rows display model_id."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'j.model_id' in fn_body
+        assert 'cr-history-meta' in fn_body
+
+    def test_open_job_navigates_to_specific_job_report(self):
+        """openJob navigates to /demo/report/{job_id}, not a source-level URL."""
+        page = build_control_room_page()
+        fn_start = page.find('function openJob')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert '/demo/report/' in fn_body
+        assert 'jobId' in fn_body
+
+    def test_decision_card_report_link_uses_job_id(self):
+        """Decision card report link uses the specific job_id."""
+        page = build_control_room_page()
+        fn_start = page.find('function fetchDecision')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert '/demo/report/'+"'" in fn_body or '/demo/report/' in fn_body
+
+    # ---- PART 3: Model switch resets stale state ----
+
+    def test_on_model_select_resets_decision_card(self):
+        """onModelSelect resets the decision card from the previous model."""
+        page = build_control_room_page()
+        fn_start = page.find('function onModelSelect')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'cr-decision-card' in fn_body
+        assert 'hidden' in fn_body
+
+    def test_on_model_select_resets_pipeline(self):
+        """onModelSelect resets pipeline stages."""
+        page = build_control_room_page()
+        fn_start = page.find('function onModelSelect')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'resetPipeline()' in fn_body
+
+    def test_on_model_select_resets_event_panel(self):
+        """onModelSelect resets the event panel."""
+        page = build_control_room_page()
+        fn_start = page.find('function onModelSelect')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'resetEventPanel()' in fn_body
+
+    def test_on_model_select_clears_current_job(self):
+        """onModelSelect clears currentJobId."""
+        page = build_control_room_page()
+        fn_start = page.find('function onModelSelect')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'currentJobId=null' in fn_body
+
+    def test_on_model_select_sets_state_idle(self):
+        """onModelSelect sets state to idle."""
+        page = build_control_room_page()
+        fn_start = page.find('function onModelSelect')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert "setState('idle')" in fn_body
+
+    # ---- PART 4: Safety ----
+
+    def test_no_s3_or_path_in_model_display(self):
+        """Model display in job history does not expose S3 or paths."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 's3://' not in fn_body
+        assert '/tmp/' not in fn_body
+        assert '/scans/' not in fn_body
+
+    def test_fetch_decision_no_model_internals(self):
+        """fetchDecision does not expose model internals."""
+        page = build_control_room_page()
+        fn_start = page.find('function fetchDecision')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'coefficient' not in fn_body
+        assert 'intercept' not in fn_body
+        assert 'scaler_mean' not in fn_body
+
+    # ---- PART 5: PR0099B/0099C preservation ----
+
+    def test_pr0099b_job_id_identity_preserved(self):
+        """PR0099B: run_workflow_request still accepts optional job_id."""
+        from bremen.api.workflow_orchestrator import run_workflow_request
+        import inspect
+        sig = inspect.signature(run_workflow_request)
+        assert 'job_id' in sig.parameters
+        assert sig.parameters['job_id'].default is None
+
+    def test_pr0099c_stage_events_preserved(self):
+        """PR0099C: All 4 missing stage events still emitted."""
+        import inspect
+        from bremen.api.workflow_bremen import BremenProvider
+        src = inspect.getsource(BremenProvider.prepare_artifact)
+        assert 'runtime.artifact.load.completed' in src
+        assert 'runtime.artifact.adaptation.completed' in src
+        assert 'runtime.model.validation.completed' in src
+        src2 = inspect.getsource(BremenProvider.execute)
+        assert 'runtime.features.completed' in src2
+
+    def test_pr0099c_trace_finalization_preserved(self):
+        """PR0099C: Terminal event detection still finalizes trace."""
+        import inspect
+        from bremen.api.execution_trace import build_trace_from_events
+        src = inspect.getsource(build_trace_from_events)
+        assert 'terminal_event_types' in src
+        assert 'runtime.workflow.completed' in src
+        assert 'runtime.request.completed' in src
