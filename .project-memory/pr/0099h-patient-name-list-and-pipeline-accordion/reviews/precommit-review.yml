@@ -1,0 +1,53 @@
+status: valid
+head: bbc344314d393133256bb9ea278937b9023ab805
+branch: "0099h-patient-name-list-and-pipeline-accordion"
+blockers: []
+warnings:
+  - "Patient name extraction requires downloading H5 from S3 on first cache miss. For 100 containers this could add latency on first listing. Subsequent listings use cache."
+  - "Cache is process-level and resets on server restart. Acceptable for demo."
+  - "Cache key uses (bucket, object_key, size_bytes). Same-size file replacement won't refresh cache until restart."
+  - "Dirty tree: all 3 changed files are unstaged working tree modifications with no committed divergence from main (git diff --name-only main...HEAD is empty). Changes must be staged and committed before merge."
+changed_files:
+  - src/bremen/api/server.py
+  - src/bremen/control_room_ui.py
+  - tests/test_bremen_control_room.py
+working_tree_state: "dirty — 3 unstaged modifications, 1 untracked directory (.project-memory/pr/0099h-patient-name-list-and-pipeline-accordion/)"
+reuse_check_0099e: "server.py imports and calls extract_patient_display_name from job_api_handler. No duplicate implementation written. Confirmed by test_reuses_extract_patient_display_name and test_server_imports_extract_patient_display_name."
+cache_implementation: "Module-level _patient_name_cache dict in server.py. Key shape: (bucket, object_key, size_bytes) -> patient_name | None. Cache miss stages/downloads H5 via stage_h5_input(), extracts via extract_patient_display_name(). Cache hit returns cached value. Cache stores None for failed reads to prevent repeated extraction."
+field_name_used: "Response fields in GET /demo/api/h5/containers: patient_display_name (real safe patient label or empty string), display_name (patient_display_name or filename as primary), filename (original safe filename as secondary), stable_source_key (deterministic hash). No collision with existing source_display_name semantics."
+fallback_on_failure: "Missing/empty/unsafe patient_name -> cache None, display_name = filename. Read failure (exception) -> cache None, display_name = filename. No raw exception text in response. Container listing never fails due to one file failing."
+patients_list_primary_secondary_display: "When patient_display_name exists: Primary is patient_display_name (e.g., Nova_257), Secondary is filename with size and date. When patient_display_name absent: Primary is filename, Secondary is size and date. No empty placeholder title. No UUID as primary when filename exists."
+accordion_pipeline_structure: "All 15 pipeline rows converted to accordion: collapsed default shows [icon] Stage Label [chevron ▶] [duration]; expanded shows same header plus caption text in body. CSS: .cr-stage-header, .cr-stage-body, .cr-stage-chevron, .cr-stage-caption (font-size: var(--fs-13)). toggleStage() toggles aria-expanded and body display."
+keyboard_accessibility: "role='button' on stage headers, tabindex='0' for keyboard focus, aria-expanded='false' reflects collapsed state, aria-label names the stage, onkeydown='toggleStageKey(event,this)' handles Enter/Space. Focus style: outline: 2px solid var(--accent)."
+caption_text_preservation: "All 15 short captions preserved exactly from PR0099G: Request received, Scan normalized, Workflow selected, Package checked, Model loaded, Adapter applied, Contract checked, Measurements arranged, Features calculated, Feature schema checked, Score produced, Output checked, Threshold applied, Report created, Run finished. Long explanation text preserved as title attribute on stage headers."
+expanded_font_size_token: "Expanded body uses font-size: var(--fs-13) — readable body font, not tiny caption font."
+pr0099b_preservation: "run_workflow_request(job_id: str | None = None) preserved at line 156. job_id=job_id in create_analysis_job confirmed."
+pr0099c_preservation: "4 stage events in STAGE_MAP, tiny score <0.001, Score —, Threshold —, 15/15 pipeline summary all preserved."
+pr0099d_preservation: "delete_report, report_already_exists, analyzed rows, delete report button, model switch recomputation all preserved."
+pr0099e_preservation: "Patient Reports heading, extract_patient_display_name, failed-job gating, patient display name in Patient Reports all preserved."
+pr0099f_preservation: "hasSeenFailure tracking, 'Analysis failed. No report was generated.' in decision card, 'Analysis stopped' in terminal panel all preserved."
+pr0099g_preservation: "stable_source_key, already-analyzed copy, short captions, stable source key for analyzed state all preserved."
+tests:
+  control_room: "385 passed (33 new in TestPR0099HPatientNameAndAccordion + updated existing)"
+  focused: "456 passed (container/h5/patient/accordion/pipeline)"
+  full_suite: "2585 passed, 11 skipped, 0 failed"
+  compileall: "PASS"
+  git_diff_check: "clean"
+validation:
+  cr_stage_help_count: 0
+  aria_expanded_present: true
+  role_button_on_headers: true
+  toggle_stage_function_exists: true
+  keyboard_toggle_support: true
+  all_15_accordion_rows: true
+  job_history_heading_absent: true
+  patient_reports_heading_present: true
+  no_container_copy_in_ui: true
+  patient_name_cache_exists: true
+  cache_stores_none: true
+  extract_patient_display_name_reused: true
+functional_verification_limitation: "Sandbox/source review cannot confirm deployed UI behavior. A real deployment must verify that Patients List shows patient_name as the primary label with filename secondary when available, filename fallback works when patient_name is absent, and pipeline rows expand/collapse with readable text using mouse and keyboard."
+security: "No credentials, tokens, secrets, raw exceptions, stack traces, feature values, model coefficients, S3 URIs, bucket names, filesystem paths, H5 internals, or private data in public UI output. s3://, bucket, prefix references exist only in backend server/orchestration code (not user-facing). Test strings for s3:// and /tmp/ appear only in assertions verifying their absence."
+scope_control: "Changed files match implementation-report.md. No app.py or inference_handler.py modified. No docs/, ROADMAP.md, requirements.txt, pyproject.toml, Dockerfile, infra/, or .github/ files changed."
+implementation_report: "Matches actual file changes. 33 new tests claimed; test count increased from 2552 (PR0099G final) to 2585 = 33 new tests. File change list matches git status."
+commit_readiness: "Implementation is complete and all tests pass. Requires staging and committing the 3 modified files before merge."

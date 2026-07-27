@@ -609,6 +609,9 @@ def _handle_demo_models(handler: BaseHTTPRequestHandler) -> None:
 # Demo H5 container endpoints
 # ---------------------------------------------------------------------------
 
+# Patient name cache: (bucket, object_key, size_bytes) -> patient_name | None
+_patient_name_cache: dict[tuple[str, str, int], str | None] = {}
+
 
 def _handle_demo_h5_containers_list(
     handler: BaseHTTPRequestHandler,
@@ -719,10 +722,33 @@ def _handle_demo_h5_containers_list(
             # S3-listed containers are implicitly Bremen (under configured prefix)
             # Env-configured containers carry their own workflow_id, default "bremen"
             wf = item.get("workflow_id", "bremen")
+
+            # Patient name from cache or extraction
+            cache_key = (bucket, raw_key, size)
+            patient_name = ""
+            if cache_key in _patient_name_cache:
+                cached = _patient_name_cache[cache_key]
+                patient_name = cached or ""
+            else:
+                try:
+                    from ..h5_inputs import stage_h5_input as _stage  # noqa: PLC0415
+                    from .job_api_handler import extract_patient_display_name  # noqa: PLC0415
+                    s3_uri = f"s3://{bucket}/{raw_key}"
+                    local_path = _stage(s3_uri)
+                    extracted = extract_patient_display_name(str(local_path))
+                    if extracted:
+                        patient_name = extracted
+                        _patient_name_cache[cache_key] = extracted
+                    else:
+                        _patient_name_cache[cache_key] = None
+                except Exception:
+                    _patient_name_cache[cache_key] = None
+
+            display_name = patient_name or filename
             safe_containers.append({
                 "source_id": source_id,
-                "display_name": filename,
-                "patient_display_name": "",
+                "display_name": display_name,
+                "patient_display_name": patient_name,
                 "stable_source_key": get_stable_source_key(source_id),
                 "size_bytes": size,
                 "last_modified": last_mod,
