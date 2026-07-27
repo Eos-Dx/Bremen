@@ -1,0 +1,111 @@
+review:
+  status: valid
+  direct_to_coder_exception: true
+branch: 0099a-control-room-clarity-qa-fix
+head: 63355f13b1740095225a06025f3962597b5db83f
+reviewed_files:
+  - src/bremen/control_room_ui.py
+  - tests/test_bremen_control_room.py
+
+blockers: []
+warnings:
+  - "Status-rail color logic is duplicated inline in two functions (loadJobHistory and fetchDecision) rather than extracted to a shared helper. The logic is identical in both locations (same decision_code checks, same class names), so this is consistent but not DRY."
+
+confirmed:
+  source_display_name_rendered: true
+  source_display_name_prominent: true
+  size_swap_confirmed: true
+  live_events_functionality_preserved: true
+  status_rail_scope_correct: true
+  status_error_not_used_for_decision: true
+  no_full_background_color_wash: true
+  consistent_color_logic_job_history_and_card: true
+  decision_card_padding_fixed: true
+  no_backend_files_changed: true
+  existing_fields_not_regressed: true
+  compileall_passed: true
+  focused_tests_passed: true
+  full_suite_passed: true
+  no_credentials_in_diff: true
+
+tests:
+  control_room_focused: "105 passed (92 existing + 13 new PR0099a tests) in 2.20s"
+  full_suite: "2305 passed, 11 skipped, 28 warnings in 63.42s"
+
+details:
+  source_display_name:
+    field: "j.source_display_name"
+    css_class: "cr-history-source"
+    css_properties: "color:var(--text-primary); font-size:var(--fs-12); font-weight:500; margin-bottom:var(--sp-1)"
+    positioning: "Between history-header (job_id/timestamp) and cr-history-detail (decision text)"
+    prominent: true
+    additive: true
+    not_replacement: true
+
+  size_swap:
+    job_history_before: "max-height:280px;overflow-y:auto"
+    job_history_after: "max-height:none;overflow-y:auto;flex:1;min-height:0"
+    job_history_container: "flex:1;display:flex;flex-direction:column;min-height:0"
+    live_events_before: "flex:1;display:flex;flex-direction:column;min-height:0"
+    live_events_after: "max-height:320px;display:flex;flex-direction:column;min-height:0"
+    live_events_functionality_verified:
+      - cr-event-empty element present
+      - cr-event-list element present
+      - cr-filter-all button present
+      - cr-filter-completed button present
+      - cr-filter-failed button present
+      - cr-autoscroll-btn button present
+      - addEventRow function unchanged
+      - processEvent function unchanged
+      - SSE connect/disconnect logic unchanged
+      - collapseEventPanel function unchanged
+      - filterEvents function unchanged
+
+  status_rail:
+    scope: "LEFT-BORDER ONLY — no full-background color wash applied"
+    defer_color: "var(--status-available) (#2E7D5B, green)"
+    continue_color: "var(--status-pending) (#B8894A, amber)"
+    status_error_used_for_decision: false
+    existing_tokens_reused: true
+    new_tokens_invented: false
+    decision_card_defer: "border-left-color:var(--status-available)"
+    decision_card_continue: "border-left-color:var(--status-pending)"
+    history_item_defer: "border-left-color:var(--status-available)"
+    history_item_continue: "border-left-color:var(--status-pending)"
+    color_logic_consistency: "Identical logic in both functions (same code checks, same class strings) but inline-duplicated rather than shared"
+    other_elements_unchanged:
+      - headline text color: unchanged
+      - icon color: unchanged
+      - background: unchanged
+      - score bar: unchanged
+      - threshold marker: unchanged
+
+  decision_card_padding:
+    before: "padding:var(--sp-20) var(--sp-24)"
+    after: "padding:var(--sp-16) var(--sp-20)"
+    standard_card_padding: "padding:var(--sp-16)"
+    top_bottom_consistency: "Now matches standard .cr-card top/bottom (var(--sp-16))"
+    left_right: "var(--sp-20) — slightly more generous than standard card"
+    verdict: "Real padding reduction applied; consistent with card conventions"
+
+  no_backend_changes:
+    changed_files:
+      - src/bremen/control_room_ui.py
+      - tests/test_bremen_control_room.py
+    backend_files_changed: false
+
+  existing_fields:
+    job_id: "j.job_id.substring(0,8) in cr-history-id"
+    timestamp: "j.created_at in cr-history-time"
+    decision_text: "j.decision_display_name||j.triage_recommendation in cr-history-detail"
+    model_name: "j.model_id in cr-history-meta"
+    report_icon: "j.report_available in cr-history-detail"
+    source_display_name: "ADDED — j.source_display_name in cr-history-source"
+    all_existing_preserved: true
+
+  security:
+    credentials_in_diff: false
+    secrets_in_diff: false
+    tokens_in_diff: false
+    source_display_name_is_safe_field: true
+    no_additional_raw_data_pulled: true

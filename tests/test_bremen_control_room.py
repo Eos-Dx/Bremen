@@ -781,3 +781,101 @@ class TestPR0099ClarityRedesign:
         """CSS caption rule exists."""
         page = build_control_room_page()
         assert "cr-stage-caption" in page
+
+
+class TestPR0099aQAFix:
+    """PR0099a: Job History enrichment, decision card spacing, status-rail."""
+
+    def test_source_display_name_in_job_history(self):
+        """source_display_name renders in loadJobHistory()."""
+        page = build_control_room_page()
+        assert "source_display_name" in page
+        fn_start = page.find("function loadJobHistory")
+        fn_end = page.find("function ", fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert "source_display_name" in fn_body
+
+    def test_source_display_name_element_class(self):
+        """source_display_name uses cr-history-source class."""
+        page = build_control_room_page()
+        assert "cr-history-source" in page
+
+    def test_job_history_expands(self):
+        """Job History card has flex:1 for expansion."""
+        page = build_control_room_page()
+        idx = page.find('cr-card-title">Job History')
+        assert idx > 0
+        before = page[max(0, idx-300):idx]
+        assert 'flex:1' in before
+
+    def test_live_events_bounded(self):
+        """Live Events card has max-height bound."""
+        page = build_control_room_page()
+        idx = page.find('Live Events')
+        assert idx > 0
+        before = page[max(0, idx-300):idx]
+        assert 'max-height' in before
+
+    def test_status_rail_defer_css(self):
+        """CSS has defer rail class."""
+        page = build_control_room_page()
+        assert ".cr-history-item.defer" in page
+        assert "cr-decision-card.defer" in page
+
+    def test_status_rail_continue_css(self):
+        """CSS has continue rail class."""
+        page = build_control_room_page()
+        assert ".cr-history-item.continue" in page
+        assert "cr-decision-card.continue" in page
+
+    def test_status_rail_no_error_for_decision(self):
+        """status-error is not used for decision rail coloring."""
+        page = build_control_room_page()
+        fn_start = page.find(".cr-history-item.defer")
+        assert fn_start > 0
+        fn_end = page.find(".cr-history-item.continue")
+        assert fn_end > 0
+        css_section = page[fn_start:fn_end]
+        assert "status-error" not in css_section
+
+    def test_history_item_rail_class_from_decision_code(self):
+        """loadJobHistory applies rail class based on decision_code."""
+        page = build_control_room_page()
+        fn_start = page.find("function loadJobHistory")
+        fn_end = page.find("function ", fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert "MRI_REVIEW_DEFER" in fn_body
+        assert "CONTINUE_MRI" in fn_body
+        assert "railClass" in fn_body
+
+    def test_decision_card_rail_class_from_code(self):
+        """fetchDecision applies rail class based on decision_code."""
+        page = build_control_room_page()
+        fn_start = page.find("function fetchDecision")
+        fn_end = page.find("function ", fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert "MRI_REVIEW_DEFER" in fn_body
+        assert "CONTINUE_MRI" in fn_body
+
+    def test_live_events_retains_filter_buttons(self):
+        """Live Events filter buttons remain present."""
+        page = build_control_room_page()
+        assert "cr-filter-all" in page
+        assert "cr-filter-completed" in page
+        assert "cr-filter-failed" in page
+        assert "cr-autoscroll-btn" in page
+
+    def test_live_events_retains_empty_state(self):
+        """Live Events empty state element remains present."""
+        page = build_control_room_page()
+        assert "cr-event-empty" in page
+
+    def test_live_events_retains_event_list(self):
+        """Live Events event list element remains present."""
+        page = build_control_room_page()
+        assert "cr-event-list" in page
+
+    def test_decision_card_padding_matches_cards(self):
+        """Decision card padding matches other card conventions."""
+        page = build_control_room_page()
+        assert "padding:var(--sp-16) var(--sp-20)" in page

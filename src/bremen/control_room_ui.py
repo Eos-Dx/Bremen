@@ -110,7 +110,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .cr-stage-label{flex:1;color:var(--text-primary)}
 .cr-stage-caption{font-size:var(--fs-11);color:var(--text-secondary);margin-top:2px}
 .cr-stage-dur{font-size:var(--fs-11);color:var(--text-secondary);font-family:monospace}
-.cr-decision-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-card);padding:var(--sp-20) var(--sp-24);border-left:3px solid var(--accent);margin-top:var(--sp-8)}
+.cr-decision-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-card);padding:var(--sp-16) var(--sp-20);border-left:3px solid var(--accent);margin-top:var(--sp-8)}
+.cr-decision-card.defer{border-left-color:var(--status-available)}
+.cr-decision-card.continue{border-left-color:var(--status-pending)}
 .cr-decision-headline{font-size:var(--fs-22);font-weight:600;color:var(--text-primary);margin-bottom:var(--sp-4)}
 .cr-decision-code{font-size:var(--fs-13);color:var(--text-secondary);font-family:monospace;margin-bottom:var(--sp-12)}
 .cr-decision-score{display:flex;align-items:center;gap:var(--sp-12);margin-bottom:var(--sp-8)}
@@ -121,8 +123,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .cr-decision-meta{font-size:var(--fs-11);color:var(--text-secondary);margin-top:var(--sp-4)}
 .cr-report-link{display:inline-block;padding:8px 20px;background:var(--accent);color:#FFFFFF;border:none;border-radius:var(--radius-card);font-size:var(--fs-14);font-weight:600;text-decoration:none;cursor:pointer;margin-top:var(--sp-12);transition:background 150ms}
 .cr-report-link:hover{background:var(--accent)}
-.cr-history-list{max-height:280px;overflow-y:auto}
-.cr-history-item{padding:var(--sp-8) var(--sp-12);cursor:pointer;border-bottom:1px solid var(--border);transition:background 150ms;border-left:2px solid transparent;font-size:var(--fs-13)}
+.cr-history-list{max-height:none;overflow-y:auto;flex:1;min-height:0}
+.cr-history-item{padding:var(--sp-8) var(--sp-12);cursor:pointer;border-bottom:1px solid var(--border);transition:background 150ms;border-left:3px solid var(--border);font-size:var(--fs-13)}
+.cr-history-item.defer{border-left-color:var(--status-available)}
+.cr-history-item.continue{border-left-color:var(--status-pending)}
 .cr-history-item:hover{background:var(--tint-accent)}
 .cr-history-item.completed{border-left-color:var(--status-available)}
 .cr-history-item.failed{border-left-color:var(--status-error)}
@@ -132,6 +136,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .cr-history-time{color:var(--text-secondary);font-size:var(--fs-11);margin-left:auto}
 .cr-history-detail{color:var(--text-primary);font-weight:500;font-size:var(--fs-13)}
 .cr-history-meta{color:var(--text-secondary);font-size:var(--fs-11)}
+.cr-history-source{color:var(--text-primary);font-size:var(--fs-12);font-weight:500;margin-bottom:var(--sp-1)}
 .cr-event-panel{display:flex;flex-direction:column;flex:1;min-height:0}
 .cr-event-empty{height:120px;display:flex;align-items:center;justify-content:center;font-size:var(--fs-13);color:var(--text-secondary);text-align:center;padding:var(--sp-16)}
 .cr-event-list{flex:1;overflow-y:auto;min-height:0}
@@ -575,9 +580,15 @@ function loadJobHistory(){
         var decision=j.decision_display_name||j.triage_recommendation||'';
         var model=j.model_id||'';
         var reportAvail=j.report_available?'&#128196; ':'';
-        html+='<div class="cr-history-item '+status+'" onclick="openJob(\''+j.job_id+'\')">'+
+        var sourceName=j.source_display_name||'';
+        var dc=j.decision_code||'';
+        var railClass='';
+        if(dc==='MRI_REVIEW_DEFER')railClass=' defer';
+        else if(dc==='CONTINUE_MRI')railClass=' continue';
+        html+='<div class="cr-history-item '+status+railClass+'" onclick="openJob(\''+j.job_id+'\')">'+
           '<div class="cr-history-header"><span class="cr-history-id">'+j.job_id.substring(0,8)+'</span>'+
           '<span class="cr-history-time">'+ts+'</span></div>'+
+          (sourceName?'<div class="cr-history-source">'+sourceName+'</div>':'')+
           '<div class="cr-history-detail">'+reportAvail+(decision?decision:(status==='completed'?'Completed':status))+'</div>'+
           '<div class="cr-history-meta">'+(model?'Model: '+model.substring(0,16):'')+'</div>'+
           '</div>';
@@ -744,6 +755,9 @@ function fetchDecision(jobId){
       html+='<hr style="border:none;border-top:1px solid var(--border);margin:var(--sp-12) 0">';
       html+='<div style="font-size:var(--fs-11);color:var(--text-secondary)">'+code+' \u00B7 '+policy+' <span class="cr-badge pending">Certification: pending</span> <span class="cr-badge not_configured" style="margin-left:4px">Technical demo only</span></div>';
       card.innerHTML=html;
+      card.className='cr-decision-card';
+      if(code==='MRI_REVIEW_DEFER')card.className+=' defer';
+      else if(code==='CONTINUE_MRI')card.className+=' continue';
       card.classList.remove('hidden');
     }).catch(function(){});
 }
@@ -964,14 +978,14 @@ def build_control_room_page(
 
     <!-- Right column: 360px -->
     <div class="cr-right">
-      <div class="cr-card">
+      <div class="cr-card" style="flex:1;display:flex;flex-direction:column;min-height:0">
         <div class="cr-card-title">Job History</div>
         <div class="cr-history-list" id="cr-job-list">
           <div class="cr-empty">Loading job history...</div>
         </div>
       </div>
 
-      <div class="cr-card" style="flex:1;display:flex;flex-direction:column;min-height:0">
+      <div class="cr-card" style="max-height:320px;display:flex;flex-direction:column;min-height:0">
         <div class="cr-card-title">Live Events <span id="cr-catalog-ts" class="hidden" style="font-weight:400;font-size:var(--fs-11);color:var(--text-secondary);text-transform:none;letter-spacing:0">Catalog: loading</span></div>
         <div class="cr-event-panel">
           <div class="cr-event-empty" id="cr-event-empty">Analysis events will appear here</div>
