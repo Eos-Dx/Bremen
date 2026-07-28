@@ -118,6 +118,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .cr-decision-card.defer{border-left-color:var(--status-available)}
 .cr-decision-card.continue{border-left-color:var(--status-pending)}
 .cr-decision-headline{font-size:var(--fs-22);font-weight:600;color:var(--text-primary);margin-bottom:var(--sp-4)}
+.cr-decision-placeholder{min-height:140px;border-left-color:var(--border)}
+.cr-decision-placeholder .cr-decision-headline{color:var(--text-secondary)}
+.cr-decision-placeholder-copy{font-size:var(--fs-13);color:var(--text-secondary)}
 .cr-decision-code{font-size:var(--fs-13);color:var(--text-secondary);font-family:monospace;margin-bottom:var(--sp-12)}
 .cr-decision-score{display:flex;align-items:center;gap:var(--sp-12);margin-bottom:var(--sp-8)}
 .cr-score-bar{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden;position:relative}
@@ -456,8 +459,7 @@ function onModelSelect(sel){
   currentJobId=null;
   resetPipeline();
   resetEventPanel();
-  var card=document.getElementById('cr-decision-card');
-  if(card){card.innerHTML='';card.className='cr-decision-card hidden'}
+  renderDecisionPlaceholder();
   setState('idle');
   loadJobHistory();
   updateReadiness();
@@ -661,8 +663,7 @@ function deleteReport(jobId,workflowId){
     body:JSON.stringify({action:'delete_report',job_id:jobId,workflow_id:workflowId})
   }).then(function(r){return r.json()}).then(function(data){
     if(data.status==='deleted'){
-      var card=document.getElementById('cr-decision-card');
-      if(card&&currentJobId===jobId){card.innerHTML='';card.className='cr-decision-card hidden'}
+      if(currentJobId===jobId){renderDecisionPlaceholder()}
       loadJobHistory();
     }
   }).catch(function(){});
@@ -897,6 +898,15 @@ function collapseEventPanel(outcome){
   if(actions){actions.style.display='none'}
 }
 
+function renderDecisionPlaceholder(){
+  var card=document.getElementById('cr-decision-card');
+  if(!card)return;
+  card.innerHTML='<div class="cr-decision-headline">Recommendation pending</div>'+
+    '<div class="cr-decision-placeholder-copy">Recommendation will appear here after analysis.</div>'+
+    '<div class="cr-decision-placeholder-copy">Technical demo only. A clinician makes the final decision.</div>';
+  card.className='cr-decision-card cr-decision-placeholder';
+}
+
 function markPipelineComplete(){
   if(hasSeenFailure)return;
   document.querySelectorAll('.cr-stage').forEach(function(s){
@@ -984,6 +994,8 @@ def build_control_room_page(
         </div>
       </div>
 
+      <button class="btn-primary" id="cr-analyze-btn" onclick="startAnalysis()" disabled aria-label="Start analysis">Analyze</button>
+
       <div class="cr-card">
         <div class="cr-card-title">Source</div>
         <div class="cr-upload-area" id="cr-upload-area">
@@ -993,12 +1005,16 @@ def build_control_room_page(
           <p id="cr-source-status" class="cr-source-status">No source selected</p>
         </div>
       </div>
-
-      <button class="btn-primary" id="cr-analyze-btn" onclick="startAnalysis()" disabled aria-label="Start analysis">Analyze</button>
     </div>
 
     <!-- Center column: flexible -->
     <div class="cr-center">
+      <div class="cr-decision-card cr-decision-placeholder" id="cr-decision-card">
+        <div class="cr-decision-headline">Recommendation pending</div>
+        <div class="cr-decision-placeholder-copy">Recommendation will appear here after analysis.</div>
+        <div class="cr-decision-placeholder-copy">Technical demo only. A clinician makes the final decision.</div>
+      </div>
+
       <div class="cr-card cr-card-rail">
         <div class="cr-card-title">Execution Pipeline</div>
         <div class="cr-pipeline" role="list" aria-label="Execution stages">
@@ -1125,7 +1141,6 @@ def build_control_room_page(
         </div>
       </div>
 
-      <div class="cr-decision-card hidden" id="cr-decision-card"></div>
     </div>
 
     <!-- Right column: 360px -->

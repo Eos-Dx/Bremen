@@ -1274,13 +1274,12 @@ class TestAppendixAModelReportBinding:
     # ---- PART 3: Model switch resets stale state ----
 
     def test_on_model_select_resets_decision_card(self):
-        """onModelSelect resets the decision card from the previous model."""
+        """onModelSelect resets the decision card via renderDecisionPlaceholder."""
         page = build_control_room_page()
         fn_start = page.find('function onModelSelect')
         fn_end = page.find('function ', fn_start + 10)
         fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
-        assert 'cr-decision-card' in fn_body
-        assert 'hidden' in fn_body
+        assert 'renderDecisionPlaceholder()' in fn_body
 
     def test_on_model_select_resets_pipeline(self):
         """onModelSelect resets pipeline stages."""
@@ -1587,12 +1586,12 @@ class TestPR0099DReportDeleteAndRerunGuard:
         assert 'delete_report' in fn_body
 
     def test_delete_report_clears_decision_card(self):
-        """deleteReport clears decision card if it was the current job."""
+        """deleteReport resets decision card via renderDecisionPlaceholder if current job."""
         page = build_control_room_page()
         fn_start = page.find('function deleteReport')
         fn_end = page.find('function ', fn_start + 10)
         fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
-        assert 'cr-decision-card' in fn_body
+        assert 'renderDecisionPlaceholder()' in fn_body
 
     def test_delete_report_refreshes_job_history(self):
         """deleteReport calls loadJobHistory after success."""
@@ -3774,3 +3773,265 @@ class TestPR0099JLayoutNestingFix:
         fn_end = page.find('function ', fn_start + 10)
         fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
         assert "'cr-stage completed'" in fn_body or '"cr-stage completed"' in fn_body
+
+
+class TestPR0099JOrderingAndStableDecisionSlot:
+    """PR0099J ordering fix: Analyze above Source, decision above pipeline, stable slot."""
+
+    # ---- PART 1: Left column order ----
+
+    def test_model_before_patients_list(self):
+        """Model card appears before Patients List in left column."""
+        page = build_control_room_page()
+        left_start = page.find('class="cr-left"')
+        right_start = page.find('class="cr-right"')
+        left_section = page[left_start:right_start]
+        model_pos = left_section.find('Model')
+        patients_pos = left_section.find('Patients List')
+        assert model_pos < patients_pos
+
+    def test_patients_list_before_analyze(self):
+        """Patients List appears before Analyze button in left column."""
+        page = build_control_room_page()
+        left_start = page.find('class="cr-left"')
+        right_start = page.find('class="cr-right"')
+        left_section = page[left_start:right_start]
+        patients_pos = left_section.find('Patients List')
+        analyze_pos = left_section.find('cr-analyze-btn')
+        assert patients_pos < analyze_pos
+
+    def test_analyze_before_source(self):
+        """Analyze button appears before Source card in left column."""
+        page = build_control_room_page()
+        left_start = page.find('class="cr-left"')
+        right_start = page.find('class="cr-right"')
+        left_section = page[left_start:right_start]
+        analyze_pos = left_section.find('cr-analyze-btn')
+        source_pos = left_section.find('>Source<')
+        assert analyze_pos < source_pos
+
+    def test_left_column_full_order(self):
+        """Left column order: Model, Patients List, Analyze, Source."""
+        page = build_control_room_page()
+        left_start = page.find('class="cr-left"')
+        right_start = page.find('class="cr-right"')
+        left_section = page[left_start:right_start]
+        model_pos = left_section.find('Model')
+        patients_pos = left_section.find('Patients List')
+        analyze_pos = left_section.find('cr-analyze-btn')
+        source_pos = left_section.find('>Source<')
+        assert model_pos < patients_pos < analyze_pos < source_pos
+
+    # ---- PART 2: Analyze button preserved ----
+
+    def test_analyze_btn_id(self):
+        """Analyze button has id cr-analyze-btn."""
+        page = build_control_room_page()
+        assert 'id="cr-analyze-btn"' in page
+
+    def test_analyze_btn_onclick(self):
+        """Analyze button onclick is startAnalysis()."""
+        page = build_control_room_page()
+        assert 'onclick="startAnalysis()"' in page
+
+    def test_analyze_btn_disabled_initially(self):
+        """Analyze button is disabled initially."""
+        page = build_control_room_page()
+        assert 'id="cr-analyze-btn" disabled' in page or 'disabled aria-label="Start analysis"' in page
+
+    def test_analyze_btn_aria_label(self):
+        """Analyze button has aria-label."""
+        page = build_control_room_page()
+        assert 'aria-label="Start analysis"' in page
+
+    # ---- PART 3: Center column order ----
+
+    def test_decision_before_pipeline(self):
+        """cr-decision-card appears before Execution Pipeline in center column."""
+        page = build_control_room_page()
+        center_start = page.find('class="cr-center"')
+        right_start = page.find('class="cr-right"')
+        center_section = page[center_start:right_start]
+        decision_pos = center_section.find('cr-decision-card')
+        pipeline_pos = center_section.find('Execution Pipeline')
+        assert decision_pos < pipeline_pos
+
+    def test_decision_inside_cr_center(self):
+        """cr-decision-card is inside cr-center."""
+        page = build_control_room_page()
+        center_open = page.find('<div class="cr-center">')
+        right_open = page.find('<div class="cr-right">')
+        center_section = page[center_open:right_open]
+        assert 'cr-decision-card' in center_section
+
+    def test_decision_not_inside_cr_card_rail(self):
+        """cr-decision-card is not inside cr-card-rail."""
+        page = build_control_room_page()
+        center_open = page.find('<div class="cr-center">')
+        rail_open = page.find('<div class="cr-card cr-card-rail">', center_open)
+        pipeline_end = page.find('</div>', page.find('stage-complete', rail_open))
+        rail_close = page.find('</div>', pipeline_end + 5)
+        rail_section = page[rail_open:rail_close]
+        assert 'cr-decision-card' not in rail_section
+
+    def test_decision_not_inside_cr_pipeline(self):
+        """cr-decision-card is not inside cr-pipeline."""
+        page = build_control_room_page()
+        pipeline_open = page.find('<div class="cr-pipeline"')
+        pipeline_close = page.find('</div>', page.find('stage-complete', pipeline_open))
+        pipeline_section = page[pipeline_open:pipeline_close + 6]
+        assert 'cr-decision-card' not in pipeline_section
+
+    # ---- PART 4: Stable decision slot ----
+
+    def test_decision_not_hidden_initially(self):
+        """cr-decision-card is not hidden in initial HTML."""
+        page = build_control_room_page()
+        center_open = page.find('<div class="cr-center">')
+        right_open = page.find('<div class="cr-right">')
+        center_section = page[center_open:right_open]
+        # The decision card div should NOT have 'hidden' class
+        card_start = center_section.find('cr-decision-card')
+        card_line_end = center_section.find('>', card_start)
+        card_open_tag = center_section[card_start:card_line_end]
+        assert 'hidden' not in card_open_tag
+
+    def test_decision_placeholder_class(self):
+        """cr-decision-placeholder class exists."""
+        page = build_control_room_page()
+        assert 'cr-decision-placeholder' in page
+
+    def test_min_height_css_for_placeholder(self):
+        """min-height CSS exists for decision placeholder."""
+        page = build_control_room_page()
+        assert 'min-height:140px' in page or 'min-height: 140px' in page
+
+    def test_neutral_placeholder_copy(self):
+        """Neutral placeholder copy exists in initial HTML."""
+        page = build_control_room_page()
+        assert 'Recommendation pending' in page
+        assert 'Recommendation will appear here after analysis.' in page
+
+    def test_placeholder_secondary_copy(self):
+        """Secondary placeholder copy exists."""
+        page = build_control_room_page()
+        assert 'Technical demo only. A clinician makes the final decision.' in page
+
+    def test_placeholder_no_clinical_claims(self):
+        """Placeholder copy does not include clinical claims."""
+        page = build_control_room_page()
+        center_open = page.find('<div class="cr-center">')
+        right_open = page.find('<div class="cr-right">')
+        center_section = page[center_open:right_open]
+        assert 'diagnos' not in center_section.lower()
+
+    # ---- PART 5: JS reset behavior ----
+
+    def test_render_decision_placeholder_function(self):
+        """renderDecisionPlaceholder() helper function exists."""
+        page = build_control_room_page()
+        assert 'function renderDecisionPlaceholder' in page
+
+    def test_on_model_select_uses_placeholder(self):
+        """onModelSelect uses renderDecisionPlaceholder, not hidden collapse."""
+        page = build_control_room_page()
+        fn_start = page.find('function onModelSelect')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'renderDecisionPlaceholder()' in fn_body
+        assert "cr-decision-card hidden" not in fn_body
+
+    def test_delete_report_uses_placeholder(self):
+        """deleteReport uses renderDecisionPlaceholder for current card reset."""
+        page = build_control_room_page()
+        fn_start = page.find('function deleteReport')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'renderDecisionPlaceholder()' in fn_body
+        assert "cr-decision-card hidden" not in fn_body
+
+    def test_start_analysis_no_slot_collapse(self):
+        """startAnalysis does not permanently collapse the decision slot."""
+        page = build_control_room_page()
+        fn_start = page.find('function startAnalysis')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        # startAnalysis should not set cr-decision-card hidden
+        assert "cr-decision-card hidden" not in fn_body
+
+    # ---- PART 6: Dense pipeline preservation ----
+
+    def test_fifteen_stage_rows(self):
+        """15 class=cr-stage rows remain."""
+        page = build_control_room_page()
+        assert page.count('class="cr-stage"') == 15
+
+    def test_long_captions_visible(self):
+        """Long captions are visible."""
+        page = build_control_room_page()
+        assert page.count('cr-stage-caption') >= 15
+
+    def test_no_cr_stage_chevron(self):
+        """No cr-stage-chevron in production UI."""
+        page = build_control_room_page()
+        assert 'cr-stage-chevron' not in page
+
+    def test_no_toggle_stage(self):
+        """No toggleStage in production UI."""
+        page = build_control_room_page()
+        assert 'toggleStage(this)' not in page
+        assert 'toggleStageKey(event,this)' not in page
+
+    def test_no_cr_stage_help(self):
+        """No cr-stage-help in production UI."""
+        page = build_control_room_page()
+        assert 'cr-stage-help' not in page
+
+    # ---- PART 7: Right column preservation ----
+
+    def test_patient_reports_in_cr_right(self):
+        """Patient Reports remains in cr-right."""
+        page = build_control_room_page()
+        right_open = page.find('<div class="cr-right">')
+        right_section = page[right_open:]
+        assert 'Patient Reports' in right_section
+
+    def test_live_events_in_cr_right(self):
+        """Live Events remains in cr-right."""
+        page = build_control_room_page()
+        right_open = page.find('<div class="cr-right">')
+        right_section = page[right_open:]
+        assert 'Live Events' in right_section
+
+    # ---- PART 8: Failure/report preservation ----
+
+    def test_failed_jobs_no_open_report(self):
+        """Failed jobs still do not show Open report in fetchDecision."""
+        page = build_control_room_page()
+        fn_start = page.find('function fetchDecision')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'normalization_failed' in fn_body
+
+    def test_failed_message_preserved(self):
+        """Analysis failed message preserved."""
+        page = build_control_room_page()
+        assert 'Analysis failed' in page
+        assert 'No report was generated' in page
+
+    def test_completed_path_renders_report_link(self):
+        """Completed path still renders report link."""
+        page = build_control_room_page()
+        fn_start = page.find('function fetchDecision')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'Open report' in fn_body
+
+    def test_mri_headline_preserved(self):
+        """MRI can wait and MRI recommended headlines preserved in fetchDecision."""
+        page = build_control_room_page()
+        fn_start = page.find('function fetchDecision')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'MRI can wait' in fn_body
+        assert 'MRI recommended' in fn_body

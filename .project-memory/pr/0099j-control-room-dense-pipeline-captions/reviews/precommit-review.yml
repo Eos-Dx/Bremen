@@ -1,50 +1,49 @@
 status: blocked
-head: 5408fe3cc9c6339f44075c94c2e653d77937738c
+head: 90cbf38848d386c42b987ad3724b30d9ed5b3630
 branch: "0099j-control-room-dense-pipeline-captions"
 blockers:
-  - "git diff --check fails: trailing whitespace in .project-memory/pr/0099j-control-room-dense-pipeline-captions/implementation-report.md line 194."
+  - "git diff --check fails: new blank line at EOF in .project-memory/pr/0099j-control-room-dense-pipeline-captions/implementation-report.md line 355."
 warnings:
-  - "Trailing whitespace is in documentation file only (.project-memory/). All source code is clean. Fix by trimming trailing whitespace on implementation-report.md line 194."
+  - "Trailing blank line in documentation file only (.project-memory/). All source code is clean. Fix by removing the blank line at EOF in implementation-report.md."
 changed_files:
   - src/bremen/control_room_ui.py
   - tests/test_bremen_control_room.py
   - .project-memory/pr/0099j-control-room-dense-pipeline-captions/implementation-report.md
 working_tree_state: "dirty — 3 unstaged modifications (control_room_ui.py, test_bremen_control_room.py, implementation-report.md)"
-layout_root_cause: "Two HTML nesting defects in build_control_room_page(): (1) cr-card-rail not closed before cr-decision-card — decision card nested inside pipeline card instead of being sibling under cr-center. (2) cr-center not closed before cr-right — cr-right rendered as child of cr-center instead of sibling, causing Patient Reports and Live Events to appear below pipeline instead of in right column."
-html_nesting_fix: "Added one </div> to close cr-card-rail after the pipeline div, and re-indented the decision card. Decision card now sits between cr-card-rail close and cr-center close — outside pipeline card, inside cr-center."
-cr_main_direct_children: "cr-main contains exactly three direct column children in order: cr-left (line 968), cr-center (line 1001), cr-right (line 1132). Verified by div count balance (20 opens, 20 closes between cr-center open and cr-right open)."
-cr_center_content: "cr-center contains: cr-card-rail (with Execution Pipeline and 15 cr-stage rows), then cr-decision-card (hidden, id=cr-decision-card). Decision card is sibling under cr-center, outside cr-card-rail."
-cr_right_content: "cr-right contains: Patient Reports card (line 1134) and Live Events card (line 1141). Both render in the right column."
-decision_card_placement: "cr-decision-card at line 1128, after cr-card-rail close at line 1126, before cr-center close. NOT inside cr-card-rail or cr-pipeline. Verified by test: test_decision_card_not_in_pipeline."
-dense_pipeline_preserved: "15 cr-stage rows with grid layout, long captions visible in small secondary text, compact padding 6px var(--sp-16). No accordion chevrons, no toggleStage, no aria-expanded, no cr-stage-body."
-accordion_ui_absent: "grep for cr-stage-chevron/toggleStage/toggleStageKey/cr-stage-help in production UI returns 0. Tests assert absence of all accordion elements."
-completed_status_cleanup_preserved: "markPipelineComplete() exists, checks hasSeenFailure first, sets all 15 stages to completed with checkmarks, called from stream_complete success path. No active dot remains after terminal completion."
-failure_precedence_preserved: "markPipelineComplete() returns early if hasSeenFailure is true. Failed path: setState('failed'), collapseEventPanel('failed'), 'Analysis failed' message. stage-complete blocked from completed when hasSeenFailure is true."
+left_column_order: "Model → Patients List → Analyze → Source. Analyze button (id=cr-analyze-btn) is immediately after Patients List. Source card is below Analyze. Analyze button id, onclick, disabled, aria-label preserved."
+center_column_order: "Decision placeholder (cr-decision-card cr-decision-placeholder) is above Execution Pipeline (cr-card-rail with cr-pipeline). Decision card is inside cr-center but outside cr-card-rail and cr-pipeline."
+decision_slot_stability: "Decision slot uses min-height:140px placeholder with neutral 'Recommendation pending' content. Never collapses to hidden/empty. Placeholder reserves stable vertical space preventing layout jump when real result arrives."
+js_placeholder_reset: "renderDecisionPlaceholder() helper function exists. onModelSelect() and deleteReport() call renderDecisionPlaceholder() instead of innerHTML='' + hidden class. startAnalysis does not collapse slot. fetchDecision can still render real results into cr-decision-card."
+dense_pipeline_preserved: "15 cr-stage rows with grid layout, long captions visible in small secondary text, compact padding. No cr-stage-chevron, no toggleStage, no toggleStageKey, no aria-expanded, no cr-stage-body in production."
+right_column_preserved: "Patient Reports remains in cr-right. Live Events remains in cr-right. cr-right is direct child of cr-main, not nested inside cr-center."
+failure_precedence_preserved: "markPipelineComplete() checks hasSeenFailure first — returns early if any failure observed. Failed path shows 'Analysis failed' message. stage-complete blocked from completed when hasSeenFailure is true. Failed jobs cannot show Open report."
+report_behavior_preserved: "Completed jobs render report link and MRI headlines. Failed jobs show 'Analysis failed. No report was generated.' message. No clinical claims in placeholder copy."
 backend_unchanged: "No src/bremen/api/ files changed. Confirmed by git diff --name-only main...HEAD | grep -E '^src/bremen/api/' returns empty."
-model_h5_config_unchanged: "No model/H5 local config files changed in this PR."
-scripts_unchanged: "No scripts/ files changed in this PR."
+scripts_unchanged: "No scripts/ files changed. Confirmed by git diff --name-only main...HEAD | grep -E '^scripts/' returns empty."
 tests:
-  control_room: "462 passed (26 new in TestPR0099JLayoutNestingFix + 29 existing TestPR0099JDenseCaptionsAndStatusCleanup + updated existing)"
-  focused: "950 passed (control_room/pipeline/layout/stage/failed/report/patient/duplicate)"
-  full_suite: "2662 passed, 11 skipped, 0 failed"
+  control_room: "495 passed (33 new in TestPR0099JOrderingAndStableDecisionSlot + 26 existing TestPR0099JLayoutNestingFix + 29 existing TestPR0099JDenseCaptionsAndStatusCleanup + updated existing)"
+  focused: "1073 passed (control_room/pipeline/layout/stage/failed/report/patient/duplicate/decision)"
+  full_suite: "2695 passed, 11 skipped, 0 failed"
   compileall: "PASS"
-  git_diff_check: "FAIL — trailing whitespace in implementation-report.md line 194"
+  git_diff_check: "FAIL — new blank line at EOF in implementation-report.md line 355"
 validation:
-  layout_nesting_correct: true
-  cr_main_direct_children: true
-  cr_right_not_inside_cr_center: true
-  patient_reports_in_cr_right: true
-  live_events_in_cr_right: true
-  decision_card_in_cr_center: true
-  decision_card_not_in_pipeline: true
+  left_column_order_correct: true
+  center_column_order_correct: true
+  decision_before_pipeline: true
+  decision_inside_cr_center: true
+  decision_not_in_pipeline: true
+  stable_placeholder_min_height: true
+  render_decision_placeholder_exists: true
+  on_model_select_uses_placeholder: true
   dense_pipeline_15_rows: true
   accordion_removed: true
   cr_stage_help_absent: true
-  mark_pipeline_complete_exists: true
+  right_column_correct: true
   backend_unchanged: true
-  git_diff_check: "FAIL — trailing whitespace in documentation file"
-functional_verification_limitation: "Sandbox/source review cannot confirm deployed browser layout. A real local browser or deployment must verify that Patient Reports and Live Events are back in the right column, the pipeline remains dense, and the decision card appears below the pipeline in the center column."
+  scripts_unchanged: true
+  git_diff_check: "FAIL — trailing blank line in documentation file"
+functional_verification_limitation: "Sandbox/source review cannot confirm deployed browser layout. A real local browser or deployment must verify that Analyze appears immediately after Patients List, Source appears below Analyze, the decision card appears above Execution Pipeline, and the pipeline does not jump when the decision card updates."
 security: "No credentials, tokens, secrets, raw exceptions, stack traces, feature values, model coefficients, S3 URIs, bucket names, filesystem paths, H5 internals, or private data in public UI output."
-scope_control: "Changed files match implementation-report.md post-review section. No app.py or inference_handler.py modified. No docs/, ROADMAP.md, requirements.txt, pyproject.toml, Dockerfile, infra/, or .github/ files changed. No backend files changed. No scripts changed."
-implementation_report: "Matches actual file changes. 26 new layout nesting tests + 29 existing dense caption tests + updated existing tests. Test count increased from 2636 to 2662 = 26 new tests. Post-review layout nesting fix section present in implementation report."
-commit_readiness: "BLOCKED — git diff --check fails due to trailing whitespace in implementation-report.md line 194. Fix by trimming trailing whitespace, then re-run git diff --check."
+scope_control: "Changed files match implementation-report.md POST-REVIEW ORDERING FIX section. No app.py or inference_handler.py modified. No docs/, ROADMAP.md, requirements.txt, pyproject.toml, Dockerfile, infra/, or .github/ files changed. No backend files changed. No scripts changed."
+implementation_report: "POST-REVIEW ORDERING FIX section present. Matches actual file changes. 33 new ordering/stable-slot tests + 26 layout nesting tests + 29 dense caption tests. Test count increased from 2662 to 2695 = 33 new tests."
+commit_readiness: "BLOCKED — git diff --check fails due to trailing blank line at EOF in implementation-report.md line 355. Fix by removing the blank line, then re-run git diff --check."
