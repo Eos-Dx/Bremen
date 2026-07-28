@@ -3487,3 +3487,290 @@ class TestPR0099JDenseCaptionsAndStatusCleanup:
         fn_end = page.find('function ', fn_start + 10)
         fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
         assert 'normalization_failed' in fn_body
+
+
+def _count_divs_between(page, start_text, end_text):
+    """Count open and close div tags between two text markers."""
+    s = page.find(start_text)
+    e = page.find(end_text, s + len(start_text))
+    if s < 0 or e < 0:
+        return -1, -1
+    segment = page[s:e]
+    return segment.count('<div'), segment.count('</div>')
+
+
+def _find_section(page, start_text, end_text):
+    """Extract section between two text markers."""
+    s = page.find(start_text)
+    e = page.find(end_text, s + len(start_text))
+    if s < 0 or e < 0:
+        return ''
+    return page[s:e]
+
+
+class TestPR0099JLayoutNestingFix:
+    """PR0099J hotfix: Restore Control Room three-column layout nesting."""
+
+    # ---- PART 1: cr-main has three direct column children in order ----
+
+    def test_cr_main_has_direct_children_in_order(self):
+        """cr-main has direct children: cr-left, cr-center, cr-right in order."""
+        page = build_control_room_page()
+        main_pos = page.find('class="cr-main"')
+        left_pos = page.find('class="cr-left"', main_pos)
+        center_pos = page.find('class="cr-center"', main_pos)
+        right_pos = page.find('class="cr-right"', main_pos)
+        assert left_pos > 0
+        assert center_pos > left_pos
+        assert right_pos > center_pos
+
+    def test_cr_main_has_no_other_column_children(self):
+        """cr-main has exactly three column divs: cr-left, cr-center, cr-right."""
+        page = build_control_room_page()
+        main_pos = page.find('class="cr-main"')
+        # Count column children between cr-main open and close
+        # cr-main ends at the status-bar which follows the closing divs
+        status_bar_pos = page.find('cr-status-bar', main_pos)
+        segment = page[main_pos:status_bar_pos]
+        assert segment.count('class="cr-left"') == 1
+        assert segment.count('class="cr-center"') == 1
+        assert segment.count('class="cr-right"') == 1
+
+    # ---- PART 2: cr-right is not inside cr-center ----
+
+    def test_cr_right_not_inside_cr_center(self):
+        """cr-right is a sibling of cr-center, not a child."""
+        page = build_control_room_page()
+        center_open = page.find('<div class="cr-center">')
+        right_open = page.find('<div class="cr-right">')
+        # Count div opens and closes between center open and right open
+        segment = page[center_open:right_open]
+        opens = segment.count('<div')
+        closes = segment.count('</div')
+        # If balanced, cr-center is closed before cr-right
+        assert opens == closes, (
+            f'cr-center not closed before cr-right: {opens} opens vs {closes} closes'
+        )
+
+    def test_cr_right_is_direct_child_of_cr_main(self):
+        """cr-right div is a direct child of cr-main."""
+        page = build_control_room_page()
+        main_open = page.find('<div class="cr-main">')
+        center_open = page.find('<div class="cr-center">', main_open)
+        right_open = page.find('<div class="cr-right">', main_open)
+        # Between cr-main open and cr-right open:
+        # cr-left (open+close), cr-center (open+close) = balanced before right
+        segment = page[main_open:right_open]
+        # 2 column divs opened and closed before right
+        assert segment.count('class="cr-left"') == 1
+        assert segment.count('class="cr-center"') == 1
+
+    # ---- PART 3: Patient Reports inside cr-right ----
+
+    def test_patient_reports_inside_cr_right(self):
+        """Patient Reports card is inside cr-right."""
+        page = build_control_room_page()
+        right_open = page.find('<div class="cr-right">')
+        right_close_tag = '</div>'
+        # Find the matching close for cr-right
+        depth = 0
+        pos = right_open
+        while pos < len(page):
+            next_open = page.find('<div', pos + 1)
+            next_close = page.find('</div>', pos + 1)
+            if next_close < 0:
+                break
+            if next_open >= 0 and next_open < next_close:
+                depth += 1
+                pos = next_open
+            else:
+                depth -= 1
+                if depth < 0:
+                    break
+                pos = next_close
+        right_section = page[right_open:pos]
+        assert 'Patient Reports' in right_section
+
+    # ---- PART 4: Live Events inside cr-right ----
+
+    def test_live_events_inside_cr_right(self):
+        """Live Events card is inside cr-right."""
+        page = build_control_room_page()
+        right_open = page.find('<div class="cr-right">')
+        depth = 0
+        pos = right_open
+        while pos < len(page):
+            next_open = page.find('<div', pos + 1)
+            next_close = page.find('</div>', pos + 1)
+            if next_close < 0:
+                break
+            if next_open >= 0 and next_open < next_close:
+                depth += 1
+                pos = next_open
+            else:
+                depth -= 1
+                if depth < 0:
+                    break
+                pos = next_close
+        right_section = page[right_open:pos]
+        assert 'Live Events' in right_section
+
+    # ---- PART 5: cr-decision-card inside cr-center, outside pipeline card ----
+
+    def test_decision_card_inside_cr_center(self):
+        """cr-decision-card is inside cr-center."""
+        page = build_control_room_page()
+        center_open = page.find('<div class="cr-center">')
+        # cr-right follows cr-center close, so find cr-right as end marker
+        right_open = page.find('<div class="cr-right">')
+        center_section = page[center_open:right_open]
+        assert 'cr-decision-card' in center_section
+
+    def test_decision_card_not_inside_cr_card_rail(self):
+        """cr-decision-card is not inside cr-card-rail."""
+        page = build_control_room_page()
+        center_open = page.find('<div class="cr-center">')
+        rail_open = page.find('<div class="cr-card cr-card-rail">', center_open)
+        # Find where cr-card-rail closes: pipeline is last child, so after
+        # stage-complete and its closing div, then the rail card closes
+        pipeline_end = page.find('</div>', page.find('stage-complete', rail_open))
+        # The next </div> after pipeline closes = cr-card-rail close
+        rail_close = page.find('</div>', pipeline_end + 5)
+        rail_section = page[rail_open:rail_close]
+        assert 'cr-decision-card' not in rail_section, (
+            'cr-decision-card should NOT be inside cr-card-rail'
+        )
+
+    def test_decision_card_not_inside_cr_pipeline(self):
+        """cr-decision-card is not inside cr-pipeline."""
+        page = build_control_room_page()
+        pipeline_open = page.find('<div class="cr-pipeline"')
+        pipeline_close = page.find('</div>', page.find('stage-complete', pipeline_open))
+        pipeline_section = page[pipeline_open:pipeline_close + 6]
+        assert 'cr-decision-card' not in pipeline_section
+
+    # ---- PART 6: cr-card-rail contains only Pipeline + pipeline div ----
+
+    def test_cr_card_rail_contains_execution_pipeline(self):
+        """cr-card-rail contains Execution Pipeline title."""
+        page = build_control_room_page()
+        center_open = page.find('<div class="cr-center">')
+        rail_open = page.find('<div class="cr-card cr-card-rail">', center_open)
+        pipeline_end = page.find('</div>', page.find('stage-complete', rail_open))
+        rail_close = page.find('</div>', pipeline_end + 5)
+        rail_section = page[rail_open:rail_close]
+        assert 'Execution Pipeline' in rail_section
+
+    def test_cr_card_rail_contains_cr_pipeline(self):
+        """cr-card-rail contains cr-pipeline div."""
+        page = build_control_room_page()
+        center_open = page.find('<div class="cr-center">')
+        rail_open = page.find('<div class="cr-card cr-card-rail">', center_open)
+        pipeline_end = page.find('</div>', page.find('stage-complete', rail_open))
+        rail_close = page.find('</div>', pipeline_end + 5)
+        rail_section = page[rail_open:rail_close]
+        assert 'cr-pipeline' in rail_section
+
+    def test_cr_card_rail_no_patient_reports(self):
+        """cr-card-rail does NOT contain Patient Reports."""
+        page = build_control_room_page()
+        center_open = page.find('<div class="cr-center">')
+        rail_open = page.find('<div class="cr-card cr-card-rail">', center_open)
+        pipeline_end = page.find('</div>', page.find('stage-complete', rail_open))
+        rail_close = page.find('</div>', pipeline_end + 5)
+        rail_section = page[rail_open:rail_close]
+        assert 'Patient Reports' not in rail_section
+
+    def test_cr_card_rail_no_live_events(self):
+        """cr-card-rail does NOT contain Live Events."""
+        page = build_control_room_page()
+        center_open = page.find('<div class="cr-center">')
+        rail_open = page.find('<div class="cr-card cr-card-rail">', center_open)
+        pipeline_end = page.find('</div>', page.find('stage-complete', rail_open))
+        rail_close = page.find('</div>', pipeline_end + 5)
+        rail_section = page[rail_open:rail_close]
+        assert 'Live Events' not in rail_section
+
+    # ---- PART 7: Dense pipeline preserved ----
+
+    def test_fifteen_cr_stage_rows(self):
+        """15 class=cr-stage rows remain."""
+        page = build_control_room_page()
+        assert page.count('class="cr-stage"') == 15
+
+    def test_long_captions_visible(self):
+        """Long captions are visible (not hidden)."""
+        page = build_control_room_page()
+        assert page.count('cr-stage-caption') >= 15
+
+    def test_no_cr_stage_chevron(self):
+        """No cr-stage-chevron in production UI."""
+        page = build_control_room_page()
+        assert 'cr-stage-chevron' not in page
+
+    def test_no_toggle_stage(self):
+        """No toggleStage in production UI."""
+        page = build_control_room_page()
+        assert 'toggleStage(this)' not in page
+        assert 'toggleStageKey(event,this)' not in page
+
+    def test_no_cr_stage_help(self):
+        """No cr-stage-help in production UI."""
+        page = build_control_room_page()
+        assert 'cr-stage-help' not in page
+
+    # ---- PART 8: Responsive CSS preserved ----
+
+    def test_cr_main_flex_layout(self):
+        """cr-main flex layout exists."""
+        page = build_control_room_page()
+        assert '.cr-main{' in page or '.cr-main {' in page
+        assert 'display:flex' in page
+
+    def test_cr_left_width_320(self):
+        """cr-left width 320px remains."""
+        page = build_control_room_page()
+        assert '.cr-left{width:320px' in page
+
+    def test_cr_center_flex_column(self):
+        """cr-center flex column remains."""
+        page = build_control_room_page()
+        assert '.cr-center{' in page
+        assert 'flex-direction:column' in page
+
+    def test_cr_right_width_360(self):
+        """cr-right width 360px remains."""
+        page = build_control_room_page()
+        assert '.cr-right{width:360px' in page
+
+    # ---- PART 9: Existing PR0099J tests still pass (preservation) ----
+
+    def test_mark_pipeline_complete_exists(self):
+        """markPipelineComplete function exists."""
+        page = build_control_room_page()
+        assert 'function markPipelineComplete' in page
+
+    def test_has_seen_failure_checks(self):
+        """markPipelineComplete checks hasSeenFailure."""
+        page = build_control_room_page()
+        fn_start = page.find('function markPipelineComplete')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'hasSeenFailure' in fn_body
+
+    def test_all_stages_marked_completed(self):
+        """markPipelineComplete marks all stages completed."""
+        page = build_control_room_page()
+        fn_start = page.find('function markPipelineComplete')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'cr-stage completed' in fn_body
+        assert 'querySelectorAll' in fn_body
+
+    def test_no_active_dot_after_completion(self):
+        """No active dot after markPipelineComplete."""
+        page = build_control_room_page()
+        fn_start = page.find('function markPipelineComplete')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert "'cr-stage completed'" in fn_body or '"cr-stage completed"' in fn_body

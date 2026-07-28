@@ -171,3 +171,83 @@ None.
 ## Next Required Action
 
 Human review and commit.
+
+---
+
+## POST-REVIEW LAYOUT NESTING FIX
+
+### Root Cause
+
+Two HTML nesting defects in `build_control_room_page()`:
+
+1. **cr-card-rail not closed before cr-decision-card**: The `</div>` that closes `cr-card-rail` was missing after the `cr-pipeline` div. The decision card was therefore nested inside the pipeline card instead of being a sibling under `cr-center`.
+
+2. **cr-center not closed before cr-right**: With the missing `</div>`, `cr-center` remained open when `cr-right` was emitted. The browser rendered `cr-right` as a child of `cr-center`, not as a sibling. This caused Patient Reports and Live Events to appear below the pipeline instead of in the right column.
+
+### Exact HTML Nesting Fix
+
+Added one `</div>` to close `cr-card-rail` after the pipeline div, and re-indented the decision card:
+
+```diff
+         </div>
++      </div>
+
+-            <div class="cr-decision-card hidden" id="cr-decision-card"></div>
++      <div class="cr-decision-card hidden" id="cr-decision-card"></div>
+     </div>
+```
+
+### Confirmation: cr-main has direct cr-left/cr-center/cr-right children
+
+Verified: `cr-main` contains exactly three direct column children in order: `cr-left`, `cr-center`, `cr-right`. The div count between `cr-center` open and `cr-right` open is balanced (20 opens, 20 closes).
+
+### Confirmation: Patient Reports and Live Events inside cr-right
+
+Verified: Both `Patient Reports` and `Live Events` appear within the `cr-right` div section.
+
+### Confirmation: Decision card is sibling under cr-center, outside pipeline card
+
+Verified: `cr-decision-card` appears between `cr-card-rail` close and `cr-center` close (position 21915, after rail close at 21876, before center close). It is NOT inside `cr-card-rail` or `cr-pipeline`.
+
+### Tests Added
+
+26 new tests in `TestPR0099JLayoutNestingFix`:
+
+1. cr-main direct children in order (2 tests)
+2. cr-right not inside cr-center (1 test)
+3. cr-right is direct child of cr-main (1 test)
+4. Patient Reports inside cr-right (1 test)
+5. Live Events inside cr-right (1 test)
+6. cr-decision-card inside cr-center (1 test)
+7. cr-decision-card not inside cr-card-rail (1 test)
+8. cr-decision-card not inside cr-pipeline (1 test)
+9. cr-card-rail contains Execution Pipeline (1 test)
+10. cr-card-rail contains cr-pipeline (1 test)
+11. cr-card-rail no Patient Reports (1 test)
+12. cr-card-rail no Live Events (1 test)
+13. Dense pipeline preserved: 15 rows, captions, no chevron, no toggleStage, no cr-stage-help (5 tests)
+14. Responsive CSS preserved: flex layout, 320px left, flex center, 360px right (4 tests)
+15. PR0099J active-dot cleanup preserved (4 tests)
+
+### Validation Results
+
+| Command | Result |
+|---------|--------|
+| `python -m compileall src tests` | PASS |
+| `pytest -k PR0099JLayoutNestingFix` | 26 passed |
+| `pytest -k PR0099JDenseCaptionsAndStatusCleanup` | 29 passed (existing tests) |
+| `pytest -k control_room or pipeline or layout or stage or failed or report or patient or duplicate` | 950 passed, 2 skipped |
+| `pytest` (full suite) | 2662 passed, 11 skipped, 0 failed |
+| `git diff --check` | Clean |
+| cr-stage count | 15 |
+| cr-stage-chevron | 0 (production) |
+| toggleStage | 0 (production) |
+| cr-stage-help | 0 (production) |
+
+### Blockers
+
+None.
+
+### Warnings
+
+None.
