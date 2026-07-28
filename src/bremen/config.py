@@ -423,6 +423,159 @@ def _parse_yaml(path: Path, raw: str) -> dict[str, Any]:
     return dict(result)
 
 
+# ---------------------------------------------------------------------------
+# Auth config (PR0102)
+# ---------------------------------------------------------------------------
+
+
+class AuthConfigError(ConfigError):
+    """Auth configuration is invalid."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(f"Auth config error: {message}")
+
+
+@dataclass(frozen=True)
+class AuthConfig:
+    """Authentication configuration.
+
+    All fields are read from environment variables.  No secrets
+    are logged or exposed.
+    """
+
+    enabled: bool
+    username: str
+    password_hash: str
+    jwt_secret: str
+    jwt_issuer: str
+    jwt_audience: str
+    access_ttl_seconds: int
+    refresh_ttl_seconds: int
+    validation_error: str | None = None
+
+
+_ENV_AUTH_ENABLED = "BREMEN_AUTH_ENABLED"
+_ENV_AUTH_USERNAME = "BREMEN_AUTH_USERNAME"
+_ENV_AUTH_PASSWORD_HASH = "BREMEN_AUTH_PASSWORD_HASH"
+_ENV_AUTH_JWT_SECRET = "BREMEN_AUTH_JWT_SECRET"
+_ENV_AUTH_JWT_ISSUER = "BREMEN_AUTH_JWT_ISSUER"
+_ENV_AUTH_JWT_AUDIENCE = "BREMEN_AUTH_JWT_AUDIENCE"
+_ENV_AUTH_ACCESS_TTL = "BREMEN_AUTH_ACCESS_TTL_SECONDS"
+_ENV_AUTH_REFRESH_TTL = "BREMEN_AUTH_REFRESH_TTL_SECONDS"
+
+_DEFAULT_AUTH_JWT_ISSUER = "bremen-demo"
+_DEFAULT_AUTH_JWT_AUDIENCE = "bremen-api"
+_DEFAULT_ACCESS_TTL = 900
+_DEFAULT_REFRESH_TTL = 604800
+_MIN_JWT_SECRET_LENGTH = 32
+_ACCESS_TTL_MIN = 60
+_ACCESS_TTL_MAX = 86400
+_REFRESH_TTL_MIN = 3600
+_REFRESH_TTL_MAX = 2592000
+
+_VALID_HASH_PREFIXES = ("$argon2id$", "$argon2i$", "$2b$", "$2a$")
+
+
+def read_auth_config(env: dict[str, str] | None = None) -> AuthConfig:
+    """Read auth configuration from environment variables.
+
+    Parameters
+    ----------
+    env : Optional explicit mapping of environment variables.  If
+        ``None`` (default), reads from ``os.environ``.  This allows
+        testing without mutating the real environment.
+
+    Returns
+    -------
+    An ``AuthConfig`` dataclass.  Never raises; validation errors
+    are recorded in the ``validation_error`` field.
+    """
+    try:
+        return _read_auth_config_inner(env)
+    except Exception as exc:  # noqa: BLE001
+        return AuthConfig(
+            enabled=False,
+            username="",
+            password_hash="",
+            jwt_secret="",
+            jwt_issuer=_DEFAULT_AUTH_JWT_ISSUER,
+            jwt_audience=_DEFAULT_AUTH_JWT_AUDIENCE,
+            access_ttl_seconds=_DEFAULT_ACCESS_TTL,
+            refresh_ttl_seconds=_DEFAULT_REFRESH_TTL,
+            validation_error=str(exc),
+        )
+
+
+def _read_auth_config_inner(env: dict[str, str] | None) -> AuthConfig:
+    """Inner implementation that may raise."""
+    if env is None:
+        env = os.environ  # type: ignore[assignment]
+
+    enabled_raw = env.get(_ENV_AUTH_ENABLED, "").strip().lower()
+    enabled = enabled_raw == "true"
+
+    if not enabled:
+        return AuthConfig(
+            enabled=False,
+            username="",
+            password_hash="",
+            jwt_secret="",
+            jwt_issuer=env.get(_ENV_AUTH_JWT_ISSUER, _DEFAULT_AUTH_JWT_ISSUER).strip() or _DEFAULT_AUTH_JWT_ISSUER,
+            jwt_audience=env.get(_ENV_AUTH_JWT_AUDIENCE, _DEFAULT_AUTH_JWT_AUDIENCE).strip() or _DEFAULT_AUTH_JWT_AUDIENCE,
+            access_ttl_seconds=_parse_ttl(env.get(_ENV_AUTH_ACCESS_TTL, ""), _ACCESS_TTL_MIN, _ACCESS_TTL_MAX, _DEFAULT_ACCESS_TTL),
+            refresh_ttl_seconds=_parse_ttl(env.get(_ENV_AUTH_REFRESH_TTL, ""), _REFRESH_TTL_MIN, _REFRESH_TTL_MAX, _DEFAULT_REFRESH_TTL),
+            validation_error=None,
+        )
+
+    # Auth is enabled — validate required fields
+    username = env.get(_ENV_AUTH_USERNAME, "").strip()
+    if not username:
+        raise AuthConfigError("BREMEN_AUTH_USERNAME is required when auth is enabled")
+
+    password_hash = env.get(_ENV_AUTH_PASSWORD_HASH, "").strip()
+    if not password_hash:
+        raise AuthConfigError("BREMEN_AUTH_PASSWORD_HASH is required when auth is enabled")
+    if not password_hash.startswith(_VALID_HASH_PREFIXES):
+        raise AuthConfigError("BREMEN_AUTH_PASSWORD_HASH must be a valid argon2id or bcrypt hash")
+
+    jwt_secret = env.get(_ENV_AUTH_JWT_SECRET, "").strip()
+    if not jwt_secret:
+        raise AuthConfigError("BREMEN_AUTH_JWT_SECRET is required when auth is enabled")
+    if len(jwt_secret) < _MIN_JWT_SECRET_LENGTH:
+        raise AuthConfigError("BREMEN_AUTH_JWT_SECRET must be at least 32 characters")
+    if jwt_secret == password_hash:
+        raise AuthConfigError("BREMEN_AUTH_JWT_SECRET must be distinct from the password hash")
+
+    jwt_issuer = env.get(_ENV_AUTH_JWT_ISSUER, _DEFAULT_AUTH_JWT_ISSUER).strip() or _DEFAULT_AUTH_JWT_ISSUER
+    jwt_audience = env.get(_ENV_AUTH_JWT_AUDIENCE, _DEFAULT_AUTH_JWT_AUDIENCE).strip() or _DEFAULT_AUTH_JWT_AUDIENCE
+    access_ttl = _parse_ttl(env.get(_ENV_AUTH_ACCESS_TTL, ""), _ACCESS_TTL_MIN, _ACCESS_TTL_MAX, _DEFAULT_ACCESS_TTL)
+    refresh_ttl = _parse_ttl(env.get(_ENV_AUTH_REFRESH_TTL, ""), _REFRESH_TTL_MIN, _REFRESH_TTL_MAX, _DEFAULT_REFRESH_TTL)
+
+    return AuthConfig(
+        enabled=True,
+        username=username,
+        password_hash=password_hash,
+        jwt_secret=jwt_secret,
+        jwt_issuer=jwt_issuer,
+        jwt_audience=jwt_audience,
+        access_ttl_seconds=access_ttl,
+        refresh_ttl_seconds=refresh_ttl,
+        validation_error=None,
+    )
+
+
+def _parse_ttl(raw: str, min_val: int, max_val: int, default: int) -> int:
+    """Parse a TTL string and clamp to bounds."""
+    raw = raw.strip()
+    if not raw:
+        return default
+    try:
+        val = int(raw)
+    except ValueError:
+        return default
+    return max(min_val, min(max_val, val))
+
+
 def _parse_toml(path: Path, raw: str) -> dict[str, Any]:
     """Parse TOML text using ``tomllib`` (Python 3.11+ stdlib)."""
     try:

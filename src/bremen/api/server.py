@@ -116,6 +116,63 @@ _STATUS_CODES = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Auth config singleton and helpers (PR0102)
+# ---------------------------------------------------------------------------
+
+_auth_config = None
+_AUTH_ERROR_SHAPE = json.dumps({
+    "error": "Authentication failed",
+    "token_type": "Bearer",
+    "technical_demo_only": True,
+})
+_AUTH_DISABLED_SHAPE = json.dumps({
+    "error": "Authentication is not configured",
+})
+
+
+def _get_auth_config():
+    """Lazily load auth config singleton."""
+    global _auth_config  # noqa: PLW0603
+    if _auth_config is None:
+        from ..config import read_auth_config  # noqa: PLC0415
+        _auth_config = read_auth_config()
+    return _auth_config
+
+
+def _reset_auth_config():
+    """Reset auth config (for testing)."""
+    global _auth_config  # noqa: PLW0603
+    _auth_config = None
+
+
+def _send_auth_error(handler: BaseHTTPRequestHandler, status: int = 401) -> None:
+    """Send a generic auth error response."""
+    body = _AUTH_ERROR_SHAPE.encode("utf-8") if status == 401 else _AUTH_DISABLED_SHAPE.encode("utf-8")
+    handler.send_response(status)
+    handler.send_header("Content-Type", "application/json; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def _check_auth(handler: BaseHTTPRequestHandler) -> bool:
+    """Check auth on a request. Returns True if allowed, False if rejected."""
+    config = _get_auth_config()
+    if not config.enabled:
+        return True
+    if config.validation_error:
+        _send_auth_error(handler, 503)
+        return False
+    from ..auth import authenticate_request  # noqa: PLC0415
+    auth_header = handler.headers.get("Authorization", "")
+    claims = authenticate_request(config, auth_header)
+    if claims is None:
+        _send_auth_error(handler, 401)
+        return False
+    return True
+
+
 def _make_handler(
     job_store: InMemoryJobStore,
     version: str | None = None,
@@ -318,6 +375,8 @@ def _make_handler(
                 _handle_workspace_route(self)
             elif route_path == "/demo/api-docs":
                 _handle_api_docs_route(self)
+            elif route_path == "/demo/login":
+                _handle_login_route(self)
             elif route_path == "/demo/api/models":
                 _handle_demo_models(self)
             elif route_path == "/demo/api/evidence":
@@ -340,13 +399,27 @@ def _make_handler(
             self._job_id = None
             self._error = None
 
-            if self.path == "/demo/api/h5/containers":
+            # Auth endpoints (no auth required)
+            if self.path == "/demo/api/auth/token":
+                _handle_auth_token(self)
+            elif self.path == "/demo/api/auth/refresh":
+                _handle_auth_refresh(self)
+            # Protected POST endpoints (auth required when enabled)
+            elif self.path == "/demo/api/h5/containers":
+                if not _check_auth(self):
+                    return
                 _handle_demo_h5_containers_upload(self)
             elif self.path == "/demo/api/stage":
+                if not _check_auth(self):
+                    return
                 _handle_demo_stage(self)
             elif self.path == "/demo/api/h5/analyze":
+                if not _check_auth(self):
+                    return
                 _handle_demo_h5_analyze(self)
             elif self.path == "/demo/api/jobs":
+                if not _check_auth(self):
+                    return
                 _handle_demo_jobs_create(self)
             elif self.path == "/predictions":
                 body = self._read_json_body()
@@ -1761,6 +1834,117 @@ def _handle_demo_jobs_route(handler: BaseHTTPRequestHandler) -> None:
         handle_job_get(handler, m.group(1))
         return
     handler._log_and_send_error(f"Not found: {handler.path}", status=404)
+
+
+# ---------------------------------------------------------------------------
+# Auth endpoints (PR0102)
+# ---------------------------------------------------------------------------
+
+
+def _handle_auth_token(handler: BaseHTTPRequestHandler) -> None:
+    """Handle POST /demo/api/auth/token — authenticate and issue tokens."""
+    from ..auth import authenticate_credentials, AuthenticationFailedError  # noqa: PLC0415
+
+    config = _get_auth_config()
+    if not config.enabled or config.validation_error:
+        _send_auth_error(handler, 503)
+        return
+
+    body = handler._read_json_body()
+    if body is None:
+        _send_auth_error(handler, 401)
+        return
+
+    username = body.get("username", "")
+    password = body.get("password", "")
+    if not isinstance(username, str) or not isinstance(password, str):
+        _send_auth_error(handler, 401)
+        return
+
+    result = authenticate_credentials(config, username, password)
+    if result is None:
+        _send_auth_error(handler, 401)
+        return
+
+    response = {
+        "access_token": result.access_token,
+        "refresh_token": result.refresh_token,
+        "token_type": result.token_type,
+        "expires_in": result.expires_in,
+        "technical_demo_only": True,
+    }
+    body_bytes = json.dumps(response).encode("utf-8")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "application/json; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body_bytes)))
+    handler.end_headers()
+    handler.wfile.write(body_bytes)
+
+
+def _handle_auth_refresh(handler: BaseHTTPRequestHandler) -> None:
+    """Handle POST /demo/api/auth/refresh — refresh access token."""
+    from ..auth import (  # noqa: PLC0415
+        decode_refresh_token, create_access_token, create_refresh_token,
+        AuthError,
+    )
+
+    config = _get_auth_config()
+    if not config.enabled or config.validation_error:
+        _send_auth_error(handler, 503)
+        return
+
+    body = handler._read_json_body()
+    if body is None:
+        _send_auth_error(handler, 401)
+        return
+
+    refresh_token = body.get("refresh_token", "")
+    if not isinstance(refresh_token, str) or not refresh_token:
+        _send_auth_error(handler, 401)
+        return
+
+    try:
+        claims = decode_refresh_token(config, refresh_token)
+    except AuthError:
+        _send_auth_error(handler, 401)
+        return
+
+    new_access = create_access_token(config, claims.sub)
+    new_refresh = create_refresh_token(config, claims.sub)
+
+    response = {
+        "access_token": new_access,
+        "refresh_token": new_refresh,
+        "token_type": "Bearer",
+        "expires_in": config.access_ttl_seconds,
+        "technical_demo_only": True,
+    }
+    body_bytes = json.dumps(response).encode("utf-8")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "application/json; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body_bytes)))
+    handler.end_headers()
+    handler.wfile.write(body_bytes)
+
+
+def _handle_login_route(handler: BaseHTTPRequestHandler) -> None:
+    """Handle GET /demo/login — serve the login page."""
+    from ..login_ui import build_login_page  # noqa: PLC0415
+
+    config = _get_auth_config()
+    auth_enabled = config.enabled and not config.validation_error
+    request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())
+    host_header = handler.headers.get("Host", "localhost")
+    forwarded_proto = handler.headers.get("X-Forwarded-Proto", "http")
+    base_url = f"{forwarded_proto}://{host_header}"
+    html = build_login_page(base_url=base_url, auth_enabled=auth_enabled)
+    body = html.encode("utf-8")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("X-Request-ID", request_id)
+    handler.end_headers()
+    handler.wfile.write(body)
 
 
 def _handle_demo_reports_route(handler: BaseHTTPRequestHandler) -> None:

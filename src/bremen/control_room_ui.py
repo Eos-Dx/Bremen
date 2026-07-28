@@ -200,6 +200,38 @@ var selectedModelWorkflowId='bremen';
 var analyzedSourceKeys={};
 var patientNamesBySource={};
 var hasSeenFailure=false;
+
+// Auth helpers (PR0102)
+function _getAccessToken(){return sessionStorage.getItem('bremen_access_token')}
+function _getRefreshToken(){return sessionStorage.getItem('bremen_refresh_token')}
+function _setTokens(data){sessionStorage.setItem('bremen_access_token',data.access_token);sessionStorage.setItem('bremen_refresh_token',data.refresh_token);sessionStorage.setItem('bremen_token_expires',String(Date.now()+data.expires_in*1000))}
+function _clearTokens(){sessionStorage.removeItem('bremen_access_token');sessionStorage.removeItem('bremen_refresh_token');sessionStorage.removeItem('bremen_token_expires')}
+function _authFetch(url,opts){
+  opts=opts||{};
+  var headers=opts.headers||{};
+  var token=_getAccessToken();
+  if(token){headers['Authorization']='Bearer '+token}
+  opts.headers=headers;
+  return fetch(url,opts).then(function(r){
+    if(r.status!==401)return r;
+    // Try refresh
+    var rt=_getRefreshToken();
+    if(!rt){_clearTokens();window.location.href='/demo/login';return r}
+    return fetch(baseUrl+'/demo/api/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refresh_token:rt})})
+      .then(function(rr){return rr.json().then(function(data){return {status:rr.status,data:data}})})
+      .then(function(result){
+        if(result.status===200&&result.data.access_token){
+          _setTokens(result.data);
+          headers['Authorization']='Bearer '+result.data.access_token;
+          opts.headers=headers;
+          return fetch(url,opts)
+        }else{
+          _clearTokens();window.location.href='/demo/login';return r
+        }
+      })
+      .catch(function(){_clearTokens();window.location.href='/demo/login';return r})
+  })
+}
 var STAGE_MAP={
   'runtime.request.accepted':'stage-input',
   'runtime.normalization.completed':'stage-xrd',
@@ -357,7 +389,7 @@ function handleFileSelect(){
   setState('validating');
   var headers=new Headers();
   headers.append('X-H5-Filename',file.name);
-  fetch(baseUrl+'/demo/api/h5/containers',{method:'POST',body:file,headers:headers})
+  _authFetch(baseUrl+'/demo/api/h5/containers',{method:'POST',body:file,headers:headers})
     .then(function(r){return r.json()})
     .then(function(data){
       if(data.status==='uploaded'){
@@ -509,7 +541,7 @@ function startAnalysis(){
   }else if(selectedSource.type==='upload'){
     body.upload_id=selectedSource.id;
   }
-  fetch(baseUrl+'/demo/api/jobs',{
+  _authFetch(baseUrl+'/demo/api/jobs',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body)
@@ -686,7 +718,7 @@ function loadJobHistory(){
 
 function deleteReport(jobId,workflowId){
   if(!confirm('Delete this generated report? The patient file will remain available. You can run this model again after deletion.'))return;
-  fetch(baseUrl+'/demo/api/jobs',{
+  _authFetch(baseUrl+'/demo/api/jobs',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({action:'delete_report',job_id:jobId,workflow_id:workflowId})
