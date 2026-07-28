@@ -1,0 +1,43 @@
+status: valid
+head: d61a63a995e2cc93718b3aea4a0d311b52999c31
+branch: "0099j-control-room-dense-pipeline-captions"
+blockers: []
+warnings: []
+changed_files:
+  - src/bremen/control_room_ui.py
+  - tests/test_bremen_control_room.py
+working_tree_state: "dirty — 2 unstaged modifications (src/bremen/control_room_ui.py, tests/test_bremen_control_room.py)"
+dense_pipeline_caption_layout: "Grid layout: icon (16px) | label+caption (flexible) | duration (auto). Compact padding: 6px var(--sp-16). Caption always visible in small secondary text. align-items:start for top alignment. CSS: .cr-stage{display:grid;grid-template-columns:16px minmax(0,1fr) auto;align-items:start;column-gap:var(--sp-12);padding:6px var(--sp-16)}. .cr-stage-text{min-width:0;display:flex;flex-direction:column;gap:1px}. .cr-stage-caption{display:block;font-size:var(--fs-11);color:var(--text-secondary);line-height:1.25}."
+long_caption_text_restored: "All 15 stages use full explanatory text from PR0099H as visible captions: 'The analysis request was received...', 'The H5 measurements were converted...', 'The system selected the Bremen workflow...', etc. Short captions (PR0099G) no longer used as production visible text."
+accordion_ui_removed: "All accordion elements removed: cr-stage-chevron, onclick toggleStage, onkeydown toggleStageKey, aria-expanded, cr-stage-body, toggleStage() function, toggleStageKey() function, window.toggleStage/window.toggleStageKey exports, accordion CSS rules. grep for cr-stage-chevron/toggleStage/toggleStageKey/aria-expanded/cr-stage-body in production UI returns 0 matches."
+completed_status_cleanup: "markPipelineComplete() added. Checks hasSeenFailure first (returns early if any failure). Sets all 15 stages to 'cr-stage completed' with checkmarks. Called from stream_complete success path before fetchDecision. No stage remains in active state after terminal completion."
+active_dot_bug_fix: "After markPipelineComplete(), all 15 stages marked cr-stage completed with checkmarks. 'Bremen workflow resolved' no longer keeps active dot after terminal completion. CSS .cr-stage.active still exists for in-progress stages but markPipelineComplete clears all active states on success."
+failure_precedence: "markPipelineComplete() checks hasSeenFailure first — returns early if any failure observed. Failed path: setState('failed'), collapseEventPanel('failed'), shows 'Analysis failed' message. Failed path does NOT call markPipelineComplete(). Individual stage failures from updatePipeline() still work — failed stages keep failed styling. stage-complete blocked from completed when hasSeenFailure is true."
+stage_rows_preserved: "grep -c 'class=\"cr-stage\"' = 15. All 15 pipeline rows preserved."
+cr_stage_help_absent: "grep -c \"cr-stage-help\" = 0. No cr-stage-help buttons reintroduced."
+backend_unchanged: "Only control_room_ui.py and test_bremen_control_room.py changed. No backend files touched. Confirmed by git diff --name-only main...HEAD | grep -E '^src/bremen/api/' returns empty."
+pr0099h_preservation: "Dense layout replaces accordion but preserves patient name cache, Patients List primary/secondary display, patient_name extraction. Patient Reports heading preserved."
+pr0099i_preservation: "Accordion alignment fix replaced by dense grid layout (no accordion to align). All prior CSS undefined token issues resolved."
+pr0099g_preservation: "stable_source_key, already-analyzed copy preserved. Short captions no longer visible in production but long explanatory text restored."
+pr0099f_preservation: "hasSeenFailure tracking, 'Analysis failed. No report was generated.' in decision card, 'Analysis stopped' in terminal panel all preserved. Failed jobs cannot show Open report."
+tests:
+  control_room: "436 passed (29 new in TestPR0099JDenseCaptionsAndStatusCleanup + 31 updated existing)"
+  focused: "727 passed (pipeline/stage/failed/report/patient/duplicate)"
+  full_suite: "2636 passed, 11 skipped, 0 failed"
+  compileall: "PASS"
+  git_diff_check: "clean"
+validation:
+  accordion_removed: true
+  long_captions_visible: true
+  dense_layout: true
+  mark_pipeline_complete_exists: true
+  no_active_dot_after_success: true
+  failure_precedence: true
+  cr_stage_count_15: true
+  cr_stage_help_count_0: true
+  no_backend_files_changed: true
+functional_verification_limitation: "Sandbox/source review cannot confirm deployed browser behavior. A real deployment must verify that pipeline rows are compact, long captions are visible in small secondary text, and no active dot remains on Bremen workflow resolved after a completed analysis."
+security: "No credentials, tokens, secrets, raw exceptions, stack traces, feature values, model coefficients, S3 URIs, bucket names, filesystem paths, H5 internals, or private data in public UI output."
+scope_control: "Changed files match implementation-report.md. No app.py or inference_handler.py modified. No docs/, ROADMAP.md, requirements.txt, pyproject.toml, Dockerfile, infra/, or .github/ files changed. No backend files changed."
+implementation_report: "Matches actual file changes. 29 new tests claimed; test count increased from 2607 (PR0099I final) to 2636 = 29 new tests. File change list matches git status."
+commit_readiness: "Implementation is complete and all tests pass. Requires staging and committing the 2 modified files before merge."
