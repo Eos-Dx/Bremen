@@ -4035,3 +4035,230 @@ class TestPR0099JOrderingAndStableDecisionSlot:
         fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
         assert 'MRI can wait' in fn_body
         assert 'MRI recommended' in fn_body
+
+
+class TestPR0099JDeletedReportsUI:
+    """PR0099J deleted reports UI: hide deleted from main list, collapsed deleted section."""
+
+    # ---- PART 1: Deleted reports not in primary list ----
+
+    def test_report_deleted_not_in_main_list(self):
+        """report_deleted jobs are not rendered in the primary Patient Reports list."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        # activeJobs should be filtered to exclude report_deleted
+        assert 'report_deleted' in fn_body
+        assert 'activeJobs' in fn_body
+        assert 'deletedJobs' in fn_body
+
+    def test_active_jobs_filter_excludes_deleted(self):
+        """Active jobs filter excludes report_deleted jobs."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'j.report_deleted' in fn_body
+
+    # ---- PART 2: Deleted reports in separate section ----
+
+    def test_deleted_section_uses_details_element(self):
+        """Deleted reports section uses <details> element."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert '<details class="cr-deleted-reports">' in fn_body
+
+    def test_deleted_section_label(self):
+        """Deleted reports section label shows count."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'Deleted reports (' in fn_body
+
+    def test_deleted_section_collapsed_by_default(self):
+        """<details> element is collapsed by default (no open attribute)."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        # <details> without 'open' attribute is collapsed by default
+        assert '<details class="cr-deleted-reports">' in fn_body
+        assert 'open>' not in fn_body.split('cr-deleted-reports')[0].split('<details')[-1]
+
+    # ---- PART 3: Section only rendered when deleted exist ----
+
+    def test_deleted_section_conditional(self):
+        """Deleted section only rendered when deletedJobs.length > 0."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'deletedJobs.length>0' in fn_body or 'deletedJobs.length > 0' in fn_body
+
+    # ---- PART 4: All jobs deleted scenario ----
+
+    def test_no_active_patient_reports_message(self):
+        """When no active jobs remain, shows 'No active patient reports.'"""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'No active patient reports.' in fn_body
+
+    def test_no_active_message_conditional(self):
+        """No active message only when activeJobs is empty."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'activeJobs.length===0' in fn_body or 'activeJobs.length === 0' in fn_body
+
+    # ---- PART 5: Deleted rows have no interactive features ----
+
+    def test_deleted_rows_no_open_report(self):
+        """Deleted report rows have no Open report link."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        # The deleted section rendering loop should not include openJob
+        deleted_section_start = fn_body.find('deletedJobs.forEach')
+        deleted_section = fn_body[deleted_section_start:]
+        assert 'openJob' not in deleted_section
+
+    def test_deleted_rows_no_delete_button(self):
+        """Deleted report rows have no Delete report button."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        deleted_section_start = fn_body.find('deletedJobs.forEach')
+        deleted_section = fn_body[deleted_section_start:]
+        assert 'Delete report' not in deleted_section
+
+    def test_deleted_rows_no_click_through(self):
+        """Deleted report rows have no onclick handler."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        deleted_section_start = fn_body.find('deletedJobs.forEach')
+        deleted_section = fn_body[deleted_section_start:]
+        assert 'onclick' not in deleted_section
+
+    # ---- PART 6: Active reports preserved ----
+
+    def test_active_jobs_still_render(self):
+        """Active (non-deleted) jobs still render in main list."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'activeJobs.slice' in fn_body or 'activeJobs.slice(0,MAX_HISTORY)' in fn_body
+
+    def test_existing_completed_reports_render(self):
+        """Existing completed report rows still render with Open report."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        # Active jobs still render with report link
+        assert 'openJob' in fn_body
+        assert 'reportAvail' in fn_body
+
+    def test_existing_failed_behavior_preserved(self):
+        """Existing failed job behavior remains in active list."""
+        page = build_control_room_page()
+        fn_start = page.find('function loadJobHistory')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'isFailed' in fn_body
+        assert 'Analysis failed' in fn_body
+
+    # ---- PART 7: Delete action preserved ----
+
+    def test_delete_action_uses_same_endpoint(self):
+        """Delete report still calls the same backend action."""
+        page = build_control_room_page()
+        fn_start = page.find('function deleteReport')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert "action:'delete_report'" in fn_body or 'action:delete_report' in fn_body
+
+    # ---- PART 8: CSS for deleted section ----
+
+    def test_css_deleted_reports_class(self):
+        """CSS for cr-deleted-reports exists."""
+        page = build_control_room_page()
+        assert '.cr-deleted-reports{' in page
+
+    def test_css_deleted_report_item_class(self):
+        """CSS for cr-deleted-report-item exists."""
+        page = build_control_room_page()
+        assert '.cr-deleted-report-item{' in page
+
+    # ---- PART 9: Preservation ----
+
+    def test_patient_reports_heading_preserved(self):
+        """Patient Reports heading remains."""
+        page = build_control_room_page()
+        assert 'Patient Reports' in page
+
+    def test_live_events_preserved(self):
+        """Live Events remains in cr-right."""
+        page = build_control_room_page()
+        assert 'Live Events' in page
+
+    def test_decision_slot_above_pipeline(self):
+        """Decision card remains above Execution Pipeline."""
+        page = build_control_room_page()
+        center_start = page.find('class="cr-center"')
+        center_section = page[center_start:]
+        decision_pos = center_section.find('cr-decision-card')
+        pipeline_pos = center_section.find('Execution Pipeline')
+        assert decision_pos < pipeline_pos
+
+    def test_analyze_after_patients_list(self):
+        """Analyze button remains immediately after Patients List."""
+        page = build_control_room_page()
+        left_start = page.find('class="cr-left"')
+        right_start = page.find('class="cr-right"')
+        left_section = page[left_start:right_start]
+        patients_pos = left_section.find('Patients List')
+        analyze_pos = left_section.find('cr-analyze-btn')
+        assert patients_pos < analyze_pos
+
+    def test_fifteen_stages_preserved(self):
+        """15 cr-stage rows remain."""
+        page = build_control_room_page()
+        assert page.count('class="cr-stage"') == 15
+
+    def test_no_accordion_preserved(self):
+        """No accordion UI."""
+        page = build_control_room_page()
+        assert 'cr-stage-chevron' not in page
+        assert 'toggleStage(this)' not in page
+        assert 'cr-stage-help' not in page
+
+    def test_no_container_copy(self):
+        """No container(s)/Container: copy."""
+        page = build_control_room_page()
+        assert 'container(s)' not in page
+        assert 'Container:' not in page
+
+    def test_decision_placeholder_preserved(self):
+        """Decision placeholder remains visible."""
+        page = build_control_room_page()
+        assert 'cr-decision-placeholder' in page
+        assert 'Recommendation pending' in page
+
+    def test_duplicate_guard_preserved(self):
+        """Duplicate report guard preserved."""
+        import inspect
+        from bremen.api.job_api_handler import handle_jobs_create
+        src = inspect.getsource(handle_jobs_create)
+        assert 'report_already_exists' in src

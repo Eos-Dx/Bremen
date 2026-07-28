@@ -254,6 +254,87 @@ None.
 
 ---
 
+## POST-REVIEW DELETED REPORTS UI FIX
+
+### Root Cause
+
+Deleted reports (report_deleted === true) remained visible in the primary Patient Reports list as "Report deleted" rows. This was visually confusing because deleted reports appeared alongside active reports with no separation.
+
+### Active/Deleted Partition Behavior
+
+In `loadJobHistory()`, jobs are now partitioned into two arrays:
+- `activeJobs`: jobs where `report_deleted` is falsy
+- `deletedJobs`: jobs where `report_deleted` is truthy
+
+The main Patient Reports list renders only `activeJobs`. If no active jobs remain, it shows "No active patient reports."
+
+### Deleted Reports Collapsed Section
+
+Deleted reports render in a `<details class="cr-deleted-reports">` element that is collapsed by default. The summary label shows "Deleted reports (N)" with the count. Each deleted row shows patient name, model (truncated), and timestamp — no interactive features.
+
+### Audit-Friendly Soft Delete Rationale
+
+Deleted reports are soft-deleted only. The backend `delete_report` endpoint sets `report_deleted: true` but does not remove the job from storage. The UI hides deleted reports from the primary list but keeps them accessible in the collapsed section for audit purposes.
+
+### Confirmation: No Hard Delete Added
+
+No new delete endpoint, no permanent removal, no data erasure. The existing `deleteReport()` function still calls the same `action:'delete_report'` backend endpoint.
+
+### Confirmation: Backend Unchanged
+
+Scope check: `git diff --name-only | grep -E "^src/bremen/api/|^scripts/"` returns no output.
+
+### Confirmation: No Open/Delete/Click-Through for Deleted Rows
+
+The deleted reports section rendering loop does not include:
+- `openJob` calls
+- `Delete report` buttons
+- `onclick` handlers
+
+### Confirmation: Existing Layout Preserved
+
+- Decision placeholder above Execution Pipeline
+- Analyze button immediately after Patients List
+- Source card below Analyze
+- Patient Reports and Live Events in cr-right
+- 15 cr-stage rows, dense pipeline, no accordion
+
+### Tests Added
+
+26 new tests in `TestPR0099JDeletedReportsUI`:
+
+Deleted not in main list (2): report_deleted filter, activeJobs/deletedJobs partition
+Deleted section (4): details element, label with count, collapsed by default, conditional rendering
+All deleted scenario (2): no active message, conditional on activeJobs empty
+No interactive features (3): no Open report, no Delete button, no onclick
+Active reports preserved (3): activeJobs render, completed reports with Open, failed behavior
+Delete action preserved (1): same backend endpoint
+CSS (2): cr-deleted-reports, cr-deleted-report-item
+Preservation (9): Patient Reports heading, Live Events, decision slot, Analyze order, 15 stages, no accordion, no container copy, decision placeholder, duplicate guard
+
+### Validation Results
+
+| Command | Result |
+|---------|--------|
+| `python -m compileall src tests` | PASS |
+| `pytest -k PR0099JDeletedReportsUI` | 26 passed |
+| `pytest -k control_room or patient or report or deleted or duplicate or layout or pipeline or decision` | 1061 passed, 2 skipped |
+| `pytest` (full suite) | 2721 passed, 11 skipped, 0 failed |
+| `git diff --check` | Clean |
+| cr-stage count | 15 |
+| Backend/scripts in diff | 0 |
+
+### Blockers
+
+None.
+
+### Warnings
+
+None.
+
+
+---
+
 ## POST-REVIEW ORDERING FIX
 
 ### Left Column Order Change
