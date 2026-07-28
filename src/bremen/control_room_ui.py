@@ -1123,8 +1123,9 @@ def build_control_room_page(
             <span class="cr-stage-dur"></span>
           </div>
         </div>
+      </div>
 
-            <div class="cr-decision-card hidden" id="cr-decision-card"></div>
+      <div class="cr-decision-card hidden" id="cr-decision-card"></div>
     </div>
 
     <!-- Right column: 360px -->
