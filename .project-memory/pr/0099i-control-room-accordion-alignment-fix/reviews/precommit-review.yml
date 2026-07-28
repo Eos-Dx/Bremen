@@ -1,0 +1,45 @@
+status: valid
+head: 07593769fb8b58106199e9ab5a00b63ae3297871
+branch: "0099i-control-room-accordion-alignment-fix"
+blockers: []
+warnings: []
+changed_files:
+  - src/bremen/control_room_ui.py
+  - tests/test_bremen_control_room.py
+working_tree_state: "dirty — 2 unstaged modifications (src/bremen/control_room_ui.py, tests/test_bremen_control_room.py)"
+bug1_window_exposure_fix: "toggleStage() and toggleStageKey() were IIFE-private causing ReferenceError. Fixed by adding window.toggleStage=toggleStage; and window.toggleStageKey=toggleStageKey; at lines 934-935, adjacent to existing window.deleteReport=deleteReport; export. toggleStage() and toggleStageKey() function bodies unchanged. All existing window exports preserved."
+bug2_source_investigation: "Root cause: .cr-stage had display:flex;align-items:center from original rule. PR0099H added flex-direction:column without resetting align-items, causing .cr-stage-header to center instead of stretch. Also .cr-stage-header lacked width:100%, .cr-stage-body used undefined var(--sp-44), .cr-stage-header used undefined var(--sp-10)."
+bug2_alignment_root_cause: "align-items:center from .cr-stage original rule persisted through PR0099H flex-direction:column override. Combined with .cr-stage-header having no width:100% and display:flex without explicit stretching, header centered horizontally instead of filling row width."
+bug2_css_fix: "Replaced problematic CSS with: .cr-stage{flex-direction:column;align-items:stretch;padding:0}; .cr-stage-header{width:100%;display:grid;grid-template-columns:16px minmax(0,1fr) auto auto;align-items:center;column-gap:var(--sp-12);padding:var(--sp-8) var(--sp-16);cursor:pointer;user-select:none}; .cr-stage-label{min-width:0;color:var(--text-primary);text-align:left}; .cr-stage-chevron{font-size:var(--fs-11);color:var(--text-secondary);margin-left:0}; .cr-stage-body{padding:0 var(--sp-16) var(--sp-12) calc(var(--sp-16) + 16px + var(--sp-12));font-size:var(--fs-13);color:var(--text-secondary);line-height:1.5}. All undefined tokens replaced: var(--sp-10) -> var(--sp-8), var(--sp-44) -> calc()."
+mouse_keyboard_behavior: "Mouse click on header toggles row expansion. Enter/Space on header toggles row expansion. aria-expanded updates on toggle. Multiple rows may be expanded independently. resetPipeline() collapses all rows."
+stage_rows_preserved: "grep -c 'class=\"cr-stage\"' = 15. All 15 pipeline rows preserved."
+cr_stage_help_absent: "grep -c \"cr-stage-help\" = 0. No cr-stage-help buttons reintroduced."
+backend_unchanged: "Only src/bremen/control_room_ui.py and tests/test_bremen_control_room.py changed. No backend files touched. Confirmed by git diff --name-only main...HEAD | grep -E '^src/bremen/api/' returns empty."
+pr0099h_preservation: "Accordion structure, patient name cache, keyboard accessibility (role=button, tabindex=0, aria-expanded, aria-label, Enter/Space handler) all preserved. Patient Reports heading preserved. No container(s)/Container: copy."
+pr0099g_preservation: "stable_source_key, already-analyzed copy, short captions (Request received, Scan normalized, etc.) all preserved."
+pr0099f_preservation: "hasSeenFailure tracking, 'Analysis failed. No report was generated.' in decision card, 'Analysis stopped' in terminal panel all preserved. Failed jobs cannot show Open report."
+tests:
+  control_room: "407 passed (22 new in TestPR0099IAccordionAlignmentFix + updated existing)"
+  focused: "699 passed (accordion/pipeline/stage/failed/report/patient)"
+  full_suite: "2607 passed, 11 skipped, 0 failed"
+  compileall: "PASS"
+  git_diff_check: "clean"
+validation:
+  window_toggle_stage_exported: true
+  window_toggle_stage_key_exported: true
+  exports_adjacent_to_existing: true
+  cr_stage_align_items_stretch: true
+  cr_stage_padding_zero: true
+  cr_stage_header_width_100: true
+  cr_stage_header_uses_grid: true
+  cr_stage_label_left_aligned: true
+  no_undefined_sp_tokens: true
+  cr_stage_count_15: true
+  cr_stage_help_count_0: true
+  aria_expanded_present: true
+  enter_space_handler_present: true
+functional_verification_limitation: "Sandbox/source review cannot confirm deployed browser behavior. A real deployment must verify that clicking/keyboard-expanding pipeline rows no longer throws ReferenceError and that rows are left-aligned across the full Execution Pipeline card."
+security: "No credentials, tokens, secrets, raw exceptions, stack traces, feature values, model coefficients, S3 URIs, bucket names, filesystem paths, H5 internals, or private data in public UI output."
+scope_control: "Changed files match implementation-report.md. No app.py or inference_handler.py modified. No docs/, ROADMAP.md, requirements.txt, pyproject.toml, Dockerfile, infra/, or .github/ files changed. No backend files changed."
+implementation_report: "Matches actual file changes. 22 new tests claimed; test count increased from 2585 (PR0099H final) to 2607 = 22 new tests. File change list matches git status."
+commit_readiness: "Implementation is complete and all tests pass. Requires staging and committing the 2 modified files before merge."
