@@ -21,6 +21,8 @@ dependencies = [
   "xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@v0.1.5-beta",
   "boto3>=1.34",
   "scipy>=1.13",
+  "PyJWT>=2.0",
+  "argon2-cffi>=21.0",
 ]
 
 [project.scripts]
