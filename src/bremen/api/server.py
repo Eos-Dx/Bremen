@@ -316,6 +316,8 @@ def _make_handler(
                 _handle_report_route(self)
             elif route_path == "/demo/workspace" or route_path.startswith("/demo/workspace/"):
                 _handle_workspace_route(self)
+            elif route_path == "/demo/api-docs":
+                _handle_api_docs_route(self)
             elif route_path == "/demo/api/models":
                 _handle_demo_models(self)
             elif route_path == "/demo/api/evidence":
@@ -1610,6 +1612,30 @@ def _handle_control_room_route(handler: BaseHTTPRequestHandler) -> None:
     forwarded_proto = handler.headers.get("X-Forwarded-Proto", "http")
     base_url = f"{forwarded_proto}://{host_header}"
     html = build_control_room_page(base_url=base_url, request_id=request_id)
+    body = html.encode("utf-8")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("X-Request-ID", request_id)
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+# ---------------------------------------------------------------------------
+# API docs route
+# ---------------------------------------------------------------------------
+
+
+def _handle_api_docs_route(handler: BaseHTTPRequestHandler) -> None:
+    """Handle GET /demo/api-docs — Bremen API documentation page."""
+    import uuid as _uuid  # noqa: PLC0415
+    from ..api_docs_ui import build_api_docs_page  # noqa: PLC0415
+
+    request_id = handler.headers.get("X-Request-ID") or str(_uuid.uuid4())
+    host_header = handler.headers.get("Host", "localhost")
+    forwarded_proto = handler.headers.get("X-Forwarded-Proto", "http")
+    base_url = f"{forwarded_proto}://{host_header}"
+    html = build_api_docs_page(base_url=base_url, request_id=request_id)
     body = html.encode("utf-8")
     handler.send_response(200)
     handler.send_header("Content-Type", "text/html; charset=utf-8")
