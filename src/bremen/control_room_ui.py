@@ -161,6 +161,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .cr-event-dur{color:var(--text-secondary);font-size:var(--fs-11);flex-shrink:0}
 .cr-event-actions{display:flex;gap:var(--sp-8);padding:var(--sp-8) 0;border-top:1px solid var(--border);flex-wrap:wrap}
 .cr-empty{color:var(--text-secondary);font-size:var(--fs-13);text-align:center;padding:var(--sp-16)}
+.cr-deleted-reports{margin-top:var(--sp-12);border-top:1px solid var(--border);padding-top:var(--sp-8);color:var(--text-secondary);font-size:var(--fs-11)}
+.cr-deleted-reports summary{cursor:pointer;color:var(--text-secondary);font-weight:600}
+.cr-deleted-report-item{padding:var(--sp-6) 0;border-bottom:1px solid var(--border);color:var(--text-secondary)}
 .cr-status-bar{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-8) 0;border-top:1px solid var(--border);margin-top:var(--sp-16);font-size:var(--fs-11);color:var(--text-secondary)}
 .cr-status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:var(--sp-4)}
 .cr-status-dot.live{background:var(--status-available)}
@@ -615,9 +618,18 @@ function loadJobHistory(){
         list.innerHTML='<div class="cr-empty">No analysis jobs yet.</div>';
         return;
       }
+      var activeJobs=[];
+      var deletedJobs=[];
+      jobs.forEach(function(j){
+        if(j.report_deleted){deletedJobs.push(j)}
+        else{activeJobs.push(j)}
+      });
       var html='';
       var MAX_HISTORY=10;
-      jobs.slice(0,MAX_HISTORY).forEach(function(j){
+      if(activeJobs.length===0){
+        html+='<div class="cr-empty">No active patient reports.</div>';
+      }else{
+      activeJobs.slice(0,MAX_HISTORY).forEach(function(j){
         var status=j.overall_status||'unknown';
         var ts=j.created_at?j.created_at.substring(11,19):'';
         var decision=j.decision_display_name||j.triage_recommendation||'';
@@ -651,6 +663,23 @@ function loadJobHistory(){
           '<div class="cr-history-meta">'+(model?'Model: '+model.substring(0,16):'')+' &middot; '+j.job_id.substring(0,8)+'</div>'+
           '</div>';
       });
+      }
+      if(deletedJobs.length>0){
+        html+='<details class="cr-deleted-reports"><summary>Deleted reports ('+deletedJobs.length+')</summary>';
+        deletedJobs.forEach(function(j){
+          var ts=j.created_at?j.created_at.substring(11,19):'';
+          var patientName=j.patient_display_name||'';
+          var sourceName=j.source_display_name||'';
+          var displayName=patientName||sourceName||'Patient';
+          var model=j.model_id||'';
+          html+='<div class="cr-deleted-report-item">'+
+            '<span>'+displayName+'</span>'+
+            (model?' <span style="font-size:var(--fs-11);margin-left:var(--sp-8)">'+model.substring(0,16)+'</span>':'')+
+            ' <span style="font-size:var(--fs-11);margin-left:auto">'+ts+'</span>'+
+            '</div>';
+        });
+        html+='</details>';
+      }
       list.innerHTML=html;
     }).catch(function(){});
 }

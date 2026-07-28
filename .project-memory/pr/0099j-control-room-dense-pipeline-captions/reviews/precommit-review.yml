@@ -1,49 +1,45 @@
-status: blocked
-head: 90cbf38848d386c42b987ad3724b30d9ed5b3630
+status: valid
+head: 929ea620881ad2b0023f704d91a53792977c8966
 branch: "0099j-control-room-dense-pipeline-captions"
-blockers:
-  - "git diff --check fails: new blank line at EOF in .project-memory/pr/0099j-control-room-dense-pipeline-captions/implementation-report.md line 355."
-warnings:
-  - "Trailing blank line in documentation file only (.project-memory/). All source code is clean. Fix by removing the blank line at EOF in implementation-report.md."
+blockers: []
+warnings: []
 changed_files:
   - src/bremen/control_room_ui.py
   - tests/test_bremen_control_room.py
   - .project-memory/pr/0099j-control-room-dense-pipeline-captions/implementation-report.md
-working_tree_state: "dirty — 3 unstaged modifications (control_room_ui.py, test_bremen_control_room.py, implementation-report.md)"
-left_column_order: "Model → Patients List → Analyze → Source. Analyze button (id=cr-analyze-btn) is immediately after Patients List. Source card is below Analyze. Analyze button id, onclick, disabled, aria-label preserved."
-center_column_order: "Decision placeholder (cr-decision-card cr-decision-placeholder) is above Execution Pipeline (cr-card-rail with cr-pipeline). Decision card is inside cr-center but outside cr-card-rail and cr-pipeline."
-decision_slot_stability: "Decision slot uses min-height:140px placeholder with neutral 'Recommendation pending' content. Never collapses to hidden/empty. Placeholder reserves stable vertical space preventing layout jump when real result arrives."
-js_placeholder_reset: "renderDecisionPlaceholder() helper function exists. onModelSelect() and deleteReport() call renderDecisionPlaceholder() instead of innerHTML='' + hidden class. startAnalysis does not collapse slot. fetchDecision can still render real results into cr-decision-card."
-dense_pipeline_preserved: "15 cr-stage rows with grid layout, long captions visible in small secondary text, compact padding. No cr-stage-chevron, no toggleStage, no toggleStageKey, no aria-expanded, no cr-stage-body in production."
-right_column_preserved: "Patient Reports remains in cr-right. Live Events remains in cr-right. cr-right is direct child of cr-main, not nested inside cr-center."
-failure_precedence_preserved: "markPipelineComplete() checks hasSeenFailure first — returns early if any failure observed. Failed path shows 'Analysis failed' message. stage-complete blocked from completed when hasSeenFailure is true. Failed jobs cannot show Open report."
-report_behavior_preserved: "Completed jobs render report link and MRI headlines. Failed jobs show 'Analysis failed. No report was generated.' message. No clinical claims in placeholder copy."
+working_tree_state: "dirty — 3 unstaged modifications"
+deleted_reports_root_cause: "Deleted reports (report_deleted === true) remained visible in the primary Patient Reports list as 'Report deleted' rows, appearing alongside active reports with no separation. Fixed by partitioning jobs into activeJobs and deletedJobs arrays."
+active_report_list_behavior: "loadJobHistory() partitions jobs into activeJobs (report_deleted is falsy) and deletedJobs (report_deleted is truthy). Main Patient Reports list renders only activeJobs. If no active jobs remain, shows 'No active patient reports.'"
+deleted_reports_section: "Deleted reports render in <details class='cr-deleted-reports'> collapsed by default. Summary label shows 'Deleted reports (N)' with count. Each deleted row shows patient name, model (truncated), and timestamp. No interactive features (no Open report, no Delete button, no onclick)."
+audit_friendly_soft_delete: "Backend soft-delete unchanged — sets report_deleted: true but does not remove job from storage. UI hides deleted reports from primary list but keeps them accessible in collapsed section for audit purposes."
 backend_unchanged: "No src/bremen/api/ files changed. Confirmed by git diff --name-only main...HEAD | grep -E '^src/bremen/api/' returns empty."
-scripts_unchanged: "No scripts/ files changed. Confirmed by git diff --name-only main...HEAD | grep -E '^scripts/' returns empty."
+no_hard_delete: "No new delete endpoint, no permanent removal, no data erasure. Existing deleteReport() function still calls same action:'delete_report' backend endpoint."
+no_open_delete_for_deleted_rows: "Deleted reports section rendering loop does not include openJob calls, Delete report buttons, or onclick handlers. Deleted rows are display-only."
+layout_preserved: "Decision placeholder above Execution Pipeline. Analyze button immediately after Patients List. Source card below Analyze. Patient Reports and Live Events in cr-right. 15 cr-stage rows, dense pipeline, no accordion. Patient Reports heading present. No container(s)/Container: copy."
+failure_precedence_preserved: "markPipelineComplete() checks hasSeenFailure first. Failed path shows 'Analysis failed' message. stage-complete blocked from completed when hasSeenFailure is true. Failed jobs cannot show Open report."
+report_behavior_preserved: "Completed jobs render report link and MRI headlines. Failed jobs show 'Analysis failed. No report was generated.' message. Delete action uses same backend endpoint."
 tests:
-  control_room: "495 passed (33 new in TestPR0099JOrderingAndStableDecisionSlot + 26 existing TestPR0099JLayoutNestingFix + 29 existing TestPR0099JDenseCaptionsAndStatusCleanup + updated existing)"
-  focused: "1073 passed (control_room/pipeline/layout/stage/failed/report/patient/duplicate/decision)"
-  full_suite: "2695 passed, 11 skipped, 0 failed"
+  control_room: "521 passed (26 new in TestPR0099JDeletedReportsUI + 33 ordering + 26 layout nesting + 29 dense caption + updated existing)"
+  focused: "1061 passed (control_room/patient/report/deleted/duplicate/layout/pipeline/decision)"
+  full_suite: "2721 passed, 11 skipped, 0 failed"
   compileall: "PASS"
-  git_diff_check: "FAIL — new blank line at EOF in implementation-report.md line 355"
+  git_diff_check: "clean"
 validation:
-  left_column_order_correct: true
-  center_column_order_correct: true
-  decision_before_pipeline: true
-  decision_inside_cr_center: true
-  decision_not_in_pipeline: true
-  stable_placeholder_min_height: true
-  render_decision_placeholder_exists: true
-  on_model_select_uses_placeholder: true
+  deleted_not_in_main_list: true
+  deleted_section_exists: true
+  deleted_section_collapsed: true
+  no_active_message: true
+  no_interactive_deleted_rows: true
+  active_reports_preserved: true
+  delete_action_preserved: true
+  layout_preserved: true
   dense_pipeline_15_rows: true
   accordion_removed: true
   cr_stage_help_absent: true
-  right_column_correct: true
   backend_unchanged: true
-  scripts_unchanged: true
-  git_diff_check: "FAIL — trailing blank line in documentation file"
-functional_verification_limitation: "Sandbox/source review cannot confirm deployed browser layout. A real local browser or deployment must verify that Analyze appears immediately after Patients List, Source appears below Analyze, the decision card appears above Execution Pipeline, and the pipeline does not jump when the decision card updates."
+  git_diff_check: "clean"
+functional_verification_limitation: "Sandbox/source review cannot confirm deployed browser behavior. A real local browser or deployment must verify that deleted reports disappear from the primary Patient Reports list and appear only in the secondary Deleted reports section."
 security: "No credentials, tokens, secrets, raw exceptions, stack traces, feature values, model coefficients, S3 URIs, bucket names, filesystem paths, H5 internals, or private data in public UI output."
-scope_control: "Changed files match implementation-report.md POST-REVIEW ORDERING FIX section. No app.py or inference_handler.py modified. No docs/, ROADMAP.md, requirements.txt, pyproject.toml, Dockerfile, infra/, or .github/ files changed. No backend files changed. No scripts changed."
-implementation_report: "POST-REVIEW ORDERING FIX section present. Matches actual file changes. 33 new ordering/stable-slot tests + 26 layout nesting tests + 29 dense caption tests. Test count increased from 2662 to 2695 = 33 new tests."
-commit_readiness: "BLOCKED — git diff --check fails due to trailing blank line at EOF in implementation-report.md line 355. Fix by removing the blank line, then re-run git diff --check."
+scope_control: "Changed files match implementation-report.md POST-REVIEW DELETED REPORTS UI FIX section. No app.py or inference_handler.py modified. No docs/, ROADMAP.md, requirements.txt, pyproject.toml, Dockerfile, infra/, or .github/ files changed. No backend files changed. No scripts changed."
+implementation_report: "POST-REVIEW DELETED REPORTS UI FIX section present. Matches actual file changes. 26 new deleted-reports tests. Test count increased from 2695 to 2721 = 26 new tests."
+commit_readiness: "Implementation is complete and all tests pass. Requires staging and committing the 3 modified files before merge."
