@@ -1,0 +1,62 @@
+status: valid
+head: ec6319c3186b541cdf966f08fddcfdf58c102464
+branch: "0100-safe-api-auth-docs"
+blockers: []
+warnings: []
+changed_files:
+  - src/bremen/api_docs_ui.py
+  - src/bremen/api/server.py
+  - src/bremen/control_room_ui.py
+  - tests/test_bremen_api_docs.py
+working_tree_state: "dirty — 2 modified files (server.py, control_room_ui.py) + 2 new files (api_docs_ui.py, test_bremen_api_docs.py)"
+api_docs_route: "GET /demo/api-docs route added in server.py via _handle_api_docs_route() handler, following existing route pattern."
+nav_link: "API docs link added to Control Room header: <a href='/demo/api-docs' class='cr-model-link'>API docs</a>. Links to /demo/api-docs."
+architecture_note_covered: "Section 9 'Authentication Architecture Decisions' documents all 7 required architecture decisions: confirmed current state, Open Decision 1 (auth scope), Open Decision 2 (credential source), Open Decision 3 (refresh storage), JWT mechanics, safety invariant, and planning status."
+confirmed_current_state_documented: "Documents: /demo/* routes are unauthenticated today, no JWT library present, no password hashing library present, adding PyJWT/bcrypt/argon2/passlib/cryptography is a future dependency decision, auth implementation will be a follow-up PR."
+open_decision_1_visibility: "Option 1a (auth gates actions only) and Option 1b (authenticated users get fuller view) documented. Recommended default: auth gates actions only. Authenticated users still receive same safe payloads. Authentication must not unlock full checksums, raw feature values, raw H5 internals, raw S3 refs, model coefficients, model package internals, PHI, raw exception traces. States: any future fuller authenticated view requires a separate PR and safety review."
+open_decision_2_credentials: "Documents: initial demo credential source is environment variables, single demo username/password planned, password stored as hash not plaintext, no default credentials in repository, no credentials in frontend JavaScript, no credentials in logs, auth fails closed if enabled and required env vars missing. All 8 planned env vars documented (BREMEN_AUTH_ENABLED through BREMEN_AUTH_REFRESH_TTL_SECONDS). States: BREMEN_AUTH_JWT_SECRET must be independently generated and distinct from password hash."
+open_decision_3_refresh_storage: "Three options documented: 3a (in-memory, restart invalidates), 3b (stateless refresh JWT, no true revocation), 3c (persistent store, more infrastructure). Recommended demo-stage default: stateless refresh JWT. States: real logout/revoke requires server-side token state later."
+jwt_mechanics_documented: "Planned library: PyJWT. Algorithm: HS256. Claims: sub, iat, exp, iss, aud, token_type. Optional: jti. Access token TTL: 15 minutes. Refresh token TTL: 7 days. Decode must explicitly specify allowed algorithms. Implementation must not trust token header algorithm. JWT signing secret must be sufficiently long, random, independently generated."
+auth_does_not_expand_visibility: "Safety invariant explicitly documented: auth does not expand data visibility. No raw features, full checksums, H5 internals, model internals, S3 references, PHI, or exception traces unlocked by login. Fuller view requires separate PR + safety review."
+future_fuller_view_requires_review: "Explicitly stated: 'Any future fuller authenticated view requires a separate PR and safety review.' Documented as safety invariant."
+auth_model_documented: "Planned endpoints: POST /api/auth/token, POST /api/auth/refresh, POST /api/auth/logout (planned later). Authorization: Bearer <access_token> usage documented. All endpoints clearly marked as 'Planned' with badge indicators."
+jwt_refresh_token_documented: "Access token TTL: 15 minutes. Refresh token TTL: 7 days. Stateless refresh JWT recommended as demo default with explicit trade-off noted."
+env_credentials_documented: "All 8 planned env vars documented: BREMEN_AUTH_ENABLED, BREMEN_AUTH_USERNAME, BREMEN_AUTH_PASSWORD_HASH, BREMEN_AUTH_JWT_SECRET, BREMEN_AUTH_JWT_ISSUER, BREMEN_AUTH_JWT_AUDIENCE, BREMEN_AUTH_ACCESS_TTL_SECONDS, BREMEN_AUTH_REFRESH_TTL_SECONDS. Password handling: store hash not plaintext. No default credentials. No credentials in frontend JS. No credentials in logs. Fail closed if enabled and env vars missing."
+safe_api_surface_documented: "Endpoint groups documented: Auth (token, refresh, logout), Models (list, get), Patients/Sources (list, get), Jobs (create, list, get, events), Reports (get, delete). Clearly marked as planned external-safe API shape."
+forbidden_exposures_documented: "Explicitly listed: raw S3 bucket names, raw S3 object keys, filesystem paths, raw H5 internals, PHI, patient identifiers beyond display-safe demo labels, raw exception traces, model coefficients, feature values, full checksums, model package internals, credentials, JWT secrets, environment variable values."
+allowed_safe_fields_documented: "Lists: opaque source IDs, safe patient display names, safe filenames, stable_source_key, model_id, model display name, workflow_id, job_id, job status, safe decision code, score/threshold (if accepted), report availability status, event status labels."
+planned_vs_implemented_clarity: "Every planned item labeled with 'Planned' badge. Explicit note: 'Authentication documentation is planning guidance. Enforcement will be implemented in a follow-up PR.' Page does not claim auth is active or enforced."
+no_auth_enforcement_implemented: "Confirmed: No authentication enforcement, token validation, or JWT processing added. This PR is documentation/UI only."
+no_auth_dependencies_added: "No PyJWT, bcrypt, argon2, passlib, or cryptography added. requirements.txt and pyproject.toml unchanged. api_docs_ui.py has no external library imports."
+no_secrets_or_default_credentials: "No real credentials in page content. No default passwords. Test explicitly verifies absence of demo-password, changeme, secret123, password123, admin:admin, letmein, qwerty. All credential references are env var names or placeholder syntax."
+technical_demo_disclaimer: "Preserves Bremen safety language: technical demo only, not clinically validated, not a diagnosis, does not replace MRI, biopsy, radiologist, clinician, or clinical judgment. No FDA-approved or certified claims."
+tests:
+  api_docs: "77 passed in test_bremen_api_docs.py"
+  control_room: "521 passed in test_bremen_control_room.py"
+  focused: "948 passed (api_docs/demo/control_room/auth/jwt/bearer)"
+  full_suite: "2798 passed, 11 skipped, 0 failed"
+  compileall: "PASS"
+  git_diff_check: "clean"
+validation:
+  api_docs_route_exists: true
+  nav_link_exists: true
+  architecture_note_covered: true
+  confirmed_current_state: true
+  open_decision_1: true
+  open_decision_2: true
+  open_decision_3: true
+  jwt_mechanics: true
+  auth_does_not_expand_visibility: true
+  future_fuller_view_requires_review: true
+  no_auth_enforcement: true
+  no_auth_dependencies: true
+  no_secrets_or_credentials: true
+  no_default_credentials: true
+  technical_demo_disclaimer: true
+  forbidden_exposures_covered: true
+  allowed_safe_fields_covered: true
+functional_verification_limitation: "Source review cannot confirm browser navigation behavior. A real local browser or deployment must verify that the API docs link is visible and the API/Auth documentation page renders correctly inside the demo UI."
+security: "No credentials, tokens, secrets, raw exceptions, stack traces, feature values, model coefficients, S3 URIs, bucket names, filesystem paths, H5 internals, or private data in public UI output. Auth documentation explicitly states it is planning guidance only. No auth enforcement implemented. No secrets or default credentials present."
+scope_control: "New files: api_docs_ui.py, test_bremen_api_docs.py. Modified: server.py (route handler only), control_room_ui.py (nav link only). No requirements.txt, pyproject.toml, Dockerfile, infra/, .github/, training, or model files changed."
+implementation_report: "Matches actual file changes. 77 new API docs tests. Implementation report architecture note section correctly reflects the page content."
+commit_readiness: "Implementation is complete and all tests pass. Requires staging and committing the 4 files before merge."
