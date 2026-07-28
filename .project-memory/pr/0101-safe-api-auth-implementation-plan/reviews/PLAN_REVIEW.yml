@@ -1,0 +1,307 @@
+# Plan Review — PR0101 Safe API Bearer/JWT Authentication
+# Reviewed: 2026-07-28T16:32:33Z
+# Reviewer: plan-review-agent
+
+status: approved
+head: 016f3774b4c9d238790361eebf7573b7d5376a25
+branch: 0101-safe-api-auth-implementation-plan
+blockers: []
+warnings:
+  - |
+    Stateless refresh JWT means no true server-side revocation before natural
+    token expiry (documented in PLAN.md WARNINGS and THREAT_MODEL.md). Logout
+    can only discard client-side token. True revocation deferred to future PR
+    with server-side token state.
+  - |
+    No rate limiting on the token endpoint in demo stage. Argon2id slows
+    brute-force attempts but does not prevent them. Explicitly deferred in
+    PLAN.md and discussed in THREAT_MODEL.md as a known residual risk.
+  - |
+    Frontend token storage in sessionStorage is same-origin accessible by any
+    JavaScript. Acknowledged as acceptable for demo stage where no third-party
+    scripts are served. Re-evaluation needed if third-party content is
+    introduced.
+changed_files: []
+working_tree_state: clean
+plan_scope:
+  implementation_pr: PR0102
+  what_is_implemented:
+    - Auth configuration reader (AuthConfig dataclass with read_auth_config factory)
+    - src/bremen/auth.py (password verification, JWT issuance/validation, safe error types)
+    - POST /demo/api/auth/token endpoint
+    - POST /demo/api/auth/refresh endpoint
+    - Route protection decorator/wrapper in server.py
+    - Protected actions (all state-changing POST endpoints)
+    - Auth-disabled mode (BREMEN_AUTH_ENABLED=false preserves public routes)
+    - Login page/UI at /demo/login
+    - Client-side fetch wrapper with Bearer token + refresh handling
+    - Safe error handling (generic messages only, no internals leaked)
+  what_is_excluded:
+    - Database-backed user management
+    - Per-user roles/scopes
+    - Token revocation/blacklisting
+    - Auth audit event logging
+    - Secret manager integration
+    - JWT signing secret rotation
+    - Rate limiting on token endpoint
+    - HTTPS enforcement
+    - CORS policy for public API
+    - Logout endpoint with true server-side revocation
+    - Any change to demo page visibility (auth gates actions only, not data)
+confirmed_decisions:
+  auth_gates_actions_only: true
+  auth_does_not_expand_visibility: true
+  env_credential_with_password_hash: true
+  no_plaintext_password: true
+  no_default_credentials: true
+  no_credentials_in_frontend_js: true
+  no_credentials_in_logs: true
+  fail_closed_config_behavior: true
+  jwt_secret_independent_from_password_hash: true
+  stateless_refresh_tradeoff_documented: true
+  true_logout_revocation_requires_server_state: true
+dependency_decision:
+  pyjwt:
+    purpose: JWT creation (jwt.encode) and validation (jwt.decode)
+    algorithm: HS256
+    version: ">=2.0"
+    safety: jwt.decode called with explicit algorithms=["HS256"], never from header
+    alternatives_rejected: stdlib-only (no built-in JWT), python-jose (heavier, less maintained)
+  argon2_cffi:
+    purpose: Password hashing and verification
+    justification: Argon2id is OWASP/NIST recommended, memory-hard, GPU/ASIC resistant
+    alternatives_considered:
+      - bcrypt (acceptable alternative, less hardware-resistant)
+      - hashlib/pbkdf2 (rejected, weaker)
+    implementation_note: argon2.PasswordHasher API
+  dependency_changes: Belong in PR0102 only, not modified in PR0101
+config_design:
+  module: src/bremen/config.py (AuthConfig dataclass with read_auth_config factory)
+  pattern: Follows existing read_cloud_config() pattern with injected env dict for testability
+  env_vars:
+    - BREMEN_AUTH_ENABLED (default: "false")
+    - BREMEN_AUTH_USERNAME (required if enabled)
+    - BREMEN_AUTH_PASSWORD_HASH (required if enabled, argon2id/bcrypt prefix check)
+    - BREMEN_AUTH_JWT_SECRET (required if enabled, >=32 chars, distinct from hash)
+    - BREMEN_AUTH_JWT_ISSUER (optional, default "bremen-demo")
+    - BREMEN_AUTH_JWT_AUDIENCE (optional, default "bremen-api")
+    - BREMEN_AUTH_ACCESS_TTL_SECONDS (default 900, clamped 60-86400)
+    - BREMEN_AUTH_REFRESH_TTL_SECONDS (default 604800, clamped 3600-2592000)
+  validation: read_auth_config never raises; validation_error field on failure; enabled=False on error
+  issuer_audience_decision: Optional for demo; enforced on decode when set; absent omits iss/aud validation
+auth_module_design:
+  file: src/bremen/auth.py
+  public_api:
+    - verify_password(password, password_hash) -> bool
+    - create_access_token(config, username) -> str
+    - create_refresh_token(config, username) -> str
+    - decode_access_token(config, token) -> TokenClaims
+    - decode_refresh_token(config, token) -> TokenClaims
+    - authenticate_credentials(config, username, password) -> TokenPair | None
+    - authenticate_request(config, authorization_header) -> TokenClaims | None
+  exception_types:
+    - AuthError (base)
+    - AuthenticationFailedError
+    - TokenExpiredError
+    - TokenInvalidError
+  claims:
+    - sub (username)
+    - iat (now)
+    - exp (now + TTL)
+    - token_type ("access" / "refresh")
+    - jti (random UUID)
+    - iss (when configured)
+    - aud (when configured)
+endpoint_design:
+  token_endpoint:
+    method: POST
+    path: /demo/api/auth/token
+    request_shape: '{"username": "<str>", "password": "<str>"}'
+    success_response: '{"access_token": "<jwt>", "refresh_token": "<jwt>", "token_type": "Bearer", "expires_in": 900}'
+    error_401: '{"error": "Authentication failed", "token_type": "Bearer"}'
+    error_503: '{"error": "Authentication is not configured"}' (auth disabled)
+  refresh_endpoint:
+    method: POST
+    path: /demo/api/auth/refresh
+    request_shape: '{"refresh_token": "<jwt>"}'
+    success_response: '{"access_token": "<jwt>", "refresh_token": "<jwt>", "token_type": "Bearer", "expires_in": 900}'
+    error_401: '{"error": "Authentication failed", "token_type": "Bearer"}' (invalid/expired/wrong type)
+  error_response_shape: '{"error": "Authentication failed", "token_type": "Bearer", "technical_demo_only": true}'
+  safety: no detail, no reason, no stack trace, no config reference in errors
+route_protection_design:
+  mechanism: _require_auth() wrapper function in server.py (Approach A preferred)
+  protected_routes:
+    - POST /demo/api/h5/containers
+    - POST /demo/api/stage
+    - POST /demo/api/h5/analyze
+    - POST /demo/api/jobs
+    - POST /demo/api/jobs/*/events
+    - Any DELETE/state-changing report operation
+  public_routes:
+    - GET /demo
+    - GET /demo/control-room
+    - GET /demo/workspace
+    - GET /demo/report/*
+    - GET /demo/api-docs
+    - GET /demo/api/models
+    - GET /demo/api/evidence
+    - GET /demo/api/h5/containers
+    - GET /demo/api/jobs
+    - GET /demo/api/jobs/*
+    - GET /demo/api/reports/*
+    - GET /health
+    - GET /model/version
+    - GET /predictions/*
+  safety: Auth gates action execution only, not data visibility; same handler functions for authed/unauthed
+frontend_integration_plan:
+  login_page: /demo/login (separate minimal page, not modal)
+  token_storage: sessionStorage
+  token_storage_justification: Cleared on tab close; does not survive browser restart; safer than localStorage
+  token_storage_risk: Same-origin JavaScript accessible (acceptable for demo stage with no third-party scripts)
+  fetch_wrapper: _authFetch() attaches Bearer, handles 401 -> refresh -> retry
+  refresh_flow: Check expiry before call; on 401 attempt refresh; on failure clear sessionStorage, redirect to login
+  no_credentials_in_frontend: Hardcoded credentials never appear in HTML/JS/CSS
+safe_error_handling:
+  generic_auth_error: '{"error":"Authentication failed","token_type":"Bearer"}'
+  auth_disabled_error: '{"error":"Authentication is not configured"}'
+  no_stack_traces: true
+  no_config_details: true
+  no_jwt_internals: true
+  no_timing_verbose_differences: true
+  safe_logging:
+    - No password, hash, token, or secret values in logs
+    - Safe log strings: "auth.login.failed\tusername=<safe>", "auth.token.issued"
+    - INFO for success, WARNING for failed attempts
+threat_model:
+  file: THREAT_MODEL.md
+  threats_covered:
+    - Stolen access token (short TTL mitigation)
+    - Stolen refresh token (sessionStorage, rotation; no revocation gap acknowledged)
+    - Leaked JWT secret (never logged, >=32 chars, distinct from hash)
+    - Brute force login (generic errors, argon2id; no rate limiting gap acknowledged)
+    - Algorithm confusion (explicit algorithms=["HS256"] eliminates risk)
+    - Replay of refresh token (works until expiry; accepted trade-off)
+    - Multi-instance signing (stateless JWT with shared secret)
+    - Log leakage (safe logging rules)
+    - XSS token theft (sessionStorage risk acknowledged)
+    - Accidental data exposure after auth (architecture invariant eliminates)
+  residual_risks_documented: true
+test_plan:
+  config_tests:
+    - test_auth_disabled_by_default
+    - test_auth_enabled_complete_config
+    - test_auth_enabled_missing_username
+    - test_auth_enabled_missing_password_hash
+    - test_auth_enabled_missing_jwt_secret
+    - test_auth_enabled_short_secret
+    - test_auth_ttl_parsing
+    - test_auth_ttl_bounds
+    - test_injected_env_dict
+    - test_auth_config_never_raises
+    - test_auth_config_round_trip
+  password_tests:
+    - test_valid_password_passes
+    - test_invalid_password_fails
+    - test_wrong_username_returns_none
+    - test_plaintext_compare_not_used
+    - test_hash_format_validation
+  jwt_tests:
+    - test_access_token_has_required_claims
+    - test_refresh_token_has_token_type
+    - test_expired_token_rejected
+    - test_wrong_token_type_rejected
+    - test_wrong_issuer_rejected
+    - test_wrong_audience_rejected
+    - test_decode_uses_explicit_algorithm
+    - test_algorithm_header_confusion_rejected (alg=none)
+    - test_algorithm_header_confusion_hs512
+    - test_valid_access_token_accepted
+    - test_token_string_not_in_logs
+  endpoint_tests:
+    - test_token_endpoint_success
+    - test_token_endpoint_invalid_credentials
+    - test_token_endpoint_disabled
+    - test_refresh_endpoint_success
+    - test_refresh_endpoint_rejects_access_token
+    - test_refresh_endpoint_invalid_token
+    - test_protected_action_without_token
+    - test_protected_action_with_valid_token
+    - test_protected_action_with_expired_token
+    - test_protected_action_malformed_header
+    - test_public_page_no_auth_required
+    - test_health_route_no_auth
+  safety_tests:
+    - test_auth_does_not_expand_report_payload
+    - test_no_full_checksums_after_auth
+    - test_no_raw_features_after_auth
+    - test_no_secrets_in_repo
+    - test_no_credentials_in_frontend_js
+  regression_tests:
+    - test_existing_control_room_tests_pass
+    - test_existing_report_tests_pass
+    - test_existing_api_docs_tests_pass
+    - test_full_suite_passes (python -m pytest -q)
+rollout_plan:
+  default_state: Auth disabled by default (BREMEN_AUTH_ENABLED=false)
+  local_example: .env.example with all auth vars commented and placeholder values
+  deployment_instructions: Generate JWT secret, generate password hash, set env vars, verify 401 on protected routes, verify 200 on public routes
+  manual_qa: 12-step checklist covering all auth scenarios (no-auth start, partial config, full config, valid credentials, invalid credentials, access token, expired token, refresh flow, wrong type on refresh, public routes, log check, full suite)
+  stop_conditions: 8 conditions documented (raw data exposure, persistent store requirement, route safety, dependency conflict, token storage safety, test coverage gap, existing test breakage, page content change)
+safety_invariants:
+  - Auth gates actions only, not data
+  - Auth does not expand data visibility
+  - No raw/private/internal fields unlocked by login
+  - Fail closed (missing required vars -> 503, not partial auth)
+  - No secrets in frontend JS
+  - No secrets in logs
+  - No default credentials in repository
+  - No credentials in frontend code
+auth_does_not_expand_visibility:
+  status: confirmed
+  evidence: "PLAN.md Security Invariant 2: 'Auth does not expand data visibility — authenticated users receive the same safe payloads as public demo users.' Invariant 3 specifically prohibits unlocking raw feature values, full checksums, raw H5 internals, raw S3 refs, model coefficients, PHI, model package internals, raw exception traces."
+  test_coverage: test_auth_does_not_expand_report_payload, test_no_full_checksums_after_auth, test_no_raw_features_after_auth
+  stop_condition: "If any protected endpoint needs raw data to function, stop and escalate"
+refresh_token_tradeoff:
+  status: documented
+  evidence: "PLAN.md WARNINGS: 'Stateless refresh JWT trade-off: No true server-side revocation before natural expiry.' THREAT_MODEL.md: 'Without server-side token state, a stolen refresh token cannot be explicitly revoked before expiry.'"
+  stateless_design: true
+  future_revocation: Database-backed token blacklist (future PR)
+jwt_algorithm_safety:
+  algorithm: HS256
+  decode_enforcement: Explicit algorithms=["HS256"]
+  header_algorithm_not_trusted: true
+  token_type_validated: true
+  exp_validated: true
+  issuer_audience_validated_when_configured: true
+  tests:
+    - test_decode_uses_explicit_algorithm
+    - test_algorithm_header_confusion_rejected (alg="none")
+    - test_algorithm_header_confusion_hs512
+    - test_expired_token_rejected
+    - test_wrong_token_type_rejected
+    - test_wrong_issuer_rejected
+    - test_wrong_audience_rejected
+  residual_risk: Eliminated by explicit algorithm enforcement
+scope_control:
+  plan_only: true
+  implementation_changes_in_this_branch: false
+  implementation_pr: PR0102
+  no_training_model_changes: true
+  no_docker_infra_ci_changes: true
+  no_persistent_user_database: true
+  files_untracked_in_this_pr:
+    - .project-memory/pr/0101-safe-api-auth-implementation-plan/PLAN.md
+    - .project-memory/pr/0101-safe-api-auth-implementation-plan/THREAT_MODEL.md
+implementation_readiness:
+  safe_to_hand_to_coder: true
+  dependency_decisions_made: true
+  config_schema_defined: true
+  api_endpoints_defined: true
+  route_list_exact: true
+  frontend_plan_defined: true
+  threat_model_complete: true
+  test_plan_comprehensive: true
+  rollout_guidance_provided: true
+  stop_conditions_defined: true
+review_artifact:
+  path: ".project-memory/pr/0101-safe-api-auth-implementation-plan/reviews/PLAN_REVIEW.yml"
