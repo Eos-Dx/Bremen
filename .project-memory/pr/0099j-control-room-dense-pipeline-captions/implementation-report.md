@@ -251,3 +251,104 @@ None.
 ### Warnings
 
 None.
+
+---
+
+## POST-REVIEW ORDERING FIX
+
+### Left Column Order Change
+
+Moved Analyze button from below Source card to immediately after Patients List card.
+
+Before: Model → Patients List → Source → Analyze
+After:  Model → Patients List → Analyze → Source
+
+Rationale: Analyze is the primary action and should be adjacent to the patient selection. Source/upload is secondary.
+
+### Center Column Order Change
+
+Moved decision card from below the pipeline card to above it.
+
+Before: Execution Pipeline → Decision card (hidden)
+After:  Decision placeholder → Execution Pipeline
+
+Rationale: The answer card is the primary result and should appear above the pipeline.
+
+### Decision Slot Stability Approach
+
+Replaced the hidden empty decision card with a visible placeholder that reserves stable vertical space:
+
+- Removed `hidden` class from initial HTML
+- Added `cr-decision-placeholder` class with `min-height:140px`
+- Added neutral placeholder content: “Recommendation pending” headline, “Recommendation will appear here after analysis.” copy, “Technical demo only. A clinician makes the final decision.” copy
+- Added CSS: `.cr-decision-placeholder` (min-height, border-left-color), `.cr-decision-placeholder .cr-decision-headline` (secondary color), `.cr-decision-placeholder-copy` (font-size, color)
+
+This prevents layout jump when a real result arrives.
+
+### JS Placeholder Reset Behavior
+
+Added `renderDecisionPlaceholder()` helper function that sets the decision card back to placeholder state with neutral content and `cr-decision-card cr-decision-placeholder` class.
+
+Updated reset sites:
+- `onModelSelect()`: replaced `card.innerHTML=''; card.className='cr-decision-card hidden'` with `renderDecisionPlaceholder()`
+- `deleteReport()`: replaced same pattern with `renderDecisionPlaceholder()` when current job deleted
+- Failed job paths (stream_complete failure, fetchDecision failure) remain unchanged — they show “Analysis failed. No report was generated.” message
+
+### Confirmation: Dense Pipeline Preserved
+
+- 15 `cr-stage` rows remain
+- Long captions visible by default
+- No `cr-stage-chevron` in production
+- No `toggleStage`/`toggleStageKey` in production
+- No `cr-stage-help` in production
+
+### Confirmation: Right Column Preserved
+
+- Patient Reports remains in `cr-right`
+- Live Events remains in `cr-right`
+
+### Confirmation: No Backend/Scripts Changes
+
+Scope check: `git diff --name-only | grep -E "^src/bremen/api/|^scripts/"` returns no output.
+
+### Tests Added/Updated
+
+33 new tests in `TestPR0099JOrderingAndStableDecisionSlot`:
+
+Left column order (4): Model before Patients List, Patients List before Analyze, Analyze before Source, full order
+Analyze button preserved (4): id, onclick, disabled initially, aria-label
+Center column order (4): decision before pipeline, decision inside cr-center, decision not inside cr-card-rail, decision not inside cr-pipeline
+Stable decision slot (6): not hidden initially, placeholder class, min-height CSS, neutral copy, secondary copy, no clinical claims
+JS reset behavior (4): renderDecisionPlaceholder exists, onModelSelect uses placeholder, deleteReport uses placeholder, startAnalysis no slot collapse
+Dense pipeline preservation (5): 15 rows, captions, no chevron, no toggleStage, no cr-stage-help
+Right column preservation (2): Patient Reports in cr-right, Live Events in cr-right
+Failure/report preservation (4): failed jobs no Open report, failed message preserved, completed renders report link, MRI headlines preserved
+
+2 existing tests updated:
+- `test_on_model_select_resets_decision_card`: asserts `renderDecisionPlaceholder()` instead of `cr-decision-card hidden`
+- `test_delete_report_clears_decision_card`: asserts `renderDecisionPlaceholder()` instead of `cr-decision-card`
+
+### Validation Results
+
+| Command | Result |
+|---------|--------|
+| `python -m compileall src tests` | PASS |
+| `pytest -k PR0099JOrderingAndStableDecisionSlot` | 33 passed |
+| `pytest -k PR0099JLayoutNestingFix` | 26 passed |
+| `pytest -k PR0099JDenseCaptionsAndStatusCleanup` | 29 passed |
+| `pytest -k control_room or pipeline or layout or stage or failed or report or patient or duplicate or decision` | 1073 passed, 2 skipped |
+| `pytest` (full suite) | 2695 passed, 11 skipped, 0 failed |
+| `git diff --check` | Clean |
+| cr-stage count | 15 |
+| cr-stage-chevron | 0 (production) |
+| toggleStage | 0 (production) |
+| cr-stage-help | 0 (production) |
+| Backend/scripts in diff | 0 |
+
+### Blockers
+
+None.
+
+### Warnings
+
+None.
