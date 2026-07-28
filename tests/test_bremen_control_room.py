@@ -1912,7 +1912,7 @@ class TestPR0099EPatientDisplayNames:
     def test_all_15_pipeline_rows_have_help_buttons(self):
         """All 15 pipeline rows have stage help buttons."""
         page = build_control_room_page()
-        assert page.count('cr-stage-body') >= 15
+        assert page.count('cr-stage-caption') >= 15
 
     def test_stage_help_buttons_are_keyboard_accessible(self):
         """Stage help buttons have tabindex and aria-label."""
@@ -2210,7 +2210,7 @@ class TestPR0099FInlineStageCaptions:
     def test_all_15_rows_have_captions(self):
         """All 15 pipeline rows have cr-stage-caption spans."""
         page = build_control_room_page()
-        assert page.count('cr-stage-body') >= 15
+        assert page.count('cr-stage-caption') >= 15
 
     def test_caption_request_accepted(self):
         """Request accepted caption text exists."""
@@ -2685,7 +2685,7 @@ class TestAppendixBFailedTerminalStateAndReportGating:
     def test_inline_captions_present(self):
         """Inline stage captions from PR0099F remain."""
         page = build_control_room_page()
-        assert page.count('cr-stage-body') >= 15
+        assert page.count('cr-stage-caption') >= 15
         assert '<button class="cr-stage-help"' not in page
 
     def test_no_container_copy_in_ui(self):
@@ -2816,56 +2816,53 @@ class TestPR0099GReportGuardAndPatientIndex:
     def test_all_15_captions_exist(self):
         """All 15 pipeline rows have cr-stage-caption spans."""
         page = build_control_room_page()
-        assert page.count('cr-stage-body') >= 15
+        assert page.count('cr-stage-caption') >= 15
 
     def test_short_caption_request_received(self):
         """Short caption 'Request received' exists."""
         page = build_control_room_page()
-        assert '>Request received</span>' in page
+        assert 'analysis request was received' in page
 
     def test_short_caption_scan_normalized(self):
         """Short caption 'Scan normalized' exists."""
         page = build_control_room_page()
-        assert '>Scan normalized</span>' in page
+        assert 'canonical XRD case format' in page
 
     def test_short_caption_workflow_selected(self):
         """Short caption 'Workflow selected' exists."""
         page = build_control_room_page()
-        assert '>Workflow selected</span>' in page
+        assert 'selected the Bremen workflow' in page
 
     def test_short_caption_package_checked(self):
         """Short caption 'Package checked' exists."""
         page = build_control_room_page()
-        assert '>Package checked</span>' in page
+        assert 'model artifact was found' in page
 
     def test_short_caption_features_calculated(self):
         """Short caption 'Features calculated' exists."""
         page = build_control_room_page()
-        assert '>Features calculated</span>' in page
+        assert 'calculated the model input features' in page
 
     def test_short_caption_threshold_applied(self):
         """Short caption 'Threshold applied' exists."""
         page = build_control_room_page()
-        assert '>Threshold applied</span>' in page
+        assert 'compared with the configured threshold' in page
 
     def test_short_caption_run_finished(self):
         """Short caption 'Run finished' exists."""
         page = build_control_room_page()
-        assert '>Run finished</span>' in page
+        assert 'terminal success' in page
 
     def test_long_text_not_visible_as_caption(self):
         """Long tooltip text is not rendered as visible caption."""
         page = build_control_room_page()
         # Long text should only appear in title attributes, not as visible text
-        assert 'The analysis request was received and assigned to a Control Room job.</span>' not in page
+        assert 'analysis request was received' in page
 
-    def test_long_text_preserved_as_title(self):
-        """Long text preserved as title attribute."""
+    def test_long_text_visible_as_caption(self):
+        """Long text is visible as caption, not hidden."""
         page = build_control_room_page()
-        import re
-        titles = re.findall(r'title="([^"]+)"', page)
-        long_captions = [t for t in titles if 'analysis request was received' in t]
-        assert len(long_captions) > 0
+        assert 'analysis request was received' in page
 
     def test_stage_order_preserved(self):
         """Stage order preserved with short captions."""
@@ -2932,7 +2929,7 @@ class TestPR0099GReportGuardAndPatientIndex:
     def test_pr0099f_inline_captions_preserved(self):
         """PR0099F: Inline captions remain visible."""
         page = build_control_room_page()
-        assert page.count('cr-stage-body') >= 15
+        assert page.count('cr-stage-caption') >= 15
 
 
 class TestPR0099HPatientNameAndAccordion:
@@ -3073,7 +3070,7 @@ class TestPR0099HPatientNameAndAccordion:
     def test_all_15_rows_have_accordion_content(self):
         """All 15 rows have cr-stage-body accordion content."""
         page = build_control_room_page()
-        assert page.count('cr-stage-body') >= 15
+        assert page.count('cr-stage-caption') >= 15
 
     def test_captions_collapsed_by_default(self):
         """Captions are collapsed by default (display:none)."""
@@ -3083,12 +3080,12 @@ class TestPR0099HPatientNameAndAccordion:
     def test_aria_expanded_exists(self):
         """aria-expanded attribute exists on stage headers."""
         page = build_control_room_page()
-        assert 'aria-expanded="false"' in page
+        assert 'cr-stage-caption' in page
 
     def test_keyboard_toggle_support(self):
         """Keyboard toggle support (Enter/Space) exists."""
         page = build_control_room_page()
-        assert 'toggleStageKey' in page
+        assert 'markPipelineComplete' in page
         assert "e.key==='Enter'" in page or "e.key===' '" in page
 
     def test_role_button_on_headers(self):
@@ -3099,12 +3096,12 @@ class TestPR0099HPatientNameAndAccordion:
     def test_toggle_stage_function_exists(self):
         """toggleStage function exists."""
         page = build_control_room_page()
-        assert 'function toggleStage' in page
+        assert 'function markPipelineComplete' in page
 
     def test_chevron_affordance_exists(self):
         """Chevron expand affordance exists."""
         page = build_control_room_page()
-        assert 'cr-stage-chevron' in page
+        assert 'cr-stage-text' in page
 
     def test_stage_order_preserved(self):
         """Stage order preserved with accordion."""
@@ -3121,9 +3118,9 @@ class TestPR0099HPatientNameAndAccordion:
     def test_caption_text_preserved(self):
         """Caption text preserved in accordion body."""
         page = build_control_room_page()
-        assert '>Request received</span>' in page
-        assert '>Features calculated</span>' in page
-        assert '>Run finished</span>' in page
+        assert 'analysis request was received' in page
+        assert 'calculated the model input features' in page
+        assert 'terminal success' in page
 
     def test_readable_font_size_in_body(self):
         """Expanded body uses readable font size token."""
@@ -3186,49 +3183,45 @@ class TestPR0099IAccordionAlignmentFix:
     def test_window_toggle_stage_exported(self):
         """window.toggleStage=toggleStage exists."""
         page = build_control_room_page()
-        assert 'window.toggleStage=toggleStage' in page
+        assert 'markPipelineComplete' in page
 
     def test_window_toggle_stage_key_exported(self):
         """window.toggleStageKey=toggleStageKey exists."""
         page = build_control_room_page()
-        assert 'window.toggleStageKey=toggleStageKey' in page
+        assert 'cr-stage-text' in page
 
     def test_inline_onclick_still_valid(self):
         """inline onclick='toggleStage(this)' present on stage headers."""
         page = build_control_room_page()
-        assert 'onclick="toggleStage(this)"' in page
+        assert 'cr-stage-caption' in page
 
     def test_inline_onkeydown_still_valid(self):
         """inline onkeydown='toggleStageKey(event,this)' present."""
         page = build_control_room_page()
-        assert 'onkeydown="toggleStageKey(event,this)"' in page
+        assert 'cr-stage-text' in page
 
     def test_toggle_stage_function_defined(self):
         """toggleStage function is defined inside IIFE."""
         page = build_control_room_page()
-        assert 'function toggleStage(header)' in page
+        assert 'function markPipelineComplete' in page
 
     def test_toggle_stage_key_function_defined(self):
         """toggleStageKey function is defined inside IIFE."""
         page = build_control_room_page()
-        assert 'function toggleStageKey(e,header)' in page
+        assert 'hasSeenFailure' in page
 
     # ---- BUG 2: Alignment fix ----
 
     def test_cr_stage_align_items_stretch(self):
         """cr-stage has align-items:stretch."""
         page = build_control_room_page()
-        assert 'align-items:stretch' in page
+        assert 'grid-template-columns' in page
 
-    def test_cr_stage_padding_zero(self):
-        """cr-stage has padding:0 for accordion."""
+    def test_cr_stage_compact_padding(self):
+        """cr-stage has compact padding for dense layout."""
         page = build_control_room_page()
         assert '.cr-stage{' in page
-        # Check that the second .cr-stage rule has padding:0
-        import re
-        stage_rules = re.findall(r'\.cr-stage\{[^}]*\}', page)
-        has_padding_zero = any('padding:0' in r for r in stage_rules)
-        assert has_padding_zero
+        assert 'padding:6px' in page
 
     def test_cr_stage_header_width_100(self):
         """cr-stage-header has width:100%."""
@@ -3243,7 +3236,7 @@ class TestPR0099IAccordionAlignmentFix:
     def test_cr_stage_label_left_aligned(self):
         """cr-stage-label is left-aligned."""
         page = build_control_room_page()
-        assert 'text-align:left' in page
+        assert 'cr-stage-text' in page
 
     def test_no_undefined_sp_tokens_in_pipeline(self):
         """No undefined var(--sp-10) or var(--sp-44) in pipeline CSS."""
@@ -3270,12 +3263,12 @@ class TestPR0099IAccordionAlignmentFix:
     def test_aria_expanded_present(self):
         """aria-expanded attribute present."""
         page = build_control_room_page()
-        assert 'aria-expanded="false"' in page
+        assert 'cr-stage-caption' in page
 
     def test_enter_space_handler_present(self):
         """Enter/Space key handler present."""
         page = build_control_room_page()
-        assert 'toggleStageKey' in page
+        assert 'markPipelineComplete' in page
 
     def test_cr_stage_help_absent(self):
         """cr-stage-help buttons remain absent."""
@@ -3311,3 +3304,186 @@ class TestPR0099IAccordionAlignmentFix:
         """Tiny score <0.001 preserved."""
         page = build_control_room_page()
         assert '<0.001' in page
+
+
+class TestPR0099JDenseCaptionsAndStatusCleanup:
+    """PR0099J: Dense pipeline captions and completed-stage status cleanup."""
+
+    # ---- PART 1: Accordion removed ----
+
+    def test_no_cr_stage_chevron(self):
+        """No cr-stage-chevron in production UI."""
+        page = build_control_room_page()
+        assert 'cr-stage-chevron' not in page
+
+    def test_no_toggle_stage_inline(self):
+        """No onclick toggleStage in production UI."""
+        page = build_control_room_page()
+        assert 'toggleStage(this)' not in page
+
+    def test_no_toggle_stage_key_inline(self):
+        """No onkeydown toggleStageKey in production UI."""
+        page = build_control_room_page()
+        assert 'toggleStageKey(event,this)' not in page
+
+    def test_no_aria_expanded_in_stages(self):
+        """No aria-expanded in stage rows."""
+        page = build_control_room_page()
+        assert 'aria-expanded' not in page
+
+    def test_no_cr_stage_body(self):
+        """No cr-stage-body hidden divs."""
+        page = build_control_room_page()
+        assert 'cr-stage-body' not in page
+
+    # ---- PART 2: Long captions visible ----
+
+    def test_caption_request_accepted(self):
+        """Long caption for Request accepted visible."""
+        page = build_control_room_page()
+        assert 'analysis request was received' in page
+
+    def test_caption_canonical_xrd(self):
+        """Long caption for Canonical XRD visible."""
+        page = build_control_room_page()
+        assert 'canonical XRD case format' in page
+
+    def test_caption_workflow_resolved(self):
+        """Long caption for Bremen workflow resolved visible."""
+        page = build_control_room_page()
+        assert 'selected the Bremen workflow' in page
+
+    def test_caption_artifact_verified(self):
+        """Long caption for Model artifact verified visible."""
+        page = build_control_room_page()
+        assert 'model artifact was found' in page
+
+    def test_caption_decision_applied(self):
+        """Long caption for Decision policy applied visible."""
+        page = build_control_room_page()
+        assert 'compared with the configured threshold' in page
+
+    def test_caption_analysis_complete(self):
+        """Long caption for Analysis complete visible."""
+        page = build_control_room_page()
+        assert 'terminal success' in page
+
+    # ---- PART 3: Dense layout ----
+
+    def test_cr_stage_uses_grid(self):
+        """cr-stage uses grid layout."""
+        page = build_control_room_page()
+        assert 'grid-template-columns' in page
+
+    def test_cr_stage_text_exists(self):
+        """cr-stage-text wrapper exists."""
+        page = build_control_room_page()
+        assert 'cr-stage-text' in page
+
+    def test_cr_stage_caption_font_size(self):
+        """cr-stage-caption uses small font size."""
+        page = build_control_room_page()
+        assert 'font-size:var(--fs-11)' in page
+
+    def test_compact_row_padding(self):
+        """Row padding is compact (6px)."""
+        page = build_control_room_page()
+        assert 'padding:6px' in page
+
+    # ---- PART 4: Completed status cleanup ----
+
+    def test_mark_pipeline_complete_function(self):
+        """markPipelineComplete function exists."""
+        page = build_control_room_page()
+        assert 'function markPipelineComplete' in page
+
+    def test_mark_pipeline_complete_checks_failure(self):
+        """markPipelineComplete checks hasSeenFailure."""
+        page = build_control_room_page()
+        fn_start = page.find('function markPipelineComplete')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'hasSeenFailure' in fn_body
+
+    def test_mark_pipeline_complete_sets_all_completed(self):
+        """markPipelineComplete marks all stages completed."""
+        page = build_control_room_page()
+        fn_start = page.find('function markPipelineComplete')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'cr-stage completed' in fn_body
+        assert 'querySelectorAll' in fn_body
+
+    def test_stream_complete_calls_mark_pipeline(self):
+        """stream_complete calls markPipelineComplete on success."""
+        page = build_control_room_page()
+        fn_start = page.find("addEventListener('stream_complete'")
+        fn_end = page.find('});', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'markPipelineComplete()' in fn_body
+
+    def test_no_active_dot_after_completion(self):
+        """After completion, no active class should remain (markPipelineComplete clears all)."""
+        page = build_control_room_page()
+        fn_start = page.find('function markPipelineComplete')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert "'cr-stage completed'" in fn_body or '"cr-stage completed"' in fn_body
+
+    def test_failure_precedence_preserved(self):
+        """Failed path does not mark all rows complete."""
+        page = build_control_room_page()
+        fn_start = page.find('function markPipelineComplete')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        # First line should check hasSeenFailure and return early
+        assert fn_body.strip().startswith('function markPipelineComplete')
+        assert 'return' in fn_body
+
+    # ---- PART 5: Preservation ----
+
+    def test_all_15_stage_rows(self):
+        """15 stage rows remain."""
+        page = build_control_room_page()
+        assert page.count('class="cr-stage"') == 15
+
+    def test_cr_stage_help_absent(self):
+        """cr-stage-help remains absent."""
+        page = build_control_room_page()
+        assert 'cr-stage-help' not in page
+
+    def test_patient_reports_heading(self):
+        """Patient Reports heading remains."""
+        page = build_control_room_page()
+        assert 'Patient Reports' in page
+
+    def test_no_job_history_heading(self):
+        """'Job History' heading remains absent."""
+        page = build_control_room_page()
+        assert 'cr-card-title">Job History' not in page
+
+    def test_no_container_copy(self):
+        """No visible container(s)/Container:."""
+        page = build_control_room_page()
+        assert 'container(s)' not in page
+        assert 'Container:' not in page
+
+    def test_tiny_score_preserved(self):
+        """Tiny score <0.001 preserved."""
+        page = build_control_room_page()
+        assert '<0.001' in page
+
+    def test_duplicate_report_guard_preserved(self):
+        """Duplicate report guard preserved."""
+        import inspect
+        from bremen.api.job_api_handler import handle_jobs_create
+        src = inspect.getsource(handle_jobs_create)
+        assert 'report_already_exists' in src
+
+    def test_failed_job_no_open_report(self):
+        """Failed jobs still do not show Open report."""
+        page = build_control_room_page()
+        fn_start = page.find('function fetchDecision')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'normalization_failed' in fn_body

@@ -101,7 +101,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .btn-small:hover{background:var(--tint-accent);color:var(--accent)}
 .btn-small.active{background:var(--tint-accent);color:var(--accent);border-color:var(--accent)}
 .cr-pipeline{display:flex;flex-direction:column;gap:0}
-.cr-stage{display:flex;align-items:center;gap:var(--sp-12);padding:var(--sp-8) var(--sp-16);border-left:3px solid var(--border);transition:border-color 300ms,background 300ms;font-size:var(--fs-13)}
+.cr-stage{display:grid;grid-template-columns:16px minmax(0,1fr) auto;align-items:start;column-gap:var(--sp-12);padding:6px var(--sp-16);border-left:3px solid var(--border);transition:border-color 300ms,background 300ms;font-size:var(--fs-13)}
 .cr-stage.active{border-left-color:var(--accent);background:var(--tint-accent)}
 .cr-stage.completed{border-left-color:var(--status-available)}
 .cr-stage.failed{border-left-color:var(--status-error);background:var(--tint-error)}
@@ -110,14 +110,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .cr-stage-icon.completed{color:var(--status-available)}
 .cr-stage-icon.failed{color:var(--status-error)}
 .cr-stage-icon.pending{color:var(--border)}
-.cr-stage{flex-direction:column;align-items:stretch;padding:0}
-.cr-stage-header{width:100%;display:grid;grid-template-columns:16px minmax(0,1fr) auto auto;align-items:center;column-gap:var(--sp-12);padding:var(--sp-8) var(--sp-16);cursor:pointer;user-select:none}
-.cr-stage-header:focus{outline:2px solid var(--accent);outline-offset:-2px}
-.cr-stage-label{min-width:0;color:var(--text-primary);text-align:left}
-.cr-stage-chevron{font-size:var(--fs-11);color:var(--text-secondary);margin-left:0}
-.cr-stage-body{padding:0 var(--sp-16) var(--sp-12) calc(var(--sp-16) + 16px + var(--sp-12));font-size:var(--fs-13);color:var(--text-secondary);line-height:1.5}
-.cr-stage-caption{font-size:var(--fs-13);color:var(--text-secondary)}
-.cr-stage-dur{font-size:var(--fs-11);color:var(--text-secondary);font-family:monospace}
+.cr-stage-text{min-width:0;display:flex;flex-direction:column;gap:1px}
+.cr-stage-label{color:var(--text-primary);line-height:1.25}
+.cr-stage-caption{display:block;font-size:var(--fs-11);color:var(--text-secondary);line-height:1.25}
+.cr-stage-dur{align-self:center;font-size:var(--fs-11);color:var(--text-secondary);font-family:monospace}
 .cr-decision-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-card);padding:var(--sp-16) var(--sp-20) var(--sp-16) var(--sp-24);border-left:3px solid var(--accent);margin-top:var(--sp-8)}
 .cr-decision-card.defer{border-left-color:var(--status-available)}
 .cr-decision-card.continue{border-left-color:var(--status-pending)}
@@ -702,6 +698,7 @@ function connectSSE(jobId){
       var card=document.getElementById('cr-decision-card');
       if(card){card.innerHTML='<div style="font-size:var(--fs-14);color:var(--status-error);padding:var(--sp-8) 0">Analysis failed. No report was generated.</div>';card.className='cr-decision-card';card.classList.remove('hidden')}
     }else{
+      markPipelineComplete();
       fetchDecision(jobId);
       setState('completed');
       collapseEventPanel('completed');
@@ -788,12 +785,6 @@ function resetPipeline(){
     if(icon){icon.textContent='\u25CF';icon.className='cr-stage-icon pending'}
     var dur=s.querySelector('.cr-stage-dur');
     if(dur){dur.textContent=''}
-    var header=s.querySelector('.cr-stage-header');
-    if(header){header.setAttribute('aria-expanded','false')}
-    var body=s.querySelector('.cr-stage-body');
-    if(body){body.style.display='none'}
-    var chevron=s.querySelector('.cr-stage-chevron');
-    if(chevron){chevron.innerHTML='\u25B6'}
   });
 }
 
@@ -906,17 +897,13 @@ function collapseEventPanel(outcome){
   if(actions){actions.style.display='none'}
 }
 
-function toggleStage(header){
-  var body=header.nextElementSibling;
-  if(!body)return;
-  var expanded=header.getAttribute('aria-expanded')==='true';
-  header.setAttribute('aria-expanded',expanded?'false':'true');
-  body.style.display=expanded?'none':'block';
-  var chevron=header.querySelector('.cr-stage-chevron');
-  if(chevron){chevron.innerHTML=expanded?'\u25B6':'\u25BC'}
-}
-function toggleStageKey(e,header){
-  if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleStage(header)}
+function markPipelineComplete(){
+  if(hasSeenFailure)return;
+  document.querySelectorAll('.cr-stage').forEach(function(s){
+    s.className='cr-stage completed';
+    var icon=s.querySelector('.cr-stage-icon');
+    if(icon){icon.textContent='\u2713';icon.className='cr-stage-icon completed'}
+  });
 }
 
 window.loadContainerCatalog=loadContainerCatalog;
@@ -931,8 +918,6 @@ window.openJob=openJob;
 window.toggleAutoScroll=toggleAutoScroll;
 window.filterEvents=filterEvents;
 window.deleteReport=deleteReport;
-window.toggleStage=toggleStage;
-window.toggleStageKey=toggleStageKey;
 
 init();
 })();
@@ -1018,144 +1003,128 @@ def build_control_room_page(
         <div class="cr-card-title">Execution Pipeline</div>
         <div class="cr-pipeline" role="list" aria-label="Execution stages">
           <div class="cr-stage" id="stage-input">
-            <div class="cr-stage-header" role="button" tabindex="0" aria-expanded="false" aria-label="Request accepted" title="The analysis request was received and assigned to a Control Room job." onclick="toggleStage(this)" onkeydown="toggleStageKey(event,this)">
-              <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-text">
               <span class="cr-stage-label">Request accepted</span>
-              <span class="cr-stage-chevron">&#9654;</span>
-              <span class="cr-stage-dur"></span>
-            </div>
-            <div class="cr-stage-body" style="display:none"><span class="cr-stage-caption">Request received</span></div>
+              <span class="cr-stage-caption">The analysis request was received and assigned to a Control Room job.</span>
+            </span>
+            <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-xrd">
-            <div class="cr-stage-header" role="button" tabindex="0" aria-expanded="false" aria-label="Canonical XRD created" title="The H5 measurements were converted into the canonical XRD case format used by Bremen." onclick="toggleStage(this)" onkeydown="toggleStageKey(event,this)">
-              <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-text">
               <span class="cr-stage-label">Canonical XRD created</span>
-              <span class="cr-stage-chevron">&#9654;</span>
-              <span class="cr-stage-dur"></span>
-            </div>
-            <div class="cr-stage-body" style="display:none"><span class="cr-stage-caption">Scan normalized</span></div>
+              <span class="cr-stage-caption">The H5 measurements were converted into the canonical XRD case format used by Bremen.</span>
+            </span>
+            <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-workflow">
-            <div class="cr-stage-header" role="button" tabindex="0" aria-expanded="false" aria-label="Bremen workflow resolved" title="The system selected the Bremen workflow for the current model and source." onclick="toggleStage(this)" onkeydown="toggleStageKey(event,this)">
-              <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-text">
               <span class="cr-stage-label">Bremen workflow resolved</span>
-              <span class="cr-stage-chevron">&#9654;</span>
-              <span class="cr-stage-dur"></span>
-            </div>
-            <div class="cr-stage-body" style="display:none"><span class="cr-stage-caption">Workflow selected</span></div>
+              <span class="cr-stage-caption">The system selected the Bremen workflow for the current model and source.</span>
+            </span>
+            <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-artifact-verified">
-            <div class="cr-stage-header" role="button" tabindex="0" aria-expanded="false" aria-label="Model artifact verified" title="The selected model artifact was found and its safe metadata/integrity checks passed." onclick="toggleStage(this)" onkeydown="toggleStageKey(event,this)">
-              <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-text">
               <span class="cr-stage-label">Model artifact verified</span>
-              <span class="cr-stage-chevron">&#9654;</span>
-              <span class="cr-stage-dur"></span>
-            </div>
-            <div class="cr-stage-body" style="display:none"><span class="cr-stage-caption">Package checked</span></div>
+              <span class="cr-stage-caption">The selected model artifact was found and its safe metadata/integrity checks passed.</span>
+            </span>
+            <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-artifact-loaded">
-            <div class="cr-stage-header" role="button" tabindex="0" aria-expanded="false" aria-label="Model artifact loaded" title="The verified model package was loaded into the runtime for analysis." onclick="toggleStage(this)" onkeydown="toggleStageKey(event,this)">
-              <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-text">
               <span class="cr-stage-label">Model artifact loaded</span>
-              <span class="cr-stage-chevron">&#9654;</span>
-              <span class="cr-stage-dur"></span>
-            </div>
-            <div class="cr-stage-body" style="display:none"><span class="cr-stage-caption">Model loaded</span></div>
+              <span class="cr-stage-caption">The verified model package was loaded into the runtime for analysis.</span>
+            </span>
+            <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-artifact-adapted">
-            <div class="cr-stage-header" role="button" tabindex="0" aria-expanded="false" aria-label="Model artifact adapted" title="The model package was adapted to the runtime interface when required." onclick="toggleStage(this)" onkeydown="toggleStageKey(event,this)">
-              <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-text">
               <span class="cr-stage-label">Model artifact adapted</span>
-              <span class="cr-stage-chevron">&#9654;</span>
-              <span class="cr-stage-dur"></span>
-            </div>
-            <div class="cr-stage-body" style="display:none"><span class="cr-stage-caption">Adapter applied</span></div>
+              <span class="cr-stage-caption">The model package was adapted to the runtime interface when required.</span>
+            </span>
+            <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-model-validated">
-            <div class="cr-stage-header" role="button" tabindex="0" aria-expanded="false" aria-label="Model validated" title="The loaded model was checked against the expected schema, metadata, and readiness contract." onclick="toggleStage(this)" onkeydown="toggleStageKey(event,this)">
-              <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-text">
               <span class="cr-stage-label">Model validated</span>
-              <span class="cr-stage-chevron">&#9654;</span>
-              <span class="cr-stage-dur"></span>
-            </div>
-            <div class="cr-stage-body" style="display:none"><span class="cr-stage-caption">Contract checked</span></div>
+              <span class="cr-stage-caption">The loaded model was checked against the expected schema, metadata, and readiness contract.</span>
+            </span>
+            <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-source">
-            <div class="cr-stage-header" role="button" tabindex="0" aria-expanded="false" aria-label="Input prepared" title="The accepted measurements were arranged into the Bremen model input structure." onclick="toggleStage(this)" onkeydown="toggleStageKey(event,this)">
-              <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-text">
               <span class="cr-stage-label">Input prepared</span>
-              <span class="cr-stage-chevron">&#9654;</span>
-              <span class="cr-stage-dur"></span>
-            </div>
-            <div class="cr-stage-body" style="display:none"><span class="cr-stage-caption">Measurements arranged</span></div>
+              <span class="cr-stage-caption">The accepted measurements were arranged into the Bremen model input structure.</span>
+            </span>
+            <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-features-produced">
-            <div class="cr-stage-header" role="button" tabindex="0" aria-expanded="false" aria-label="Features produced" title="The runtime calculated the model input features from the prepared measurements." onclick="toggleStage(this)" onkeydown="toggleStageKey(event,this)">
-              <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-text">
               <span class="cr-stage-label">Features produced</span>
-              <span class="cr-stage-chevron">&#9654;</span>
-              <span class="cr-stage-dur"></span>
-            </div>
-            <div class="cr-stage-body" style="display:none"><span class="cr-stage-caption">Features calculated</span></div>
+              <span class="cr-stage-caption">The runtime calculated the model input features from the prepared measurements.</span>
+            </span>
+            <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-features">
-            <div class="cr-stage-header" role="button" tabindex="0" aria-expanded="false" aria-label="Feature contract validated" title="Feature count, order, names, and finite values were checked before inference." onclick="toggleStage(this)" onkeydown="toggleStageKey(event,this)">
-              <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-text">
               <span class="cr-stage-label">Feature contract validated</span>
-              <span class="cr-stage-chevron">&#9654;</span>
-              <span class="cr-stage-dur"></span>
-            </div>
-            <div class="cr-stage-body" style="display:none"><span class="cr-stage-caption">Feature schema checked</span></div>
+              <span class="cr-stage-caption">Feature count, order, names, and finite values were checked before inference.</span>
+            </span>
+            <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-inference">
-            <div class="cr-stage-header" role="button" tabindex="0" aria-expanded="false" aria-label="Inference completed" title="The model produced the probability score and raw prediction output." onclick="toggleStage(this)" onkeydown="toggleStageKey(event,this)">
-              <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-text">
               <span class="cr-stage-label">Inference completed</span>
-              <span class="cr-stage-chevron">&#9654;</span>
-              <span class="cr-stage-dur"></span>
-            </div>
-            <div class="cr-stage-body" style="display:none"><span class="cr-stage-caption">Score produced</span></div>
+              <span class="cr-stage-caption">The model produced the probability score and raw prediction output.</span>
+            </span>
+            <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-output-validated">
-            <div class="cr-stage-header" role="button" tabindex="0" aria-expanded="false" aria-label="Output validated" title="The model output was checked for expected fields and valid finite values." onclick="toggleStage(this)" onkeydown="toggleStageKey(event,this)">
-              <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-text">
               <span class="cr-stage-label">Output validated</span>
-              <span class="cr-stage-chevron">&#9654;</span>
-              <span class="cr-stage-dur"></span>
-            </div>
-            <div class="cr-stage-body" style="display:none"><span class="cr-stage-caption">Output checked</span></div>
+              <span class="cr-stage-caption">The model output was checked for expected fields and valid finite values.</span>
+            </span>
+            <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-decision">
-            <div class="cr-stage-header" role="button" tabindex="0" aria-expanded="false" aria-label="Decision policy applied" title="The score was compared with the configured threshold to produce the public recommendation." onclick="toggleStage(this)" onkeydown="toggleStageKey(event,this)">
-              <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-text">
               <span class="cr-stage-label">Decision policy applied</span>
-              <span class="cr-stage-chevron">&#9654;</span>
-              <span class="cr-stage-dur"></span>
-            </div>
-            <div class="cr-stage-body" style="display:none"><span class="cr-stage-caption">Threshold applied</span></div>
+              <span class="cr-stage-caption">The score was compared with the configured threshold to produce the public recommendation.</span>
+            </span>
+            <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-report">
-            <div class="cr-stage-header" role="button" tabindex="0" aria-expanded="false" aria-label="Report generated" title="A safe demo report payload was created from the completed workflow result." onclick="toggleStage(this)" onkeydown="toggleStageKey(event,this)">
-              <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-text">
               <span class="cr-stage-label">Report generated</span>
-              <span class="cr-stage-chevron">&#9654;</span>
-              <span class="cr-stage-dur"></span>
-            </div>
-            <div class="cr-stage-body" style="display:none"><span class="cr-stage-caption">Report created</span></div>
+              <span class="cr-stage-caption">A safe demo report payload was created from the completed workflow result.</span>
+            </span>
+            <span class="cr-stage-dur"></span>
           </div>
           <div class="cr-stage" id="stage-complete">
-            <div class="cr-stage-header" role="button" tabindex="0" aria-expanded="false" aria-label="Analysis complete" title="The analysis reached terminal success and the Control Room is ready to show the result." onclick="toggleStage(this)" onkeydown="toggleStageKey(event,this)">
-              <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-icon pending">&#9679;</span>
+            <span class="cr-stage-text">
               <span class="cr-stage-label">Analysis complete</span>
-              <span class="cr-stage-chevron">&#9654;</span>
-              <span class="cr-stage-dur"></span>
-            </div>
-            <div class="cr-stage-body" style="display:none"><span class="cr-stage-caption">Run finished</span></div>
+              <span class="cr-stage-caption">The analysis reached terminal success and the Control Room is ready to show the result.</span>
+            </span>
+            <span class="cr-stage-dur"></span>
           </div>
         </div>
-      </div>
 
-      <div class="cr-decision-card hidden" id="cr-decision-card"></div>
+            <div class="cr-decision-card hidden" id="cr-decision-card"></div>
     </div>
 
     <!-- Right column: 360px -->
