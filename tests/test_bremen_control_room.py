@@ -3176,3 +3176,138 @@ class TestPR0099HPatientNameAndAccordion:
         from bremen.api.source_registry import get_stable_source_key
         sig = inspect.signature(get_stable_source_key)
         assert 'source_id' in sig.parameters
+
+
+class TestPR0099IAccordionAlignmentFix:
+    """PR0099I: Fix Control Room accordion toggle scope and row alignment."""
+
+    # ---- BUG 1: Window exposure fix ----
+
+    def test_window_toggle_stage_exported(self):
+        """window.toggleStage=toggleStage exists."""
+        page = build_control_room_page()
+        assert 'window.toggleStage=toggleStage' in page
+
+    def test_window_toggle_stage_key_exported(self):
+        """window.toggleStageKey=toggleStageKey exists."""
+        page = build_control_room_page()
+        assert 'window.toggleStageKey=toggleStageKey' in page
+
+    def test_inline_onclick_still_valid(self):
+        """inline onclick='toggleStage(this)' present on stage headers."""
+        page = build_control_room_page()
+        assert 'onclick="toggleStage(this)"' in page
+
+    def test_inline_onkeydown_still_valid(self):
+        """inline onkeydown='toggleStageKey(event,this)' present."""
+        page = build_control_room_page()
+        assert 'onkeydown="toggleStageKey(event,this)"' in page
+
+    def test_toggle_stage_function_defined(self):
+        """toggleStage function is defined inside IIFE."""
+        page = build_control_room_page()
+        assert 'function toggleStage(header)' in page
+
+    def test_toggle_stage_key_function_defined(self):
+        """toggleStageKey function is defined inside IIFE."""
+        page = build_control_room_page()
+        assert 'function toggleStageKey(e,header)' in page
+
+    # ---- BUG 2: Alignment fix ----
+
+    def test_cr_stage_align_items_stretch(self):
+        """cr-stage has align-items:stretch."""
+        page = build_control_room_page()
+        assert 'align-items:stretch' in page
+
+    def test_cr_stage_padding_zero(self):
+        """cr-stage has padding:0 for accordion."""
+        page = build_control_room_page()
+        assert '.cr-stage{' in page
+        # Check that the second .cr-stage rule has padding:0
+        import re
+        stage_rules = re.findall(r'\.cr-stage\{[^}]*\}', page)
+        has_padding_zero = any('padding:0' in r for r in stage_rules)
+        assert has_padding_zero
+
+    def test_cr_stage_header_width_100(self):
+        """cr-stage-header has width:100%."""
+        page = build_control_room_page()
+        assert 'width:100%' in page
+
+    def test_cr_stage_header_uses_grid(self):
+        """cr-stage-header uses grid layout."""
+        page = build_control_room_page()
+        assert 'grid-template-columns' in page
+
+    def test_cr_stage_label_left_aligned(self):
+        """cr-stage-label is left-aligned."""
+        page = build_control_room_page()
+        assert 'text-align:left' in page
+
+    def test_no_undefined_sp_tokens_in_pipeline(self):
+        """No undefined var(--sp-10) or var(--sp-44) in pipeline CSS."""
+        page = build_control_room_page()
+        # Check the pipeline CSS section
+        idx = page.find('.cr-pipeline{')
+        end_idx = page.find('.cr-decision', idx)
+        pipeline_css = page[idx:end_idx] if idx > 0 else ''
+        assert '--sp-10' not in pipeline_css
+        assert '--sp-44' not in pipeline_css
+
+    # ---- Preservation ----
+
+    def test_all_15_stage_rows(self):
+        """All 15 stage rows remain."""
+        page = build_control_room_page()
+        assert page.count('class="cr-stage"') == 15
+
+    def test_accordion_collapsed_by_default(self):
+        """Accordion content collapsed by default."""
+        page = build_control_room_page()
+        assert 'display:none' in page
+
+    def test_aria_expanded_present(self):
+        """aria-expanded attribute present."""
+        page = build_control_room_page()
+        assert 'aria-expanded="false"' in page
+
+    def test_enter_space_handler_present(self):
+        """Enter/Space key handler present."""
+        page = build_control_room_page()
+        assert 'toggleStageKey' in page
+
+    def test_cr_stage_help_absent(self):
+        """cr-stage-help buttons remain absent."""
+        page = build_control_room_page()
+        assert '<button class="cr-stage-help"' not in page
+
+    def test_patient_reports_heading_present(self):
+        """Patient Reports heading remains."""
+        page = build_control_room_page()
+        assert 'Patient Reports' in page
+
+    def test_job_history_heading_absent(self):
+        """'Job History' heading remains absent."""
+        page = build_control_room_page()
+        assert 'cr-card-title">Job History' not in page
+
+    def test_failed_jobs_no_open_report(self):
+        """Failed jobs still do not show Open report."""
+        page = build_control_room_page()
+        fn_start = page.find('function fetchDecision')
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'normalization_failed' in fn_body
+
+    def test_duplicate_report_guard_preserved(self):
+        """Duplicate report guard preserved."""
+        import inspect
+        from bremen.api.job_api_handler import handle_jobs_create
+        src = inspect.getsource(handle_jobs_create)
+        assert 'report_already_exists' in src
+
+    def test_tiny_score_preserved(self):
+        """Tiny score <0.001 preserved."""
+        page = build_control_room_page()
+        assert '<0.001' in page
