@@ -37,3 +37,7 @@ container @ git+https://github.com/Eos-Dx/container.git@v0.3.0
 
 # S3 model artifact download (PR 0040)
 boto3>=1.35
+
+# Auth dependencies (PR0102)
+PyJWT>=2.0
+argon2-cffi>=21.0
