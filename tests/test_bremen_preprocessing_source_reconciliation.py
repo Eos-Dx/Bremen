@@ -428,16 +428,23 @@ class TestNoRuntimeTraining:
 
 
 # ===================================================================
-# Class O: TestNoFastAPI
+# Class O: TestFastAPIMentioned
 # ===================================================================
 
 
-class TestNoFastAPI:
-    def test_no_fastapi(self):
-        """Recon doc states FastAPI remains deferred."""
+class TestFastAPIMentioned:
+    def test_fastapi_mentioned_in_recon_doc(self):
+        """Recon doc mentions FastAPI with deferred or Phase 1 foundation status."""
         content = _read_recon().lower()
         assert "fastapi" in content, (
             "Recon doc must mention FastAPI"
+        )
+        has_foundation = any(term in content for term in [
+            "deferred", "no fastapi", "phase 1", "foundation",
+            "isolated", "migration",
+        ])
+        assert has_foundation, (
+            "Recon doc must state FastAPI is deferred or describe Phase 1 foundation"
         )
 
 

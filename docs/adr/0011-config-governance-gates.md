@@ -115,15 +115,14 @@ Implemented in `tests/test_bremen_config_governance.py`:
 13. Model source/API leakage remains safe (raw URI/checksum are bools in
     API response, not raw strings).
 14. PR0052 Matador integration is not implemented by PR0051.
-15. FastAPI remains deferred.
+15. FastAPI Phase 1 foundation started on dev (PR0104A) as an isolated side-by-side transport path. Production http.server demo path unchanged.
 16. DynamoDB/backend is mentioned only as deferred, never imported/used.
 
 ---
 
 ## Boundaries and Non-Goals
 
-- **No FastAPI.** PR0051 does not add FastAPI, uvicorn, starlette, or any
-  web framework. FastAPI remains a later thin transport adapter (deferred).
+- **FastAPI Phase 1 foundation.** PR0104A adds an isolated FastAPI app factory (`create_fastapi_app`) with `GET /health` and `GET /model/version` routes on dev. Production `http.server` path, Dockerfile target/ENTRYPOINT/CMD remain unchanged. Catalog, POST, SSE, and event-streaming routes are not migrated in Phase 1.
 - **No Matador integration.** PR0052 (now completed) introduced the Matador
   boundary scaffold. PR0051 defers Matador integration to that PR — real
   integration remains future work.
@@ -153,7 +152,7 @@ Implemented in `tests/test_bremen_config_governance.py`:
    files.
 5. No new dependencies added — all gates use existing `pytest` + standard
    library.
-6. Matador and FastAPI remain explicitly out of scope, preventing scope
+6. Matador remains explicitly out of scope, preventing scope
    creep.
 
 ### Negative

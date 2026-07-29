@@ -290,15 +290,19 @@ class TestMatadorFutureWork:
 # ===================================================================
 
 
-class TestFastAPIDeferred:
-    def test_fastapi_deferred(self):
-        """Boundary spec states FastAPI is deferred."""
+class TestFastAPIFoundationOrDeferred:
+    def test_fastapi_mentioned_in_boundary_spec(self):
+        """Boundary spec mentions FastAPI with foundation or migration status."""
         content = _read_spec().lower()
         assert "fastapi" in content, (
             "Spec must mention FastAPI"
         )
-        assert "deferred" in content or "no fastapi" in content, (
-            "Spec must state FastAPI is deferred"
+        has_foundation = any(term in content for term in [
+            "deferred", "no fastapi", "phase 1", "foundation",
+            "isolated", "migration",
+        ])
+        assert has_foundation, (
+            "Spec must state FastAPI is deferred or describe Phase 1 foundation"
         )
 
 

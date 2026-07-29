@@ -1,0 +1,72 @@
+status: valid
+head: 30cc65017c0abc0a149214ff4319a7d14b1e24dd
+branch: "0104a-fastapi-phase1-foundation"
+base_branch: dev
+pr_target: dev
+blockers: []
+warnings:
+  - "Starlette TestClient deprecation: 'install httpx2 instead' — future concern, not Phase 1 blocker."
+changed_files:
+  - src/bremen/api/fastapi_app.py
+  - tests/test_bremen_fastapi_phase1.py
+  - pyproject.toml
+  - requirements.txt
+  - tests/test_bremen_api_server.py
+  - tests/test_bremen_config_governance.py
+  - tests/test_bremen_converter_preprocessing_boundary.py
+  - tests/test_bremen_preprocessing_source_reconciliation.py
+  - tests/test_bremen_product_input_pipeline_contract.py
+  - docs/adr/0011-config-governance-gates.md
+  - docs/adr/0012-system-of-record-boundary.md
+  - docs/converter_preprocessing_boundary.md
+  - docs/feature_artifact_ingestion_boundary.md
+  - docs/feature_artifact_prediction_flow.md
+  - docs/preprocessing_source_reconciliation.md
+  - docs/product_input_pipeline_contract.md
+  - docs/release_readiness_operator_notes.md
+  - docs/repository_cleanup.md
+working_tree_state: "dirty — 18 modified files + 2 new files (fastapi_app.py, test_bremen_fastapi_phase1.py)"
+fastapi_foundation: "src/bremen/api/fastapi_app.py — create_fastapi_app(version=None) factory. Returns FastAPI app with title 'Bremen API (FastAPI Phase 1)'. OpenAPI/docs disabled. Global exception handler prevents raw trace leaks. Isolated from production http.server."
+routes_implemented: "GET /health — status, service, version, timestamp, model_ready. GET /model/version — model_configured, model_version, model_checksum, feature_schema_version, threshold_version, threshold_value, qc_criteria_version, model_status. Both routes reuse existing business logic."
+business_logic_reused_or_extracted: "Health route reuses bremen.api.app.handle_health(). Model version route reuses bremen.api.app.handle_model_version(). Response shapes match HealthResponse and ModelVersionResponse from bremen.api.schemas. Multi-model business logic tests (8 tests) test directly without server."
+coexistence_strategy: "FastAPI app exists isolated alongside production http.server. Production http.server routes untouched. No production traffic routed to FastAPI. FastAPI app used only via TestClient in tests."
+governance_updated: "Changed from 'FastAPI is deferred' to 'FastAPI Phase 1 foundation started on dev as an isolated side-by-side transport path'. All governance docs (ADR-0011, ADR-0012, converter boundary, product pipeline contract, preprocessing recon, feature artifact prediction flow, feature artifact ingestion boundary, release readiness operator notes, repository cleanup) updated."
+server_spawning_tests_removed_or_replaced: "5 obsolete server-spawning tests removed from test_bremen_api_server.py. Safety assertions covered by FastAPI TestClient tests and/or direct business-logic tests. Server tests went from 104 to 99."
+production_dockerfile_unchanged: "ENTRYPOINT [\"python\", \"-m\", \"bremen\"], CMD [\"serve\", \"--host\", \"0.0.0.0\", \"--port\", \"8080\"] — verified unchanged."
+production_entrypoint_unchanged: "python -m bremen serve — unchanged."
+dependencies_added: "fastapi>=0.110 and uvicorn>=0.27 added to pyproject.toml and requirements.txt. httpx>=0.27 added to pyproject.toml dev dependencies and requirements.txt. Consistent across both files."
+main_protected: "PR targets dev. No main branch targeting. No main branch changes."
+phase2_not_implemented: "No GET /demo/api/models, GET /demo/api/h5/containers, POST routes, SSE/event streaming, Pydantic request contracts, or auth redesign in FastAPI app."
+post_sse_not_implemented: "No POST routes, no SSE/event-streaming, no UploadFile, no Pydantic models in FastAPI Phase 1."
+auth_unchanged: "No auth changes. Backend auth.py, config.py, and server.py auth endpoints unchanged."
+safety_boundary: "Production http.server path protected. Production Dockerfile ENTRYPOINT/CMD unchanged. Catalog/POST/SSE migration blocked in Phase 1. Old FastAPI-deferred governance updated to Phase 1 foundation allowed."
+tests:
+  fastapi_phase1: "27 passed in test_bremen_fastapi_phase1.py"
+  config_governance: "43 passed in test_bremen_config_governance.py"
+  api_server: "99 passed in test_bremen_api_server.py (was 104)"
+  focused: "226 passed (fastapi/health/model_version/governance/deferred/boundary)"
+  full_suite: "2871 passed, 11 skipped, 0 failed"
+  compileall: "PASS"
+  git_diff_check: "clean"
+validation:
+  fastapi_foundation_exists: true
+  create_fastapi_app_factory: true
+  health_route_exists: true
+  model_version_route_exists: true
+  business_logic_reused: true
+  production_http_server_unchanged: true
+  production_dockerfile_unchanged: true
+  production_entrypoint_unchanged: true
+  no_catalog_routes: true
+  no_post_routes: true
+  no_sse_routes: true
+  no_pydantic_models: true
+  governance_updated: true
+  server_spawning_tests_removed: true
+  safety_assertions_preserved: true
+  dependencies_consistent: true
+functional_verification_limitation: "Source review cannot confirm deployed FastAPI behavior. A local or staging deployment from dev must verify that the isolated FastAPI app serves /health and /model/version without changing the production http.server demo path."
+security: "Global exception handler prevents raw trace leaks. No credentials, tokens, secrets, raw exceptions, stack traces, feature values, model coefficients, S3 URIs, bucket names, filesystem paths, H5 internals, or private data in public output. Response shapes match existing schemas."
+scope_control: "New files: fastapi_app.py, test_bremen_fastapi_phase1.py. Modified: pyproject.toml, requirements.txt, 5 test files, 8 docs files. No Dockerfile, infra/, .github/, training, or model files changed."
+implementation_report: "Matches actual file changes. 27 new FastAPI Phase 1 tests. 5 obsolete server-spawning tests removed. 4 governance test classes updated. 8 docs files updated."
+commit_readiness: "Implementation is complete and all tests pass. Requires staging and committing the 20 files before merge to dev."

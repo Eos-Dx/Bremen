@@ -351,7 +351,7 @@ service.
 13. No pyFAI/fabio dependency addition.
 14. No upstream code vendoring.
 15. No Matador integration.
-16. No FastAPI, uvicorn, starlette, or ASGI.
+16. FastAPI Phase 1 foundation is allowed in the isolated module (PR0104A) on dev only. Production http.server path unchanged. No catalog, POST, SSE routes in Phase 1.
 17. No runtime training.
 18. No model training implementation.
 19. No new model.

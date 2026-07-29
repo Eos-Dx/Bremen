@@ -73,7 +73,7 @@ contract intended for productization.
    Long-term source-of-record ownership remains with Matador
    (ADR-0012). This contract does not change that.
 
-5. **FastAPI remains deferred.** No FastAPI, uvicorn, starlette, or
+5. **FastAPI Phase 1 foundation started.** PR0104A adds an isolated FastAPI app factory on dev. Production http.server path unchanged. No catalog, POST, SSE migration.
    ASGI framework is introduced.
 
 ---
@@ -439,7 +439,7 @@ contain:
 4. No GeoFrame parser.
 5. No runtime request schema change (`POST /predictions` is unchanged).
 6. No Matador system-of-record integration.
-7. No FastAPI, uvicorn, starlette, or ASGI.
+7. FastAPI Phase 1 foundation is allowed in the isolated module (PR0104A) on dev only. Production http.server path unchanged. No catalog, POST, SSE routes in Phase 1.
 8. No runtime training.
 9. No model training implementation.
 10. No new model.

@@ -108,7 +108,7 @@ These files document the original Aramis dataset and product metadata. They are 
 - No H5 reader behavior changes
 - No joblib/model behavior changes
 - No training logic changes
-- No API/FastAPI implementation
+- FastAPI Phase 1 foundation only (isolated GET /health and GET /model/version routes on dev; production http.server unchanged)
 - No Docker/CI work
 - No dependency changes
 - No H5/HDF5 file modifications
