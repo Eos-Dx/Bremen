@@ -858,87 +858,70 @@ def _handle_demo_h5_containers_list(
     handler.wfile.write(body)
 
 
-def _handle_demo_h5_containers_upload(
-    handler: BaseHTTPRequestHandler,
-) -> None:
-    """Handle POST /demo/api/h5/containers — upload an H5 container."""
-    import json as _json  # noqa: PLC0415
+def _handle_h5_upload_bytes(
+    raw_body: bytes,
+    raw_filename: str,
+    request_id: str,
+) -> tuple[int, dict]:
+    """Validate and upload H5 bytes to S3. Transport-independent.
 
-    request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())
+    Parameters
+    ----------
+    raw_body : Raw file bytes.
+    raw_filename : Original filename from the client.
+    request_id : Request ID for the response.
+
+    Returns
+    -------
+    A tuple of (http_status_code, response_dict).
+    All validation errors return safe public messages only.
+    """
     config = read_demo_h5_config()
 
     # ---- Input validation (before storage check) ----
 
     # Validate content length
-    content_length = int(handler.headers.get("Content-Length", 0))
+    content_length = len(raw_body)
     if content_length == 0:
-        body = _json.dumps({
+        return 400, {
             "status": "upload_rejected",
             "error": "Empty body",
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(400)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-        return
+        }
 
     if content_length > config["upload_max_bytes"]:
-        body = _json.dumps({
+        return 413, {
             "status": "upload_rejected",
             "error": f"File too large: {content_length} bytes "
                      f"(max {config['upload_max_bytes']})",
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(413)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-        return
+        }
 
-    # Validate filename from header
-    raw_filename = handler.headers.get("X-H5-Filename", "").strip()
+    # Validate filename
+    raw_filename = raw_filename.strip()
     if not raw_filename:
-        body = _json.dumps({
+        return 400, {
             "status": "upload_rejected",
             "error": "Missing X-H5-Filename header",
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(400)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-        return
+        }
 
     # Sanitize filename — reject path separators
     if "/" in raw_filename or "\\" in raw_filename or ".." in raw_filename:
-        body = _json.dumps({
+        return 400, {
             "status": "upload_rejected",
             "error": "Invalid filename — path separators not allowed",
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(400)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-        return
+        }
 
     # Validate extension
     name_lower = raw_filename.lower()
     if not (name_lower.endswith(".h5") or name_lower.endswith(".hdf5")):
-        body = _json.dumps({
+        return 400, {
             "status": "upload_rejected",
             "error": (
                 f"Invalid file extension: {raw_filename!r}. "
@@ -946,46 +929,25 @@ def _handle_demo_h5_containers_upload(
             ),
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(400)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-        return
+        }
 
     # ---- Storage checks (after input is validated) ----
 
     # Check upload enabled
     if not config["allow_upload"]:
-        body = _json.dumps({
+        return 403, {
             "status": "upload_disabled",
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(403)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-        return
+        }
 
     # Check storage configured
     if config["h5_bucket"] is None:
-        body = _json.dumps({
+        return 503, {
             "status": "storage_not_configured",
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(503)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-        return
+        }
 
     # Sanitize filename (keep only safe characters)
     sanitized = "".join(
@@ -997,9 +959,6 @@ def _handle_demo_h5_containers_upload(
     # Ensure .h5 extension
     if not sanitized.lower().endswith(".h5"):
         sanitized += ".h5"
-
-    # Read raw bytes from request body
-    raw_body = handler.rfile.read(content_length)
 
     # Upload to S3
     try:
@@ -1013,35 +972,49 @@ def _handle_demo_h5_containers_upload(
             Body=raw_body,
         )
 
-        body = _json.dumps({
+        return 201, {
             "status": "uploaded",
             "id": key,
             "filename": sanitized,
             "size_bytes": content_length,
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(201)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
+        }
     except Exception as exc:
-        body = _json.dumps({
+        return 503, {
             "status": "upload_rejected",
             "error": f"S3 upload failed: {type(exc).__name__}",
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(503)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
+        }
 
 
+def _handle_demo_h5_containers_upload(
+    handler: BaseHTTPRequestHandler,
+) -> None:
+    """Handle POST /demo/api/h5/containers — upload an H5 container.
+
+    Delegates to :func:`_handle_h5_upload_bytes` for validation and
+    upload logic.
+    """
+    import json as _json  # noqa: PLC0415
+
+    request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())
+    raw_filename = handler.headers.get("X-H5-Filename", "")
+    content_length = int(handler.headers.get("Content-Length", 0))
+    raw_body = handler.rfile.read(content_length)
+
+    status_code, data = _handle_h5_upload_bytes(
+        raw_body, raw_filename, request_id,
+    )
+
+    body = _json.dumps(data, ensure_ascii=False).encode("utf-8")
+    handler.send_response(status_code)
+    handler.send_header("Content-Type", "application/json")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("X-Request-ID", request_id)
+    handler.end_headers()
+    handler.wfile.write(body)
 def _safe_error_detail(exc: Exception) -> str:
     """Map an internal exception to a safe public error detail.
 

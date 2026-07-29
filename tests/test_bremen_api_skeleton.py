@@ -1048,6 +1048,9 @@ class TestImportSafety:
                                        # constructs S3 URIs for staging.
                                        # Extension check strings are format-validation
                                        # constants, not scientific H5 logic.
+                "fastapi_app.py",  # PR0104: FastAPI Phase 3 upload route —
+                                  # validates H5 extension in upload handler;
+                                  # references are format-validation, not H5 I/O.
             ):
                 continue  # H5-related modules (PR 0037, PR 0044, PR 0045, PR0067,
                           # PR0076, PR0082a)
