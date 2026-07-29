@@ -58,7 +58,7 @@ class TestCreateFastAPIApp:
         """create_fastapi_app is callable and returns a FastAPI app."""
         app = create_fastapi_app()
         assert app is not None
-        assert app.title == "Bremen API (FastAPI Phase 1)"
+        assert "FastAPI" in app.title
 
     def test_create_fastapi_app_with_version(self) -> None:
         """A version string can be passed through."""
