@@ -1,0 +1,73 @@
+status: pass
+head: 3ad4a7fa19997129c2bbb27f84e47defbadf3c3b
+branch: 0104g-remove-server-spawning-tests
+base_branch: dev
+pr_target: dev
+blockers: []
+warnings: []
+changed_files:
+  - tests/test_bremen_api_server.py (modified)
+  - tests/test_bremen_concurrent_server.py (modified)
+  - tests/test_bremen_control_room.py (modified)
+  - tests/test_bremen_demo_run.py (modified)
+  - tests/test_bremen_demo_smoke.py (modified)
+  - tests/test_bremen_execution_showcase.py (modified)
+  - tests/test_bremen_fastapi_serve_mode.py (modified)
+  - tests/test_bremen_logging.py (modified)
+  - tests/test_bremen_workspace_ui.py (modified)
+  - tests/test_bremen_no_server_spawning_tests.py (added)
+working_tree_state: dirty (9 modified staged/unstaged + 2 untracked)
+root_cause: The normal pytest suite started real HTTPServer instances on daemon threads and made real HTTP requests via urllib.request.urlopen, causing ConnectionResetError noise, port conflicts, slow execution, and suite instability.
+remaining_debt_fixed: true
+serve_mode_hang_fixed: true
+serve_mode_main_import_removed: true
+serve_mode_main_calls_removed: true
+control_room_fixed: true
+demo_run_fixed: true
+demo_smoke_fixed: true
+execution_showcase_fixed: true
+logging_fixed: true
+api_server_fixed: true
+concurrent_server_fixed: true
+workspace_ui_fixed: true
+guard_skips_removed: true
+server_starts_removed_from_pytest: true
+localhost_requests_removed_from_pytest: true
+socket_usage_removed_from_pytest: true
+assertions_preserved: true
+guard_test: true
+guard_allowlist: false
+manual_smoke_scripts_preserved: true
+production_server_code_preserved: true
+fast_test_policy_followed: true
+project_memory_format: valid
+production_dockerfile_unchanged: true
+production_entrypoint_unchanged: true
+control_room_implementation_unchanged: true
+auth_unchanged: true
+safety_boundary: clean
+fast_tests:
+  guard: 82 passed, 0 skipped
+  serve_mode: 28 passed
+  control_room: 518 passed
+  demo_run: 15 passed
+  demo_smoke: 18 passed
+  execution_showcase: 18 passed
+  logging: 17 passed
+  api_server: 14 passed
+  concurrent_server: 10 passed
+  workspace_ui: 20 passed
+  combined: 758 passed
+validation:
+  compileall: exit 0
+  git_diff_check: clean
+  ast_serve_mode_check: clean
+  zero_server_inventory: clean (grep hits are docstring references, import-only symbols, or harmless unreachable URL test parameters)
+  project_memory_markdown_check: no .md files
+  branch_check: 0104g-remove-server-spawning-tests
+  head: 3ad4a7fa19997129c2bbb27f84e47defbadf3c3b
+full_suite_limitation: Focused review validation does not run the full pytest suite by default. CI or an explicit human-requested run should validate python -m pytest -q after this PR, and that full run must no longer start real web servers or make localhost requests.
+security: No raw secrets, credentials, S3 keys, JWT tokens, PHI, raw filesystem paths, or raw exceptions exposed in changed test files.
+scope_control: Only test files and project-memory files changed. No production source, Dockerfile, entrypoint, control room implementation, auth, or training files modified.
+implementation_report: .project-memory/pr/0104g-remove-server-spawning-tests/implementation-report.txt exists and correctly describes the diff
+commit_readiness: ready

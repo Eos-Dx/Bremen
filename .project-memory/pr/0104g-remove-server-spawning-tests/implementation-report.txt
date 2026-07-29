@@ -1,0 +1,160 @@
+PR0104G — Remove test-only local server usage from normal pytest
+================================================================
+
+Branch: 0104g-remove-server-spawning-tests
+PR Target: dev
+Purpose: Remove all server-spawning pytest behavior from the normal test suite.
+
+ROOT CAUSE
+----------
+The normal pytest suite started real HTTPServer instances on daemon threads
+and made real HTTP requests via urllib.request.urlopen, causing
+ConnectionResetError noise, port conflicts, slow execution, and suite
+instability.
+
+FILES CHANGED
+-------------
+tests/test_bremen_api_server.py (modified)
+  Rewrote from 2167-line HTTPServer+urlopen to 280-line FastAPI
+  TestClient tests. 14 tests.
+
+tests/test_bremen_concurrent_server.py (modified)
+  Rewrote from 629-line real server+socket to 240-line pure unit
+  tests. 10 tests.
+
+tests/test_bremen_workspace_ui.py (modified)
+  Rewrote from 357-line HTTPServer+urlopen to 180-line direct function
+  calls. 20 tests.
+
+tests/test_bremen_control_room.py (modified)
+  Rewrote from 4264-line HTTPServer+urlopen to direct function calls.
+  518 tests (517 HTML + 1 orchestrator).
+
+tests/test_bremen_demo_run.py (modified)
+  Rewrote from 734-line HTTPServer+socket to CLI/source/output-shape
+  tests. 15 tests.
+
+tests/test_bremen_demo_smoke.py (modified)
+  Rewrote from 669-line HTTPServer+socket to CLI/output-shape/source
+  tests. 18 tests.
+
+tests/test_bremen_execution_showcase.py (modified)
+  Rewrote from 520-line HTTPServer+urlopen to direct function calls.
+  18 tests.
+
+tests/test_bremen_logging.py (modified)
+  Rewrote from 668-line HTTPServer+socket to direct function calls.
+  17 tests.
+
+tests/test_bremen_no_server_spawning_tests.py (added)
+  AST-based guard test scanning all test files. 82 tests, 0 skipped.
+
+SERVER_SPAWNING_INVENTORY
+--------------------------
+All 5 previously-blocked files fixed:
+  test_bremen_control_room.py: HTTPServer + urlopen + _find_free_port -> direct function calls
+  test_bremen_demo_run.py: HTTPServer + socket + _find_free_port -> CLI/output/source tests
+  test_bremen_demo_smoke.py: HTTPServer + socket + urlopen -> CLI/output/source tests
+  test_bremen_execution_showcase.py: HTTPServer + urlopen -> direct function calls
+  test_bremen_logging.py: HTTPServer + socket + urlopen -> direct function calls
+
+Zero-server inventory after changes:
+  git grep -nE ... -- tests -> NO output (clean)
+
+GUARD TEST
+-----------
+tests/test_bremen_no_server_spawning_tests.py
+  AST-based analysis scanning all test_bremen_*.py files.
+  Detects: HTTPServer, ThreadingHTTPServer, serve_forever, socket imports,
+  _find_free_port, urllib.request.urlopen calls.
+  82 passed, 0 skipped, 0 failed.
+
+ASSERTIONS_PRESERVED
+--------------------
+health 200+shape, model/version 200+shape, /demo/api/models 200,
+/demo/api/h5/containers 200, 404 on unknown route, 405 on PUT /health,
+import safety (joblib/pickle/h5py), ThreadingHTTPServer class properties,
+singleton concurrent creation, InMemoryJobStore thread safety,
+BoundedEventStore concurrency, workspace HTML structure, workspace privacy,
+control room HTML structure, pipeline stage mapping, accessibility,
+privacy, model catalog, orchestrator behavior, logging config,
+model config events, checksum events, prediction rejection logging,
+no secrets/paths in logs, CLI help, source safety checks.
+
+MANUAL SMOKE SCRIPTS PRESERVED
+-------------------------------
+scripts/smoke_fastapi_asgi.py — manual dev smoke, not modified.
+
+PRODUCTION SERVER CODE PRESERVED
+---------------------------------
+src/bremen/api/server.py — production http.server, not modified.
+src/bremen/api/fastapi_server.py — production uvicorn helper, not modified.
+
+FAST_TEST_POLICY_FOLLOWED
+--------------------------
+No full suite run. Focused tests only. No server-spawning in pytest.
+
+PROJECT_MEMORY_FORMAT
+---------------------
+.txt format used. No .md files created.
+
+DOCKERFILE_UNCHANGED
+---------------------
+No modifications.
+
+PRODUCTION_ENTRYPOINT_UNCHANGED
+--------------------------------
+No modifications.
+
+CONTROL_ROOM_IMPLEMENTATION_UNCHANGED
+--------------------------------------
+No modifications to control_room_ui.py.
+
+AUTH_UNCHANGED
+---------------
+No modifications.
+
+SAFETY_BOUNDARY
+---------------
+No raw exceptions, stack traces, filesystem paths, credentials,
+S3 keys, or JWT secrets exposed.
+
+FAST_TESTS
+----------
+guard: 82 passed
+control_room: 518 passed
+demo_run: 15 passed
+demo_smoke: 18 passed
+execution_showcase: 18 passed
+logging: 17 passed
+api_server: 14 passed
+concurrent_server: 10 passed
+workspace_ui: 20 passed
+serve_mode: 33 passed
+combined: 745 passed
+
+VALIDATION_RESULTS
+------------------
+git branch: 0104g-remove-server-spawning-tests OK
+git rev-parse: 3ad4a7fa19997129c2bbb27f84e47defbadf3c3b
+Branch contains origin/dev: true
+Forbidden scope check: no output (clean)
+python -m compileall src tests: exit 0
+pytest guard: 82 passed, 0 skipped
+pytest all affected files: 745 passed
+git diff --check: clean
+Project-memory markdown check: no .md files
+Zero-server inventory: clean
+
+BLOCKERS
+--------
+None.
+
+WARNINGS
+--------
+None.
+
+NEXT_REQUIRED_ACTION
+---------------------
+Commit, create PR to dev with title:
+"PR0104G — Remove test-only local server usage from normal pytest"

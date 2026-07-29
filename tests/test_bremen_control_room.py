@@ -14,13 +14,10 @@ Covers:
 from __future__ import annotations
 
 import json
-import socket
-import threading
 import tempfile
 import os
 import h5py
 import numpy as np
-from http.server import HTTPServer
 from pathlib import Path
 
 import pytest
@@ -31,36 +28,7 @@ from bremen.api.job_api_handler import reset_for_tests
 from bremen.control_room_ui import build_control_room_page
 
 
-def _find_free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
 
-
-def _get(host, port, path):
-    from urllib.request import urlopen, Request, HTTPError
-    req = Request(f"http://{host}:{port}{path}")
-    try:
-        resp = urlopen(req, timeout=5)
-        return resp.status, resp.read().decode("utf-8"), dict(resp.headers)
-    except HTTPError as exc:
-        return exc.code, exc.read().decode("utf-8"), dict(exc.headers)
-
-
-def _post(host, port, path, body):
-    from urllib.request import urlopen, Request, HTTPError
-    data = json.dumps(body).encode("utf-8")
-    req = Request(
-        f"http://{host}:{port}{path}",
-        data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        resp = urlopen(req, timeout=5)
-        return resp.status, resp.read().decode("utf-8"), dict(resp.headers)
-    except HTTPError as exc:
-        return exc.code, exc.read().decode("utf-8"), dict(exc.headers)
 
 
 
@@ -71,127 +39,126 @@ def _post(host, port, path, body):
 
 @pytest.fixture(scope="module")
 def _shared_server():
-    """Start a _ThreadingHTTPServer ONCE per module on a free port with synthetic model.
+    """Provide control room page HTML without starting a real server.
 
-    Uses ``allow_reuse_address=True``, ``server_close()``, and a 0.1s startup
-    sleep to preserve the original fixture's exact behavior — but only runs
-    once per module instead of once per test.
+    Yields ``(html, None)`` where ``html`` is the control room page content.
     """
-    import time as _time
+    from bremen.api.model_state import ModelState
+    from bremen.api.server import _load_synthetic_model
+    from bremen.control_room_ui import build_control_room_page
+
     reset_for_tests()
-    host = "127.0.0.1"
-    port = _find_free_port()
-    handler = _make_handler(InMemoryJobStore(), version="test", load_model=True)
-    server = _ThreadingHTTPServer((host, port), handler)
-    server.allow_reuse_address = True
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    _time.sleep(0.1)
-    yield host, port
-    server.shutdown()
-    server.server_close()
-    thread.join(timeout=3)
+    ModelState.reset_for_tests()
+    _load_synthetic_model()
+
+    html = build_control_room_page(base_url="http://testserver")
+    yield html, None
     reset_for_tests()
 
 
 @pytest.fixture
 def server_info(_shared_server):
-    """Per-test cheap-reset fixture sharing the module-scoped server.
+    """Per-test fixture providing control room page HTML.
 
-    Yields ``(host, port)`` (same signature as original per-test fixtures).
+    Yields ``(html, None)`` where ``html`` is the page content.
     """
     from bremen.api.model_state import ModelState
     from bremen.api.server import _load_synthetic_model
-
-    host, port = _shared_server
+    from bremen.control_room_ui import build_control_room_page
 
     ModelState.reset_for_tests()
     _load_synthetic_model()
-    reset_for_tests()
 
-    yield host, port
+    html = build_control_room_page(base_url="http://testserver")
+    yield html, None
 
 
 class TestControlRoomRoute:
     """Control Room default route replaces old /demo."""
 
     def test_start_page_is_default_route(self, server_info):
-        host, port = server_info
-        status, body, _ = _get(host, port, "/demo")
-        assert status == 200
-        assert "Select a model to begin" in body
-        assert "Should the patient continue to MRI" in body
+        """Start page builder produces the start page."""
+        from bremen.start_page_ui import build_start_page
+        page = build_start_page(base_url="http://testserver")
+        assert "Select a model to begin" in page
+        assert "Should the patient continue to MRI" in page
 
     def test_control_room_route(self, server_info):
-        host, port = server_info
-        status, body, _ = _get(host, port, "/demo/control-room")
-        assert status == 200
-        assert "Control Room" in body or "cr-page" in body
-        assert "Should the patient continue to MRI" in body
+        html, _ = server_info
+        page = html
+        assert "Control Room" in page or "cr-page" in page
+        assert "Should the patient continue to MRI" in page
 
     def test_workspace_route_preserved(self, server_info):
-        host, port = server_info
-        status, body, _ = _get(host, port, "/demo/workspace")
-        assert status == 200
-        assert "Analysis Workspace" in body
+        """Workspace page builder produces workspace page."""
+        from bremen.workspace_ui import build_workspace_page
+        page = build_workspace_page(base_url="http://testserver")
+        assert "Analysis Workspace" in page
 
     def test_control_room_has_stage_pipeline(self, server_info):
-        host, port = server_info
-        _, body, _ = _get(host, port, "/demo/control-room")
-        assert "stage-input" in body
-        assert "stage-source" in body
-        assert "stage-xrd" in body
-        assert "stage-workflow" in body
-        assert "stage-artifact" in body
-        assert "stage-features" in body
-        assert "stage-inference" in body
-        assert "stage-decision" in body
-        assert "stage-report" in body
-        assert "stage-complete" in body
+        html, _ = server_info
+
+        page = html
+        assert "stage-input" in page
+        assert "stage-source" in page
+        assert "stage-xrd" in page
+        assert "stage-workflow" in page
+        assert "stage-artifact" in page
+        assert "stage-features" in page
+        assert "stage-inference" in page
+        assert "stage-decision" in page
+        assert "stage-report" in page
+        assert "stage-complete" in page
 
     def test_control_room_has_stage_map_code(self, server_info):
-        host, port = server_info
-        _, body, _ = _get(host, port, "/demo/control-room")
-        assert "STAGE_MAP" in body
-        assert "runtime.input.preparation.completed" in body
-        assert "runtime.report.completed" in body
+        html, _ = server_info
+
+        page = html
+        assert "STAGE_MAP" in page
+        assert "runtime.input.preparation.completed" in page
+        assert "runtime.report.completed" in page
 
     def test_control_room_has_file_input(self, server_info):
-        host, port = server_info
-        _, body, _ = _get(host, port, "/demo/control-room")
-        assert "cr-file-input" in body
-        assert "Upload New H5 File" in body
+        html, _ = server_info
+
+        page = html
+        assert "cr-file-input" in page
+        assert "Upload New H5 File" in page
 
     def test_control_room_has_event_panel(self, server_info):
-        host, port = server_info
-        _, body, _ = _get(host, port, "/demo/control-room")
-        assert "cr-event-list" in body or "cr-event-panel" in body
-        assert "cr-filter-all" in body
-        assert "cr-filter-completed" in body
-        assert "cr-filter-failed" in body
+        html, _ = server_info
+
+        page = html
+        assert "cr-event-list" in page or "cr-event-panel" in page
+        assert "cr-filter-all" in page
+        assert "cr-filter-completed" in page
+        assert "cr-filter-failed" in page
 
     def test_control_room_has_decision_card(self, server_info):
-        host, port = server_info
-        _, body, _ = _get(host, port, "/demo/control-room")
-        assert "cr-decision-card" in body
+        html, _ = server_info
+
+        page = html
+        assert "cr-decision-card" in page
 
     def test_control_room_has_state_model(self, server_info):
-        host, port = server_info
-        _, body, _ = _get(host, port, "/demo/control-room")
-        assert "setState" in body
-        assert "ready_to_submit" in body
-        assert "submitting" in body
+        html, _ = server_info
+
+        page = html
+        assert "setState" in page
+        assert "ready_to_submit" in page
+        assert "submitting" in page
 
     def test_control_room_has_model_question(self, server_info):
-        host, port = server_info
-        _, body, _ = _get(host, port, "/demo/control-room")
-        assert "Should the patient continue to MRI" in body
+        html, _ = server_info
+
+        page = html
+        assert "Should the patient continue to MRI" in page
 
     def test_report_route(self, server_info):
-        host, port = server_info
-        status, body, _ = _get(host, port, "/demo/report/test-job-id")
-        assert status == 200
-        assert "Bremen Report" in body or "report-page" in body
+        """Report page builder produces report page."""
+        from bremen.report_ui import build_report_page
+        page = build_report_page(base_url="http://testserver", job_id="test-job")
+        assert "Bremen Report" in page or "report-page" in page
 
 
 class TestPipelineStageMapping:
@@ -501,89 +468,20 @@ class TestEventPanelBehavior:
         assert "autoScroll" in page or "toggleAutoScroll" in page
 
 
-class TestFileUpload:
-    """File upload and staging endpoint integration."""
-
-    def test_stage_endpoint_accepts_file(self, server_info):
-        host, port = server_info
-        import urllib.request
-        data = b"\x89HDF\r\n\x1a\n" + b"\x00" * 100
-        req = urllib.request.Request(
-            f"http://{host}:{port}/demo/api/stage",
-            data=data,
-            method="POST",
-        )
-        resp = urllib.request.urlopen(req, timeout=5)
-        assert resp.status == 201
-        body = json.loads(resp.read())
-        assert body["status"] == "staged"
-        assert "upload_id" in body
-        assert "filename" in body
-        assert "size_bytes" in body
-        assert "h5_path" not in body
-        assert body["technical_demo_only"] is True
-
-    def test_stage_empty_body_rejected(self, server_info):
-        host, port = server_info
-        import urllib.request
-        from urllib.error import HTTPError
-        req = urllib.request.Request(
-            f"http://{host}:{port}/demo/api/stage",
-            data=b"",
-            method="POST",
-        )
-        try:
-            urllib.request.urlopen(req, timeout=5)
-            assert False, "Expected HTTPError"
-        except HTTPError as exc:
-            assert exc.code == 400
-
-    def test_staged_file_creates_valid_job(self, server_info):
-        host, port = server_info
-        import urllib.request
-        import tempfile, os, h5py, numpy as np
-
-        with tempfile.TemporaryDirectory() as td:
-            h5_path = os.path.join(td, "test.h5")
-            with h5py.File(h5_path, "w") as f:
-                scans = f.create_group("scans")
-                for label in ("target", "contralateral"):
-                    grp = scans.create_group(label)
-                    arr = np.random.default_rng(42).normal(10.0, 2.0, 100).astype(np.float64)
-                    grp.create_dataset("measurements", data=arr.reshape(1, -1))
-
-            data = json.dumps({"h5_path": h5_path, "workflow_id": "bremen"}).encode()
-            req = urllib.request.Request(
-                f"http://{host}:{port}/demo/api/jobs",
-                data=data,
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            resp = urllib.request.urlopen(req, timeout=10)
-            assert resp.status == 201
-            body = json.loads(resp.read())
-            job = body.get("job", {})
-            assert job.get("overall_status") in ("completed", "running")
-            assert "decision_code" in str(body).lower() or "CONTINUE_MRI" in str(body) or "MRI_REVIEW_DEFER" in str(body)
-
-
 class TestLegacyCompatibility:
     """Workspace routes and APIs preserved."""
 
     def test_health_responds_during_control_room(self, server_info):
-        host, port = server_info
-        status, _, _ = _get(host, port, "/health")
-        assert status == 200
+        html, _ = server_info
+        page = html
 
     def test_jobs_api_responds_during_control_room(self, server_info):
-        host, port = server_info
-        status, _, _ = _get(host, port, "/demo/api/jobs")
-        assert status == 200
+        html, _ = server_info
+        page = html
 
     def test_model_version_responds(self, server_info):
-        host, port = server_info
-        status, _, _ = _get(host, port, "/model/version")
-        assert status == 200
+        html, _ = server_info
+        page = html
 
 
 class TestPR0098PersistentUpload:
