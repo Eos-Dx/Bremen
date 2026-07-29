@@ -1,0 +1,65 @@
+status: valid
+head: 2e175cb492c4693852b3eb0279ab31b93a75368c
+branch: 0104e-fastapi-asgi-smoke-readiness
+base_branch: dev
+pr_target: dev
+blockers: []
+warnings: []
+changed_files:
+  - scripts/smoke_fastapi_asgi.py
+  - tests/test_bremen_fastapi_asgi_smoke_readiness.py
+  - .project-memory/pr/0104e-fastapi-asgi-smoke-readiness/implementation-report.md
+working_tree_state: clean (3 untracked new files, no modified tracked files)
+fastapi_phase_1_4_confirmed: true
+asgi_smoke_script: scripts/smoke_fastapi_asgi.py
+read_only_smoke_coverage: true
+optional_write_event_smoke_coverage: true
+sse_disconnect_readiness: true
+pytest_server_spawning_avoided: true
+production_dockerfile_unchanged: true
+production_entrypoint_unchanged: true
+control_room_unchanged: true
+auth_unchanged: true
+safety_boundary:
+  no_secrets_exposed: true
+  no_raw_paths_in_output: true
+  no_raw_s3_in_output: true
+  loopback_only_default: true
+tests:
+  phase_1: 27 passed
+  phase_2: 26 passed
+  phase_3: 35 passed
+  phase_4: 30 passed
+  asgi_smoke_readiness: 65 passed
+  focused_fastapi_asgi_smoke: 347 passed, 6 skipped
+  full_suite: 3027 passed, 11 skipped
+validation:
+  compileall: passed
+  git_diff_check: clean
+  branch_check: passed
+  branch_contains_origin_dev: true
+  forbidden_scope_check: no output (clean)
+manual_smoke_limitation: >
+  Source review and pytest cannot fully confirm deployed ASGI behavior.
+  Run python scripts/smoke_fastapi_asgi.py --read-only locally or in
+  staging, and run the optional --h5-file smoke where safe demo fixtures
+  are available, before any production cutover planning.
+security:
+  no_secrets_added: true
+  no_phi_added: true
+  no_private_h5_added: true
+  no_joblib_added: true
+  loopback_only: true
+scope_control:
+  dockerfile_unchanged: true
+  production_entrypoint_unchanged: true
+  production_cmd_unchanged: true
+  http_server_unchanged: true
+  control_room_unchanged: true
+  auth_unchanged: true
+  model_training_unchanged: true
+  no_production_cutover: true
+implementation_report:
+  present: true
+  matches_actual_diff: true
+commit_readiness: ready
