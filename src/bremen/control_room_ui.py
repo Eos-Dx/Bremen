@@ -202,10 +202,12 @@ var patientNamesBySource={};
 var hasSeenFailure=false;
 
 // Auth helpers (PR0102)
-function _getAccessToken(){return sessionStorage.getItem('bremen_access_token')}
-function _getRefreshToken(){return sessionStorage.getItem('bremen_refresh_token')}
-function _setTokens(data){sessionStorage.setItem('bremen_access_token',data.access_token);sessionStorage.setItem('bremen_refresh_token',data.refresh_token);sessionStorage.setItem('bremen_token_expires',String(Date.now()+data.expires_in*1000))}
-function _clearTokens(){sessionStorage.removeItem('bremen_access_token');sessionStorage.removeItem('bremen_refresh_token');sessionStorage.removeItem('bremen_token_expires')}
+function _getSessionStorage(){try{if(typeof window!=='undefined'&&window.sessionStorage){return window.sessionStorage}if(typeof globalThis!=='undefined'&&globalThis.sessionStorage){return globalThis.sessionStorage}}catch(e){}return null}
+function _getAccessToken(){var s=_getSessionStorage();return s?s.getItem('bremen_access_token'):null}
+function _getRefreshToken(){var s=_getSessionStorage();return s?s.getItem('bremen_refresh_token'):null}
+function _setTokens(data){var s=_getSessionStorage();if(!s)return;s.setItem('bremen_access_token',data.access_token);s.setItem('bremen_refresh_token',data.refresh_token);s.setItem('bremen_token_expires',String(Date.now()+data.expires_in*1000))}
+function _clearTokens(){var s=_getSessionStorage();if(!s)return;s.removeItem('bremen_access_token');s.removeItem('bremen_refresh_token');s.removeItem('bremen_token_expires')}
+function _redirectToLogin(){try{if(typeof window!=='undefined'&&window.location){window.location.href='/demo/login'}}catch(e){}}
 function _authFetch(url,opts){
   opts=opts||{};
   var headers=opts.headers||{};
@@ -216,7 +218,7 @@ function _authFetch(url,opts){
     if(r.status!==401)return r;
     // Try refresh
     var rt=_getRefreshToken();
-    if(!rt){_clearTokens();window.location.href='/demo/login';return r}
+    if(!rt){_clearTokens();_redirectToLogin();return r}
     return fetch(baseUrl+'/demo/api/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refresh_token:rt})})
       .then(function(rr){return rr.json().then(function(data){return {status:rr.status,data:data}})})
       .then(function(result){
@@ -226,10 +228,10 @@ function _authFetch(url,opts){
           opts.headers=headers;
           return fetch(url,opts)
         }else{
-          _clearTokens();window.location.href='/demo/login';return r
+          _clearTokens();_redirectToLogin();return r
         }
       })
-      .catch(function(){_clearTokens();window.location.href='/demo/login';return r})
+      .catch(function(){_clearTokens();_redirectToLogin();return r})
   })
 }
 var STAGE_MAP={
