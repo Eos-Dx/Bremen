@@ -1,0 +1,68 @@
+status: valid
+head: 4f775845ea29868a109afce1712be9c0d8c03368
+branch: "0104c-fastapi-phase3-write-routes"
+base_branch: dev
+pr_target: dev
+blockers: []
+warnings:
+  - "Starlette TestClient deprecation: 'install httpx2 instead' — future concern, not Phase 3 blocker."
+changed_files:
+  - src/bremen/api/fastapi_app.py
+  - src/bremen/api/server.py
+  - src/bremen/api/fastapi_contracts.py
+  - tests/test_bremen_fastapi_phase3_write_routes.py
+  - tests/test_bremen_api_skeleton.py
+working_tree_state: "dirty — 3 modified (fastapi_app.py, server.py, test_bremen_api_skeleton.py) + 3 untracked (fastapi_contracts.py, test_bremen_fastapi_phase3_write_routes.py, .project-memory/pr/0104c-fastapi-phase3-write-routes/)"
+fastapi_foundation_reused: "src/bremen/api/fastapi_app.py — create_fastapi_app() factory extended with Phase 3 POST routes. Same app instance serves Phase 1, 2, and 3 routes. No disconnected second FastAPI app."
+routes_implemented:
+  - "POST /demo/api/h5/containers — H5 file upload via UploadFile, delegates to _handle_h5_upload_bytes() extracted helper"
+  - "POST /demo/api/jobs — Analysis job creation with Pydantic JobCreateRequest contract, reuses create_analysis_job() and resolve_source()"
+pydantic_contracts: "src/bremen/api/fastapi_contracts.py — JobCreateRequest(BaseModel) with workflow_id, model_id, source_id, upload_id, h5_path, container_id, action fields. Framework-independent, usable outside FastAPI."
+job_creation_logic_reused: "POST /demo/api/jobs reuses create_analysis_job(), resolve_source(), extract_patient_display_name(), _find_existing_completed_report() (rerun guard), _cleanup_expired_uploads() from bremen.api.job_api_handler. Reuses get_stable_source_key() and get_source_info() from bremen.api.source_registry. No business logic duplicated."
+upload_logic_reused_or_extracted: "_handle_h5_upload_bytes(raw_body, raw_filename, request_id) extracted in server.py as transport-independent helper. Returns (http_status_code, response_dict). Used by both _handle_demo_h5_containers_upload() (http.server) and demo_h5_upload_route() (FastAPI). All validation checks preserved: empty body, size limit, filename presence, path traversal, extension, upload disabled, storage not configured, filename sanitization, S3 upload, S3 failure handling."
+upload_validation_checks_preserved: "10 checks preserved: (1) empty body rejection 400, (2) size limit enforcement 413, (3) missing filename rejection 400, (4) path traversal rejection 400, (5) extension rejection 400, (6) upload disabled 403, (7) storage not configured 503, (8) filename sanitization, (9) S3 upload, (10) S3 failure 503 with safe error type name only. All verified by 13 upload-specific tests."
+job_validation_preserved: "8 checks preserved: (1) empty body rejection 400, (2) invalid JSON rejection 400, (3) Pydantic type validation, (4) both source_id+upload_id rejection 400 AMBIGUOUS_SOURCE, (5) missing source rejection 400 MISSING_SOURCE, (6) rerun guard 409 report_already_exists, (7) invalid source ValueError 400 SOURCE_ERROR, (8) delete_report action 400 not migrated."
+server_spawning_tests: "No new tests start real servers for POST /demo/api/h5/containers or POST /demo/api/jobs. All tests use FastAPI TestClient. No existing server-spawning tests removed."
+production_dockerfile_unchanged: "ENTRYPOINT [\"python\", \"-m\", \"bremen\"], CMD [\"serve\", \"--host\", \"0.0.0.0\", \"--port\", \"8080\"] — verified unchanged."
+production_entrypoint_unchanged: "python -m bremen serve — unchanged."
+sse_not_implemented: "No EventSource, text/event-stream, StreamingResponse, or SSE routes in fastapi_app.py. Verified by source inspection and TestNoSSEOrEventStreaming tests."
+auth_unchanged: "No auth middleware or token routes added to FastAPI app. No changes to src/bremen/auth.py."
+control_room_unchanged: "No changes to src/bremen/control_room_ui.py."
+safety_boundary: "No raw S3 bucket/key values, credentials, JWT secrets, env values, filesystem paths, H5 internals, model coefficients, full checksums, or PHI beyond existing patient_display_name behavior. source_id is opaque. Upload error messages use safe type names only. Global exception handler prevents raw trace leaks."
+tests:
+  fastapi_phase1: "27 passed in test_bremen_fastapi_phase1.py"
+  fastapi_phase2_catalog: "27 passed in test_bremen_fastapi_phase2_catalog.py"
+  fastapi_phase3_write: "36 passed in test_bremen_fastapi_phase3_write_routes.py"
+  api_server: "99 passed in test_bremen_api_server.py"
+  full_suite: "2934 passed, 11 skipped, 30 warnings, 0 failed"
+  compileall: "PASS"
+  git_diff_check: "clean"
+  phase3_test_categories: "4 TestJobCreateRequestContract + 10 TestJobsCreateRoute + 13 TestH5UploadRoute + 4 TestPhase1Phase2Regression + 2 TestNoSSEOrEventStreaming + 2 TestProductionDockerfileUnchanged + 2 TestModuleSafety = 36 tests"
+validation:
+  fastapi_foundation_reused: true
+  create_fastapi_app_factory_extended: true
+  demo_h5_upload_route_exists: true
+  demo_jobs_create_route_exists: true
+  pydantic_contract_exists: true
+  create_analysis_job_reused: true
+  resolve_source_reused: true
+  handle_h5_upload_bytes_extracted: true
+  upload_validation_all_preserved: true
+  job_validation_all_preserved: true
+  production_http_server_unchanged: true
+  production_dockerfile_unchanged: true
+  production_entrypoint_unchanged: true
+  no_sse_event_streaming: true
+  no_auth_changes: true
+  no_control_room_changes: true
+  no_model_training_changes: true
+  testclient_used: true
+  no_server_spawning_tests: true
+  safety_assertions_present: true
+  implementation_report_exists: true
+  implementation_report_matches_diff: true
+functional_verification_limitation: "Source review cannot confirm deployed FastAPI write-route behavior. A local or staging deployment from dev must verify that the isolated FastAPI app handles POST /demo/api/h5/containers and POST /demo/api/jobs without changing the production http.server demo path."
+security: "Global exception handler prevents raw trace leaks. No raw S3 bucket/key values, credentials, JWT secrets, env values, filesystem paths, H5 internals, model coefficients, full checksums, feature values, or PHI beyond existing patient_display_name behavior in public output. source_id is opaque. Upload error messages use safe type names only (e.g. 'S3 upload failed: ClientError' not raw exception). No boto3 or h5py imports in FastAPI app module."
+scope_control: "Changed files: src/bremen/api/fastapi_app.py, src/bremen/api/server.py, tests/test_bremen_api_skeleton.py. New files: src/bremen/api/fastapi_contracts.py, tests/test_bremen_fastapi_phase3_write_routes.py. No Dockerfile, infra/, .github/, training, control_room_ui, auth, or model files changed."
+implementation_report: "Implementation report exists at .project-memory/pr/0104c-fastapi-phase3-write-routes/implementation-report.md. Lists 2 new + 3 modified files. Validation results: 27 phase1 + 27 phase2 + 36 phase3 + 99 api_server tests passed, full suite 2934 passed. Report matches observed source code changes."
+commit_readiness: "Implementation is complete. All changed files read. All routes within scope. All business logic reused. All upload validation checks preserved. All safety boundaries preserved. Pydantic contract exists and is framework-independent. Tests present and documented. Ready to stage, commit, and push for merge to dev."
