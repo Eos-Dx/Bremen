@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 
 
-BUILTIN_COMMANDS = ("preprocess", "serve", "demo_smoke", "demo_run")
+BUILTIN_COMMANDS = ("preprocess", "serve", "serve-fastapi", "demo_smoke", "demo_run")
 STUB_COMMANDS = ("preflight", "run", "report")
 
 
@@ -49,6 +49,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     # --- Serve command: HTTP server ---
     _add_serve_subcommand(subparsers)
+
+    # --- Serve-fastapi command: ASGI server ---
+    _add_serve_fastapi_subcommand(subparsers)
 
     # --- Demo smoke command ---
     _add_demo_smoke_subcommand(subparsers)
@@ -132,6 +135,8 @@ def main(argv: list[str] | None = None) -> int:
         return _handle_preprocess(args)
     if handler == "serve":
         return _handle_serve(args)
+    if handler == "serve_fastapi":
+        return _handle_serve_fastapi(args)
     if handler == "demo_smoke":
         return _handle_demo_smoke(args)
     if handler == "demo_run":
@@ -183,6 +188,53 @@ def _handle_serve(args: argparse.Namespace) -> int:
     print("Dev/smoke mode only. Not for production use.")
     run_server(host=args.host, port=args.port)
     return 0
+
+
+def _add_serve_fastapi_subcommand(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Add the 'serve-fastapi' subcommand (ASGI via uvicorn)."""
+    serve = subparsers.add_parser(
+        "serve-fastapi",
+        help="Start the FastAPI ASGI server (dev/smoke mode).",
+    )
+    serve.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="Host address to bind to (default: 127.0.0.1).",
+    )
+    serve.add_argument(
+        "--port",
+        type=int,
+        default=8080,
+        help="Port number to listen on (default: 8080).",
+    )
+    serve.add_argument(
+        "--reload",
+        action="store_true",
+        help="Enable auto-reload for development.",
+    )
+    serve.add_argument(
+        "--log-level",
+        type=str,
+        default="info",
+        choices=["debug", "info", "warning", "error", "critical"],
+        help="Uvicorn log level (default: info).",
+    )
+    serve.set_defaults(_cmd_handler="serve_fastapi")
+
+
+def _handle_serve_fastapi(args: argparse.Namespace) -> int:
+    """Start the FastAPI ASGI server via uvicorn (blocking)."""
+    from .api.fastapi_server import run_fastapi_server  # noqa: PLC0415
+
+    return run_fastapi_server(
+        host=args.host,
+        port=args.port,
+        reload=args.reload,
+        log_level=args.log_level,
+    )
 
 
 def _add_demo_smoke_subcommand(
