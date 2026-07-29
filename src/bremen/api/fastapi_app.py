@@ -1,13 +1,18 @@
-"""Isolated FastAPI foundation for Phase 1 migration.
+"""Isolated FastAPI foundation for Bremen API migration.
 
 This module provides ``create_fastapi_app()`` — a FastAPI application
-factory that registers Phase 1 routes:
+factory that registers routes:
 
+Phase 1:
 - ``GET /health``
 - ``GET /model/version``
 
+Phase 2:
+- ``GET /demo/api/models``
+- ``GET /demo/api/h5/containers``
+
 These routes reuse existing business logic from ``bremen.api.app``
-(``handle_health``, ``handle_model_version``).
+and ``bremen.api.server``.
 
 Coexistence strategy
 --------------------
@@ -16,10 +21,7 @@ path.  It is intended for testing and future migration phases only.
 
 - Production Dockerfile target/ENTRYPOINT/CMD remain unchanged.
 - Production ``http.server`` routes remain untouched.
-- No catalog, POST, SSE, or event-streaming routes are implemented here.
-
-Phase 1 foundation — no Pydantic request contracts, no auth integration,
-no control room routes.  Those belong to later phases.
+- No POST, SSE, or event-streaming routes are implemented here.
 
 Safety
 ------
@@ -39,7 +41,7 @@ from fastapi.responses import JSONResponse
 
 
 def create_fastapi_app(version: str | None = None) -> FastAPI:
-    """Create and return a FastAPI application with Phase 1 routes.
+    """Create and return a FastAPI application with Phase 1 + Phase 2 routes.
 
     Parameters
     ----------
@@ -51,7 +53,7 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
     ``uvicorn``.
     """
     app = FastAPI(
-        title="Bremen API (FastAPI Phase 1)",
+        title="Bremen API (FastAPI)",
         version="0.1.0",
         description=(
             "Isolated FastAPI foundation for migration testing.  "
@@ -107,6 +109,46 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
             "qc_criteria_version": resp.qc_criteria_version,
             "model_status": resp.model_status,
         })
+
+    # ------------------------------------------------------------------
+    # GET /demo/api/models — model catalog (Phase 2)
+    # ------------------------------------------------------------------
+    @app.get("/demo/api/models")
+    async def demo_models_route(request: Request) -> JSONResponse:
+        """Return the model catalog.
+
+        Reuses :func:`bremen.api.model_catalog.build_model_catalog`
+        for business logic.
+        """
+        from bremen.api.model_catalog import (  # noqa: PLC0415
+            build_model_catalog as _build_model_catalog,
+        )
+        import uuid as _uuid  # noqa: PLC0415
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+        catalog = _build_model_catalog()
+        catalog["request_id"] = request_id
+        catalog["technical_demo_only"] = True
+        return JSONResponse(content=catalog)
+
+    # ------------------------------------------------------------------
+    # GET /demo/api/h5/containers — H5 container listing (Phase 2)
+    # ------------------------------------------------------------------
+    @app.get("/demo/api/h5/containers")
+    async def demo_h5_containers_route(request: Request) -> JSONResponse:
+        """List demo H5 containers.
+
+        Reuses :func:`bremen.api.server._build_containers_response`
+        for business logic (shared with the http.server handler).
+        """
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.api.server import (  # noqa: PLC0415
+            _build_containers_response as _build_containers,
+        )
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+        data = _build_containers(request_id=request_id)
+        return JSONResponse(content=data)
 
     # ------------------------------------------------------------------
     # Exception handler — ensure no raw traces leak
