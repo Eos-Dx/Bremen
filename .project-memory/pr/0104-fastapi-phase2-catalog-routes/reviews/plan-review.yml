@@ -1,0 +1,217 @@
+# Plan Review — PR0104 FastAPI Phase 2 Catalog Routes
+# Reviewed: 2026-07-29T07:42:21Z
+# Reviewer: plan-review-agent
+
+status: approved
+head: 30cc65017c0abc0a149214ff4319a7d14b1e24dd
+branch: 0104-fastapi-phase2-catalog-routes
+base_branch: dev
+pr_target: dev
+blockers: []
+warnings:
+  - |
+    PR0103 Phase 1 (FastAPI foundation) does not yet exist. The plan correctly
+    documents this as a critical dependency with Stop Condition 1, and specifies
+    exactly what Phase 1 must provide (FastAPI dependency, app module, uvicorn
+    runner, coexistence strategy, unchanged Dockerfile). Implementation of
+    Phase 2 must NOT begin until Phase 1 is complete.
+  - |
+    Cache sharing via import of _patient_name_cache from server.py may create
+    a circular import depending on the Phase 1 module layout. The plan
+    acknowledges this risk in Stop Condition 6. If circular imports prevent
+    direct import, an alternative sharing mechanism (e.g., moving the cache
+    to a shared module) must be designed before Phase 2 proceeds.
+  - |
+    The containers route handler in _handle_demo_h5_containers_list performs
+    S3 operations via lazy boto3 import. The FastAPI async handler may need
+    to run this in a thread pool to avoid blocking the event loop. The plan
+    does not address async compatibility of the S3 listing, H5 staging,
+    and patient name extraction calls.
+changed_files: []
+working_tree_state: clean (untracked plan files only)
+plan_scope:
+  implementation_pr: PR0104
+  routes_in_scope:
+    - GET /demo/api/models
+    - GET /demo/api/h5/containers
+  routes_out_of_scope:
+    - All POST routes (upload, analyze, stage, jobs create)
+    - SSE / event streaming
+    - All other GET routes (control-room, workspace, report, jobs, etc.)
+    - Auth endpoints
+  what_is_excluded:
+    - Auth redesign
+    - Pydantic request contracts (Phase 2)
+    - Model/training changes
+    - Production Dockerfile/ENTRYPOINT/CMD changes
+    - Removal of existing http.server handlers
+    - Direct merge into main
+dev_flow_confirmed: true
+main_protected: true
+fastapi_foundation_confirmed: true
+  detail: "PR0103 does not yet exist in the codebase. The plan documents it as
+    a prerequisite with 5 specific requirements and a stop condition. The plan
+    itself is valid planning for Phase 2, but implementation depends on Phase 1."
+routes_in_scope:
+  - GET /demo/api/models
+  - GET /demo/api/h5/containers
+routes_out_of_scope:
+  - POST /demo/api/h5/containers (upload)
+  - POST /demo/api/h5/analyze
+  - POST /demo/api/stage
+  - POST /demo/api/jobs
+  - SSE / job event streaming
+  - All other GET routes
+  - Auth routes
+docker_production_unchanged:
+  status: confirmed
+  evidence: PLAN.md Non-Goals and Stop Condition 4 explicitly prohibit
+    Dockerfile/ENTRYPOINT/CMD changes. Dockerfile lines verified: FROM,
+    ENTRYPOINT, CMD unchanged from PR0100 baseline.
+handler_coupling_documented:
+  _handle_demo_models:
+    raw_http_writing: true
+    data_shaping_independent: true
+    business_logic: build_model_catalog()
+    plan_accuracy: confirmed (server.py lines 664-680 match plan description)
+  _handle_demo_h5_containers_list:
+    raw_http_writing: true
+    data_shaping_intertwined: true
+    business_logic: _list_s3_containers, _patient_name_cache, register_source,
+      extract_patient_display_name, stage_h5_input
+    plan_accuracy: confirmed (server.py lines 691-840 match plan description)
+business_logic_reuse:
+  build_model_catalog: imported directly, not duplicated
+  _list_s3_containers: imported from server.py, not duplicated
+  register_source: imported from source_registry, not duplicated
+  extract_patient_display_name: imported from job_api_handler, not duplicated
+  stage_h5_input: imported from h5_inputs, not duplicated
+  read_demo_h5_config: imported from server.py or demo_config, not duplicated
+cache_sharing_decision:
+  decision: Import and reuse _patient_name_cache from server.py
+  approach: "from .server import _patient_name_cache"
+  justification: Prevents duplicate staging, ensures frontend consistency,
+    no circular dependency expected, no thread-safety concern
+  risk: Circular import if Phase 1 module layout differs; acknowledged in Stop Condition 6
+response_parity_plan:
+  method: Deep JSON equality comparison between http.server handler output
+    and FastAPI TestClient output for the same input state
+  test_scenarios_models:
+    - Empty registry (not_configured)
+    - One available model
+    - Multiple models
+    - Unavailable models present
+    - Discovery_failed status
+    - X-Request-ID propagation
+    - No prohibited fields leak
+  test_scenarios_containers:
+    - No bucket configured (not_configured)
+    - Bucket configured via mocked S3
+    - Empty S3 listing
+    - Mixed env-configured + S3 containers
+    - Patient name cache hit/miss
+    - Oversized object filtering
+    - Max 100 limit
+    - S3 error -> list_failed
+    - No raw key/bucket exposure
+safety_boundary:
+  prohibited_exposures:
+    - Raw S3 bucket names
+    - Raw S3 object keys
+    - Filesystem paths
+    - Raw H5 internals
+    - PHI / private data beyond patient_display_name
+    - Raw exception traces
+    - Feature values or model coefficients
+    - Model checksums (full hashes)
+    - Credentials, JWT secrets, env variable values
+  preserved_safety:
+    - technical_demo_only: always true
+    - source_id: opaque, generated by register_source
+    - patient_display_name: cached, same fallback chain
+    - _safe_error_detail / _safe_error_detail_str used for exceptions
+test_plan:
+  test_file: tests/test_fastapi_routes_phase2.py (new)
+  models_tests:
+    - test_models_returns_200
+    - test_models_parity_with_http_server
+    - test_models_technical_demo_only
+    - test_models_request_id_from_header
+    - test_models_request_id_generated
+    - test_models_not_configured
+    - test_models_no_prohibited_fields
+    - test_models_default_model_id
+    - test_models_unavailable_models
+  containers_tests:
+    - test_containers_returns_200
+    - test_containers_parity_with_http_server
+    - test_containers_technical_demo_only
+    - test_containers_request_id_header
+    - test_containers_not_configured
+    - test_containers_no_raw_s3_keys
+    - test_containers_no_raw_exceptions
+    - test_containers_patient_name_cache_shared
+    - test_containers_patient_display_name_preserved
+    - test_containers_source_id_opaque
+    - test_containers_stable_source_key
+    - test_containers_oversized_filtered
+    - test_containers_max_100
+    - test_containers_list_failed
+    - test_containers_empty_response
+    - test_containers_sort_order
+  regression_required:
+    - python -m pytest -q tests/test_bremen_api_server.py -v
+    - python -m pytest -q tests/test_catalog_api_multi_model.py -v
+    - python -m pytest -q tests/ -k "not slow"
+    - python -m pytest -q (full suite)
+validation_plan:
+  git_validation:
+    - git rev-parse --verify HEAD
+    - git branch --show-current
+    - git status --short
+    - git diff --name-only dev...HEAD
+    - git diff --check
+  compile_check: python -m compileall src tests
+  docker_integrity: grep -n "^FROM\|^CMD\|^ENTRYPOINT" Dockerfile (unchanged)
+  test_suite:
+    - tests/test_bremen_api_server.py
+    - tests/test_catalog_api_multi_model.py
+    - tests/test_fastapi_routes_phase2.py (new)
+    - Full suite: python -m pytest -q
+  docker_build: docker build --target production -t bremen-prod-unchanged-check .
+    (planned for implementation PR, not during planning)
+non_goals:
+  - Production Dockerfile/ENTRYPOINT/CMD change
+  - POST routes
+  - SSE or job event streaming
+  - Auth redesign
+  - Pydantic request contracts in Phase 2
+  - Model/training changes
+  - Duplicated business logic
+  - Second silent patient-name cache
+  - Changes to main branch
+  - Removal of existing http.server handlers
+stop_conditions:
+  - PR0103 Phase 1 FastAPI foundation is missing
+  - Branch is not based on dev
+  - PR would target main
+  - Production Dockerfile/ENTRYPOINT/CMD would need changes
+  - Business logic would be duplicated
+  - Patient-name-cache sharing cannot be implemented safely
+  - Response parity cannot be tested
+  - Safety boundary would weaken
+  - Scope expands to POST or SSE routes
+  - main would be targeted or modified
+implementation_readiness:
+  safe_to_hand_to_coder: true
+  prerequisite: PR0103 Phase 1 must be completed first
+  handler_coupling_documented: true
+  business_logic_reuse_identified: true
+  cache_sharing_decided: true
+  safety_boundary_defined: true
+  response_parity_plan: true
+  test_plan_comprehensive: true
+  validation_commands_specified: true
+  stop_conditions_defined: true
+review_artifact:
+  path: ".project-memory/pr/0104-fastapi-phase2-catalog-routes/reviews/plan-review.yml"
