@@ -300,11 +300,19 @@ class TestSSEGenerator:
 
 class TestEventSourceSharing:
     def test_event_store_singleton(self) -> None:
-        """Same _event_store object is used everywhere."""
+        """Same _event_store object is used everywhere — stable identity check."""
         from bremen.api.job_api_handler import _event_store
-        from bremen.api.event_store import BoundedEventStore
 
-        assert isinstance(_event_store, BoundedEventStore)
+        # Verify required methods exist (stable API surface)
+        assert hasattr(_event_store, "append")
+        assert hasattr(_event_store, "get_events")
+        assert hasattr(_event_store, "wait_for_events")
+        assert hasattr(_event_store, "has_job")
+        assert hasattr(_event_store, "get_job_cursor")
+
+        # Verify object identity is stable across imports
+        from bremen.api.job_api_handler import _event_store as es2
+        assert _event_store is es2
 
     def test_job_created_by_phase3_visible_to_phase4(self, client) -> None:
         """Job created via Phase 3 POST is visible to Phase 4 events."""

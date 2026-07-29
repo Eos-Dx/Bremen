@@ -624,19 +624,20 @@ def list_analysis_jobs(
             )
 
         # Add decision information from first workflow run
-        if j.workflow_runs:
-            first_wid = list(j.workflow_runs.keys())[0]
-            wf_run = j.workflow_runs[first_wid]
-            if wf_run.result_summary:
-                summary["decision_code"] = wf_run.result_summary.get("decision_code")
-                summary["decision_display_name"] = wf_run.result_summary.get(
-                    "decision_display_name"
-                )
-                summary["triage_recommendation"] = wf_run.result_summary.get(
-                    "triage_recommendation"
-                )
-            if wf_run.model_identity:
-                summary["model_version"] = wf_run.model_identity.get("model_version")
+        if j.workflow_runs and isinstance(j.workflow_runs, dict):
+            first_wid = next(iter(j.workflow_runs), None)
+            if first_wid is not None:
+                wf_run = j.workflow_runs[first_wid]
+                if wf_run.result_summary:
+                    summary["decision_code"] = wf_run.result_summary.get("decision_code")
+                    summary["decision_display_name"] = wf_run.result_summary.get(
+                        "decision_display_name"
+                    )
+                    summary["triage_recommendation"] = wf_run.result_summary.get(
+                        "triage_recommendation"
+                    )
+                if wf_run.model_identity:
+                    summary["model_version"] = wf_run.model_identity.get("model_version")
 
         # Add report availability
         has_available = any(
