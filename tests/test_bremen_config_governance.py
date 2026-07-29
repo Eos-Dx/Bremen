@@ -436,7 +436,10 @@ class TestConfigSecretAndArtifactSafety:
 
 
 class TestConfigGovernanceRoadmapBoundaries:
-    """PR0052 Matador integration and FastAPI not implemented by PR0051."""
+    """PR0052 Matador integration not implemented by PR0051.
+    FastAPI Phase 1 foundation is allowed in isolated module (PR0104A).
+    Governance test itself must not import FastAPI/uvicorn/starlette/ASGI.
+    """
 
     def test_no_matador_import_in_governance_test(self):
         """Governance test does not import Matador."""
@@ -480,15 +483,17 @@ class TestConfigGovernanceRoadmapBoundaries:
     ADR_0011 = DOCS_ADR_DIR / "0011-config-governance-gates.md"
     ADR_0009 = DOCS_ADR_DIR / "0009-config-governance.md"
 
-    def test_adr_0011_mentions_fastapi_deferred(self):
-        """ADR-0011 explicitly states FastAPI remains deferred."""
+    def test_adr_0011_mentions_fastapi_foundation(self):
+        """ADR-0011 mentions FastAPI Phase 1 foundation or isolated migration."""
         content = self.ADR_0011.read_text(encoding="utf-8")
         assert "FastAPI" in content, (
-            "ADR-0011 must mention FastAPI deferral"
+            "ADR-0011 must mention FastAPI"
         )
-        assert "deferred" in content.lower() or \
-               "not add" in content.lower(), (
-            "ADR-0011 must state FastAPI is deferred"
+        has_foundation = any(term in content.lower() for term in [
+            "phase 1", "foundation", "isolated", "migration",
+        ])
+        assert has_foundation, (
+            "ADR-0011 must mention FastAPI Phase 1 foundation or isolated migration"
         )
 
     def test_adr_0011_mentions_matador_pr0052(self):

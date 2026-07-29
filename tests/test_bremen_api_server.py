@@ -198,60 +198,22 @@ def _post(
 
 
 # ---------------------------------------------------------------------------
-# GET /health
+# GET /health — server-spawning tests removed (PR0104A).
+# Health response shape and safety assertions are now covered by FastAPI
+# TestClient tests in test_bremen_fastapi_phase1.py and direct
+# business-logic tests in test_health_multi_model.py.
 # ---------------------------------------------------------------------------
 
 
-class TestHealth:
-    def test_health_returns_200(self, server_info):
-        host, port, _ = server_info
-        status, body, headers = _get(host, port, "/health")
-        assert status == 200
-        data = json.loads(body)
-        assert data["status"] == "ok"
-        assert data["service"] == "bremen"
-
-    def test_health_content_type(self, server_info):
-        host, port, _ = server_info
-        _, _, headers = _get(host, port, "/health")
-        ct = headers.get("Content-Type", "")
-        assert "application/json" in ct
-
-
 # ---------------------------------------------------------------------------
-# GET /model/version
+# GET /model/version — server-spawning tests removed (PR0104A).
+# Model-version response shape and safety assertions are now covered by
+# FastAPI TestClient tests in test_bremen_fastapi_phase1.py and direct
+# business-logic tests in test_model_version_multi_model.py.
 # ---------------------------------------------------------------------------
 
 
 class TestModelVersion:
-    def test_model_version_returns_200(self, server_info):
-        host, port, _ = server_info
-        status, body, _ = _get(host, port, "/model/version")
-        assert status == 200
-        data = json.loads(body)
-        # Server loads synthetic model, so model_configured is True
-        assert "model_configured" in data
-        assert "model_status" in data
-
-    def test_model_version_content_type(self, server_info):
-        host, port, _ = server_info
-        _, _, headers = _get(host, port, "/model/version")
-        assert "application/json" in headers.get("Content-Type", "")
-
-    def test_model_version_default_response_shape(self, server_info):
-        """Test GET /model/version returns JSON with complete field set."""
-        host, port, _ = server_info
-        status, body, _ = _get(host, port, "/model/version")
-        assert status == 200
-        data = json.loads(body)
-        # Server loads synthetic model, so these are present
-        assert "model_configured" in data
-        assert "model_version" in data
-        assert "model_status" in data
-        assert "feature_schema_version" in data
-        assert "threshold_version" in data
-        assert "threshold_value" in data
-
     def test_model_version_configured(self):
         """Test handle_model_version with env set to configured state."""
         from bremen.config import read_cloud_config

@@ -490,7 +490,7 @@ technical demo.
 
 This release does not include:
 
-- FastAPI, uvicorn, starlette, or any ASGI web framework.
+- FastAPI catalog, POST, SSE, or event-streaming routes (Phase 1 foundation with GET /health and GET /model/version is present on dev).
 - Real Matador system-of-record integration or Matador API calls.
 - Config editing surface, config UI, or config API.
 - Config state history store or DynamoDB backend.
