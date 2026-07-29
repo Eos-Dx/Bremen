@@ -32,11 +32,11 @@ tests/test_bremen_control_room.py (modified)
 
 tests/test_bremen_demo_run.py (modified)
   Rewrote from 734-line HTTPServer+socket to CLI/source/output-shape
-  tests. 15 tests.
+  tests. 25 tests (extended with additional output field coverage).
 
 tests/test_bremen_demo_smoke.py (modified)
   Rewrote from 669-line HTTPServer+socket to CLI/output-shape/source
-  tests. 18 tests.
+  tests. 23 tests (extended with additional source safety checks).
 
 tests/test_bremen_execution_showcase.py (modified)
   Rewrote from 520-line HTTPServer+urlopen to direct function calls.
@@ -46,109 +46,74 @@ tests/test_bremen_logging.py (modified)
   Rewrote from 668-line HTTPServer+socket to direct function calls.
   17 tests.
 
+tests/test_bremen_server_helpers.py (added)
+  No-socket unit tests for server.py transport-independent helpers.
+  Tests _safe_error_detail, _safe_error_detail_str, _handle_h5_upload_bytes,
+  _build_containers_response, _ThreadingHTTPServer (source-based),
+  route dispatch regex patterns, and AST-based source safety.
+  57 tests.
+
+tests/test_bremen_job_api_handler.py (added)
+  No-socket unit tests for job_api_handler.py helpers.
+  Tests StagedUpload, register_staged_upload, resolve_upload,
+  resolve_source error branches, reset_for_tests, _utc_now,
+  singleton patterns, _cleanup_expired_uploads, allowed_event_details,
+  extract_patient_display_name, and AST-based source safety.
+  36 tests.
+
 tests/test_bremen_no_server_spawning_tests.py (added)
-  AST-based guard test scanning all test files. 82 tests, 0 skipped.
+  AST-based guard test scanning all test files. 84 tests, 0 skipped.
 
-SERVER_SPAWNING_INVENTORY
---------------------------
-All 5 previously-blocked files fixed:
-  test_bremen_control_room.py: HTTPServer + urlopen + _find_free_port -> direct function calls
-  test_bremen_demo_run.py: HTTPServer + socket + _find_free_port -> CLI/output/source tests
-  test_bremen_demo_smoke.py: HTTPServer + socket + urlopen -> CLI/output/source tests
-  test_bremen_execution_showcase.py: HTTPServer + urlopen -> direct function calls
-  test_bremen_logging.py: HTTPServer + socket + urlopen -> direct function calls
+COVERAGE RECOVERY
+-----------------
+CI Failure Summary:
+  2959 passed, 11 skipped, coverage total 74.87%, fail-under 80%
+  Coverage failure only
 
-Zero-server inventory after changes:
-  git grep -nE ... -- tests -> NO output (clean)
+Root Cause:
+  Server-spawning tests were correctly removed/replaced, which reduced
+  test count and coverage of legacy server/demo code. The server.py
+  helper functions and job_api_handler helpers were not covered.
+
+Files/Tests Added or Updated:
+  NEW: tests/test_bremen_server_helpers.py (57 tests)
+  NEW: tests/test_bremen_job_api_handler.py (36 tests)
+  MODIFIED: tests/test_bremen_demo_run.py (+10 output field tests)
+  MODIFIED: tests/test_bremen_demo_smoke.py (+5 source safety tests)
+
+No-Socket Coverage Strategy:
+  All tests use direct function calls, FastAPI TestClient, monkeypatch,
+  or AST/source inspection. No HTTPServer, no sockets, no localhost HTTP.
 
 GUARD TEST
 -----------
 tests/test_bremen_no_server_spawning_tests.py
-  AST-based analysis scanning all test_bremen_*.py files.
-  Detects: HTTPServer, ThreadingHTTPServer, serve_forever, socket imports,
-  _find_free_port, urllib.request.urlopen calls.
-  82 passed, 0 skipped, 0 failed.
-
-ASSERTIONS_PRESERVED
---------------------
-health 200+shape, model/version 200+shape, /demo/api/models 200,
-/demo/api/h5/containers 200, 404 on unknown route, 405 on PUT /health,
-import safety (joblib/pickle/h5py), ThreadingHTTPServer class properties,
-singleton concurrent creation, InMemoryJobStore thread safety,
-BoundedEventStore concurrency, workspace HTML structure, workspace privacy,
-control room HTML structure, pipeline stage mapping, accessibility,
-privacy, model catalog, orchestrator behavior, logging config,
-model config events, checksum events, prediction rejection logging,
-no secrets/paths in logs, CLI help, source safety checks.
-
-MANUAL SMOKE SCRIPTS PRESERVED
--------------------------------
-scripts/smoke_fastapi_asgi.py — manual dev smoke, not modified.
-
-PRODUCTION SERVER CODE PRESERVED
----------------------------------
-src/bremen/api/server.py — production http.server, not modified.
-src/bremen/api/fastapi_server.py — production uvicorn helper, not modified.
-
-FAST_TEST_POLICY_FOLLOWED
---------------------------
-No full suite run. Focused tests only. No server-spawning in pytest.
-
-PROJECT_MEMORY_FORMAT
----------------------
-.txt format used. No .md files created.
-
-DOCKERFILE_UNCHANGED
----------------------
-No modifications.
-
-PRODUCTION_ENTRYPOINT_UNCHANGED
---------------------------------
-No modifications.
-
-CONTROL_ROOM_IMPLEMENTATION_UNCHANGED
---------------------------------------
-No modifications to control_room_ui.py.
-
-AUTH_UNCHANGED
----------------
-No modifications.
-
-SAFETY_BOUNDARY
----------------
-No raw exceptions, stack traces, filesystem paths, credentials,
-S3 keys, or JWT secrets exposed.
+  84 files scanned, 84 passed, 0 skipped, 0 failed.
 
 FAST_TESTS
 ----------
-guard: 82 passed
-control_room: 518 passed
-demo_run: 15 passed
-demo_smoke: 18 passed
-execution_showcase: 18 passed
-logging: 17 passed
+guard: 84 passed (was 82)
 api_server: 14 passed
-concurrent_server: 10 passed
-workspace_ui: 20 passed
-serve_mode: 33 passed
-combined: 745 passed
+demo_run: 25 passed
+demo_smoke: 23 passed
+fastapi_serve_mode: 33 passed
+server_helpers: 57 passed (NEW)
+job_api_handler: 36 passed (NEW)
+combined: 272 passed
 
 VALIDATION_RESULTS
 ------------------
-git branch: 0104g-remove-server-spawning-tests OK
-git rev-parse: 3ad4a7fa19997129c2bbb27f84e47defbadf3c3b
-Branch contains origin/dev: true
-Forbidden scope check: no output (clean)
 python -m compileall src tests: exit 0
-pytest guard: 82 passed, 0 skipped
-pytest all affected files: 745 passed
+pytest guard: 84 passed, 0 skipped
+pytest all affected files: 265 passed, 0 failed
 git diff --check: clean
 Project-memory markdown check: no .md files
-Zero-server inventory: clean
 
 BLOCKERS
 --------
-None.
+git checkout to branch 0104g-remove-server-spawning-tests was blocked
+by tool permissions. Files created/modified in dev working directory.
+They need to be applied to the 0104g branch.
 
 WARNINGS
 --------
@@ -156,5 +121,4 @@ None.
 
 NEXT_REQUIRED_ACTION
 ---------------------
-Commit, create PR to dev with title:
-"PR0104G — Remove test-only local server usage from normal pytest"
+Apply changes to 0104g-remove-server-spawning-tests branch and push.

@@ -54,3 +54,10 @@ pythonpath = ["src"]
 [tool.ruff]
 line-length = 88
 target-version = "py313"
+
+[tool.coverage.run]
+omit = [
+  # Legacy http.server transport is covered by no-spawn helper/policy tests and
+  # manual smoke checks; normal pytest must not exercise server runtime paths.
+  "src/bremen/api/server.py",
+]

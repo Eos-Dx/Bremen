@@ -266,3 +266,31 @@ class TestSourceSafety:
                 for alias in node.names:
                     assert "joblib" not in alias.name.lower()
                     assert "pickle" not in alias.name.lower()
+
+
+    def test_no_socket_import(self):
+        """demo_smoke.py does not import socket."""
+        tree = ast.parse(MODULE_PATH.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    assert alias.name != "socket", (
+                        "demo_smoke.py imports socket"
+                    )
+
+    def test_no_HTTPServer_import(self):
+        """demo_smoke.py does not import HTTPServer."""
+        tree = ast.parse(MODULE_PATH.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    assert "HTTPServer" not in alias.name
+
+    def test_no_serve_forever_calls(self):
+        """demo_smoke.py does not call serve_forever()."""
+        tree = ast.parse(MODULE_PATH.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                func = node.func
+                if isinstance(func, ast.Attribute) and func.attr == "serve_forever":
+                    pytest.fail("demo_smoke.py calls serve_forever()")

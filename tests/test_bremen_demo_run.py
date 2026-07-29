@@ -223,3 +223,104 @@ class TestOutputShape:
         serialized = json.dumps(result)
         assert isinstance(serialized, str)
         assert len(serialized) > 0
+
+    def test_warnings_are_list(self):
+        """warnings field is a list."""
+        from bremen.demo_run import run_demo
+
+        result = run_demo(
+            base_url="http://127.0.0.1:1",
+            timeout=2,
+            skip_prediction=True,
+        )
+        assert isinstance(result["warnings"], list)
+
+    def test_checks_is_dict(self):
+        """checks field is a dict."""
+        from bremen.demo_run import run_demo
+
+        result = run_demo(
+            base_url="http://127.0.0.1:1",
+            timeout=2,
+            skip_prediction=True,
+        )
+        assert isinstance(result["checks"], dict)
+
+    def test_base_url_in_output(self):
+        """base_url is echoed back."""
+        from bremen.demo_run import run_demo
+
+        result = run_demo(
+            base_url="http://127.0.0.1:1",
+            timeout=2,
+            skip_prediction=True,
+        )
+        assert result["base_url"] == "http://127.0.0.1:1"
+
+    def test_timestamp_is_string(self):
+        """timestamp is an ISO format string."""
+        from bremen.demo_run import run_demo
+
+        result = run_demo(
+            base_url="http://127.0.0.1:1",
+            timeout=2,
+            skip_prediction=True,
+        )
+        assert isinstance(result["timestamp"], str)
+        assert "T" in result["timestamp"]
+
+    def test_health_field_on_fail(self):
+        """health field present on fail status."""
+        from bremen.demo_run import run_demo
+
+        result = run_demo(
+            base_url="http://127.0.0.1:1",
+            timeout=2,
+            skip_prediction=True,
+        )
+        assert "health" in result
+
+    def test_model_version_field_on_fail(self):
+        """model_version field present on fail status."""
+        from bremen.demo_run import run_demo
+
+        result = run_demo(
+            base_url="http://127.0.0.1:1",
+            timeout=2,
+            skip_prediction=True,
+        )
+        assert "model_version" in result
+
+    def test_evidence_field_present(self):
+        """evidence field present in output."""
+        from bremen.demo_run import run_demo
+
+        result = run_demo(
+            base_url="http://127.0.0.1:1",
+            timeout=2,
+            skip_prediction=True,
+        )
+        assert "evidence" in result
+        assert isinstance(result["evidence"], dict)
+
+    def test_demo_routes_field_present(self):
+        """demo_routes field present in output."""
+        from bremen.demo_run import run_demo
+
+        result = run_demo(
+            base_url="http://127.0.0.1:1",
+            timeout=2,
+            skip_prediction=True,
+        )
+        assert "demo_routes" in result
+
+    def test_demo_evidence_field_present(self):
+        """demo_evidence field present in output."""
+        from bremen.demo_run import run_demo
+
+        result = run_demo(
+            base_url="http://127.0.0.1:1",
+            timeout=2,
+            skip_prediction=True,
+        )
+        assert "demo_evidence" in result
