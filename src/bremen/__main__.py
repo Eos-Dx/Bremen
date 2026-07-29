@@ -151,7 +151,7 @@ def main(argv: list[str] | None = None) -> int:
 def _add_serve_subcommand(
     subparsers: argparse._SubParsersAction,
 ) -> None:
-    """Add the 'serve' subcommand (lazy import of http.server)."""
+    """Add the 'serve' subcommand with backend selection (no heavy imports)."""
     serve = subparsers.add_parser(
         "serve",
         help="Start the Bremen HTTP API server (dev/smoke mode).",
@@ -168,17 +168,51 @@ def _add_serve_subcommand(
         default=8000,
         help="Port number to listen on (default: 8000).",
     )
+    serve.add_argument(
+        "--backend",
+        type=str,
+        default="http",
+        choices=["http", "fastapi"],
+        help=(
+            "Server backend: 'http' for legacy http.server "
+            "(default), 'fastapi' for FastAPI/ASGI."
+        ),
+    )
     serve.set_defaults(_cmd_handler="serve")
 
 
 def _handle_serve(args: argparse.Namespace) -> int:
-    """Start the Bremen HTTP API server (blocking, dev/smoke mode)."""
-    from .api.server import run_server  # noqa: PLC0415
+    """Start the Bremen API server (blocking, dev/smoke mode).
+
+    Dispatches to legacy http.server or FastAPI/ASGI backend
+    based on ``args.backend``.
+    """
     from .logging_config import get_logger  # noqa: PLC0415
 
     _log = get_logger(__name__)
+    backend = getattr(args, "backend", "http")
+
+    if backend == "fastapi":
+        _log.info(
+            "bremen.cli.serve.dispatch.fastapi\t"
+            "stage=startup\tstatus=started\t"
+            "host=%s\tport=%s",
+            args.host, args.port,
+        )
+        from .api.fastapi_server import run_fastapi_server  # noqa: PLC0415
+
+        print(f"Starting Bremen FastAPI server at http://{args.host}:{args.port}")
+        print("Dev/smoke mode only. Not for production use.")
+        return run_fastapi_server(
+            host=args.host,
+            port=args.port,
+        )
+
+    # Default: legacy http.server backend
+    from .api.server import run_server  # noqa: PLC0415
+
     _log.info(
-        "bremen.cli.serve.dispatch\t"
+        "bremen.cli.serve.dispatch.http\t"
         "stage=startup\tstatus=started\t"
         "host=%s\tport=%s",
         args.host, args.port,
