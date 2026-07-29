@@ -54,8 +54,7 @@ jobs:
           python -m pip install \
             "git+https://github.com/Eos-Dx/container.git@feat/v0_3-eoscan-session-container"
 
-          python -m pip install .
-          python -m pip install pytest-cov
+          python -m pip install ".[dev]"
 
       - name: Verify dependency imports
         run: |
