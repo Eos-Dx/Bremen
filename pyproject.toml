@@ -36,6 +36,7 @@ dev = [
   "pytest-cov>=7.0",
   "ruff>=0.8",
   "httpx>=0.27",
+  "httpx2",
   "marimo>=0.10",
 ]
 
