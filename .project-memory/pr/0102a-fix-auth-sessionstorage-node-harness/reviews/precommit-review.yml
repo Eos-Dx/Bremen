@@ -1,0 +1,46 @@
+status: valid
+head: 9050d9395af62c555b4cd4f263eeece49d31024b
+branch: "0102a-fix-auth-sessionstorage-node-harness"
+blockers: []
+warnings: []
+changed_files:
+  - src/bremen/control_room_ui.py
+working_tree_state: "dirty — 1 modified file (control_room_ui.py)"
+root_cause: "PR0102 added auth helpers (_getAccessToken, _getRefreshToken, _setTokens, _clearTokens) that directly referenced sessionStorage without guarding for environments where sessionStorage is undefined. Node.js launch-flow harness sets global.window = global but does not define sessionStorage on global, causing ReferenceError when Control Room JS was evaluated."
+safe_session_storage_fix: "_getSessionStorage() function added: tries window.sessionStorage then globalThis.sessionStorage, wrapped in try/catch, returns null when unavailable. All 4 token helpers updated to use _getSessionStorage(). _redirectToLogin() function added to guard window.location.href assignment. Production-safe: returns sessionStorage when available, null when not."
+node_harness_behavior: "When sessionStorage unavailable: _getSessionStorage returns null, _getAccessToken returns null, no Authorization header attached, _authFetch calls fetch without Bearer token, refresh skipped, _redirectToLogin is no-op. Same behavior as before PR0102."
+browser_auth_behavior_preserved: "In real browser: _getSessionStorage returns window.sessionStorage, token read/write/clear works as before, _authFetch attaches Bearer token, 401 triggers refresh retry, _redirectToLogin redirects to login. All PR0102 auth behavior unchanged."
+auth_disabled_behavior_preserved: "When auth is disabled, _authFetch still calls fetch() without Authorization header. Same behavior as before."
+auth_enabled_behavior_preserved: "When auth is enabled in browser: token stored in sessionStorage, Bearer header attached to protected POST calls, 401 triggers refresh retry, refresh failure redirects to login."
+backend_auth_unchanged: "No changes to src/bremen/auth.py, src/bremen/config.py, src/bremen/api/server.py, src/bremen/login_ui.py, JWT/password behavior, or route protection logic."
+dependencies_unchanged: "No dependency changes."
+jwt_password_config_unchanged: "No JWT, password, or config behavior changed."
+tests_not_weakened: "No tests skipped or weakened. 12 launch-flow tests (was the failing test) now pass. 51 auth tests still pass. 521 control room tests still pass. Full suite: 2849 passed."
+auth_does_not_expand_visibility: "Auth gates actions only. _getSessionStorage returns null in Node → no Bearer header → same as before PR0102. No additional data exposed."
+no_secrets_or_default_credentials: "No hardcoded credentials or tokens introduced. Credential grep shows only test assertions."
+control_room_preserved: "Control Room layout, nav, pipeline, decision card, deleted reports, accordion, and all existing behavior preserved. 521 control room tests pass."
+tests:
+  launch_flow: "12 passed in test_bremen_launch_flow.py (was the failing test suite)"
+  auth: "51 passed in test_bremen_auth.py"
+  control_room: "521 passed in test_bremen_control_room.py"
+  api_docs: "77 passed in test_bremen_api_docs.py"
+  focused: "868 passed (launch_flow/auth/jwt/bearer/control_room/report/duplicate/delete)"
+  full_suite: "2849 passed, 11 skipped, 0 failed"
+  compileall: "PASS"
+  git_diff_check: "clean"
+validation:
+  safe_session_storage_exists: true
+  no_direct_session_storage_in_token_helpers: true
+  node_harness_does_not_crash: true
+  browser_auth_unchanged: true
+  auth_disabled_unchanged: true
+  auth_enabled_unchanged: true
+  backend_unchanged: true
+  dependencies_unchanged: true
+  tests_not_weakened: true
+  launch_flow_tests_pass: true
+functional_verification_limitation: "Source review cannot confirm deployed browser authentication behavior. A real local browser or deployment must verify login, token refresh, protected actions, and that Control Room auth fetch still attaches Authorization when a token exists."
+security: "No credentials, tokens, secrets, raw exceptions, stack traces, feature values, model coefficients, S3 URIs, bucket names, filesystem paths, H5 internals, or private data in public UI output. _getSessionStorage is production-safe (never throws). Auth does not expand data visibility."
+scope_control: "Only src/bremen/control_room_ui.py changed — 9 insertions, 7 deletions. Minimal focused fix. No backend, auth, config, dependency, Docker, infra, .github, training, or model files changed."
+implementation_report: "Matches actual file changes. 1 file changed (control_room_ui.py). All tests pass."
+commit_readiness: "Implementation is complete and all tests pass. Requires staging and committing the 1 file before merge."
