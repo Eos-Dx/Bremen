@@ -1,0 +1,90 @@
+status: valid
+head: 682f1b16604a2e97ebd657d1349e405626c3c1c1
+branch: 0104d-plan-fastapi-phase4-event-streaming
+base_branch: dev
+pr_target: dev
+blockers: []
+warnings:
+  - "Starlette TestClient deprecation: 'install httpx2 instead' — future concern, not Phase 4 blocker."
+  - "3 pre-existing flaky failures in workspace_ui tests (not related to this PR). 1 shared-state flaky failure in full suite run (passes individually). Implementation report documents these as pre-existing."
+  - "TestClient does not support true SSE streaming — streaming responses are buffered until generator completes. Addressed by direct generator unit tests for SSE frame format, heartbeat, stream_complete, and disconnect behavior."
+changed_files:
+  - src/bremen/api/fastapi_app.py
+  - tests/test_bremen_fastapi_phase4_event_streaming.py
+  - tests/test_bremen_fastapi_phase2_catalog.py
+  - tests/test_bremen_fastapi_phase3_write_routes.py
+  - .project-memory/pr/0104d-plan-fastapi-phase4-event-streaming/PLAN.md
+  - .project-memory/pr/0104d-plan-fastapi-phase4-event-streaming/reviews/plan-review.yml
+  - .project-memory/pr/0104d-plan-fastapi-phase4-event-streaming/implementation-report.md
+working_tree_state: "dirty — 3 modified (fastapi_app.py, test_bremen_fastapi_phase2_catalog.py, test_bremen_fastapi_phase3_write_routes.py) + 2 untracked (test_bremen_fastapi_phase4_event_streaming.py, implementation-report.md). Plan artifacts committed; implementation in working tree."
+approved_plan_followed: "Implementation follows the approved PR0104D PLAN.md exactly. Option A (StreamingResponse SSE) implemented as recommended. JSON polling route per plan Section 2.2. SSE stream route per plan Section 2.3. Dedicated ThreadPoolExecutor per plan warning. Read-time safety filter as defense-in-depth per plan-review warning. Terminal states per plan Section 2.6."
+same_branch_lifecycle_confirmed: "PLAN.md, plan-review.yml, and implementation-report.md all exist on the same branch 0104d-plan-fastapi-phase4-event-streaming. Plan was approved (plan-review.yml status: approved) before implementation was added."
+fastapi_foundation_reused: "create_fastapi_app() factory extended with Phase 4 event routes. Same app instance serves Phase 1, 2, 3, and 4 routes. No disconnected second FastAPI app."
+routes_implemented:
+  - "GET /demo/api/jobs/{job_id}/events — JSON polling, mirrors handle_job_events() from job_api_handler"
+  - "GET /demo/api/jobs/{job_id}/events/stream — SSE streaming via StreamingResponse, mirrors handle_job_events_stream() from job_api_handler"
+json_polling_parity: "Mirrors handle_job_events() exactly. Checks _event_store.has_job(job_id) → 404 if unknown. Reads X-Event-Cursor header for since_sequence. Returns {events, cursor, job_id, request_id, technical_demo_only}. Read-time safety filter via allowed_event_details() strips prohibited detail keys."
+sse_parity: "Mirrors handle_job_events_stream() exactly. Unknown job → JSON 404 (not SSE). Reads Last-Event-ID for initial cursor. Streams event: job_event\\ndata: {...}\\n\\n frames. Terminal states: completed, failed, partial_success, workflow_configuration_required. event: stream_complete at terminal. : keepalive\\n\\n heartbeat every 15 seconds. 300-second deadline. Client disconnect → GeneratorExit → silent cleanup."
+event_source_of_truth: "Same _event_store singleton from bremen.api.job_api_handler. No second event store created. Same _jobs dict and _jobs_lock shared between http.server and FastAPI routes."
+job_id_reconciliation: "Same create_analysis_job() writes to same _event_store and _jobs. FastAPI Phase 3 POST /demo/api/jobs job_ids are immediately visible to Phase 4 event routes. No reconciliation gap."
+dedicated_executor: "ThreadPoolExecutor(max_workers=4, thread_name_prefix='fastapi-sse') created at module level inside create_fastapi_app(). 4 workers sufficient for demo-stage concurrency (2-5 concurrent SSE connections)."
+default_executor_not_used: "Verified: no run_in_executor(None, ...) in code lines. Only appears in comment explaining why default executor is avoided."
+client_disconnect_heartbeat: "Generator uses try/except GeneratorExit for disconnect detection. try/finally for cleanup logging. : keepalive\\n\\n after 15-second wait_for_events timeout. 300-second deadline checked each loop iteration. Generator ends cleanly on disconnect, terminal, or deadline."
+read_time_safety_filter: "Added read-time filtering using allowed_event_details() from event_schema.py in both JSON polling and SSE routes. Strips prohibited detail keys before serialization as defense-in-depth. Does not mutate stored events — creates copy via ev.to_dict() before filtering. Plan-review warning about append-time-only validation addressed."
+status_vocabulary_preserved: "No new status strings invented. Existing terminal states preserved: completed, failed, partial_success, workflow_configuration_required. 28 EventType enum members unchanged."
+terminal_behavior_preserved: "Terminal check under _jobs_lock each loop iteration. Drain remaining events before stream_complete. No false completion after failure. Failure precedence preserved."
+stage_completeness_preserved: "Events returned in sequence order (guaranteed by _event_store.get_events()). No deduplication added. No stage vocabulary changed. Control Room UI unchanged. 15-stage pipeline semantics preserved."
+server_spawning_tests: "No new tests start real servers. All Phase 4 tests use FastAPI TestClient or direct generator iteration. No existing server-spawning tests removed."
+production_dockerfile_unchanged: "ENTRYPOINT [\"python\", \"-m\", \"bremen\"], CMD [\"serve\", \"--host\", \"0.0.0.0\", \"--port\", \"8080\"] — verified unchanged."
+production_entrypoint_unchanged: "python -m bremen serve — unchanged."
+control_room_unchanged: "No changes to src/bremen/control_room_ui.py."
+auth_unchanged: "No auth middleware or token routes added. Event routes remain unauthenticated (same as http.server)."
+safety_boundary: "No raw S3 bucket/key values, credentials, JWT secrets, env values, filesystem paths, H5 internals, model coefficients, full checksums, or PHI beyond existing safe display names. Read-time safety filter strips prohibited detail keys. Global exception handler prevents raw trace leaks."
+tests:
+  fastapi_phase1: "27 passed in test_bremen_fastapi_phase1.py"
+  fastapi_phase2: "26 passed in test_bremen_fastapi_phase2_catalog.py"
+  fastapi_phase3: "35 passed in test_bremen_fastapi_phase3_write_routes.py"
+  fastapi_phase4: "30 passed in test_bremen_fastapi_phase4_event_streaming.py"
+  api_server: "99 passed in test_bremen_api_server.py"
+  full_suite: "2958 passed, 11 skipped, 4 failed (3 pre-existing flaky in workspace_ui, 1 shared-state flaky that passes individually)"
+  compileall: "PASS per implementation report (shell denied for direct verification)"
+  git_diff_check: "Clean per implementation report"
+  phase4_test_breakdown: "8 TestJobEventsJson + 3 TestJobEventsStream + 5 TestSSEGenerator + 2 TestEventSourceSharing + 2 TestTerminalBehavior + 2 TestDedicatedExecutor + 4 regression + 2 Dockerfile + 2 ModuleSafety = 30 tests"
+validation:
+  branch_matches: true
+  base_branch_is_dev: true
+  pr_target_is_dev: true
+  plan_artifact_exists: true
+  plan_review_approved: true
+  implementation_report_exists: true
+  fastapi_foundation_reused: true
+  json_polling_route_exists: true
+  sse_streaming_route_exists: true
+  dedicated_executor_present: true
+  default_executor_not_used: true
+  read_time_safety_filter_present: true
+  event_store_shared_singleton: true
+  job_id_reconciliation_no_gap: true
+  terminal_statuses_preserved: true
+  heartbeat_present: true
+  deadline_300_seconds: true
+  generator_cleanup_present: true
+  production_http_server_unchanged: true
+  production_dockerfile_unchanged: true
+  production_entrypoint_unchanged: true
+  no_control_room_changes: true
+  no_auth_changes: true
+  no_new_post_routes: true
+  no_report_route_migration: true
+  no_production_cutover: true
+  no_model_training_changes: true
+  no_server_spawning_tests: true
+  no_raw_s3_exposure: true
+  no_filesystem_path_exposure: true
+  no_raw_exception_exposure: true
+  implementation_report_matches_diff: true
+functional_verification_limitation: "Source review and TestClient/direct generator tests cannot fully confirm deployed ASGI disconnect behavior. A local or staging deployment from dev must verify GET /demo/api/jobs/{job_id}/events/stream with a real ASGI server before any production cutover."
+security: "Global exception handler prevents raw trace leaks. Read-time safety filter strips prohibited detail keys (patient_id, h5_path, model_coefficients, feature_value, traceback, etc.) as defense-in-depth. No raw S3 bucket/key values, credentials, JWT secrets, env values, filesystem paths, H5 internals, model coefficients, full checksums, or PHI beyond existing safe display names. source_id is opaque. SSE error messages do not expose internal state."
+scope_control: "Changed files: src/bremen/api/fastapi_app.py (Phase 4 routes added), tests/test_bremen_fastapi_phase2_catalog.py (route exclusion update), tests/test_bremen_fastapi_phase3_write_routes.py (route exclusion update). New files: tests/test_bremen_fastapi_phase4_event_streaming.py (30 tests). No Dockerfile, infra/, .github/, training, control_room_ui, auth, event_store.py, event_schema.py, job_api_handler.py, or server.py changes."
+implementation_report: "Implementation report exists at .project-memory/pr/0104d-plan-fastapi-phase4-event-streaming/implementation-report.md. Lists 1 new test file + 3 modified files. Documents dedicated ThreadPoolExecutor, read-time safety filter, and all validation results. Report matches observed source code changes."
+commit_readiness: "Implementation is complete. All changed files read. All routes within scope. Event source of truth reused. job_id reconciliation verified. Dedicated executor present. Default executor not used. Read-time safety filter present. Client disconnect and heartbeat handled. Terminal behavior preserved. Stage completeness preserved. Safety boundaries preserved. All prior phase tests pass. Ready to commit and push for merge to dev."

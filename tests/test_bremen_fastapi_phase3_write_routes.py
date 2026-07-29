@@ -374,20 +374,15 @@ class TestPhase1Phase2Regression:
 # ===================================================================
 
 
-class TestNoSSEOrEventStreaming:
-    def test_no_sse_routes(self) -> None:
-        """FastAPI app has no SSE/event-stream routes."""
+class TestNoNewPostOrAnalyzeRoutes:
+    def test_no_new_post_routes(self) -> None:
+        """Phase 3 did not add upload/analyze/stage POST routes."""
         app = create_fastapi_app()
         for route in app.routes:
-            if hasattr(route, "path") and "event" in route.path.lower():
-                pytest.fail(f"Unexpected event route: {route.path}")
-
-    def test_no_streaming_response(self) -> None:
-        """No StreamingResponse in fastapi_app.py."""
-        source = Path(ROOT / "src" / "bremen" / "api" / "fastapi_app.py")
-        content = source.read_text(encoding="utf-8")
-        assert "StreamingResponse" not in content
-        assert "text/event-stream" not in content
+            if hasattr(route, "path"):
+                p = route.path
+                if any(x in p for x in ("analyze", "stage", "report")):
+                    pytest.fail(f"Unexpected route: {p}")
 
 
 # ===================================================================

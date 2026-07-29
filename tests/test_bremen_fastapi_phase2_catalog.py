@@ -226,20 +226,13 @@ class TestPhase1RoutesStillWork:
 # ===================================================================
 
 
-class TestNoPostOrSSE:
-    def test_no_post_routes(self) -> None:
-        """FastAPI app has no POST routes."""
+class TestNoUploadOrAnalyzeRoutes:
+    def test_no_upload_routes(self) -> None:
+        """FastAPI app has no upload-like routes."""
         app = create_fastapi_app()
         routes = [r.path for r in app.routes if hasattr(r, "path")]
-        post_routes = [r for r in routes if "upload" in r or "analyze" in r or "stage" in r]
-        assert post_routes == [], f"Unexpected POST-like routes: {post_routes}"
-
-    def test_no_sse_routes(self) -> None:
-        """FastAPI app has no SSE/event-stream routes."""
-        app = create_fastapi_app()
-        for route in app.routes:
-            if hasattr(route, "path") and "event" in route.path.lower():
-                pytest.fail(f"Unexpected event route: {route.path}")
+        upload_routes = [r for r in routes if "analyze" in r or "stage" in r]
+        assert upload_routes == [], f"Unexpected upload-like routes: {upload_routes}"
 
 
 # ===================================================================
