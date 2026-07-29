@@ -275,3 +275,173 @@ class TestSafeErrorOutput:
         source = FASTAPI_SERVER.read_text(encoding="utf-8")
 
         assert "pip install uvicorn" in source
+
+
+class TestCLIServeBackendSelection:
+    """Parser-level and dispatch coverage for --backend on serve."""
+
+    def test_serve_backend_default_is_http(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["serve"])
+
+        assert args.backend == "http"
+
+    def test_serve_backend_http_explicit(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["serve", "--backend", "http"])
+
+        assert args.backend == "http"
+        assert args.command == "serve"
+        assert args._cmd_handler == "serve"
+
+    def test_serve_backend_fastapi(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["serve", "--backend", "fastapi"])
+
+        assert args.backend == "fastapi"
+        assert args.command == "serve"
+        assert args._cmd_handler == "serve"
+
+    def test_serve_backend_invalid_rejected(self) -> None:
+        parser = build_parser()
+
+        with pytest.raises(SystemExit):
+            parser.parse_args(["serve", "--backend", "grpc"])
+
+    def test_serve_backend_with_host_port(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            ["serve", "--backend", "fastapi", "--host", "0.0.0.0", "--port", "9000"]
+        )
+
+        assert args.backend == "fastapi"
+        assert args.host == "0.0.0.0"
+        assert args.port == 9000
+
+
+class TestServeFastapiPreserved:
+    """serve-fastapi remains a separate command."""
+
+    def test_serve_fastapi_still_parseable(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["serve-fastapi"])
+
+        assert args.command == "serve-fastapi"
+        assert args._cmd_handler == "serve_fastapi"
+
+    def test_serve_fastapi_no_backend_arg(self) -> None:
+        """serve-fastapi does not have --backend."""
+        parser = build_parser()
+
+        with pytest.raises(SystemExit):
+            parser.parse_args(["serve-fastapi", "--backend", "http"])
+
+
+class TestServeDispatch:
+    """Dispatch-level tests for serve with --backend."""
+
+    def test_dispatch_http_calls_run_server(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from bremen.__main__ import _handle_serve
+
+        calls: dict[str, object] = {}
+
+        def fake_run_server(**kwargs: object) -> None:
+            calls["server"] = kwargs
+
+        def fake_run_fastapi(**kwargs: object) -> int:
+            calls["fastapi"] = kwargs
+            return 0
+
+        monkeypatch.setattr(
+            "bremen.api.server.run_server", fake_run_server
+        )
+        monkeypatch.setattr(
+            "bremen.api.fastapi_server.run_fastapi_server",
+            fake_run_fastapi,
+        )
+
+        import argparse
+
+        args = argparse.Namespace(
+            command="serve",
+            _cmd_handler="serve",
+            host="127.0.0.1",
+            port=8000,
+            backend="http",
+        )
+
+        rc = _handle_serve(args)
+
+        assert rc == 0
+        assert "server" in calls
+        assert "fastapi" not in calls
+        assert calls["server"]["host"] == "127.0.0.1"
+        assert calls["server"]["port"] == 8000
+
+    def test_dispatch_fastapi_calls_run_fastapi(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from bremen.__main__ import _handle_serve
+
+        calls: dict[str, object] = {}
+
+        def fake_run_server(**kwargs: object) -> None:
+            calls["server"] = kwargs
+
+        def fake_run_fastapi(**kwargs: object) -> int:
+            calls["fastapi"] = kwargs
+            return 0
+
+        monkeypatch.setattr(
+            "bremen.api.server.run_server", fake_run_server
+        )
+        monkeypatch.setattr(
+            "bremen.api.fastapi_server.run_fastapi_server",
+            fake_run_fastapi,
+        )
+
+        import argparse
+
+        args = argparse.Namespace(
+            command="serve",
+            _cmd_handler="serve",
+            host="0.0.0.0",
+            port=9000,
+            backend="fastapi",
+        )
+
+        rc = _handle_serve(args)
+
+        assert rc == 0
+        assert "fastapi" in calls
+        assert "server" not in calls
+        assert calls["fastapi"]["host"] == "0.0.0.0"
+        assert calls["fastapi"]["port"] == 9000
+
+    def test_dispatch_default_without_backend_attr(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """If backend attr is missing, defaults to http."""
+        from bremen.__main__ import _handle_serve
+
+        calls: dict[str, object] = {}
+
+        def fake_run_server(**kwargs: object) -> None:
+            calls["server"] = kwargs
+
+        monkeypatch.setattr(
+            "bremen.api.server.run_server", fake_run_server
+        )
+
+        import argparse
+
+        # No backend attribute — simulates pre-upgrade namespace
+        args = argparse.Namespace(
+            command="serve",
+            _cmd_handler="serve",
+            host="127.0.0.1",
+            port=8000,
+        )
+
+        rc = _handle_serve(args)
+
+        assert rc == 0
+        assert "server" in calls
