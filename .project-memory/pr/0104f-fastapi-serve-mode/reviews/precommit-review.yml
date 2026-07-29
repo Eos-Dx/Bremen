@@ -1,0 +1,67 @@
+status: valid
+head: f9d811e44fdfae155d94b8f49af6d05912abd56e
+branch: 0104f-fastapi-serve-mode
+base_branch: dev
+pr_target: dev
+blockers: []
+warnings: []
+changed_files:
+  - src/bremen/__main__.py
+  - src/bremen/api/fastapi_server.py
+  - tests/test_bremen_fastapi_serve_mode.py
+  - .project-memory/pr/0104f-fastapi-serve-mode/implementation-report.md
+working_tree_state: 1 modified tracked file (src/bremen/__main__.py), 3 untracked new files
+fastapi_phase_1_4_confirmed: true
+asgi_smoke_readiness_confirmed: true
+serve_mode_added: true
+command: python -m bremen serve-fastapi --host 127.0.0.1 --port 8080
+uvicorn_factory_target: bremen.api.fastapi_app:create_fastapi_app
+legacy_serve_default_preserved: true
+fast_test_policy_followed: true
+pytest_server_spawning_avoided: true
+production_dockerfile_unchanged: true
+production_entrypoint_unchanged: true
+control_room_unchanged: true
+auth_unchanged: true
+safety_boundary:
+  no_secrets_exposed: true
+  no_raw_traceback_in_error: true
+  missing_uvicorn_safe_message: true
+  loopback_only_default: true
+  exception_print_type_name_only: true
+fast_tests:
+  serve_mode: 33 passed
+  asgi_smoke_readiness: 65 passed
+  phase_1: 27 passed
+  focused_fastapi_serve_asgi_smoke_phase1: 138 passed
+validation:
+  compileall: passed
+  git_diff_check: clean
+  branch_check: passed
+  forbidden_scope_check: no output (clean)
+manual_smoke_limitation: >
+  Source review and focused pytest cannot fully confirm deployed FastAPI
+  serve behavior. Run the documented python -m bremen serve-fastapi command
+  locally or in staging, then run scripts/smoke_fastapi_asgi.py --read-only
+  against that mode before any production cutover.
+security:
+  no_secrets_added: true
+  no_phi_added: true
+  no_private_h5_added: true
+  no_joblib_added: true
+  safe_missing_uvicorn_message: true
+  exception_type_name_only: true
+  loopback_only: true
+scope_control:
+  dockerfile_unchanged: true
+  production_entrypoint_unchanged: true
+  production_cmd_unchanged: true
+  http_server_unchanged: true
+  control_room_unchanged: true
+  auth_unchanged: true
+  model_training_unchanged: true
+  no_production_cutover: true
+implementation_report:
+  present: true
+  matches_actual_diff: true
+commit_readiness: ready
