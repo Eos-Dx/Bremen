@@ -1,0 +1,251 @@
+# Plan Review — PR0104D FastAPI Phase 4 Event Streaming / Job Events Migration
+# Reviewed: 2026-07-29T15:46:13Z
+# Reviewer: plan-review-agent
+
+status: approved
+head: 54791b2cff9436f1dbe4ab206f07d40b85b55707
+branch: 0104d-plan-fastapi-phase4-event-streaming
+base_branch: dev
+pr_target: dev
+blockers: []
+warnings:
+  - |
+    The recommended StreamingResponse approach uses run_in_executor to bridge
+    the synchronous _event_store.wait_for_events() (threading.Condition) into
+    the async FastAPI event loop. This blocks a thread from the default thread
+    pool for each SSE connection. For demo-stage concurrency (2-5 connections)
+    this is acceptable, but the plan should document the thread pool exhaustion
+    risk for higher concurrency and note that run_in_executor should use a
+    dedicated ThreadPoolExecutor, not the default run_in_executor(None, ...).
+  - |
+    TestClient does not support true SSE streaming — streaming responses are
+    buffered until the generator completes. The plan correctly addresses this
+    with direct generator unit tests, but disconnect behavior testing is
+    inherently limited without a real ASGI server. The implementation coder
+    should verify disconnect behavior in an integration environment.
+  - |
+    _PROHIBITED_DETAIL_KEYS enforcement happens at event append time via
+    validate_event_details(). If the prohibited keys set is ever modified,
+    existing events in the store that were appended under a previous schema
+    are not re-validated at read time. The plan could recommend a read-time
+    safety filter as defense-in-depth.
+  - |
+    The plan states the SSE 404 for unknown job_id returns JSON body, not SSE.
+    This is correctly copied from existing http.server behavior, but it means
+    the EventSource onError handler must parse Content-Type to distinguish 404
+    from connection errors. This is existing behavior, not a new concern.
+changed_files: []
+working_tree_state: clean (untracked plan files only)
+plan_scope:
+  implementation_pr: "0104e-fastapi-phase4-event-streaming (future)"
+  scope: "Plan-only: migration of job event streaming/live events from http.server to FastAPI"
+  routes_in_scope:
+    - GET /demo/api/jobs/{job_id}/events (JSON polling)
+    - GET /demo/api/jobs/{job_id}/events/stream (SSE)
+  routes_out_of_scope:
+    - All non-event routes
+    - POST routes
+    - Control Room UI
+    - Auth endpoints
+    - Report routes
+    - Stage/h5/analyze routes
+    - Health/probe routes
+dev_flow_confirmed: true
+main_protected: true
+phase_1_2_3_foundation_confirmed: true
+current_route_inventory:
+  identified: true
+  routes:
+    - path: /demo/api/jobs/{job_id}/events
+      method: GET
+      handler: handle_job_events() in job_api_handler.py
+      content_type: application/json
+      type: JSON polling
+    - path: /demo/api/jobs/{job_id}/events/stream
+      method: GET
+      handler: handle_job_events_stream() in job_api_handler.py
+      content_type: text/event-stream
+      type: SSE streaming (true SSE, not polling)
+  plan_accuracy: "verified against server.py:1791-1802 and job_api_handler.py:1087,1103"
+event_source_of_truth:
+  identified: true
+  module: src/bremen/api/event_store.py
+  class: BoundedEventStore
+  singleton: job_api_handler._event_store (package-level under bremen._bremen_workspace_event_store)
+  schema: src/bremen/api/event_schema.py (JobEvent frozen dataclass, EventType enum)
+  validation: validate_event_details() with _PROHIBITED_DETAIL_KEYS
+  lifecycle: orchestrated by create_analysis_job() and run_workflow_request()
+  ordering: monotonic sequence numbers, insertion-order list storage
+  module_reload_safe: true (package-level state, not module-level)
+job_id_reconciliation_plan:
+  gap: none
+  explanation: "FastAPI POST /demo/api/jobs (Phase 3) calls same create_analysis_job()
+    which writes to same singleton _event_store and _jobs. No reconciliation needed."
+  behavior_matrix:
+    - scenario: "Known job_id" -> "Returns events"
+    - scenario: "Unknown job_id" -> "404 'Job not found'"
+    - scenario: "Stale/evicted job_id" -> "404"
+    - scenario: "Completed job" -> "All events + terminal state"
+    - scenario: "Failed job" -> "Events up to failure"
+    - scenario: "Deleted report" -> "Job still exists, events available"
+  stop_condition: "Must stop if _event_store and _jobs singletons cannot be imported"
+status_vocabulary_plan:
+  job_statuses:
+    running: initial, non-terminal
+    completed: terminal
+    failed: terminal
+    partial_success: terminal (defined, not explicitly set in job creation)
+    workflow_configuration_required: terminal
+    normalization_failed: terminal
+  event_types: 28 EventType enum members from event_schema.py
+  mapping: "1:1 from JobEvent.to_dict() to SSE data field — no additional transformation"
+  no_new_vocabulary: true
+terminal_state_plan:
+  terminal_statuses:
+    - completed
+    - failed
+    - partial_success
+    - workflow_configuration_required
+    - normalization_failed
+  success_behavior: Drain all remaining events, send stream_complete, break
+  failure_behavior: Drain events up to failure point, send stream_complete, break
+  failure_precedence: "Failure is terminal and prevents false completion events"
+stage_completeness_plan:
+  bremen_stages: 11 (artifact_verification through report_completed)
+  total_stages_including_cr: 15 (11 Bremen + 4 Control Room pre/post)
+  missing_stage_handling: "build_trace_from_events shows missing stages as 'not_started'"
+  duplicate_event_handling: "No deduplication — all events sent in sequence order"
+streaming_design_decision:
+  selected: "Option A: FastAPI StreamingResponse SSE"
+  rejected: "Option B: FastAPI JSON Polling Endpoint"
+  rationale: "Existing production path is true SSE (text/event-stream), BoundedEventStore
+    is designed for SSE with wait_for_events()/threading.Condition, full SSE parity
+    enables eventual http.server event route decommission, Phase 3 already writes to
+    same _event_store"
+  implementation_approach: StreamingResponse with async event_generator using
+    run_in_executor for synchronous wait_for_events()
+  event_store_compatibility: "100% — same singleton, same API"
+  risks_identified:
+    - run_in_executor blocks thread pool
+    - ASGI disconnect detection less reliable than http.server write-error detection
+    - TestClient cannot do true SSE streaming
+client_disconnect_heartbeat_plan:
+  disconnect_detection: "try/except on yield (RuntimeError), optional request.is_disconnected()"
+  generator_cleanup: "try/finally block, no BackgroundTasks or separate asyncio tasks"
+  heartbeat: ": keepalive\n\n" after wait_for_events timeout (15 seconds)
+  deadline: "300 seconds from first connection, checked each loop iteration"
+  terminal_close: "stream_complete event sent, generator ends"
+  background_task_leak_prevention: "Generator is sole resource holder; ends on disconnect/completion; run_in_executor thread returns when wait_for_events returns"
+safety_boundary:
+  prohibited_exposures:
+    - Raw S3 bucket names
+    - Raw S3 object keys
+    - Filesystem paths
+    - H5 internals (dataset paths, group names, attributes)
+    - Feature values or model coefficients
+    - Full checksums
+    - Package internals (_package, _checksum, _model)
+    - Credentials (AWS keys, JWT tokens)
+    - JWT secrets or env values
+    - Raw exception traces (stack frames, file paths, line numbers)
+    - PHI/private data beyond safe display names
+  enforcement: "event_schema.py _PROHIBITED_DETAIL_KEYS + validate_event_details() at append time"
+  same_as_existing: true
+auth_boundary:
+  current_state: "Event routes are unauthenticated (demo-only)"
+  phase_4_decision: "No auth gates on event routes in Phase 4"
+  rationale: "Auth redesign is non-goal; adding auth would change behavior vs existing http.server path; auth integration is a future standalone PR"
+  visibility_change: "Do not expand or contract visibility"
+test_strategy:
+  test_file: tests/test_bremen_fastapi_phase4_event_stream.py (new)
+  testclient_tests:
+    - test_events_route_exists
+    - test_events_unknown_job_id
+    - test_events_known_job_id
+    - test_events_empty_job
+    - test_events_cursor_header
+    - test_events_ordered
+    - test_events_safe_output
+  generator_unit_tests:
+    - test_sse_generator_yields_events
+    - test_sse_generator_empty
+    - test_sse_generator_heartbeat
+    - test_sse_generator_stream_complete
+    - test_sse_generator_disconnect
+    - test_sse_generator_deadline
+    - test_sse_event_format
+    - test_sse_no_raw_internals
+  event_store_parity_tests:
+    - test_event_store_shared_singleton
+    - test_events_from_fastapi_job_visible_to_http
+    - test_events_survive_module_reload
+  termination_tests:
+    - test_terminal_completed
+    - test_terminal_failed
+    - test_terminal_unknown_status
+    - test_failure_precedence
+    - test_duplicate_events_handling
+  no_server_spawning: true
+  regression_required:
+    - tests/test_bremen_fastapi_phase1.py
+    - tests/test_bremen_fastapi_phase2_catalog.py
+    - tests/test_bremen_fastapi_phase3_write_routes.py
+    - tests/test_bremen_api_server.py
+    - tests/test_bremen_concurrent_server.py
+    - Full suite: python -m pytest -q
+production_path_protection:
+  dockerfile_unchanged: true
+  entrypoint_cmd_unchanged: true
+  http_server_remains: true
+  main_branch_unchanged: true
+  control_room_unchanged: true
+  coexistence: "Both http.server and FastAPI paths serve event routes simultaneously"
+non_goals:
+  - No implementation in this PR (planning only)
+  - No Control Room UI changes
+  - No production cutover (http.server SSE remains active)
+  - No Dockerfile changes
+  - No auth redesign (event routes remain unauthenticated)
+  - No model/training changes
+  - No report route migration
+  - No POST /demo/api/stage migration
+  - No POST /demo/api/h5/analyze migration
+  - No main branch target
+  - No server-spawning tests
+  - No new status strings or event types
+  - No change to event schema
+  - No change to event store implementation
+  - No change to execution trace projection
+  - No change to terminal state semantics
+stop_conditions:
+  - Phase 1/2/3 are missing from dev
+  - Exact current event route cannot be identified
+  - Event_store source of truth is ambiguous
+  - job_id reconciliation is ambiguous
+  - Terminal status vocabulary is ambiguous
+  - Implementation would require Control Room UI change
+  - Implementation would require production Dockerfile/entrypoint change
+  - Implementation would expose raw internals
+  - Event ordering cannot be tested
+  - Failure precedence cannot be preserved
+  - Generator disconnect behavior cannot be bounded
+  - Tests would need real server spawning
+  - No shared _event_store (import side effects / circular imports)
+implementation_readiness:
+  safe_to_hand_to_coder: true
+  plan_only: true
+  current_routes_identified: true
+  event_source_of_truth_identified: true
+  job_id_reconciliation_documented: true
+  status_vocabulary_documented: true
+  terminal_state_behavior_documented: true
+  streaming_design_decided: true
+  client_disconnect_handled: true
+  heartbeat_strategy_defined: true
+  safety_boundary_defined: true
+  auth_boundary_defined: true
+  test_strategy_comprehensive: true
+  production_path_protection_documented: true
+  stop_conditions_defined: true
+review_artifact:
+  path: ".project-memory/pr/0104d-plan-fastapi-phase4-event-streaming/reviews/plan-review.yml"
