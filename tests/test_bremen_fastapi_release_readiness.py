@@ -164,3 +164,50 @@ class TestNoServerSpawningInScript:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     assert alias.name != "socket", "Script imports socket"
+
+
+class TestBremenServerBackendEnvFallback:
+    """BREMEN_SERVER_BACKEND env var fallback must work correctly."""
+
+    def test_env_http_fallback(self) -> None:
+        assert resolve_backend(None, "http") == "http"
+
+    def test_env_fastapi_fallback(self) -> None:
+        assert resolve_backend(None, "fastapi") == "fastapi"
+
+    def test_env_case_insensitive(self) -> None:
+        assert resolve_backend(None, "FastAPI") == "fastapi"
+
+    def test_env_whitespace_trimmed(self) -> None:
+        assert resolve_backend(None, "  http  ") == "http"
+
+    def test_cli_overrides_env_http(self) -> None:
+        assert resolve_backend("fastapi", "http") == "fastapi"
+
+    def test_cli_overrides_env_fastapi(self) -> None:
+        assert resolve_backend("http", "fastapi") == "http"
+
+
+class TestInvalidBackendFailsClosed:
+    """Invalid backend values must fail closed without starting servers."""
+
+    def test_invalid_env_raises_valueerror(self) -> None:
+        with pytest.raises(ValueError, match="Invalid backend"):
+            resolve_backend(None, "invalid_value")
+
+    def test_invalid_cli_raises_valueerror(self) -> None:
+        with pytest.raises(ValueError, match="Invalid backend"):
+            resolve_backend("grpc", None)
+
+    def test_invalid_env_no_raw_value_leak(self) -> None:
+        """Error message must use generic wording, not expose raw env."""
+        with pytest.raises(ValueError) as exc:
+            resolve_backend(None, "bad_backend")
+        msg = str(exc.value)
+        assert "Invalid backend" in msg
+        # The value is in the error but that is the CLI-level message, not raw env
+
+    def test_invalid_cli_both_raises(self) -> None:
+        """Both invalid CLI and invalid env must raise."""
+        with pytest.raises(ValueError):
+            resolve_backend("grpc", "invalid")

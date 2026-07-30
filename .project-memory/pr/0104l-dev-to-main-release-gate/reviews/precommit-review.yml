@@ -1,0 +1,41 @@
+status: valid
+head: 6487a5b4f27c18a608fc2d80dca702b0c8e3d031
+branch: 0104l-dev-to-main-release-gate
+base_branch: dev
+pr_target: dev
+blockers: []
+warnings: []
+changed_files:
+  - scripts/check_fastapi_release_readiness.py (modified)
+  - tests/test_bremen_fastapi_release_readiness.py (modified)
+working_tree_state: dirty (2 modified, 1 untracked directory)
+summary: "PR0104L extends release readiness checks for dev-to-main gate. Script now has 15 checks (added 4: env http fallback, env fastapi fallback, invalid env fail-closed, invalid CLI fail-closed). Tests now have 29 tests (added 10: env fallback, invalid backend fail-closed). No production code modified. All 3121 tests pass."
+
+default_runtime: fastapi
+legacy_fallback_available: true
+serve_fastapi_preserved: true
+fastapi_factory_target_preserved: true
+dockerfile_unchanged: true
+dockerfile_no_legacy_override: true
+production_code_unchanged: true
+zero_server_policy_preserved: true
+invalid_backend_fails_closed: true
+guard_test:
+  file: tests/test_bremen_no_server_spawning_tests.py
+  result: 85 passed, 0 skipped, 0 failed
+release_readiness_script:
+  path: scripts/check_fastapi_release_readiness.py
+  checks: 15
+  result: ALL CHECKS PASSED
+release_readiness_tests:
+  path: tests/test_bremen_fastapi_release_readiness.py
+  count: 29
+  result: 29 passed
+full_suite_mandatory: true
+full_suite_result: 3121 passed, 11 skipped, 0 failed
+coverage_result: "83% total (no fail-under threshold configured)"
+project_memory_format: valid
+implementation_report:
+  path: .project-memory/pr/0104l-dev-to-main-release-gate/implementation-report.txt
+  matches_diff: true
+commit_readiness: ready

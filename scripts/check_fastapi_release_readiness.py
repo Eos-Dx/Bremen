@@ -135,6 +135,40 @@ def main() -> int:
         f"got {args_default.backend!r}",
     )
 
+    # 12. BREMEN_SERVER_BACKEND=http env fallback works
+    check(
+        "BREMEN_SERVER_BACKEND=http resolves to http",
+        resolve_backend(None, "http") == "http",
+    )
+
+    # 13. BREMEN_SERVER_BACKEND=fastapi env works
+    check(
+        "BREMEN_SERVER_BACKEND=fastapi resolves to fastapi",
+        resolve_backend(None, "fastapi") == "fastapi",
+    )
+
+    # 14. Invalid backend fails closed (raises ValueError, no server)
+    try:
+        resolve_backend(None, "invalid_value")
+        invalid_ok = False
+    except ValueError:
+        invalid_ok = True
+    check(
+        "Invalid BREMEN_SERVER_BACKEND fails closed",
+        invalid_ok,
+    )
+
+    # 15. Invalid CLI backend fails closed
+    try:
+        resolve_backend("grpc", None)
+        invalid_cli_ok = False
+    except ValueError:
+        invalid_cli_ok = True
+    check(
+        "Invalid CLI --backend fails closed",
+        invalid_cli_ok,
+    )
+
     print("=" * 40)
     if errors:
         print(f"FAILED: {len(errors)} check(s) failed")
