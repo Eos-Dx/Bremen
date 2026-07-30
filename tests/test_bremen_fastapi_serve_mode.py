@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from bremen.__main__ import BUILTIN_COMMANDS, build_parser
+from bremen.__main__ import BUILTIN_COMMANDS, build_parser, resolve_backend
 from bremen.api.fastapi_server import (
     _DEFAULT_HOST,
     _DEFAULT_LOG_LEVEL,
@@ -280,11 +280,12 @@ class TestSafeErrorOutput:
 class TestCLIServeBackendSelection:
     """Parser-level and dispatch coverage for --backend on serve."""
 
-    def test_serve_backend_default_is_http(self) -> None:
+    def test_serve_backend_default_is_none(self) -> None:
         parser = build_parser()
         args = parser.parse_args(["serve"])
 
-        assert args.backend == "http"
+        # Default is None so the resolver can distinguish CLI from env
+        assert args.backend is None
 
     def test_serve_backend_http_explicit(self) -> None:
         parser = build_parser()
@@ -445,3 +446,197 @@ class TestServeDispatch:
 
         assert rc == 0
         assert "server" in calls
+
+
+class TestResolveBackend:
+    """Tests for the resolve_backend function."""
+
+    def test_no_cli_no_env_returns_http(self) -> None:
+        assert resolve_backend(None, None) == "http"
+
+    def test_cli_http_wins(self) -> None:
+        assert resolve_backend("http", None) == "http"
+
+    def test_cli_fastapi_wins(self) -> None:
+        assert resolve_backend("fastapi", None) == "fastapi"
+
+    def test_cli_overrides_env_fastapi(self) -> None:
+        assert resolve_backend("http", "fastapi") == "http"
+
+    def test_cli_overrides_env_http(self) -> None:
+        assert resolve_backend("fastapi", "http") == "fastapi"
+
+    def test_env_fastapi_used_when_cli_none(self) -> None:
+        assert resolve_backend(None, "fastapi") == "fastapi"
+
+    def test_env_http_used_when_cli_none(self) -> None:
+        assert resolve_backend(None, "http") == "http"
+
+    def test_cli_whitespace_trimmed(self) -> None:
+        assert resolve_backend("  fastapi  ", None) == "fastapi"
+
+    def test_env_whitespace_trimmed(self) -> None:
+        assert resolve_backend(None, "  fastapi  ") == "fastapi"
+
+    def test_cli_case_insensitive(self) -> None:
+        assert resolve_backend("FastAPI", None) == "fastapi"
+
+    def test_env_case_insensitive(self) -> None:
+        assert resolve_backend(None, "FastAPI") == "fastapi"
+
+    def test_cli_empty_string_falls_to_env(self) -> None:
+        assert resolve_backend("", "fastapi") == "fastapi"
+
+    def test_cli_whitespace_only_falls_to_env(self) -> None:
+        assert resolve_backend("   ", "fastapi") == "fastapi"
+
+    def test_invalid_cli_raises(self) -> None:
+        with pytest.raises(ValueError, match="Invalid backend"):
+            resolve_backend("grpc", None)
+
+    def test_invalid_env_raises(self) -> None:
+        with pytest.raises(ValueError, match="Invalid backend"):
+            resolve_backend(None, "grpc")
+
+    def test_invalid_cli_error_no_raw_env(self) -> None:
+        """CLI error message uses generic wording, not raw env."""
+        with pytest.raises(ValueError, match="Invalid backend"):
+            resolve_backend("SHOULD_NOT_LEAK", None)
+
+    def test_invalid_env_error_no_raw_env(self) -> None:
+        """Invalid env error message uses generic wording."""
+        with pytest.raises(ValueError, match="Invalid backend"):
+            resolve_backend(None, "bad-value")
+
+    def test_env_empty_string_falls_to_default(self) -> None:
+        assert resolve_backend(None, "") == "http"
+
+    def test_env_whitespace_only_falls_to_default(self) -> None:
+        assert resolve_backend(None, "   ") == "http"
+
+
+class TestEnvBackendBehavior:
+    """Integration tests for BREMEN_SERVER_BACKEND env var dispatch."""
+
+    def test_env_fastapi_dispatches_fastapi(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from bremen.__main__ import _handle_serve
+
+        calls: dict[str, object] = {}
+
+        def fake_run_fastapi(**kwargs: object) -> int:
+            calls["fastapi"] = kwargs
+            return 0
+
+        monkeypatch.setattr(
+            "bremen.api.fastapi_server.run_fastapi_server",
+            fake_run_fastapi,
+        )
+        monkeypatch.setenv("BREMEN_SERVER_BACKEND", "fastapi")
+
+        import argparse
+
+        args = argparse.Namespace(
+            command="serve",
+            _cmd_handler="serve",
+            host="127.0.0.1",
+            port=8000,
+            backend=None,
+        )
+
+        rc = _handle_serve(args)
+
+        assert rc == 0
+        assert "fastapi" in calls
+
+    def test_env_http_dispatches_http(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from bremen.__main__ import _handle_serve
+
+        calls: dict[str, object] = {}
+
+        def fake_run_server(**kwargs: object) -> None:
+            calls["server"] = kwargs
+
+        monkeypatch.setattr(
+            "bremen.api.server.run_server", fake_run_server
+        )
+        monkeypatch.setenv("BREMEN_SERVER_BACKEND", "http")
+
+        import argparse
+
+        args = argparse.Namespace(
+            command="serve",
+            _cmd_handler="serve",
+            host="127.0.0.1",
+            port=8000,
+            backend=None,
+        )
+
+        rc = _handle_serve(args)
+
+        assert rc == 0
+        assert "server" in calls
+
+    def test_cli_overrides_env_fastapi(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from bremen.__main__ import _handle_serve
+
+        calls: dict[str, object] = {}
+
+        def fake_run_server(**kwargs: object) -> None:
+            calls["server"] = kwargs
+
+        monkeypatch.setattr(
+            "bremen.api.server.run_server", fake_run_server
+        )
+        monkeypatch.setenv("BREMEN_SERVER_BACKEND", "fastapi")
+
+        import argparse
+
+        args = argparse.Namespace(
+            command="serve",
+            _cmd_handler="serve",
+            host="127.0.0.1",
+            port=8000,
+            backend="http",
+        )
+
+        rc = _handle_serve(args)
+
+        assert rc == 0
+        assert "server" in calls
+
+    def test_invalid_env_fails_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from bremen.__main__ import _handle_serve
+
+        calls: dict[str, object] = {}
+
+        def fake_run_server(**kwargs: object) -> None:
+            calls["server"] = kwargs
+
+        def fake_run_fastapi(**kwargs: object) -> int:
+            calls["fastapi"] = kwargs
+            return 0
+
+        monkeypatch.setattr(
+            "bremen.api.server.run_server", fake_run_server
+        )
+        monkeypatch.setattr(
+            "bremen.api.fastapi_server.run_fastapi_server",
+            fake_run_fastapi,
+        )
+        monkeypatch.setenv("BREMEN_SERVER_BACKEND", "invalid")
+
+        import argparse
+
+        args = argparse.Namespace(
+            command="serve",
+            _cmd_handler="serve",
+            host="127.0.0.1",
+            port=8000,
+            backend=None,
+        )
+
+        rc = _handle_serve(args)
+
+        assert rc == 1
+        assert "server" not in calls
+        assert "fastapi" not in calls

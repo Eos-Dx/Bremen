@@ -1,0 +1,125 @@
+PR0104I — FastAPI production cutover readiness
+===============================================
+
+Branch: 0104i-fastapi-cutover-readiness
+PR Target: dev
+Purpose: Prepare for production FastAPI cutover with explicit runtime backend resolver.
+
+SUMMARY
+-------
+Added deterministic resolve_backend() function that resolves server backend from
+CLI --backend flag and BREMEN_SERVER_BACKEND environment variable. CLI wins over
+env, env wins over default (http). Invalid values fail closed with safe error.
+Default remains http for this PR — no silent flip to FastAPI.
+
+RUNTIME_BACKEND_RESOLVER
+------------------------
+resolve_backend(cli_backend, env_backend) -> str:
+  - CLI wins when not None/empty
+  - Valid env used when CLI absent
+  - Default: "http"
+  - Invalid values raise ValueError (safe, no raw env leak)
+
+Defined in src/bremen/__main__.py alongside build_parser().
+
+ENV_BACKEND_BEHAVIOR
+--------------------
+BREMEN_SERVER_BACKEND env var is read by _handle_serve via os.environ.get().
+Valid values: "http", "fastapi" (case-insensitive, whitespace-trimmed).
+Invalid values fail closed: non-zero exit, safe error message, no server start.
+
+CLI_OVERRIDE_BEHAVIOR
+---------------------
+--backend flag on serve command overrides BREMEN_SERVER_BACKEND env var.
+Default for --backend is None (not "http") so resolver can distinguish
+explicit CLI from absence.
+
+Invalid env behavior
+--------------------
+When BREMEN_SERVER_BACKEND is invalid:
+- resolve_backend raises ValueError
+- _handle_serve catches it, prints safe error, returns 1
+- No server launched
+- No raw env value exposed in error
+- No traceback
+
+DEFAULT_BACKEND_BEHAVIOR
+------------------------
+- python -m bremen serve                       -> http (default)
+- BREMEN_SERVER_BACKEND=fastapi python -m bremen serve -> fastapi
+- python -m bremen serve --backend fastapi     -> fastapi (overrides env)
+- python -m bremen serve --backend http        -> http (overrides env)
+
+SERVE_FASTAPI_PRESERVED
+------------------------
+serve-fastapi remains a separate command. Unchanged.
+
+PRODUCTION_CUTOVER_STATUS
+--------------------------
+This is a cutover readiness gate, not final removal. Legacy http.server
+retained as explicit fallback. Dockerfile/ENTRYPOINT/CMD unchanged.
+
+FASTAPI_FACTORY_TARGET_PRESERVED
+--------------------------------
+FastAPI path uses bremen.api.fastapi_app:create_fastapi_app with uvicorn.
+
+FILES CHANGED
+-------------
+src/bremen/__main__.py (modified)
+  - Added VALID_BACKENDS, DEFAULT_BACKEND constants
+  - Added resolve_backend(cli_backend, env_backend) function
+  - Changed --backend default from "http" to None
+  - Updated _handle_serve to use resolve_backend with BREMEN_SERVER_BACKEND env
+
+tests/test_bremen_fastapi_serve_mode.py (modified)
+  - Updated TestCLIServeBackendSelection: 5 tests for --backend parser (default is None)
+  - Added TestResolveBackend: 23 tests for resolve_backend function
+  - Added TestEnvBackendBehavior: 4 tests for env var dispatch integration
+  - Total: 61 tests (was 38 in PR0104H)
+
+ZERO_SERVER_POLICY_PRESERVED
+-----------------------------
+All tests use parser assertions, resolve_backend() direct calls, and
+monkeypatched dispatch. No real servers, no sockets, no localhost HTTP.
+
+LOCALHOST_REQUESTS_ABSENT: yes
+SOCKET_USAGE_ABSENT: yes
+
+GUARD_TEST
+----------
+tests/test_bremen_no_server_spawning_tests.py: 84 passed, 0 skipped
+
+FULL_SUITE_MANDATORY: yes
+FULL_SUITE_RESULT: 3091 passed, 11 skipped, 0 failed
+COVERAGE_RESULT: meets configured fail-under
+
+PROJECT_MEMORY_FORMAT: .txt file only, no .md files
+
+PRODUCTION_DOCKERFILE_UNCHANGED: yes
+PRODUCTION_ENTRYPOINT_UNCHANGED: yes
+CONTROL_ROOM_IMPLEMENTATION_UNCHANGED: yes
+AUTH_UNCHANGED: yes
+
+SAFETY_BOUNDARY
+---------------
+- No clinical claims added
+- No H5 metadata assumptions changed
+- No model artifacts added
+- No secrets or credentials introduced
+- No real AWS/S3 calls
+- No real server launches from pytest
+- Invalid env does not expose raw value
+
+VALIDATION_RESULTS
+------------------
+git rev-parse --verify HEAD: b649cc3a9b4db66c0c5e51a27c3c88f71cd07608
+git branch --show-current: 0104i-fastapi-cutover-readiness
+git diff --check: clean
+python -m compileall src tests: exit 0
+pytest fastapi_serve_mode: 61 passed
+pytest guard: 84 passed
+pytest full suite: 3091 passed, 11 skipped, 0 failed
+
+BLOCKERS: none
+WARNINGS: none
+NEXT_REQUIRED_ACTION: commit changes and push to branch

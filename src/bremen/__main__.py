@@ -11,6 +11,53 @@ import argparse
 
 BUILTIN_COMMANDS = ("preprocess", "serve", "serve-fastapi", "demo_smoke", "demo_run")
 STUB_COMMANDS = ("preflight", "run", "report")
+VALID_BACKENDS = ("http", "fastapi")
+DEFAULT_BACKEND = "http"
+
+
+def resolve_backend(
+    cli_backend: str | None,
+    env_backend: str | None,
+) -> str:
+    """Resolve the server backend from CLI and environment.
+
+    Rules:
+    - explicit CLI backend wins when not None and not empty
+    - valid env backend is used when CLI backend is absent/None
+    - no env means default (http)
+    - invalid values fail closed
+
+    Returns
+    -------
+    A valid backend string: "http" or "fastapi".
+
+    Raises
+    -----
+    ValueError
+        If the resolved value is not a valid backend.
+    """
+    # CLI wins
+    if cli_backend is not None and cli_backend.strip():
+        value = cli_backend.strip().lower()
+        if value not in VALID_BACKENDS:
+            raise ValueError(
+                f"Invalid backend: {value!r}. "
+                f"Valid backends: {', '.join(VALID_BACKENDS)}."
+            )
+        return value
+
+    # Env fallback
+    if env_backend is not None and env_backend.strip():
+        value = env_backend.strip().lower()
+        if value not in VALID_BACKENDS:
+            raise ValueError(
+                f"Invalid backend: {value!r}. "
+                f"Valid backends: {', '.join(VALID_BACKENDS)}."
+            )
+        return value
+
+    # Default
+    return DEFAULT_BACKEND
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -171,11 +218,12 @@ def _add_serve_subcommand(
     serve.add_argument(
         "--backend",
         type=str,
-        default="http",
+        default=None,
         choices=["http", "fastapi"],
         help=(
-            "Server backend: 'http' for legacy http.server "
-            "(default), 'fastapi' for FastAPI/ASGI."
+            "Server backend: 'http' for legacy http.server, "
+            "'fastapi' for FastAPI/ASGI. "
+            "Default: BREMEN_SERVER_BACKEND env var, then 'http'."
         ),
     )
     serve.set_defaults(_cmd_handler="serve")
@@ -185,12 +233,22 @@ def _handle_serve(args: argparse.Namespace) -> int:
     """Start the Bremen API server (blocking, dev/smoke mode).
 
     Dispatches to legacy http.server or FastAPI/ASGI backend
-    based on ``args.backend``.
+    based on resolved backend (CLI --backend > BREMEN_SERVER_BACKEND > default).
     """
+    import os
+
     from .logging_config import get_logger  # noqa: PLC0415
 
     _log = get_logger(__name__)
-    backend = getattr(args, "backend", "http")
+
+    cli_backend = getattr(args, "backend", None)
+    env_backend = os.environ.get("BREMEN_SERVER_BACKEND")
+
+    try:
+        backend = resolve_backend(cli_backend, env_backend)
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        return 1
 
     if backend == "fastapi":
         _log.info(
