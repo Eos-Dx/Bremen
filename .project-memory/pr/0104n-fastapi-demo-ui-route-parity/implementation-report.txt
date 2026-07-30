@@ -1,0 +1,76 @@
+PR0104N — FastAPI demo UI route parity hotfix
+===============================================
+
+Branch: 0104n-fastapi-demo-ui-route-parity
+PR Target: dev
+Purpose: Add FastAPI route parity for legacy demo UI routes that returned 404.
+
+PROBLEM
+-------
+FastAPI starts and /health returns 200, but:
+- GET /demo -> 404
+- GET /demo/control-room -> 404
+
+SOLUTION
+--------
+Added two FastAPI routes that reuse existing legacy UI rendering code:
+- GET /demo -> build_start_page() from bremen.start_page_ui
+- GET /demo/control-room -> build_control_room_page() from bremen.control_room_ui
+
+Both routes:
+- Derive base_url from request Host/X-Forwarded-Proto headers
+- Auto-generate X-Request-ID if not provided
+- Return HTMLResponse with text/html content-type
+- Reuse existing UI builders (no UI rewrite)
+
+FIXED_ROUTES
+------------
+- GET /demo (and /demo/) -> 200 HTML
+- GET /demo/control-room -> 200 HTML
+
+FASTAPI_DEFAULT_PRESERVED
+--------------------------
+Default backend remains "http". FastAPI opt-in via:
+- --backend fastapi
+- BREMEN_SERVER_BACKEND=fastapi
+- serve-fastapi
+
+LEGACY_FALLBACK_PRESERVED
+---------------------------
+- python -m bremen serve -> legacy http.server (default)
+- python -m bremen serve --backend http
+- BREMEN_SERVER_BACKEND=http
+
+FILES CHANGED
+-------------
+src/bremen/api/fastapi_app.py (modified)
+  Added GET /demo and GET /demo/control-room routes using existing
+  build_start_page and build_control_room_page functions.
+
+tests/test_bremen_fastapi_demo_routes.py (added)
+  16 tests: start page (6), control room (6), existing routes (4).
+
+TESTS ADDED
+-----------
+test_bremen_fastapi_demo_routes.py: 16 tests
+  - TestDemoStartPageRoute: 200, HTML, title, trailing slash, request-id
+  - TestDemoControlRoomRoute: 200, HTML, content, request-id, query params
+  - TestExistingRoutesStillWork: health, model version, models, 404
+
+ZERO_SERVER_POLICY_PRESERVED: yes, FastAPI TestClient only
+FULL_SUITE_RESULT: 3138 passed, 11 skipped, 0 failed
+
+SAFETY_BOUNDARY
+- No production code changes beyond route additions
+- No UI rewrite, reuses existing builders
+- No real servers, sockets, localhost HTTP
+- No H5/S3/model internals exposed
+
+VALIDATION_RESULTS
+- python -m compileall src tests scripts: exit 0
+- pytest demo_routes: 16 passed
+- pytest guard: 85 passed
+- pytest release_readiness: 30 passed
+- pytest full suite: 3138 passed, 11 skipped, 0 failed
+
+BLOCKERS: none

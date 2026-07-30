@@ -1,0 +1,40 @@
+status: valid
+head: 40362f7faa3528508016b29af01b607b3aa509b8
+branch: 0104n-fastapi-demo-ui-route-parity
+base_branch: dev
+pr_target: dev
+blockers: []
+warnings: []
+changed_files:
+  - src/bremen/api/fastapi_app.py (modified)
+  - tests/test_bremen_fastapi_demo_routes.py (added)
+working_tree_state: dirty (1 modified, 1 added, 1 untracked directory)
+summary: "PR0104N adds FastAPI route parity for GET /demo and GET /demo/control-room. Both routes now return 200 HTML by reusing existing build_start_page and build_control_room_page UI builders. FastAPI default preserved. All 3138 tests pass."
+
+fixed_routes:
+  - GET /demo -> 200 HTML (was 404)
+  - GET /demo/ -> 200 HTML (was 404)
+  - GET /demo/control-room -> 200 HTML (was 404)
+fastapi_default_preserved: true
+legacy_fallback_preserved: true
+serve_fastapi_preserved: true
+fastapi_factory_target_preserved: true
+ui_rewritten: false
+ui_reused: true
+dockerfile_unchanged: true
+auth_unchanged: true
+model_training_unchanged: true
+zero_server_policy_preserved: true
+guard_test:
+  file: tests/test_bremen_no_server_spawning_tests.py
+  result: 86 passed, 0 skipped, 0 failed
+demo_routes_tests: 16 passed
+release_readiness_tests: 29 passed
+full_suite_mandatory: true
+full_suite_result: 3138 passed, 11 skipped, 0 failed
+coverage_result: "83% total (no fail-under threshold configured)"
+project_memory_format: valid
+implementation_report:
+  path: .project-memory/pr/0104n-fastapi-demo-ui-route-parity/implementation-report.txt
+  matches_diff: true
+commit_readiness: ready
