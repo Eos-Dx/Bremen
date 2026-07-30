@@ -1,0 +1,74 @@
+PR0104K — Release readiness checks
+====================================
+
+Branch: 0104k-release-readiness-checks
+PR Target: dev
+Purpose: Add release readiness checks for FastAPI default runtime cutover.
+
+SUMMARY
+-------
+Added scripts/check_fastapi_release_readiness.py — a standalone script
+that verifies 11 release-readiness conditions without starting servers,
+making network calls, or using sockets. Added tests/test_bremen_fastapi_release_readiness.py
+with 19 tests covering the script logic, resolver defaults, parser defaults,
+factory target, guard file, Dockerfile safety, and AST safety of the script.
+
+RELEASE READINESS CHECKS (script output)
+------------------------------------------
+  [PASS] Default backend is fastapi
+  [PASS] --backend http resolves to http
+  [PASS] --backend fastapi resolves to fastapi
+  [PASS] serve-fastapi command exists
+  [PASS] FastAPI factory target is correct
+  [PASS] Dockerfile does not force legacy backend
+  [PASS] Zero-server guard test file exists
+  [PASS] Legacy run_server is importable
+  [PASS] FastAPI run_fastapi_server is importable
+  [PASS] serve --backend http parser works
+  [PASS] serve default --backend is None (resolves to fastapi)
+
+FILES CHANGED
+-------------
+scripts/check_fastapi_release_readiness.py (added)
+  Standalone readiness check script with 11 checks.
+
+tests/test_bremen_fastapi_release_readiness.py (added)
+  19 tests covering resolver, parser, factory target, guard file,
+  Dockerfile, imports, script AST safety.
+
+TESTS ADDED
+-----------
+test_bremen_fastapi_release_readiness.py: 19 tests
+  - TestResolverDefaults (6 tests)
+  - TestParserDefaults (4 tests)
+  - TestFactoryTarget (1 test)
+  - TestGuardFileExists (1 test)
+  - TestScriptExists (2 tests)
+  - TestDockerfileDoesNotForceLegacy (1 test)
+  - TestLegacyImportable (1 test)
+  - TestFastAPIImportable (1 test)
+  - TestNoServerSpawningInScript (2 tests)
+
+ZERO_SERVER_POLICY_PRESERVED: yes, no servers in script or tests
+GUARD_TEST: 85 passed (picks up new test file)
+FULL_SUITE_RESULT: 3111 passed, 11 skipped, 0 failed
+
+PRODUCTION_CODE_UNCHANGED: yes, no production code modified
+DOCKERFILE_UNCHANGED: yes
+
+SAFETY_BOUNDARY
+- No production code changes
+- No real servers, sockets, localhost HTTP
+- No AWS/H5/model artifacts
+- No .md under .project-memory/pr/**
+
+VALIDATION_RESULTS
+- python -m compileall src tests scripts: exit 0
+- python scripts/check_fastapi_release_readiness.py: ALL CHECKS PASSED
+- pytest release_readiness: 19 passed
+- pytest guard: 85 passed
+- pytest full suite: 3111 passed, 11 skipped, 0 failed
+
+BLOCKERS: none
+WARNINGS: none
+NEXT_REQUIRED_ACTION: commit changes and push to branch

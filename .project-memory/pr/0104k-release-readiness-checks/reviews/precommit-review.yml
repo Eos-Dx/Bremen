@@ -1,0 +1,40 @@
+status: valid
+head: e4ba0045a4c63a3ace0b73e34bbf0e011641344f
+branch: 0104k-release-readiness-checks
+base_branch: dev
+pr_target: dev
+blockers: []
+warnings: []
+changed_files:
+  - scripts/check_fastapi_release_readiness.py (added)
+  - tests/test_bremen_fastapi_release_readiness.py (added)
+working_tree_state: dirty (2 untracked files, 1 untracked directory)
+summary: "PR0104K adds release readiness checks: a standalone script (scripts/check_fastapi_release_readiness.py) with 11 checks and a test file (tests/test_bremen_fastapi_release_readiness.py) with 19 tests. No production code modified. Default is FastAPI. Legacy fallback preserved. All 3111 tests pass."
+
+default_runtime: fastapi
+legacy_fallback_available: true
+serve_fastapi_preserved: true
+fastapi_factory_target_preserved: true
+dockerfile_unchanged: true
+dockerfile_no_legacy_override: true
+production_code_unchanged: true
+zero_server_policy_preserved: true
+guard_test:
+  file: tests/test_bremen_no_server_spawning_tests.py
+  result: 85 passed, 0 skipped, 0 failed
+release_readiness_script:
+  path: scripts/check_fastapi_release_readiness.py
+  checks: 11
+  result: ALL CHECKS PASSED
+release_readiness_tests:
+  path: tests/test_bremen_fastapi_release_readiness.py
+  count: 19
+  result: 19 passed
+full_suite_mandatory: true
+full_suite_result: 3111 passed, 11 skipped, 0 failed
+coverage_result: "83% total (no fail-under threshold configured)"
+project_memory_format: valid
+implementation_report:
+  path: .project-memory/pr/0104k-release-readiness-checks/implementation-report.txt
+  matches_diff: true
+commit_readiness: ready
