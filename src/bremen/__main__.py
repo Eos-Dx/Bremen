@@ -12,7 +12,7 @@ import argparse
 BUILTIN_COMMANDS = ("preprocess", "serve", "serve-fastapi", "demo_smoke", "demo_run")
 STUB_COMMANDS = ("preflight", "run", "report")
 VALID_BACKENDS = ("http", "fastapi")
-DEFAULT_BACKEND = "http"
+DEFAULT_BACKEND = "fastapi"
 
 
 def resolve_backend(
@@ -222,8 +222,8 @@ def _add_serve_subcommand(
         choices=["http", "fastapi"],
         help=(
             "Server backend: 'http' for legacy http.server, "
-            "'fastapi' for FastAPI/ASGI. "
-            "Default: BREMEN_SERVER_BACKEND env var, then 'http'."
+            "'fastapi' for FastAPI/ASGI (default). "
+            "Default: BREMEN_SERVER_BACKEND env var, then 'fastapi'."
         ),
     )
     serve.set_defaults(_cmd_handler="serve")
