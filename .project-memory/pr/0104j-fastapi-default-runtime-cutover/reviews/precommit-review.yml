@@ -1,0 +1,138 @@
+status: valid
+head: c06f417c5740b818e0596c6bca51c006f8d3598e
+branch: 0104j-fastapi-default-runtime-cutover
+base_branch: dev
+pr_target: dev
+blockers: []
+warnings: []
+changed_files:
+  - src/bremen/__main__.py
+  - tests/test_bremen_fastapi_serve_mode.py
+working_tree_state: dirty (2 modified, 1 untracked directory)
+summary: "PR0104J changes DEFAULT_BACKEND from 'http' to 'fastapi', making FastAPI the default runtime for python -m bremen serve. Legacy http.server remains available via --backend http or BREMEN_SERVER_BACKEND=http. All resolver/env/CLI override behavior preserved. Dockerfile unchanged. All 3091 tests pass."
+
+default_runtime_change:
+  previous_default: http
+  new_default: fastapi
+  change_location: src/bremen/__main__.py line 15 (DEFAULT_BACKEND = "fastapi")
+  impact: "python -m bremen serve now selects FastAPI/ASGI by default"
+
+runtime_backend_resolver:
+  function: resolve_backend(cli_backend, env_backend) -> str
+  location: src/bremen/__main__.py
+  rules:
+    - CLI wins when not None/empty
+    - Valid env used when CLI absent
+    - Default: "fastapi"
+    - Invalid values raise ValueError (safe, no raw env leak)
+
+env_backend_behavior:
+  env_var: BREMEN_SERVER_BACKEND
+  valid_values: ["http", "fastapi"]
+  case_insensitive: true
+  whitespace_trimmed: true
+  fastapi_selects_fastapi: true
+  http_selects_http: true
+  invalid_fails_closed: true
+  invalid_no_server_start: true
+  invalid_safe_error: true
+
+cli_override_behavior:
+  cli_backend_default: null
+  cli_fastapi_overrides_env_http: true
+  cli_http_overrides_env_fastapi: true
+  cli_empty_falls_to_env: true
+  cli_whitespace_falls_to_env: true
+
+invalid_env_behavior:
+  raises_value_error: true
+  caught_by_handle_serve: true
+  returns_exit_code_1: true
+  no_server_launched: true
+  safe_error_message: true
+  no_raw_env_value_exposed: true
+  no_traceback: true
+
+legacy_fallback_behavior:
+  available_via_backend_http: true
+  available_via_env_http: true
+  server_py_preserved: true
+  legacy_handler_import_preserved: true
+
+serve_fastapi_preserved: true
+fastapi_factory_target_preserved: true
+
+docker_entrypoint_cmd_decision:
+  dockerfile_changed: false
+  entrypoint_unchanged: true
+  cmd_unchanged: true
+  rationale: "Code-level default handles cutover. Dockerfile runs ENTRYPOINT ['python', '-m', 'bremen'] CMD ['serve', '--host', '0.0.0.0', '--port', '8080']. With DEFAULT_BACKEND='fastapi', this automatically selects FastAPI. No Dockerfile change needed."
+
+production_cutover_status: dev_branch_runtime_cutover
+
+zero_server_policy_preserved: true
+localhost_requests_absent: true
+socket_usage_absent: true
+guard_test:
+  file: tests/test_bremen_no_server_spawning_tests.py
+  result: 84 passed, 0 skipped, 0 failed
+
+full_suite_mandatory: true
+full_suite_result: 3091 passed, 11 skipped, 0 failed
+coverage_result: "83% total (no fail-under threshold configured)"
+coverage_config_unchanged_or_safe: true
+coverage_threshold_not_lowered: true
+coverage_omits_not_abused: true
+
+project_memory_format: valid
+production_dockerfile_status: unchanged
+control_room_implementation_unchanged: true
+auth_unchanged: true
+
+safety_boundary:
+  - No clinical claims added
+  - No H5 metadata assumptions changed
+  - No model artifacts added
+  - No secrets or credentials introduced
+  - No real AWS/S3 calls
+  - No real server launches from pytest
+  - Invalid env does not expose raw value
+  - Safe error messages (no tracebacks, no raw env values)
+  - Legacy http.server fully preserved as explicit fallback
+  - Dockerfile unchanged — code default handles cutover
+
+validation:
+  git_rev_parse: c06f417c5740b818e0596c6bca51c006f8d3598e
+  git_branch: 0104j-fastapi-default-runtime-cutover
+  git_diff_check: clean
+  compileall: passed
+  parser_runtime_selection_check: passed
+  fastapi_serve_mode_tests: 61 passed
+  guard_tests: 84 passed
+  zero_server_inventory: clean (only guard patterns, AST checks, source assertions, fake test URLs)
+
+security:
+  - No secrets in changed files
+  - No credentials exposed
+  - No JWT secrets exposed
+  - No env values exposed in error messages
+  - No raw exception details in user-facing output
+  - No PHI exposure
+  - Invalid env backend fails closed with safe error
+
+scope_control:
+  - Only __main__.py and test file changed
+  - Dockerfile unchanged
+  - ENTRYPOINT/CMD unchanged
+  - Control room unchanged
+  - Auth unchanged
+  - Model/training files unchanged
+  - Legacy server.py not deleted
+  - Coverage config unchanged
+  - No new .md files under .project-memory/pr/
+
+implementation_report:
+  path: .project-memory/pr/0104j-fastapi-default-runtime-cutover/implementation-report.txt
+  matches_diff: true
+
+commit_readiness: ready

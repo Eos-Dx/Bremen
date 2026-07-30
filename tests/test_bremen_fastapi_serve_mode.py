@@ -420,16 +420,18 @@ class TestServeDispatch:
         assert calls["fastapi"]["port"] == 9000
 
     def test_dispatch_default_without_backend_attr(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """If backend attr is missing, defaults to http."""
+        """If backend attr is missing, defaults to fastapi."""
         from bremen.__main__ import _handle_serve
 
         calls: dict[str, object] = {}
 
-        def fake_run_server(**kwargs: object) -> None:
-            calls["server"] = kwargs
+        def fake_run_fastapi(**kwargs: object) -> int:
+            calls["fastapi"] = kwargs
+            return 0
 
         monkeypatch.setattr(
-            "bremen.api.server.run_server", fake_run_server
+            "bremen.api.fastapi_server.run_fastapi_server",
+            fake_run_fastapi,
         )
 
         import argparse
@@ -445,14 +447,14 @@ class TestServeDispatch:
         rc = _handle_serve(args)
 
         assert rc == 0
-        assert "server" in calls
+        assert "fastapi" in calls
 
 
 class TestResolveBackend:
     """Tests for the resolve_backend function."""
 
-    def test_no_cli_no_env_returns_http(self) -> None:
-        assert resolve_backend(None, None) == "http"
+    def test_no_cli_no_env_returns_fastapi(self) -> None:
+        assert resolve_backend(None, None) == "fastapi"
 
     def test_cli_http_wins(self) -> None:
         assert resolve_backend("http", None) == "http"
@@ -509,10 +511,10 @@ class TestResolveBackend:
             resolve_backend(None, "bad-value")
 
     def test_env_empty_string_falls_to_default(self) -> None:
-        assert resolve_backend(None, "") == "http"
+        assert resolve_backend(None, "") == "fastapi"
 
     def test_env_whitespace_only_falls_to_default(self) -> None:
-        assert resolve_backend(None, "   ") == "http"
+        assert resolve_backend(None, "   ") == "fastapi"
 
 
 class TestEnvBackendBehavior:
