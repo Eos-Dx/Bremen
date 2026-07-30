@@ -79,6 +79,22 @@ def run_fastapi_server(
     print(f"ASGI mode (uvicorn) — factory: {_FACTORY_TARGET}")
     print("Dev/smoke mode only. Not for production use.")
 
+    # Suppress access-log noise for /health probes
+    import logging as _logging  # noqa: PLC0415
+
+    class _HealthAccessFilter(_logging.Filter):
+        """Drop uvicorn access log lines for GET /health."""
+
+        def filter(self, record: _logging.LogRecord) -> bool:
+            msg = record.getMessage()
+            if isinstance(msg, str) and "GET /health" in msg:
+                return False
+            return True
+
+    for _logger_name in ("uvicorn.access", "uvicorn"):
+        _logger = _logging.getLogger(_logger_name)
+        _logger.addFilter(_HealthAccessFilter())
+
     try:
         uvicorn.run(
             _FACTORY_TARGET,

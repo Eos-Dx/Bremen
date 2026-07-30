@@ -73,6 +73,20 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
     )
 
     # ------------------------------------------------------------------
+    # Suppress access-log noise for GET /health
+    # ------------------------------------------------------------------
+    @app.middleware("http")
+    async def _suppress_health_access_log(request: Request, call_next):  # type: ignore[no-untyped-def]
+        """Suppress uvicorn access log for /health probes.
+
+        Tags the request so the uvicorn log filter can skip it.
+        All other requests pass through unmodified.
+        """
+        if request.url.path == "/health":
+            request.scope["access_log"] = False
+        return await call_next(request)
+
+    # ------------------------------------------------------------------
     # GET /health
     # ------------------------------------------------------------------
     @app.get("/health")
@@ -362,6 +376,53 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
 
     from fastapi.responses import HTMLResponse  # noqa: PLC0415
 
+    # ------------------------------------------------------------------
+    # Startup: initialize model registry (mirrors http.server startup)
+    # ------------------------------------------------------------------
+    @app.on_event("startup")
+    async def _initialize_model_registry() -> None:
+        """Populate the process-global model registry at startup.
+
+        Mirrors the startup behavior of ``run_server()`` in the
+        legacy http.server path so that ``/demo/api/models`` returns
+        configured models instead of an empty catalog.
+        """
+        import os as _os  # noqa: PLC0415
+        from bremen.api.model_registry import (  # noqa: PLC0415
+            initialize_registry, build_legacy_registry,
+        )
+
+        catalog_uri = _os.environ.get("BREMEN_MODEL_CATALOG_URI", "").strip()
+        if catalog_uri:
+            try:
+                from bremen.api.s3_model_discovery import discover_models  # noqa: PLC0415
+                from bremen.api.model_registry import ModelRegistry  # noqa: PLC0415
+
+                discovery_result = discover_models(catalog_uri)
+                registry = ModelRegistry(
+                    entries=tuple(discovery_result.entries),
+                    unavailable_entries=tuple(discovery_result.unavailable_entries),
+                    catalog_status=discovery_result.catalog_status,
+                    candidate_count=discovery_result.candidate_count,
+                    available_count=discovery_result.available_count,
+                    rejected_count=discovery_result.rejected_count,
+                    unavailable_count=discovery_result.unavailable_count,
+                    last_discovery_at=discovery_result.last_discovery_at,
+                )
+                initialize_registry(registry)
+            except Exception:
+                pass  # Non-fatal — catalog stays empty
+        else:
+            try:
+                from bremen.api.model_state import ModelState  # noqa: PLC0415
+                ModelState.load_at_startup()
+            except Exception:
+                pass  # Non-fatal — catalog stays empty
+            try:
+                initialize_registry(build_legacy_registry())
+            except Exception:
+                pass  # Non-fatal
+
     @app.get("/demo")
     async def demo_start_page(request: Request) -> HTMLResponse:
         """Render the Bremen Start page (model selection)."""
@@ -386,6 +447,22 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         forwarded_proto = request.headers.get("X-Forwarded-Proto", "http")
         base_url = f"{forwarded_proto}://{host_header}"
         html = build_control_room_page(base_url=base_url, request_id=request_id)
+        return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
+
+    # ------------------------------------------------------------------
+    # GET /demo/api-docs — API documentation page parity
+    # ------------------------------------------------------------------
+    @app.get("/demo/api-docs")
+    async def demo_api_docs(request: Request) -> HTMLResponse:
+        """Render the Bremen API documentation page."""
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.api_docs_ui import build_api_docs_page  # noqa: PLC0415
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+        host_header = request.headers.get("host", "localhost")
+        forwarded_proto = request.headers.get("X-Forwarded-Proto", "http")
+        base_url = f"{forwarded_proto}://{host_header}"
+        html = build_api_docs_page(base_url=base_url, request_id=request_id)
         return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
 
     # ------------------------------------------------------------------
