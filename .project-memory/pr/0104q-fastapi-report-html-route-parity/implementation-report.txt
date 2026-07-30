@@ -1,0 +1,52 @@
+PR0104Q — FastAPI report HTML route parity hotfix
+=================================================
+
+Branch: 0104q-fastapi-report-html-route-parity
+PR Target: main
+Purpose: Add FastAPI parity for report HTML open route.
+
+PROBLEM
+-------
+GET /demo/report/{job_id} returned 404 under FastAPI.
+
+SOLUTION
+--------
+Added GET /demo/report/{job_id} route that reuses build_report_page
+from bremen.report_ui. Mirrors legacy _handle_report_route exactly.
+
+FILES CHANGED
+-------------
+src/bremen/api/fastapi_app.py (modified)
+  Added GET /demo/report/{job_id} route using build_report_page.
+  Returns HTMLResponse with X-Request-ID header.
+
+tests/test_bremen_fastapi_report_html_route.py (added)
+  18 tests: report HTML (6), safety (4), existing routes (8).
+
+TESTS
+-----
+test_bremen_fastapi_report_html_route.py: 18 tests
+  - TestReportHTMLRoute: 200, HTML, bremen content, job_id, request_id
+  - TestReportHTMLSafety: no S3, no filesystem, no traces, no H5
+  - TestExistingRoutesPreserved: health, jobs, reports, models, UI, 404
+
+REPORT_HTML_ROUTE_FIXED: yes
+JOBS_ROUTES_PRESERVED: yes
+API_REPORT_ROUTES_PRESERVED: yes
+FASTAPI_DEFAULT_PRESERVED: yes
+
+ZERO_SERVER_POLICY_PRESERVED: yes
+FULL_SUITE_RESULT: 3204 passed, 11 skipped, 0 failed
+
+SAFETY_BOUNDARY
+- No production code changes beyond route addition
+- Reuses existing build_report_page (no HTML rewrite)
+- No real servers, sockets, localhost HTTP
+- No raw S3/H5/model internals, exceptions, or PHI
+
+VALIDATION_RESULTS
+- python -m compileall src tests: exit 0
+- pytest report_html_route: 18 passed
+- pytest full suite: 3204 passed, 11 skipped, 0 failed
+
+BLOCKERS: none

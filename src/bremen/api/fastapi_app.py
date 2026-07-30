@@ -441,6 +441,22 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
 
     # ------------------------------------------------------------------
+    # GET /demo/report/{job_id} — report HTML page parity
+    # ------------------------------------------------------------------
+    @app.get("/demo/report/{job_id}")
+    async def demo_report_page(job_id: str, request: Request) -> HTMLResponse:
+        """Render the Bremen Report page for a specific job."""
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.report_ui import build_report_page  # noqa: PLC0415
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+        host_header = request.headers.get("host", "localhost")
+        forwarded_proto = request.headers.get("X-Forwarded-Proto", "http")
+        base_url = f"{forwarded_proto}://{host_header}"
+        html = build_report_page(base_url=base_url, job_id=job_id)
+        return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
+
+    # ------------------------------------------------------------------
     # GET /demo/api-docs — API documentation page parity
     # ------------------------------------------------------------------
     @app.get("/demo/api-docs")
