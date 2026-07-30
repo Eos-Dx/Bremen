@@ -1,0 +1,74 @@
+PR0104O — FastAPI models, API docs, and health log hotfix
+==========================================================
+
+Branch: 0104o-fastapi-models-api-docs-health-hotfix
+PR Target: dev
+Purpose: Fix three FastAPI runtime parity issues.
+
+SUMMARY
+-------
+Fixed three issues:
+1. Model catalog empty — added startup event to initialize model registry
+2. /demo/api-docs missing — added route using existing build_api_docs_page
+3. /health access log noise — added log filter to suppress uvicorn /health logs
+
+FIX 1: MODEL CATALOG
+---------------------
+Added @app.on_event("startup") handler that initializes the model registry
+by calling discover_models (catalog mode) or load_at_startup (legacy mode),
+mirroring the http.server startup behavior. Non-fatal on error.
+
+FIX 2: API DOCS ROUTE
+----------------------
+Added GET /demo/api-docs route that reuses build_api_docs_page from
+bremen.api_docs_ui. Returns HTMLResponse with X-Request-ID header.
+
+FIX 3: HEALTH ACCESS LOG SUPPRESSION
+--------------------------------------
+Added _HealthAccessFilter to uvicorn.access and uvicorn loggers in
+run_fastapi_server(). Filters out access log lines containing
+"GET /health". Startup logs, non-health request logs, and errors
+are preserved.
+
+FILES CHANGED
+-------------
+src/bremen/api/fastapi_app.py (modified)
+  - Added middleware to tag /health requests for log suppression
+  - Added @app.on_event("startup") to initialize model registry
+  - Added GET /demo/api-docs route using build_api_docs_page
+
+src/bremen/api/fastapi_server.py (modified)
+  - Added _HealthAccessFilter to suppress /health access log noise
+
+tests/test_bremen_fastapi_model_api_docs_parity.py (added)
+  19 tests: model catalog (5), API docs (5), health (3), H5 containers (2),
+  existing routes (4).
+
+TESTS
+-----
+test_bremen_fastapi_model_api_docs_parity.py: 19 tests
+  - TestModelCatalogRoute: 200, fields, status, no S3, no traces
+  - TestAPIDocsRoute: 200, HTML, bremen content, request-id
+  - TestHealthRoute: 200, JSON, no raw exception
+  - TestH5ContainersStillWork: 200, fields
+  - TestExistingRoutesNotBroken: start page, control room, model version, 404
+
+ZERO_SERVER_POLICY_PRESERVED: yes
+FULL_SUITE_RESULT: 3158 passed, 11 skipped, 0 failed
+
+SAFETY_BOUNDARY
+- No production code changes beyond route additions and startup init
+- No UI rewrite
+- No real servers, sockets, localhost HTTP
+- No H5/S3/model internals exposed
+- No secrets or credentials
+
+VALIDATION_RESULTS
+- python -m compileall src tests scripts: exit 0
+- pytest model_api_docs_parity: 19 passed
+- pytest demo_routes: 16 passed
+- pytest release_readiness: 30 passed
+- pytest guard: 85 passed
+- pytest full suite: 3158 passed, 11 skipped, 0 failed
+
+BLOCKERS: none
