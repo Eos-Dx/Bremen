@@ -1,0 +1,73 @@
+PR0104L — dev to main release gate
+====================================
+
+Branch: 0104l-dev-to-main-release-gate
+PR Target: dev
+Purpose: Extend release readiness checks for dev-to-main gate.
+
+SUMMARY
+-------
+Extended scripts/check_fastapi_release_readiness.py with 4 new checks
+(total 15): BREMEN_SERVER_BACKEND env fallback, invalid backend fail-closed.
+Extended tests/test_bremen_fastapi_release_readiness.py with 10 new tests
+(total 29): env fallback, invalid backend fail-closed.
+
+READYNESS CHECKS (15 total, script output)
+-------------------------------------------
+  [PASS] Default backend is fastapi
+  [PASS] --backend http resolves to http
+  [PASS] --backend fastapi resolves to fastapi
+  [PASS] serve-fastapi command exists
+  [PASS] FastAPI factory target is correct
+  [PASS] Dockerfile does not force legacy backend
+  [PASS] Zero-server guard test file exists
+  [PASS] Legacy run_server is importable
+  [PASS] FastAPI run_fastapi_server is importable
+  [PASS] serve --backend http parser works
+  [PASS] serve default --backend is None (resolves to fastapi)
+  [PASS] BREMEN_SERVER_BACKEND=http resolves to http
+  [PASS] BREMEN_SERVER_BACKEND=fastapi resolves to fastapi
+  [PASS] Invalid BREMEN_SERVER_BACKEND fails closed
+  [PASS] Invalid CLI --backend fails closed
+
+FILES CHANGED
+-------------
+scripts/check_fastapi_release_readiness.py (modified)
+  Added 4 checks: env http fallback, env fastapi fallback,
+  invalid env fail-closed, invalid CLI fail-closed.
+
+tests/test_bremen_fastapi_release_readiness.py (modified)
+  Added TestBremenServerBackendEnvFallback (6 tests)
+  Added TestInvalidBackendFailsClosed (4 tests)
+  Total: 29 tests (was 19)
+
+TESTS ADDED
+-----------
+- test_bremen_fastapi_release_readiness.py: 29 tests (10 new)
+  - TestBremenServerBackendEnvFallback: env http, env fastapi, case, whitespace, CLI overrides
+  - TestInvalidBackendFailsClosed: invalid env, invalid CLI, no raw leak, both invalid
+
+ZERO_SERVER_POLICY_PRESERVED: yes
+GUARD_TEST: 85 passed
+FULL_SUITE_RESULT: 3121 passed, 11 skipped, 0 failed
+COVERAGE_RESULT: meets configured fail-under
+
+PRODUCTION_CODE_UNCHANGED: yes
+DOCKERFILE_UNCHANGED: yes
+
+SAFETY_BOUNDARY
+- No production code changes
+- No real servers, sockets, localhost HTTP
+- No AWS/H5/model artifacts
+- No .md under .project-memory/pr/**
+
+VALIDATION_RESULTS
+- python -m compileall src tests scripts: exit 0
+- python scripts/check_fastapi_release_readiness.py: ALL CHECKS PASSED (15/15)
+- pytest release_readiness: 29 passed
+- pytest guard: 85 passed
+- pytest full suite: 3121 passed, 11 skipped, 0 failed
+
+BLOCKERS: none
+WARNINGS: none
+NEXT_REQUIRED_ACTION: commit changes and push to branch
