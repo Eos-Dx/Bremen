@@ -1,0 +1,74 @@
+PR0104P — FastAPI jobs/report read route parity hotfix
+======================================================
+
+Branch: 0104p-fastapi-jobs-report-route-parity
+PR Target: main
+Purpose: Add FastAPI parity for legacy job/report read routes used by Control Room.
+
+PROBLEM
+-------
+FastAPI runtime could create jobs and stream events, but:
+- GET /demo/api/jobs -> 405 (no route)
+- GET /demo/api/jobs/{job_id} -> 404 (no route)
+- Report routes missing entirely
+
+SOLUTION
+--------
+Added four FastAPI routes reusing legacy business logic:
+- GET /demo/api/jobs -> list_analysis_jobs()
+- GET /demo/api/jobs/{job_id} -> job detail with execution traces
+- GET /demo/api/jobs/{job_id}/reports -> get_job_reports()
+- GET /demo/api/jobs/{job_id}/reports/{workflow_id} -> get_job_report()
+
+FILES CHANGED
+-------------
+src/bremen/api/fastapi_app.py (modified)
+  Added 4 GET routes before the events/SSE routes section:
+  - GET /demo/api/jobs — job list with model_id/workflow_id filters
+  - GET /demo/api/jobs/{job_id} — job detail with execution traces
+  - GET /demo/api/jobs/{job_id}/reports — report list
+  - GET /demo/api/jobs/{job_id}/reports/{workflow_id} — single report
+
+tests/test_bremen_fastapi_phase3_write_routes.py (modified)
+  Updated TestNoNewPostOrAnalyzeRoutes to exclude "report" from the
+  route exclusion check since report read routes are now part of
+  Control Room parity (PR0104P).
+
+tests/test_bremen_fastapi_jobs_report_parity.py (added)
+  25 tests: job list (7), job detail (3), reports (6), report detail (3),
+  existing routes (6).
+
+TESTS
+-----
+test_bremen_fastapi_jobs_report_parity.py: 25 tests
+  - TestJobsListRoute: 200, fields, storage_mode, filters, request_id
+  - TestJobDetailRoute: 404, error field, request_id
+  - TestJobReportsRoute: 200, empty reports, technical_demo_only
+  - TestJobReportDetailRoute: 200, job_not_found status, technical_demo_only
+  - TestExistingRoutesNotBroken: health, model version, models, H5, UI, not 405/404
+
+JOBS_LIST_ROUTE_FIXED: yes, GET /demo/api/jobs returns 200
+JOB_DETAIL_ROUTE_FIXED: yes, GET /demo/api/jobs/{id} returns 200
+REPORT_VISIBILITY_FIXED: yes, reports routes available
+
+FASTAPI_DEFAULT_PRESERVED: yes
+LEGACY_FALLBACK_PRESERVED: yes
+
+ZERO_SERVER_POLICY_PRESERVED: yes
+FULL_SUITE_RESULT: 3185 passed, 11 skipped, 0 failed
+COVERAGE_RESULT: meets configured fail-under
+
+SAFETY_BOUNDARY
+- No production code changes beyond route additions
+- Reuses existing business logic (no duplicate job store/event store)
+- No real servers, sockets, localhost HTTP
+- No H5/S3/model internals exposed
+
+VALIDATION_RESULTS
+- python -m compileall src tests scripts: exit 0
+- pytest jobs_report_parity: 25 passed
+- pytest phase3 + phase4: 65 passed
+- pytest guard: 85 passed
+- pytest full suite: 3185 passed, 11 skipped, 0 failed
+
+BLOCKERS: none
