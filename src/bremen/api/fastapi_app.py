@@ -357,6 +357,38 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
             )
 
     # ------------------------------------------------------------------
+    # Demo UI routes — parity with legacy http.server
+    # ------------------------------------------------------------------
+
+    from fastapi.responses import HTMLResponse  # noqa: PLC0415
+
+    @app.get("/demo")
+    async def demo_start_page(request: Request) -> HTMLResponse:
+        """Render the Bremen Start page (model selection)."""
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.start_page_ui import build_start_page  # noqa: PLC0415
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+        host_header = request.headers.get("host", "localhost")
+        forwarded_proto = request.headers.get("X-Forwarded-Proto", "http")
+        base_url = f"{forwarded_proto}://{host_header}"
+        html = build_start_page(base_url=base_url)
+        return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
+
+    @app.get("/demo/control-room")
+    async def demo_control_room(request: Request) -> HTMLResponse:
+        """Render the Bremen Control Room page."""
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.control_room_ui import build_control_room_page  # noqa: PLC0415
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+        host_header = request.headers.get("host", "localhost")
+        forwarded_proto = request.headers.get("X-Forwarded-Proto", "http")
+        base_url = f"{forwarded_proto}://{host_header}"
+        html = build_control_room_page(base_url=base_url, request_id=request_id)
+        return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
+
+    # ------------------------------------------------------------------
     # Phase 4: Event streaming routes
     # ------------------------------------------------------------------
 
