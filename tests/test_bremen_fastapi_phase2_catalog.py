@@ -11,7 +11,6 @@ Tests cover:
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -102,6 +101,27 @@ class TestDemoModelsRoute:
         body = resp.json()
         assert body["status"] in ("not_configured", "available", "no_valid_models", "discovery_failed")
         assert isinstance(body["models"], list)
+
+    def test_demo_models_preserves_catalog_discovery_failure(self) -> None:
+        """Startup S3 discovery failures surface as safe catalog status."""
+        from bremen.api.model_registry import reset_for_tests
+
+        reset_for_tests()
+        with patch.dict(
+            "os.environ",
+            {"BREMEN_MODEL_CATALOG_URI": "invalid-uri"},
+            clear=False,
+        ):
+            app = create_fastapi_app()
+            with TestClient(app) as scoped_client:
+                resp = scoped_client.get("/demo/api/models")
+
+        reset_for_tests()
+        body = resp.json()
+        assert body["status"] == "discovery_failed"
+        assert body["models"] == []
+        assert "invalid-uri" not in resp.text
+        assert "s3://" not in resp.text
 
     def test_demo_models_no_exception_traces(self, client) -> None:
         """Response does not expose raw exception traces."""

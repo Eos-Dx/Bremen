@@ -40,9 +40,6 @@ Safety
 
 from __future__ import annotations
 
-import json
-from typing import Any
-
 from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -207,10 +204,7 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         and :func:`bremen.api.job_api_handler.resolve_source` for
         business logic.
         """
-        import uuid as _uuid  # noqa: PLC0415
         from bremen.api.fastapi_contracts import JobCreateRequest  # noqa: PLC0415
-
-        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
 
         # Parse JSON body
         try:
@@ -394,24 +388,21 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
 
         catalog_uri = _os.environ.get("BREMEN_MODEL_CATALOG_URI", "").strip()
         if catalog_uri:
-            try:
-                from bremen.api.s3_model_discovery import discover_models  # noqa: PLC0415
-                from bremen.api.model_registry import ModelRegistry  # noqa: PLC0415
+            from bremen.api.s3_model_discovery import discover_models  # noqa: PLC0415
+            from bremen.api.model_registry import ModelRegistry  # noqa: PLC0415
 
-                discovery_result = discover_models(catalog_uri)
-                registry = ModelRegistry(
-                    entries=tuple(discovery_result.entries),
-                    unavailable_entries=tuple(discovery_result.unavailable_entries),
-                    catalog_status=discovery_result.catalog_status,
-                    candidate_count=discovery_result.candidate_count,
-                    available_count=discovery_result.available_count,
-                    rejected_count=discovery_result.rejected_count,
-                    unavailable_count=discovery_result.unavailable_count,
-                    last_discovery_at=discovery_result.last_discovery_at,
-                )
-                initialize_registry(registry)
-            except Exception:
-                pass  # Non-fatal — catalog stays empty
+            discovery_result = discover_models(catalog_uri)
+            registry = ModelRegistry(
+                entries=tuple(discovery_result.entries),
+                unavailable_entries=tuple(discovery_result.unavailable_entries),
+                catalog_status=discovery_result.catalog_status,
+                candidate_count=discovery_result.candidate_count,
+                available_count=discovery_result.available_count,
+                rejected_count=discovery_result.rejected_count,
+                unavailable_count=discovery_result.unavailable_count,
+                last_discovery_at=discovery_result.last_discovery_at,
+            )
+            initialize_registry(registry)
         else:
             try:
                 from bremen.api.model_state import ModelState  # noqa: PLC0415
