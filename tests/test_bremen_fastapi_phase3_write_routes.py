@@ -376,12 +376,17 @@ class TestPhase1Phase2Regression:
 
 class TestNoNewPostOrAnalyzeRoutes:
     def test_no_new_post_routes(self) -> None:
-        """Phase 3 did not add upload/analyze/stage POST routes."""
+        """Phase 3 did not add upload/analyze/stage POST routes.
+
+        Report read routes were added in Phase 5 (PR0104P) for
+        Control Room parity and are excluded from this check.
+        """
         app = create_fastapi_app()
         for route in app.routes:
             if hasattr(route, "path"):
                 p = route.path
-                if any(x in p for x in ("analyze", "stage", "report")):
+                # Report read routes are allowed (PR0104P parity)
+                if any(x in p for x in ("analyze", "stage")):
                     pytest.fail(f"Unexpected route: {p}")
 
 

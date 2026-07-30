@@ -468,6 +468,124 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         max_workers=4, thread_name_prefix="fastapi-sse",
     )
 
+    # ------------------------------------------------------------------
+    # Job read routes — parity with legacy http.server (Control Room)
+    # ------------------------------------------------------------------
+
+    @app.get("/demo/api/jobs")
+    async def demo_jobs_list_route(
+        request: Request,
+    ) -> JSONResponse:
+        """List recent analysis jobs.
+
+        Mirrors ``handle_jobs_list()`` from job_api_handler.
+        Supports optional query parameters: model_id, workflow_id.
+        """
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.api.job_api_handler import (  # noqa: PLC0415
+            list_analysis_jobs, _event_store,
+        )
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+        filter_model_id = request.query_params.get("model_id")
+        filter_workflow_id = request.query_params.get("workflow_id")
+
+        jobs = list_analysis_jobs(
+            model_id=filter_model_id,
+            workflow_id=filter_workflow_id,
+        )
+        return JSONResponse(content={
+            "jobs": jobs,
+            "storage_mode": _event_store.storage_mode,
+            "retention_seconds": _event_store.retention_seconds,
+            "max_jobs": _event_store.max_jobs,
+            "request_id": request_id,
+            "technical_demo_only": True,
+        })
+
+    @app.get("/demo/api/jobs/{job_id}")
+    async def demo_job_detail_route(
+        job_id: str, request: Request,
+    ) -> JSONResponse:
+        """Get job status and execution traces.
+
+        Mirrors ``handle_job_get()`` from job_api_handler.
+        """
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.api.job_api_handler import (  # noqa: PLC0415
+            _jobs, _jobs_lock, _event_store,
+        )
+        from bremen.api.execution_trace import build_trace_from_events  # noqa: PLC0415
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+
+        with _jobs_lock:
+            job = _jobs.get(job_id)
+
+        if job is None:
+            if _event_store.has_job(job_id):
+                return JSONResponse(content={
+                    "error": "Job has expired",
+                    "job_id": job_id,
+                    "storage_mode": _event_store.storage_mode,
+                    "request_id": request_id,
+                }, status_code=410)
+            return JSONResponse(content={
+                "error": "Job not found",
+                "job_id": job_id,
+                "request_id": request_id,
+            }, status_code=404)
+
+        result = job.to_dict()
+        result["storage_mode"] = _event_store.storage_mode
+        result["retention_seconds"] = _event_store.retention_seconds
+        result["request_id"] = request_id
+
+        # Execution traces
+        result["execution_traces"] = {}
+        with _jobs_lock:
+            requested = list(job.requested_workflows)
+        for wid in requested:
+            trace = build_trace_from_events(_event_store, job_id, wid)
+            if trace:
+                result["execution_traces"][wid] = trace.to_dict()
+
+        return JSONResponse(content=result)
+
+    @app.get("/demo/api/jobs/{job_id}/reports")
+    async def demo_job_reports_route(
+        job_id: str, request: Request,
+    ) -> JSONResponse:
+        """List reports for a job.
+
+        Mirrors ``handle_job_reports()`` from job_api_handler.
+        """
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.api.job_api_handler import get_job_reports  # noqa: PLC0415
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+        result = get_job_reports(job_id)
+        result["request_id"] = request_id
+        result["technical_demo_only"] = True
+        return JSONResponse(content=result)
+
+    @app.get("/demo/api/jobs/{job_id}/reports/{workflow_id}")
+    async def demo_job_report_detail_route(
+        job_id: str, workflow_id: str, request: Request,
+    ) -> JSONResponse:
+        """Get a specific workflow report.
+
+        Mirrors ``handle_job_report()`` from job_api_handler.
+        """
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.api.job_api_handler import get_job_report  # noqa: PLC0415
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+        result = get_job_report(job_id, workflow_id)
+        result["request_id"] = request_id
+        result["technical_demo_only"] = True
+        return JSONResponse(content=result)
+
     # Terminal statuses — must match http.server handler exactly
     _TERMINAL_STATUSES = frozenset({
         "completed", "failed", "partial_success",
