@@ -1,0 +1,42 @@
+PR0104M — FastAPI dev-to-main release validation
+==================================================
+
+Branch: 0104m-fastapi-dev-to-main-release
+Target: main (via dev)
+Purpose: Validate FastAPI runtime cutover for dev-to-main release.
+
+VALIDATION RESULTS
+------------------
+
+1. FastAPI is default runtime
+   resolve_backend(None, None) == "fastapi"  [PASS]
+
+2. Legacy fallback via --backend http
+   resolve_backend("http", None) == "http"  [PASS]
+
+3. Legacy fallback via BREMEN_SERVER_BACKEND=http
+   resolve_backend(None, "http") == "http"  [PASS]
+
+4. serve-fastapi still exists
+   parser.parse_args(["serve-fastapi"]) works  [PASS]
+
+5. Dockerfile does not force legacy backend
+   CMD: 'CMD ["serve", "--host", "0.0.0.0", "--port", "8080"]'
+   No --backend http in Dockerfile  [PASS]
+
+6. Readiness script: 15/15 checks PASS
+
+7. Release readiness tests: 29 passed
+
+8. Zero-server guard: 85 passed
+
+9. Full suite: 3121 passed, 11 skipped, 0 failed
+
+SUMMARY
+-------
+FastAPI cutover is complete and validated. No blockers.
+All readiness checks pass. Full suite clean.
+Production code unchanged. No security concerns.
+
+STATUS: ready
+BLOCKERS: none

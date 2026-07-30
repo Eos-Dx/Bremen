@@ -162,7 +162,7 @@ The converter boundary is NOT responsible for:
 | Decision-support report | Building safe structured output report | `src/bremen/api/decision_support.py` |
 | Model loading | Startup model fetch, checksum, `joblib.load()` | `src/bremen/api/model_state.py` |
 | Matador system-of-record | Resolving patient/scan refs to H5 sources | Future — scaffold in `src/bremen/system_of_record.py` |
-| FastAPI transport | ASGI web framework | Deferred — not implemented |
+| FastAPI transport | ASGI web framework | Phase 1 foundation on dev (PR0104A); production http.server unchanged |
 | Model training | Feature computation for training, model fitting | `src/bremen/training/` (offline) |
 | Clinical interpretation | Diagnosis, clinical decision-making | Human clinician |
 
@@ -389,7 +389,7 @@ resolved:
 7. No runtime request schema change (`POST /predictions` unchanged).
 8. No `h5_path`/`h5_uri` behavior change.
 9. No Matador system-of-record integration.
-10. No FastAPI, uvicorn, starlette, or ASGI.
+10. FastAPI Phase 1 foundation is allowed in the isolated module (PR0104A) on dev only. Production http.server path, Dockerfile target/ENTRYPOINT/CMD remain unchanged. Catalog, POST, SSE, and event-streaming routes are not migrated in Phase 1.
 11. No runtime training.
 12. No model training implementation.
 

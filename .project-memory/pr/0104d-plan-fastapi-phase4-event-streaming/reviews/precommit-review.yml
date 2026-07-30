@@ -1,0 +1,67 @@
+# Precommit Review — PR0104D CI Cleanup
+# Reviewed: 2026-07-29
+# Reviewer: precommit-review-agent
+
+status: valid
+head: c7c783b333a92d0ae73aa68882793d27919b545e
+branch: 0104d-plan-fastapi-phase4-event-streaming
+base_branch: dev
+pr_target: dev
+blockers: []
+warnings:
+  - "Starlette TestClient deprecation warning persists (pre-existing, future concern)"
+changed_files:
+  - src/bremen/api/job_api_handler.py
+  - tests/test_bremen_fastapi_phase4_event_streaming.py
+  - tests/test_bremen_workspace_ui.py
+  - .project-memory/pr/0104d-plan-fastapi-phase4-event-streaming/implementation-report.md
+working_tree_state: "4 modified files, no untracked files, no deleted files"
+ci_failure_root_cause: "4 failures after Phase 4 implementation: (1) isinstance(_event_store, BoundedEventStore) failed due to module-reload class identity mismatch, (2) list_analysis_jobs IndexError on empty/non-dict workflow_runs, (3) 3 workspace UI tests crashed when list_analysis_jobs raised"
+server_spawning_tests_removed_or_replaced: "3 server-spawning tests in test_bremen_workspace_ui.py replaced with direct unit tests: test_jobs_list_returns_json (calls list_analysis_jobs directly), test_jobs_list_shows_storage_metadata (checks _event_store metadata directly), test_no_prohibited_fields_in_api_response (checks job summary keys directly). No new server-spawning tests added."
+workspace_assertions_preserved: "Yes — all 3 replaced tests preserve equivalent assertions: JSON-safe structure check, storage metadata check (ephemeral, retention_seconds, max_jobs), and prohibited-fields privacy check across all job summaries"
+list_analysis_jobs_robustness: "Added isinstance(j.workflow_runs, dict) guard and next(iter(j.workflow_runs), None) safe iteration. Prevents IndexError on empty or non-dict workflow_runs. No raw internals exposed. Normal workflow_runs behavior unchanged."
+event_store_singleton_test_fix: "Replaced brittle isinstance(_event_store, BoundedEventStore) with stable object identity check (_event_store is es2) and method-existence assertions (append, get_events, wait_for_events, has_job, get_job_cursor)"
+same_branch_lifecycle_confirmed: "Yes — PLAN.md, plan-review.yml, and implementation-report.md all on same branch 0104d-plan-fastapi-phase4-event-streaming"
+approved_plan_followed: "Yes — Phase 4 event streaming implemented per approved PLAN.md. Option A (StreamingResponse SSE). CI cleanup is orthogonal maintenance."
+fastapi_foundation_reused: "Yes — create_fastapi_app() factory extended with Phase 4 event routes. Same app serves Phase 1-4."
+routes_implemented:
+  - "GET /demo/api/jobs/{job_id}/events (JSON polling)"
+  - "GET /demo/api/jobs/{job_id}/events/stream (SSE streaming)"
+json_polling_parity: "Mirrors handle_job_events() exactly: has_job check, 404 for unknown, X-Event-Cursor, allowed_event_details safety filter, response shape {events, cursor, job_id, request_id, technical_demo_only}"
+sse_parity: "Mirrors handle_job_events_stream() exactly: JSON 404 for unknown job, Last-Event-ID cursor, text/event-stream, event: job_event frames, stream_complete at terminal, : keepalive heartbeat, 300s deadline, GeneratorExit cleanup"
+event_source_of_truth: "Same _event_store singleton from job_api_handler. No second event store created. Same _jobs dict and _jobs_lock shared."
+job_id_reconciliation: "Same create_analysis_job() writes to same _event_store and _jobs. Phase 3 job_ids immediately visible to Phase 4 routes."
+dedicated_executor: "ThreadPoolExecutor(max_workers=4, thread_name_prefix='fastapi-sse') at module level"
+default_executor_not_used: "Verified: no run_in_executor(None, ...) in code lines"
+client_disconnect_heartbeat: "try/except GeneratorExit for disconnect, try/finally for cleanup, : keepalive after 15s timeout, 300s deadline, generator ends cleanly"
+read_time_safety_filter: "allowed_event_details() in both JSON and SSE routes strips prohibited keys as defense-in-depth. Creates copy via to_dict() — does not mutate stored events."
+status_vocabulary_preserved: "No new status strings. Terminal states: completed, failed, partial_success, workflow_configuration_required. 28 EventType enum members unchanged."
+terminal_behavior_preserved: "Terminal check under _jobs_lock, drain before stream_complete, no false completion after failure, failure precedence preserved"
+stage_completeness_preserved: "Events in sequence order, no deduplication added, no stage vocabulary changed, Control Room unchanged"
+production_dockerfile_unchanged: "ENTRYPOINT/CMD verified unchanged"
+production_entrypoint_unchanged: "python -m bremen serve unchanged"
+control_room_unchanged: "No changes to control_room_ui.py"
+auth_unchanged: "No auth middleware added, event routes unauthenticated same as http.server"
+safety_boundary: "No raw S3/paths/H5/credentials/PHI/exceptions. Read-time safety filter strips prohibited detail keys. Global exception handler prevents trace leaks. list_analysis_jobs fix exposes no raw internals."
+tests:
+  fastapi_phase4: "30 passed in test_bremen_fastapi_phase4_event_streaming.py"
+  workspace_ui: "27 passed in test_bremen_workspace_ui.py (57 total with phase4)"
+  full_suite: "2962 passed, 11 skipped, 0 failures"
+  compileall: "PASS"
+  git_diff_check: "CLEAN"
+validation:
+  branch_matches: true
+  ci_cleanup_documented: true
+  list_analysis_jobs_robust: true
+  singleton_test_stable: true
+  workspace_assertions_preserved: true
+  privacy_assertions_preserved: true
+  no_new_server_spawning: true
+  no_raw_internals_exposed: true
+  full_suite_passes: true
+  compileall_passes: true
+functional_verification_limitation: "Source review and TestClient/direct generator tests cannot fully confirm deployed ASGI disconnect behavior. A local or staging deployment from dev must verify GET /demo/api/jobs/{job_id}/events/stream with a real ASGI server before any production cutover."
+security: "list_analysis_jobs fix adds isinstance guard and safe iteration — no raw internals exposed. Singleton test uses object identity, not class identity. Workspace tests verify prohibited fields directly on job summaries. No raw S3, filesystem paths, H5 internals, credentials, PHI, or exception traces exposed."
+scope_control: "Changed: job_api_handler.py (list_analysis_jobs robustness), test_bremen_fastapi_phase4_event_streaming.py (singleton test fix), test_bremen_workspace_ui.py (3 tests replaced). No Dockerfile, Control Room UI, auth, event schema, or event store semantics changes."
+implementation_report: "CI cleanup section added to implementation-report.md documenting root cause, fixes, and validation rerun. All 4 failures resolved. 2962 passed, 0 failures."
+commit_readiness: "All CI failures resolved. 2962 tests pass. Implementation report documents cleanup. Ready to commit."

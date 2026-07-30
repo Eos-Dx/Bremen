@@ -1,299 +1,295 @@
-"""Tests for the unified Bremen CLI entrypoint.
+"""Fast tests for the unified Bremen CLI entrypoint.
 
 Covers:
-- python -m bremen --help exits 0 and contains Bremen identity
-- python -m bremen (no args) exits 0 and shows help
-- Stub commands (preflight, run, report) with --help exit 0
-- Stub commands without --help exit 1 with deferral message
+- ``python -m bremen`` exits 0 and prints Bremen help
+- One real stub invocation preserves the subprocess exit-code contract
+- Main, stub, demo-run, and serve parser contracts
 - No active Aramis identity in help output
-- CLI import is safe (no H5 read, no model load, no Matador access)
+- ``__main__.py`` has no heavy top-level imports
+
+Most checks load ``src/bremen/__main__.py`` directly by file path. This avoids
+executing ``bremen/__init__.py`` and importing the ML/preprocessing stack for
+every assertion. Two subprocess smoke tests retain end-to-end coverage of the
+real ``python -m bremen`` entrypoint.
 """
 
 from __future__ import annotations
 
+import argparse
+import ast
+import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
 ROOT = Path(__file__).parents[1]
-SRC_BREMEN = ROOT / "src" / "bremen"
+SRC = ROOT / "src"
+MAIN_PATH = SRC / "bremen" / "__main__.py"
+
+STUB_COMMANDS = ("preflight", "run", "report")
+REQUIRED_COMMANDS = (
+    "preprocess",
+    *STUB_COMMANDS,
+    "serve",
+    "demo-run",
+)
 
 
 @pytest.fixture(scope="module")
-def _cli_result_cache():
-    cache: dict[tuple[str, ...], subprocess.CompletedProcess] = {}
+def cli_module() -> ModuleType:
+    """Load ``__main__.py`` without importing the ``bremen`` package."""
+    spec = importlib.util.spec_from_file_location(
+        "_bremen_cli_entrypoint_under_test",
+        MAIN_PATH,
+    )
+    if spec is None or spec.loader is None:
+        pytest.fail(f"Could not load CLI module from {MAIN_PATH}")
 
-    def _run(*args: str) -> subprocess.CompletedProcess:
-        key = tuple(args)
-        if key not in cache:
-            cache[key] = subprocess.run(
-                [sys.executable, *args], capture_output=True, text=True,
-            )
-        return cache[key]
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
-    return _run
+
+@pytest.fixture(scope="module")
+def parser(cli_module: ModuleType) -> argparse.ArgumentParser:
+    """Build one reusable parser for all in-process contract checks."""
+    return cli_module.build_parser()
+
+
+def _subcommand_names(parser: argparse.ArgumentParser) -> tuple[str, ...]:
+    """Return the command names registered on an argparse parser."""
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            return tuple(action.choices)
+
+    pytest.fail("Bremen CLI parser has no subcommands")
+
+
+def _run_bremen(*args: str) -> subprocess.CompletedProcess[str]:
+    """Run the current checkout as a real child process.
+
+    ``src`` is prepended to ``PYTHONPATH`` so the child cannot accidentally
+    execute a stale non-editable installation from site-packages.
+    """
+    env = os.environ.copy()
+    src_path = str(SRC)
+    existing_pythonpath = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = (
+        f"{src_path}{os.pathsep}{existing_pythonpath}"
+        if existing_pythonpath
+        else src_path
+    )
+
+    return subprocess.run(
+        [sys.executable, "-m", "bremen", *args],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+
+
+def _help_output(
+    parser: argparse.ArgumentParser,
+    capsys: pytest.CaptureFixture[str],
+    *args: str,
+) -> str:
+    """Return argparse help output without spawning another Python process."""
+    with pytest.raises(SystemExit) as exc_info:
+        parser.parse_args([*args, "--help"])
+
+    assert exc_info.value.code == 0
+    return capsys.readouterr().out
 
 
 # ---------------------------------------------------------------------------
-# Help output tests (subprocess-based, no heavy imports)
+# Real process smoke tests
 # ---------------------------------------------------------------------------
 
 
-def test_python_m_bremen_help_exits_0(_cli_result_cache):
-    """python -m bremen --help exits 0."""
-    result = _cli_result_cache("-m", "bremen", "--help")
+def test_python_m_bremen_no_args_smoke(parser: argparse.ArgumentParser):
+    """The real module entrypoint exits 0 and matches the local parser."""
+    result = _run_bremen()
+
     assert result.returncode == 0, (
         f"Exit code {result.returncode}: {result.stderr}"
     )
+    assert "Bremen" in result.stdout
+    assert "Not a diagnostic" in result.stdout
+    assert "replacement" in result.stdout
 
-
-def test_python_m_bremen_help_contains_bremen(_cli_result_cache):
-    """python -m bremen --help output contains 'Bremen'."""
-    result = _cli_result_cache("-m", "bremen", "--help")
-    assert "Bremen" in result.stdout, (
-        "Help output must reference Bremen"
-    )
-
-
-def test_python_m_bremen_help_contains_disclaimer(_cli_result_cache):
-    """python -m bremen --help output contains the 'Not a diagnostic replacement' disclaimer."""
-    result = _cli_result_cache("-m", "bremen", "--help")
-    # argparse wraps the description at 80 chars, so the disclaimer may
-    # contain a newline. Check both halves.
-    assert "Not a diagnostic" in result.stdout, (
-        "Help output must contain 'Not a diagnostic replacement' disclaimer"
-    )
-    assert "replacement" in result.stdout, (
-        "Help output must contain 'Not a diagnostic replacement' disclaimer"
-    )
-
-
-def test_python_m_bremen_help_contains_stubs(_cli_result_cache):
-    """python -m bremen --help lists stub commands: preflight, run, report."""
-    result = _cli_result_cache("-m", "bremen", "--help")
-    for command in ("preflight", "run", "report"):
+    for command in _subcommand_names(parser):
         assert command in result.stdout, (
-            f"Help output must list '{command}' command"
+            f"No-arg help output must list local command {command!r}"
         )
 
-
-def test_python_m_bremen_help_contains_preprocess(_cli_result_cache):
-    """python -m bremen --help lists the preprocess command."""
-    result = _cli_result_cache("-m", "bremen", "--help")
-    assert "preprocess" in result.stdout, (
-        "Help output must list 'preprocess' command"
-    )
+    assert "aramis" not in result.stdout.lower()
 
 
-def test_python_m_bremen_no_args_exits_0(_cli_result_cache):
-    """python -m bremen (no args) exits 0 and shows help."""
-    result = _cli_result_cache("-m", "bremen")
-    assert result.returncode == 0, (
-        f"Exit code {result.returncode}: {result.stderr}"
-    )
-    assert "preflight" in result.stdout, (
-        "No-arg output must show help with commands"
-    )
+def test_python_m_bremen_stub_smoke():
+    """One real stub invocation preserves exit code and output behavior."""
+    result = _run_bremen("preflight")
 
-
-# ---------------------------------------------------------------------------
-# Stub command tests
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("command", ["preflight", "run", "report"])
-def test_stub_help_exits_0(command):
-    """bremen <stub> --help exits 0."""
-    result = subprocess.run(
-        [sys.executable, "-m", "bremen", command, "--help"],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, (
-        f"'{command} --help' exit code {result.returncode}: {result.stderr}"
-    )
-
-
-@pytest.mark.parametrize("command", ["preflight", "run", "report"])
-def test_stub_invocation_exits_1(command):
-    """bremen <stub> (without --help) exits 1 with deferral message."""
-    result = subprocess.run(
-        [sys.executable, "-m", "bremen", command],
-        capture_output=True,
-        text=True,
-    )
     assert result.returncode == 1, (
-        f"'{command}' exit code {result.returncode}, expected 1"
+        f"Exit code {result.returncode}, expected 1: {result.stderr}"
     )
-    assert "not yet implemented" in result.stdout, (
-        f"'{command}' must print 'not yet implemented' message"
-    )
+    assert "not yet implemented" in result.stdout
+    assert "Planned for a future PR." in result.stdout
 
 
 # ---------------------------------------------------------------------------
-# Demo-run CLI subcommand tests
+# Main parser contract
 # ---------------------------------------------------------------------------
 
 
-class TestDemoRunCli:
-    def test_demo_run_help_exits_0(self, _cli_result_cache):
-        """python -m bremen demo-run --help exits 0."""
-        result = _cli_result_cache("-m", "bremen", "demo-run", "--help")
-        assert result.returncode == 0, (
-            f"Exit code {result.returncode}: {result.stderr}"
+def test_main_help_contract(parser: argparse.ArgumentParser):
+    """Main parser help contains product identity and required commands."""
+    output = parser.format_help()
+
+    assert "Bremen" in output
+    assert "Not a diagnostic" in output
+    assert "replacement" in output
+
+    for command in REQUIRED_COMMANDS:
+        assert command in output, (
+            f"Main help output must list required command {command!r}"
         )
 
-    def test_demo_run_in_main_help(self, _cli_result_cache):
-        """python -m bremen --help lists 'demo-run'."""
-        result = _cli_result_cache("-m", "bremen", "--help")
-        assert "demo-run" in result.stdout, (
-            "Main help output must list 'demo-run' command"
+    assert "aramis" not in output.lower()
+
+
+# ---------------------------------------------------------------------------
+# Stub command contracts
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("command", STUB_COMMANDS)
+def test_stub_help_exits_0(
+    parser: argparse.ArgumentParser,
+    capsys: pytest.CaptureFixture[str],
+    command: str,
+):
+    """Every stub command exposes working argparse help."""
+    output = _help_output(parser, capsys, command)
+
+    assert f"bremen {command}" in output
+
+
+@pytest.mark.parametrize("command", STUB_COMMANDS)
+def test_stub_invocation_contract(
+    parser: argparse.ArgumentParser,
+    cli_module: ModuleType,
+    capsys: pytest.CaptureFixture[str],
+    command: str,
+):
+    """Every stub resolves to the shared deferred-command handler."""
+    args = parser.parse_args([command])
+
+    assert args._cmd_handler == "stub"
+    assert args._stub_name == command
+
+    returncode = cli_module._handle_stub(args)
+    output = capsys.readouterr().out
+
+    assert returncode == 1
+    assert f"'{command}' is not yet implemented." in output
+    assert "Planned for a future PR." in output
+
+
+# ---------------------------------------------------------------------------
+# Real subcommand help contracts
+# ---------------------------------------------------------------------------
+
+
+def test_demo_run_help_contract(
+    parser: argparse.ArgumentParser,
+    capsys: pytest.CaptureFixture[str],
+):
+    """demo-run exposes all supported command-line options."""
+    output = _help_output(parser, capsys, "demo-run")
+
+    for option in (
+        "--base-url",
+        "--timeout",
+        "--skip-prediction",
+        "--pretty",
+        "--capture-dir",
+    ):
+        assert option in output, (
+            f"demo-run --help must list {option!r}"
         )
 
-    def test_demo_run_help_shows_options(self, _cli_result_cache):
-        """demo-run --help shows --base-url, --timeout, --skip-prediction."""
-        result = _cli_result_cache("-m", "bremen", "demo-run", "--help")
-        assert "--base-url" in result.stdout
-        assert "--timeout" in result.stdout
-        assert "--skip-prediction" in result.stdout
 
-    def test_demo_run_pretty_in_help(self, _cli_result_cache):
-        """demo-run --help shows --pretty."""
-        result = _cli_result_cache("-m", "bremen", "demo-run", "--help")
-        assert "--pretty" in result.stdout, (
-            "demo-run --help must list '--pretty' option"
-        )
+def test_serve_help_contract(
+    parser: argparse.ArgumentParser,
+    capsys: pytest.CaptureFixture[str],
+):
+    """serve exposes host and port options."""
+    output = _help_output(parser, capsys, "serve")
 
-    def test_demo_run_capture_dir_in_help(self, _cli_result_cache):
-        """demo-run --help shows --capture-dir."""
-        result = _cli_result_cache("-m", "bremen", "demo-run", "--help")
-        assert "--capture-dir" in result.stdout, (
-            "demo-run --help must list '--capture-dir' option"
-        )
+    assert "--host" in output
+    assert "--port" in output
 
 
 # ---------------------------------------------------------------------------
-# No Aramis identity in help output
+# Static import-safety guard
 # ---------------------------------------------------------------------------
 
 
-def test_help_no_aramis(_cli_result_cache):
-    """python -m bremen --help output does not contain 'aramis' or 'Aramis'."""
-    result = _cli_result_cache("-m", "bremen", "--help")
-    assert "aramis" not in result.stdout.lower(), (
-        "Help output must not contain 'aramis' (case-insensitive)"
+def _top_level_imports(path: Path) -> set[str]:
+    """Return imports declared directly in a module body."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    imports: set[str] = set()
+
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            imports.update(alias.name for alias in node.names)
+            continue
+
+        if not isinstance(node, ast.ImportFrom):
+            continue
+
+        module = node.module or ""
+        prefix = "." * node.level
+        base = f"{prefix}{module}"
+
+        if base:
+            imports.add(base)
+
+        for alias in node.names:
+            if alias.name == "*":
+                continue
+            imports.add(f"{base}.{alias.name}" if base else alias.name)
+
+    return imports
+
+
+@pytest.mark.parametrize(
+    "forbidden",
+    (
+        "xrd_preprocessing",
+        "pipelines",
+        "modeling",
+        "mlflow_tracking",
+    ),
+)
+def test_cli_has_no_heavy_top_level_imports(forbidden: str):
+    """``__main__.py`` must defer heavy imports to command handlers."""
+    imports = _top_level_imports(MAIN_PATH)
+
+    offenders = sorted(
+        imported
+        for imported in imports
+        if forbidden in imported.lstrip(".").split(".")
     )
 
-
-# ---------------------------------------------------------------------------
-# Serve CLI subcommand tests
-# ---------------------------------------------------------------------------
-
-
-def test_serve_help_exits_0(_cli_result_cache):
-    """python -m bremen serve --help exits 0."""
-    result = _cli_result_cache("-m", "bremen", "serve", "--help")
-    assert result.returncode == 0, (
-        f"Exit code {result.returncode}: {result.stderr}"
+    assert not offenders, (
+        f"__main__.py must not import {forbidden!r} at top level; "
+        f"found: {offenders}"
     )
-
-
-def test_serve_help_contains_host_and_port(_cli_result_cache):
-    """python -m bremen serve --help shows --host and --port options."""
-    result = _cli_result_cache("-m", "bremen", "serve", "--help")
-    assert "--host" in result.stdout, (
-        "serve --help must show --host option"
-    )
-    assert "--port" in result.stdout, (
-        "serve --help must show --port option"
-    )
-
-
-def test_serve_in_main_help(_cli_result_cache):
-    """python -m bremen --help lists 'serve' as a command."""
-    result = _cli_result_cache("-m", "bremen", "--help")
-    assert "serve" in result.stdout, (
-        "Main help output must list 'serve' command"
-    )
-
-
-def test_main_help_shows_serve(_cli_result_cache):
-    """python -m bremen (no args) shows serve in help output."""
-    result = _cli_result_cache("-m", "bremen")
-    assert "serve" in result.stdout, (
-        "No-arg help output must show 'serve' command"
-    )
-
-
-# ---------------------------------------------------------------------------
-# Import safety (no H5 read, no model load, no Matador)
-# ---------------------------------------------------------------------------
-
-
-def test_cli_import_does_not_trigger_xrd_preprocessing():
-    """Importing __main__ does not trigger xrd_preprocessing import at top level.
-
-    This checks that __main__.py does not have a top-level import of
-    xrd_preprocessing. Note: importing bremen.__main__ does trigger
-    bremen.__init__, which imports xrd_preprocessing transitively
-    through modeling/pipelines. That is not a safety issue for this PR.
-    """
-    import ast
-
-    main_path = SRC_BREMEN / "__main__.py"
-    tree = ast.parse(main_path.read_text(encoding="utf-8"))
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom):
-            module = node.module or ""
-            if "xrd_preprocessing" in module:
-                pytest.fail(
-                    f"__main__.py must not import xrd_preprocessing at top level, "
-                    f"found: from {module} import ..."
-                )
-        elif isinstance(node, ast.Import):
-            for alias in node.names:
-                if "xrd_preprocessing" in alias.name:
-                    pytest.fail(
-                        f"__main__.py must not import xrd_preprocessing at top level, "
-                        f"found: import {alias.name}"
-                    )
-
-
-def test_cli_import_does_not_trigger_heavy_modules():
-    """Importing __main__ does not trigger pipelines/modeling/mlflow at top level.
-
-    This checks __main__.py source code directly, not sys.modules,
-    because importing bremen.__main__ triggers bremen.__init__
-    which imports those modules.
-    """
-    import ast
-
-    main_path = SRC_BREMEN / "__main__.py"
-    tree = ast.parse(main_path.read_text(encoding="utf-8"))
-
-    heavy_modules = [
-        "bremen.pipelines",
-        "bremen.modeling",
-        "bremen.mlflow_tracking",
-    ]
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom):
-            module = node.module or ""
-            for mod in heavy_modules:
-                if mod in module:
-                    pytest.fail(
-                        f"__main__.py must not import {mod} at top level, "
-                        f"found: from {module} import ..."
-                    )
-        elif isinstance(node, ast.Import):
-            for alias in node.names:
-                for mod in heavy_modules:
-                    if mod in alias.name:
-                        pytest.fail(
-                            f"__main__.py must not import {mod} at top level, "
-                            f"found: import {alias.name}"
-                        )

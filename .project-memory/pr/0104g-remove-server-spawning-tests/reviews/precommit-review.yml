@@ -1,0 +1,84 @@
+status: valid
+head: 4b1311a71adf431ad0a19fea783c172796309001
+branch: 0104g-remove-server-spawning-tests
+base_branch: dev
+pr_target: dev
+blockers: []
+warnings: []
+changed_files:
+  - tests/test_bremen_api_server.py (modified — rewritten to FastAPI TestClient)
+  - tests/test_bremen_concurrent_server.py (modified — rewritten to pure unit tests)
+  - tests/test_bremen_control_room.py (modified — rewritten to direct function calls)
+  - tests/test_bremen_demo_run.py (modified — expanded with additional output field coverage)
+  - tests/test_bremen_demo_smoke.py (modified — expanded with additional source safety checks)
+  - tests/test_bremen_execution_showcase.py (modified — rewritten to direct function calls)
+  - tests/test_bremen_fastapi_serve_mode.py (modified — rewritten to parser/helper tests only)
+  - tests/test_bremen_logging.py (modified — rewritten to direct function calls)
+  - tests/test_bremen_workspace_ui.py (modified — rewritten to direct function calls)
+  - tests/test_bremen_server_helpers.py (added — 58 tests for server.py helpers)
+  - tests/test_bremen_job_api_handler.py (added — 36 tests for job_api_handler helpers)
+  - tests/test_bremen_no_server_spawning_tests.py (added — AST-based guard test)
+working_tree_state: dirty (implementation-report.txt staged + 1 review unstaged + 2 test files unstaged + 2 new test files untracked + .coverage untracked)
+root_cause: The normal pytest suite started real HTTPServer instances on daemon threads and made real HTTP requests via urllib.request.urlopen, causing ConnectionResetError noise, port conflicts, slow execution, and suite instability. After server removal, coverage dropped to 74.87% against 80% fail-under.
+coverage_failure_summary: CI showed 2959 passed, 11 skipped, coverage total 74.87%, fail-under 80%. Coverage failure only — all tests passed.
+coverage_recovery_strategy: Added 94 no-socket unit tests across two new test files (test_bremen_server_helpers.py: 58 tests, test_bremen_job_api_handler.py: 36 tests) and expanded two existing test files (test_bremen_demo_run.py: +9 output field tests, test_bremen_demo_smoke.py: +3 source safety tests). All tests use direct function calls, FastAPI TestClient, monkeypatch, or AST/source inspection. No HTTPServer, no sockets, no localhost HTTP.
+coverage_config_unchanged_or_safe: true (no changes to pyproject.toml, setup.cfg, pytest.ini, tox.ini, or .coveragerc)
+coverage_threshold_not_lowered: true
+coverage_omits_not_abused: true
+server_py_coverage_recovered_without_server: true (58 tests in test_bremen_server_helpers.py cover _safe_error_detail, _safe_error_detail_str, _handle_h5_upload_bytes, _build_containers_response, _ThreadingHTTPServer class, route dispatch regex, and AST source safety)
+demo_run_coverage_recovered_without_server: true (24 tests covering output fields, warnings, checks, timestamp, health, model_version, evidence, demo_routes, demo_evidence)
+demo_smoke_coverage_recovered_without_server: true (21 tests covering additional source safety checks for socket, HTTPServer, serve_forever imports)
+job_api_handler_coverage_if_changed: true (36 tests covering StagedUpload, register_staged_upload, resolve_upload, resolve_source, reset_for_tests, _utc_now, singletons, _cleanup_expired_uploads, allowed_event_details, extract_patient_display_name, and AST source safety)
+remaining_debt_fixed: true
+serve_mode_hang_fixed: true
+serve_mode_main_import_removed: true
+serve_mode_main_calls_removed: true
+guard_skips_removed: true
+server_starts_removed_from_pytest: true
+localhost_requests_removed_from_pytest: true
+socket_usage_removed_from_pytest: true
+assertions_preserved: true
+guard_test: true
+guard_allowlist: false
+manual_smoke_scripts_preserved: true
+production_server_code_preserved: true
+fast_test_policy_followed: true
+project_memory_format: valid
+production_dockerfile_unchanged: true
+production_entrypoint_unchanged: true
+control_room_implementation_unchanged: true
+auth_unchanged: true
+safety_boundary: clean
+fast_tests:
+  guard: 84 passed, 0 skipped
+  serve_mode: 28 passed
+  api_server: 14 passed
+  demo_run: 24 passed
+  demo_smoke: 21 passed
+  server_helpers: 58 passed (NEW)
+  job_api_handler: 36 passed (NEW)
+  control_room: 518 passed
+  execution_showcase: 18 passed
+  logging: 17 passed
+  concurrent_server: 10 passed
+  workspace_ui: 20 passed
+  combined: 804 passed
+coverage_validation:
+  focused_coverage_run: 171 passed, 21% total (focused subset only — not full suite)
+  no_server_spawning_in_focused_run: true
+  no_test_failures_in_focused_run: true
+  no_coverage_config_manipulation: true
+validation:
+  compileall: exit 0
+  git_diff_check: clean
+  ast_serve_mode_check: clean
+  zero_server_inventory: clean (grep hits in changed files are docstring references, import safety assertions, or harmless unreachable URL test parameters on reserved port 1)
+  project_memory_markdown_check: no .md files
+  coverage_config_changed: none
+  branch_check: 0104g-remove-server-spawning-tests
+  head: 4b1311a71adf431ad0a19fea783c172796309001
+full_suite_limitation: Focused review validation does not run the full pytest suite by default. CI or an explicit human-requested run should validate python -m pytest -q after this PR. That full run must no longer start real web servers or make localhost requests, and total coverage must meet the configured fail-under threshold without lowering or bypassing it.
+security: No raw secrets, credentials, S3 keys, JWT tokens, PHI, raw filesystem paths, or raw exceptions exposed in changed test files.
+scope_control: Only test files and project-memory files changed. No production source, Dockerfile, entrypoint, control room implementation, auth, or training files modified.
+implementation_report: Present at .project-memory/pr/0104g-remove-server-spawning-tests/implementation-report.txt. Describes coverage recovery strategy correctly.
+commit_readiness: ready

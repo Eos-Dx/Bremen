@@ -1,0 +1,121 @@
+status: valid
+head: cc0a1337eb6c67ec4bb956249b0e4af906bdd8ab
+branch: 0104m-fastapi-dev-to-main-release
+pr_target: main
+blockers: []
+warnings:
+  - "Pre-existing .md files from prior PRs (0104a-0104f) exist in dev but not in main. These are not new additions from this PR."
+changed_files:
+  - .gitignore
+  - agents/architect.yml
+  - agents/coder.yml
+  - agents/plan-review.yml
+  - agents/precommit-review.yml
+  - docs/adr/0011-config-governance-gates.md
+  - docs/adr/0012-system-of-record-boundary.md
+  - docs/converter_preprocessing_boundary.md
+  - docs/feature_artifact_ingestion_boundary.md
+  - docs/feature_artifact_prediction_flow.md
+  - docs/preprocessing_source_reconciliation.md
+  - docs/product_input_pipeline_contract.md
+  - docs/release_readiness_operator_notes.md
+  - docs/repository_cleanup.md
+  - pyproject.toml
+  - requirements.txt
+  - scripts/check_fastapi_release_readiness.py
+  - scripts/smoke_fastapi_asgi.py
+  - src/bremen/__main__.py
+  - src/bremen/api/fastapi_app.py
+  - src/bremen/api/fastapi_contracts.py
+  - src/bremen/api/fastapi_server.py
+  - src/bremen/api/job_api_handler.py
+  - src/bremen/api/server.py
+  - tests/test_bremen_api_server.py
+  - tests/test_bremen_api_skeleton.py
+  - tests/test_bremen_cli_entrypoint.py
+  - tests/test_bremen_concurrent_server.py
+  - tests/test_bremen_config_governance.py
+  - tests/test_bremen_control_room.py
+  - tests/test_bremen_converter_preprocessing_boundary.py
+  - tests/test_bremen_demo_run.py
+  - tests/test_bremen_demo_smoke.py
+  - tests/test_bremen_execution_showcase.py
+  - tests/test_bremen_fastapi_asgi_smoke_readiness.py
+  - tests/test_bremen_fastapi_phase1.py
+  - tests/test_bremen_fastapi_phase2_catalog.py
+  - tests/test_bremen_fastapi_phase3_write_routes.py
+  - tests/test_bremen_fastapi_phase4_event_streaming.py
+  - tests/test_bremen_fastapi_release_readiness.py
+  - tests/test_bremen_fastapi_serve_mode.py
+  - tests/test_bremen_job_api_handler.py
+  - tests/test_bremen_logging.py
+  - tests/test_bremen_no_server_spawning_tests.py
+  - tests/test_bremen_preprocessing_source_reconciliation.py
+  - tests/test_bremen_product_input_pipeline_contract.py
+  - tests/test_bremen_server_helpers.py
+  - tests/test_bremen_workspace_ui.py
+  - .project-memory/pr/0104a-fastapi-phase1-foundation/
+  - .project-memory/pr/0104b-fastapi-phase2-catalog-routes/
+  - .project-memory/pr/0104c-fastapi-phase3-write-routes/
+  - .project-memory/pr/0104d-plan-fastapi-phase4-event-streaming/
+  - .project-memory/pr/0104e-fastapi-asgi-smoke-readiness/
+  - .project-memory/pr/0104f-fastapi-serve-mode/
+  - .project-memory/pr/0104g-remove-server-spawning-tests/
+  - .project-memory/pr/0104h-fastapi-runtime-selection-gate/
+  - .project-memory/pr/0104i-fastapi-cutover-readiness/
+  - .project-memory/pr/0104j-fastapi-default-runtime-cutover/
+  - .project-memory/pr/0104k-release-readiness-checks/
+  - .project-memory/pr/0104l-dev-to-main-release-gate/
+  - .project-memory/pr/0104m-fastapi-dev-to-main-release/
+working_tree_state: clean (1 untracked directory)
+summary: "PR0104M merges the complete FastAPI runtime cutover from dev to main. FastAPI is the default runtime. Legacy http.server preserved via --backend http or BREMEN_SERVER_BACKEND=http. serve-fastapi preserved. Dockerfile unchanged. All 3121 tests pass. Readiness script: 15/15 checks PASS."
+
+default_runtime: fastapi
+legacy_fallback_available: true
+serve_fastapi_preserved: true
+fastapi_factory_target_preserved: true
+dockerfile_unchanged: true
+dockerfile_no_legacy_override: true
+invalid_backend_fails_closed: true
+zero_server_policy_preserved: true
+readiness_script:
+  checks: 15
+  result: ALL CHECKS PASSED
+release_readiness_tests:
+  count: 29
+  result: 29 passed
+guard_test:
+  file: tests/test_bremen_no_server_spawning_tests.py
+  result: 85 passed, 0 skipped, 0 failed
+full_suite_mandatory: true
+full_suite_result: 3121 passed, 11 skipped, 0 failed
+coverage_result: "83% total (no fail-under threshold configured)"
+project_memory_format: "valid — no .md files added by this PR (pre-existing .md files from prior PRs 0104a-0104f exist on dev but not main)"
+safety_boundary:
+  - No clinical claims added
+  - No H5 metadata assumptions changed
+  - No model artifacts added
+  - No secrets or credentials introduced
+  - No real AWS/S3 calls
+  - No real server launches from pytest
+  - Invalid env fails closed with safe error
+  - Legacy http.server fully preserved
+  - Dockerfile unchanged
+validation:
+  git_rev_parse: cc0a1337eb6c67ec4bb956249b0e4af906bdd8ab
+  git_branch: 0104m-fastapi-dev-to-main-release
+  git_diff_check: clean
+  compileall: passed
+  readiness_script: 15/15 PASS
+  release_readiness_tests: 29 passed
+  guard_tests: 85 passed
+  full_suite: 3121 passed, 11 skipped, 0 failed
+security:
+  - No secrets in changed files
+  - No credentials exposed
+  - No JWT secrets exposed
+  - No env values exposed in error messages
+  - No raw exception details in user-facing output
+  - No PHI exposure
+  - Invalid env backend fails closed with safe error
+merge_readiness: ready

@@ -688,156 +688,167 @@ def _handle_demo_models(handler: BaseHTTPRequestHandler) -> None:
 _patient_name_cache: dict[tuple[str, str, int], str | None] = {}
 
 
-def _handle_demo_h5_containers_list(
-    handler: BaseHTTPRequestHandler,
-) -> None:
-    """Handle GET /demo/api/h5/containers — list demo H5 containers.
+def _build_containers_response(request_id: str | None = None) -> dict:
+    """Build the GET /demo/api/h5/containers response dict.
 
-    Returns opaque server-generated source_ids instead of raw S3 keys.
-    Each container entry carries a ``source_id``, ``display_name``
-    (derived from filename), ``size_bytes``, and ``last_modified``.
-    The raw S3 key is never exposed to the browser.
+    This is the transport-independent core extracted from
+    ``_handle_demo_h5_containers_list``.  Both the ``http.server``
+    handler and the FastAPI route call this helper so that the
+    business logic lives in exactly one place.
 
-    Merges:
-    1. Env-configured catalog from ``BREMEN_DEMO_H5_CONTAINERS``.
-    2. S3-listed containers from configured bucket/prefix.
-    3. Runtime-uploaded containers (in-memory, not persisted).
-
-    Deduplicates by S3 key (server-side only, not exposed).
+    Returns
+    -------
+    A serialisable dict with ``storage``, ``containers``,
+    ``upload_max_bytes``, ``technical_demo_only``, and ``request_id``.
     """
     import json as _json  # noqa: PLC0415
     import os as _os  # noqa: PLC0415
     import logging as _logging  # noqa: PLC0415
 
-    request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())
+    if request_id is None:
+        request_id = str(uuid.uuid4())
+
     config = read_demo_h5_config()
 
     if config["h5_bucket"] is None:
         # No bucket configured — return safe empty response
-        data = {
+        return {
             "storage": "not_configured",
             "containers": [],
             "technical_demo_only": True,
+            "request_id": request_id,
         }
-    else:
-        # 1. Env-configured catalog
-        try:
-            containers_json = _os.environ.get(
-                "BREMEN_DEMO_H5_CONTAINERS", "[]"
-            )
-            env_containers = _json.loads(containers_json)
-            if not isinstance(env_containers, list):
-                env_containers = []
-        except (_json.JSONDecodeError, TypeError):
+
+    # 1. Env-configured catalog
+    try:
+        containers_json = _os.environ.get(
+            "BREMEN_DEMO_H5_CONTAINERS", "[]"
+        )
+        env_containers = _json.loads(containers_json)
+        if not isinstance(env_containers, list):
             env_containers = []
+    except (_json.JSONDecodeError, TypeError):
+        env_containers = []
 
-        # 2. S3-listed containers
-        s3_containers: list[dict] = []
-        storage_status = "configured"
-        try:
-            s3_containers = _list_s3_containers(
-                config["h5_bucket"], config["h5_prefix"],
-            )
-        except Exception:
-            _log = _logging.getLogger(__name__)
-            _log.exception(
-                "bremen.demo.h5.containers.list_failed\t"
-                "stage=containers\tstatus=failed\t"
-                "bucket=%s\tprefix=%s",
-                config["h5_bucket"], config["h5_prefix"],
-            )
-            storage_status = "list_failed"
-            s3_containers = []
+    # 2. S3-listed containers
+    s3_containers: list[dict] = []
+    storage_status = "configured"
+    try:
+        s3_containers = _list_s3_containers(
+            config["h5_bucket"], config["h5_prefix"],
+        )
+    except Exception:
+        _log = _logging.getLogger(__name__)
+        _log.exception(
+            "bremen.demo.h5.containers.list_failed\t"
+            "stage=containers\tstatus=failed\t"
+            "bucket=%s\tprefix=%s",
+            config["h5_bucket"], config["h5_prefix"],
+        )
+        storage_status = "list_failed"
+        s3_containers = []
 
-        # 3. Merge with deduplication by raw key (server-side only)
-        seen_keys: set[str] = set()
-        merged_raw: list[dict] = []
-        for c in env_containers:
-            cid = c.get("id") or c.get("key") or c.get("filename", "")
-            if cid not in seen_keys:
-                seen_keys.add(cid)
-                merged_raw.append(c)
-        for c in s3_containers:
-            cid = c.get("id", "")
-            if cid not in seen_keys:
-                seen_keys.add(cid)
-                merged_raw.append(c)
+    # 3. Merge with deduplication by raw key (server-side only)
+    seen_keys: set[str] = set()
+    merged_raw: list[dict] = []
+    for c in env_containers:
+        cid = c.get("id") or c.get("key") or c.get("filename", "")
+        if cid not in seen_keys:
+            seen_keys.add(cid)
+            merged_raw.append(c)
+    for c in s3_containers:
+        cid = c.get("id", "")
+        if cid not in seen_keys:
+            seen_keys.add(cid)
+            merged_raw.append(c)
 
-        # Filter oversized objects
-        max_bytes = config["upload_max_bytes"]
-        merged_raw = [c for c in merged_raw if c.get("size_bytes", 0) <= max_bytes]
+    # Filter oversized objects
+    max_bytes = config["upload_max_bytes"]
+    merged_raw = [c for c in merged_raw if c.get("size_bytes", 0) <= max_bytes]
 
-        # Sort by last_modified descending (newest first)
-        merged_raw.sort(key=lambda c: c.get("last_modified", ""), reverse=True)
+    # Sort by last_modified descending (newest first)
+    merged_raw.sort(key=lambda c: c.get("last_modified", ""), reverse=True)
 
-        # Limit to 100 objects maximum
-        merged_raw = merged_raw[:100]
+    # Limit to 100 objects maximum
+    merged_raw = merged_raw[:100]
 
-        # Replace raw S3 keys with opaque source_ids from the registry.
-        # The browser receives only source_id, display_name, size_bytes,
-        # and last_modified — never the S3 key.
-        from .source_registry import register_source, get_stable_source_key  # noqa: PLC0415
+    # Replace raw S3 keys with opaque source_ids from the registry.
+    # The browser receives only source_id, display_name, size_bytes,
+    # and last_modified — never the S3 key.
+    from .source_registry import register_source, get_stable_source_key  # noqa: PLC0415
 
-        bucket = config["h5_bucket"]
-        prefix = config["h5_prefix"]
-        safe_containers: list[dict] = []
-        for item in merged_raw:
-            raw_key = item.get("id", "")
-            filename = item.get("filename", "unknown.h5")
-            size = item.get("size_bytes", 0)
-            last_mod = item.get("last_modified", "")
-            source_id = register_source(
-                bucket=bucket,
-                object_key=raw_key,
-                filename=filename,
-                size_bytes=size,
-                prefix=prefix,
-            )
-            # Determine workflow compatibility
-            # S3-listed containers are implicitly Bremen (under configured prefix)
-            # Env-configured containers carry their own workflow_id, default "bremen"
-            wf = item.get("workflow_id", "bremen")
+    bucket = config["h5_bucket"]
+    prefix = config["h5_prefix"]
+    safe_containers: list[dict] = []
+    for item in merged_raw:
+        raw_key = item.get("id", "")
+        filename = item.get("filename", "unknown.h5")
+        size = item.get("size_bytes", 0)
+        last_mod = item.get("last_modified", "")
+        source_id = register_source(
+            bucket=bucket,
+            object_key=raw_key,
+            filename=filename,
+            size_bytes=size,
+            prefix=prefix,
+        )
+        # Determine workflow compatibility
+        wf = item.get("workflow_id", "bremen")
 
-            # Patient name from cache or extraction
-            cache_key = (bucket, raw_key, size)
-            patient_name = ""
-            if cache_key in _patient_name_cache:
-                cached = _patient_name_cache[cache_key]
-                patient_name = cached or ""
-            else:
-                try:
-                    from ..h5_inputs import stage_h5_input as _stage  # noqa: PLC0415
-                    from .job_api_handler import extract_patient_display_name  # noqa: PLC0415
-                    s3_uri = f"s3://{bucket}/{raw_key}"
-                    local_path = _stage(s3_uri)
-                    extracted = extract_patient_display_name(str(local_path))
-                    if extracted:
-                        patient_name = extracted
-                        _patient_name_cache[cache_key] = extracted
-                    else:
-                        _patient_name_cache[cache_key] = None
-                except Exception:
+        # Patient name from cache or extraction
+        cache_key = (bucket, raw_key, size)
+        patient_name = ""
+        if cache_key in _patient_name_cache:
+            cached = _patient_name_cache[cache_key]
+            patient_name = cached or ""
+        else:
+            try:
+                from ..h5_inputs import stage_h5_input as _stage  # noqa: PLC0415
+                from .job_api_handler import extract_patient_display_name  # noqa: PLC0415
+                s3_uri = f"s3://{bucket}/{raw_key}"
+                local_path = _stage(s3_uri)
+                extracted = extract_patient_display_name(str(local_path))
+                if extracted:
+                    patient_name = extracted
+                    _patient_name_cache[cache_key] = extracted
+                else:
                     _patient_name_cache[cache_key] = None
+            except Exception:
+                _patient_name_cache[cache_key] = None
 
-            display_name = patient_name or filename
-            safe_containers.append({
-                "source_id": source_id,
-                "display_name": display_name,
-                "patient_display_name": patient_name,
-                "stable_source_key": get_stable_source_key(source_id),
-                "size_bytes": size,
-                "last_modified": last_mod,
-                "workflow_id": wf,
-            })
+        display_name = patient_name or filename
+        safe_containers.append({
+            "source_id": source_id,
+            "display_name": display_name,
+            "patient_display_name": patient_name,
+            "stable_source_key": get_stable_source_key(source_id),
+            "size_bytes": size,
+            "last_modified": last_mod,
+            "workflow_id": wf,
+        })
 
-        data = {
-            "storage": storage_status,
-            "containers": safe_containers,
-            "upload_max_bytes": max_bytes,
-            "technical_demo_only": True,
-        }
+    return {
+        "storage": storage_status,
+        "containers": safe_containers,
+        "upload_max_bytes": max_bytes,
+        "technical_demo_only": True,
+        "request_id": request_id,
+    }
 
-    data["request_id"] = request_id
+
+def _handle_demo_h5_containers_list(
+    handler: BaseHTTPRequestHandler,
+) -> None:
+    """Handle GET /demo/api/h5/containers — list demo H5 containers.
+
+    Delegates to :func:`_build_containers_response` for the response
+    dict and writes the JSON response over ``http.server``.
+    """
+    import json as _json  # noqa: PLC0415
+
+    request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())
+    data = _build_containers_response(request_id=request_id)
+
     body = _json.dumps(data, ensure_ascii=False).encode("utf-8")
     handler.send_response(200)
     handler.send_header("Content-Type", "application/json")
@@ -847,87 +858,70 @@ def _handle_demo_h5_containers_list(
     handler.wfile.write(body)
 
 
-def _handle_demo_h5_containers_upload(
-    handler: BaseHTTPRequestHandler,
-) -> None:
-    """Handle POST /demo/api/h5/containers — upload an H5 container."""
-    import json as _json  # noqa: PLC0415
+def _handle_h5_upload_bytes(
+    raw_body: bytes,
+    raw_filename: str,
+    request_id: str,
+) -> tuple[int, dict]:
+    """Validate and upload H5 bytes to S3. Transport-independent.
 
-    request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())
+    Parameters
+    ----------
+    raw_body : Raw file bytes.
+    raw_filename : Original filename from the client.
+    request_id : Request ID for the response.
+
+    Returns
+    -------
+    A tuple of (http_status_code, response_dict).
+    All validation errors return safe public messages only.
+    """
     config = read_demo_h5_config()
 
     # ---- Input validation (before storage check) ----
 
     # Validate content length
-    content_length = int(handler.headers.get("Content-Length", 0))
+    content_length = len(raw_body)
     if content_length == 0:
-        body = _json.dumps({
+        return 400, {
             "status": "upload_rejected",
             "error": "Empty body",
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(400)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-        return
+        }
 
     if content_length > config["upload_max_bytes"]:
-        body = _json.dumps({
+        return 413, {
             "status": "upload_rejected",
             "error": f"File too large: {content_length} bytes "
                      f"(max {config['upload_max_bytes']})",
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(413)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-        return
+        }
 
-    # Validate filename from header
-    raw_filename = handler.headers.get("X-H5-Filename", "").strip()
+    # Validate filename
+    raw_filename = raw_filename.strip()
     if not raw_filename:
-        body = _json.dumps({
+        return 400, {
             "status": "upload_rejected",
             "error": "Missing X-H5-Filename header",
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(400)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-        return
+        }
 
     # Sanitize filename — reject path separators
     if "/" in raw_filename or "\\" in raw_filename or ".." in raw_filename:
-        body = _json.dumps({
+        return 400, {
             "status": "upload_rejected",
             "error": "Invalid filename — path separators not allowed",
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(400)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-        return
+        }
 
     # Validate extension
     name_lower = raw_filename.lower()
     if not (name_lower.endswith(".h5") or name_lower.endswith(".hdf5")):
-        body = _json.dumps({
+        return 400, {
             "status": "upload_rejected",
             "error": (
                 f"Invalid file extension: {raw_filename!r}. "
@@ -935,46 +929,25 @@ def _handle_demo_h5_containers_upload(
             ),
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(400)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-        return
+        }
 
     # ---- Storage checks (after input is validated) ----
 
     # Check upload enabled
     if not config["allow_upload"]:
-        body = _json.dumps({
+        return 403, {
             "status": "upload_disabled",
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(403)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-        return
+        }
 
     # Check storage configured
     if config["h5_bucket"] is None:
-        body = _json.dumps({
+        return 503, {
             "status": "storage_not_configured",
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(503)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
-        return
+        }
 
     # Sanitize filename (keep only safe characters)
     sanitized = "".join(
@@ -986,9 +959,6 @@ def _handle_demo_h5_containers_upload(
     # Ensure .h5 extension
     if not sanitized.lower().endswith(".h5"):
         sanitized += ".h5"
-
-    # Read raw bytes from request body
-    raw_body = handler.rfile.read(content_length)
 
     # Upload to S3
     try:
@@ -1002,35 +972,49 @@ def _handle_demo_h5_containers_upload(
             Body=raw_body,
         )
 
-        body = _json.dumps({
+        return 201, {
             "status": "uploaded",
             "id": key,
             "filename": sanitized,
             "size_bytes": content_length,
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(201)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
+        }
     except Exception as exc:
-        body = _json.dumps({
+        return 503, {
             "status": "upload_rejected",
             "error": f"S3 upload failed: {type(exc).__name__}",
             "request_id": request_id,
             "technical_demo_only": True,
-        }).encode("utf-8")
-        handler.send_response(503)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(body)))
-        handler.send_header("X-Request-ID", request_id)
-        handler.end_headers()
-        handler.wfile.write(body)
+        }
 
 
+def _handle_demo_h5_containers_upload(
+    handler: BaseHTTPRequestHandler,
+) -> None:
+    """Handle POST /demo/api/h5/containers — upload an H5 container.
+
+    Delegates to :func:`_handle_h5_upload_bytes` for validation and
+    upload logic.
+    """
+    import json as _json  # noqa: PLC0415
+
+    request_id = handler.headers.get("X-Request-ID") or str(uuid.uuid4())
+    raw_filename = handler.headers.get("X-H5-Filename", "")
+    content_length = int(handler.headers.get("Content-Length", 0))
+    raw_body = handler.rfile.read(content_length)
+
+    status_code, data = _handle_h5_upload_bytes(
+        raw_body, raw_filename, request_id,
+    )
+
+    body = _json.dumps(data, ensure_ascii=False).encode("utf-8")
+    handler.send_response(status_code)
+    handler.send_header("Content-Type", "application/json")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("X-Request-ID", request_id)
+    handler.end_headers()
+    handler.wfile.write(body)
 def _safe_error_detail(exc: Exception) -> str:
     """Map an internal exception to a safe public error detail.
 

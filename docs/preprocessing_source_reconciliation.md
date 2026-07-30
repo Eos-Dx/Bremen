@@ -546,7 +546,7 @@ contain:
 8. No runtime request schema change.
 9. No `h5_path`/`h5_uri` behavior change.
 10. No Matador integration.
-11. No FastAPI, uvicorn, starlette, or ASGI.
+11. FastAPI Phase 1 foundation is allowed in the isolated module (PR0104A) on dev only. Production http.server path unchanged. No catalog, POST, SSE routes in Phase 1.
 12. No runtime training.
 13. No model training implementation.
 14. No new model.

@@ -142,7 +142,7 @@ The adapter must not:
 
 ## Non-Goals
 
-1. No FastAPI.
+1. FastAPI Phase 1 foundation is allowed in the isolated module (PR0104A) on dev only. Production http.server path unchanged.
 2. No real Matador adapter.
 3. No Matador API calls, credentials, tokens, URLs, or network adapters.
 4. No DynamoDB or backend persistence.

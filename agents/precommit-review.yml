@@ -7,9 +7,9 @@ metadata:
 
 models:
   precommit_review_model:
-    provider: anthropic
-    model: mimo-v2.5
-    base_url: https://api.openmodel.ai
+    provider: openai
+    model: deepseek-chat
+    base_url: https://api.deepseek.com
     max_tokens: 30000
     temperature: 0
 
