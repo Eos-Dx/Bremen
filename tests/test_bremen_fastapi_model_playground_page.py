@@ -47,6 +47,27 @@ class TestModelPlaygroundRoute:
         resp = client.get("/demo/model-playground")
         assert "playground" in resp.text.lower() or "sandbox" in resp.text.lower()
 
+    def test_full_three_tab_playground_is_served(self, client: TestClient) -> None:
+        resp = client.get("/demo/model-playground")
+
+        assert 'data-screen="train"' in resp.text
+        assert 'data-screen="predict"' in resp.text
+        assert 'data-screen="compare"' in resp.text
+        assert 'id="featureList"' in resp.text
+        assert "const CFG=" in resp.text
+
+    def test_unlisted_preview_route_returns_same_sandbox(
+        self, client: TestClient
+    ) -> None:
+        resp = client.get("/demo/model-playground/sandpit-0104t-preview")
+
+        assert resp.status_code == 200
+        assert "text/html" in resp.headers.get("content-type", "")
+        assert "Unlisted preview link" in resp.text
+        assert 'data-screen="train"' in resp.text
+        assert 'data-screen="predict"' in resp.text
+        assert 'data-screen="compare"' in resp.text
+
 
 class TestSandboxBranding:
     """Page must clearly indicate sandbox/synthetic/technical demo."""
@@ -97,6 +118,17 @@ class TestNavLinks:
     def test_api_docs_link(self, client: TestClient) -> None:
         resp = client.get("/demo/model-playground")
         assert 'href="/demo/api-docs"' in resp.text
+
+    def test_unlisted_preview_not_linked_from_demo_nav(self, client: TestClient) -> None:
+        public_pages = (
+            client.get("/demo").text,
+            client.get("/demo/control-room").text,
+            client.get("/demo/model-guide").text,
+            client.get("/demo/model-playground").text,
+        )
+
+        for text in public_pages:
+            assert "/demo/model-playground/sandpit-0104t-preview" not in text
 
 
 class TestNoProductionInternals:

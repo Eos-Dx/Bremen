@@ -465,6 +465,16 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         html = build_model_playground_page()
         return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
 
+    @app.get("/demo/model-playground/sandpit-0104t-preview")
+    async def demo_model_playground_preview(request: Request) -> HTMLResponse:
+        """Render the unlisted Bremen Model Playground preview page."""
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.model_playground_ui import build_model_playground_page  # noqa: PLC0415
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+        html = build_model_playground_page(unlisted_preview=True)
+        return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
+
     # ------------------------------------------------------------------
     # GET /demo/report/{job_id} — report HTML page parity
     # ------------------------------------------------------------------

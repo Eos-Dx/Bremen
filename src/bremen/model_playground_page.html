@@ -1,0 +1,1729 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bremen Model Playground — Sandbox</title>
+<style>
+:root{--ink:#17303d;--muted:#6b7a85;--line:#dbe3e8;--paper:#f5f7f9;--navy:#173f52;--blue:#0f6ea8;--green:#2b8a78;--orange:#cc7b23;--red:#b84040}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}button,input{font:inherit}button{cursor:pointer}.hero{background:var(--navy);color:#fff;text-align:center;padding:25px}.hero h1{margin:0;font-size:30px;font-weight:500}.hero strong{font-weight:900}.hero p{margin:8px 0 0;color:#cad8de}.shell{max-width:1500px;margin:auto;padding:18px 22px}.tabs{display:flex;gap:8px;margin-bottom:14px}.tab{border:1px solid var(--line);background:#fff;border-radius:10px;padding:11px 16px;font-weight:900}.tab.active{background:var(--navy);color:#fff}.screen{display:none}.screen.active{display:block}.toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:13px;padding:10px 12px;margin-bottom:14px}.btn{border:0;border-radius:9px;padding:9px 13px;background:var(--blue);color:#fff;font-weight:900}.btn.secondary{background:#edf1f4;color:var(--ink)}.btn.play{width:50px;height:50px;border-radius:50%}.toolbar label{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}.toolbar input[type=range]{width:120px}.grid1{display:grid;grid-template-columns:270px 410px minmax(520px,1fr);gap:14px}.grid2{display:grid;grid-template-columns:320px minmax(430px,1fr) minmax(400px,.9fr);gap:14px}.panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px}.panel h2{font-size:17px;margin:0 0 5px}.help{font-size:12px;color:var(--muted);line-height:1.45;margin-bottom:12px}.block{border-top:1px solid #edf0f2;padding:10px 0}.block:first-of-type{border-top:0}.block label{display:flex;justify-content:space-between;font-size:12px;font-weight:900;margin-bottom:5px}.block input[type=range]{width:100%}.v{color:var(--blue)}.inline{display:grid;grid-template-columns:1fr 80px;gap:8px;align-items:center}.inline input{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px}.group{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:8px}.gtitle{display:flex;justify-content:space-between;background:#f6f8f9;padding:8px 10px;font-size:12px;font-weight:900}.frow{display:grid;grid-template-columns:22px 1fr 58px;gap:8px;align-items:center;border-top:1px solid #edf0f2;padding:8px 10px}.frow strong{display:block;font-size:12px}.frow small{display:block;font-size:10.5px;color:var(--muted)}.coef{text-align:right;font-size:11px;font-weight:900}.scroll{max-height:630px;overflow:auto}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.metric{border:1px solid var(--line);border-radius:9px;padding:9px}.metric .big{font-size:22px;font-weight:950}.metric .tiny{font-size:10px;color:var(--muted)}.legend{display:flex;gap:11px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin:7px 0}.key{display:flex;align-items:center;gap:5px}.dot{width:9px;height:9px;border-radius:50%}.card{border:1px solid var(--line);border-radius:11px;padding:9px;background:#fbfcfd}svg{width:100%;height:auto;display:block}.note{border-left:4px solid #c98a2c;background:#fff8eb;padding:10px 12px;border-radius:0 8px 8px 0;margin-top:10px;font-size:11px;line-height:1.45}.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}.step{border:1px solid var(--line);border-radius:10px;padding:9px;text-align:center}.step b{display:block;font-size:12px}.step span{font-size:10px;color:var(--muted)}.presets{display:flex;gap:8px;flex-wrap:wrap}.preset{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:9px;padding:8px 10px;font-weight:850}.preset.active{background:#e9f4fa;border-color:#a8cada}.sliders{max-height:610px;overflow:auto}.srow{border-bottom:1px solid #edf0f2;padding:7px 0}.shead{display:flex;justify-content:space-between;font-size:11px}.shead strong{display:block}.shead small{color:var(--muted)}.srow input{width:100%}.score{font-size:58px;font-weight:950;letter-spacing:-.045em}.meter{height:15px;background:#edf1f4;border-radius:999px;position:relative;overflow:hidden}.fill{height:100%;background:var(--blue)}.thr{position:absolute;top:-3px;width:2px;height:21px;background:var(--orange)}.status{display:inline-block;border-radius:999px;padding:8px 11px;font-size:12px;font-weight:900;margin-top:10px}.status.low{background:#e9f5f1;color:var(--green)}.status.high{background:#fbeaea;color:var(--red)}.formula{font-family:ui-monospace,monospace;font-size:11px;background:#f4f6f8;border-radius:8px;padding:10px;line-height:1.55;margin-top:10px}.contrib{display:grid;gap:6px;max-height:250px;overflow:auto}.crow{display:grid;grid-template-columns:145px 1fr 55px;gap:8px;align-items:center;font-size:10.5px}.track{height:10px;background:#edf1f4;border-radius:999px;position:relative;overflow:hidden}.zero{position:absolute;left:50%;height:100%;width:1px;background:#8d9aa3}.bar{position:absolute;height:100%}.pos{background:var(--blue)}.neg{background:var(--orange)}@media(max-width:1300px){.grid1,.grid2{grid-template-columns:280px 1fr}.wide{grid-column:1/-1}}@media(max-width:760px){.shell{padding:11px}.grid1,.grid2{grid-template-columns:1fr}.metrics,.steps{grid-template-columns:repeat(2,1fr)}}
+
+.pred-mode-note{font-size:11px;line-height:1.4;padding:9px 10px;border-radius:9px;background:#eef6fb;border:1px solid #bfd5e2;margin-bottom:10px}
+.pred-mode-note.sandbox{background:#fff4e8;border-color:#e7c391;color:#7a4b13}
+.runbtn{font-size:16px;padding:11px 20px;background:#173f52}
+.blank{min-height:190px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);border:1px dashed #bac7cf;border-radius:11px;background:#fafcfd;padding:20px}
+.blank strong{display:block;color:var(--ink);font-size:16px;margin-bottom:5px}
+.predrow{display:grid;grid-template-columns:minmax(180px,1fr) 110px 85px;gap:9px;align-items:center;border-bottom:1px solid #edf0f2;padding:8px 0}
+.predrow .fname strong{display:block;font-size:11.5px}.predrow .fname small{font-size:10px;color:var(--muted)}
+.predrow input[type=range]{width:100%}.predrow input[type=number]{width:100%;border:1px solid var(--line);border-radius:7px;padding:6px;font-size:11px}
+.predrow input:disabled{background:#f0f3f5;color:#66747e}
+.model-settings{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px}
+.model-settings label{font-size:10.5px;color:var(--muted)}
+.model-settings input{width:100%;border:1px solid var(--line);border-radius:7px;padding:7px;margin-top:4px}
+.flowsteps{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:12px}
+.flowstep{border:1px solid var(--line);border-radius:9px;padding:8px 5px;text-align:center;opacity:.32;transition:.3s;background:#fff}
+.flowstep.on{opacity:1;background:#eef6fb;border-color:#9ec5da;transform:translateY(-2px)}
+.flowstep b{display:block;font-size:10.5px}.flowstep span{font-size:9px;color:var(--muted)}
+.resultbox{display:none}.resultbox.on{display:block}
+.result-placeholder{min-height:270px}
+.run-status{display:inline-block;font-size:11px;font-weight:900;border-radius:999px;padding:6px 9px;background:#edf1f4;color:#5e6b74}
+.run-status.ready{background:#e9f5f1;color:#2b8a78}
+.coeff-head{display:grid;grid-template-columns:minmax(180px,1fr) 110px 85px;gap:9px;font-size:10px;color:var(--muted);font-weight:800;border-bottom:1px solid var(--line);padding-bottom:6px}
+@media(max-width:760px){.predrow,.coeff-head{grid-template-columns:1fr}.flowsteps{grid-template-columns:repeat(3,1fr)}.model-settings{grid-template-columns:1fr}}
+
+
+.point-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:8px}
+.point-plot{border:1px solid var(--line);border-radius:8px;padding:5px;background:#fff}
+.point-plot b{display:block;font-size:10px;margin-bottom:2px;text-align:center}
+.point-plot svg{height:72px}
+.patient-banner{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid #b9d0de;background:#eef6fb;border-radius:9px;padding:8px 10px;margin-bottom:8px;font-size:11px}
+.patient-banner strong{font-size:14px}
+.variation-control{display:flex;gap:7px;align-items:center;font-size:11px;color:var(--muted)}
+.variation-control input{width:120px}
+.predrow{grid-template-columns:minmax(175px,1fr) 105px 70px 82px!important}
+.coeff-head{grid-template-columns:minmax(175px,1fr) 105px 70px 82px!important}
+.actual-val{border-radius:7px;padding:6px;text-align:center;background:#edf1f4;color:#65737d;font-size:11px;font-weight:900}
+.actual-val.ready{background:#e9f4fa;color:#0f6ea8}
+.acquisition-note{font-size:10px;color:var(--muted);line-height:1.35;margin-top:7px}
+.aggregate-title{font-size:11px;font-weight:900;margin:9px 0 4px}
+@media(max-width:760px){.point-grid{grid-template-columns:repeat(2,1fr)}.predrow,.coeff-head{grid-template-columns:1fr!important}.variation-control{width:100%}}
+
+
+/* v5 layout and scientific detail */
+.grid2{grid-template-columns:minmax(340px,.88fr) minmax(430px,1.08fr) minmax(470px,1.12fr)}
+.info-btn{border:1px solid var(--line);background:#fff;color:var(--blue);border-radius:7px;padding:3px 7px;font-size:10px;font-weight:900;cursor:pointer}
+.info-btn:hover{background:#e9f4fa}
+.point-badge{display:inline-block;border-radius:999px;padding:3px 6px;font-size:8.5px;font-weight:900;background:#edf1f4;color:#5d6b74;margin-top:4px}
+.patient-level-banner{border-left:4px solid var(--blue);background:#eef6fb;border-radius:0 9px 9px 0;padding:10px 12px;margin:9px 0;font-size:11px;line-height:1.45}
+.patient-level-banner strong{display:block;font-size:13px;margin-bottom:3px}
+.aggregation-flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:7px;align-items:center;margin:9px 0 11px}
+.agg-node{border:1px solid var(--line);border-radius:9px;padding:8px;text-align:center;background:#fff}
+.agg-node strong{display:block;font-size:11px}.agg-node span{font-size:9px;color:var(--muted);line-height:1.3}
+.agg-node.output{background:#eef6fb;border-color:#a9c9da}
+.agg-arrow{font-size:19px;color:var(--blue);font-weight:900}
+.math-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+.detail-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.detail-tile{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px;text-align:left}
+.detail-tile:hover{border-color:#9fc3d7;background:#f7fbfd}
+.detail-tile b{display:block;font-size:11px;margin-bottom:3px}.detail-tile span{font-size:9.5px;color:var(--muted);line-height:1.25}
+.detail-tile .tile-value{display:block;font-size:15px;color:var(--blue);font-weight:950;margin-top:5px}
+.crow{grid-template-columns:145px 1fr 55px 28px}
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(15,31,41,.55);z-index:1000;padding:24px;align-items:center;justify-content:center}
+.modal-backdrop.on{display:flex}
+.modal{width:min(720px,100%);max-height:86vh;overflow:auto;background:#fff;border-radius:14px;border:1px solid var(--line);padding:18px}
+.modal-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:12px}
+.modal-head h2{margin:0;font-size:18px}.modal-close{border:0;background:#edf1f4;border-radius:8px;padding:7px 10px;font-weight:900}
+.modal-body{font-size:12px;line-height:1.55}.modal-body code,.math-block{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#f4f6f8;border-radius:8px;padding:10px;display:block;white-space:pre-wrap;margin:8px 0}
+.evidence-tabs{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.product-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px}
+.product-card h2{margin:0 0 5px;font-size:18px}
+.badge{display:inline-block;border-radius:999px;padding:4px 8px;font-size:9px;font-weight:900;margin-right:5px}
+.badge.verified{background:#e9f5f1;color:#2b7b5b}.badge.team{background:#e9f4fa;color:#0f638f}.badge.hypothesis{background:#fff2e3;color:#8a5519}.badge.stop{background:#fbeaea;color:#a33c3c}
+.pipeline-list{display:grid;gap:7px;margin-top:10px}
+.pipe-row{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:start;border:1px solid var(--line);border-radius:9px;padding:8px}
+.pipe-row .n{width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e9f4fa;color:#0f638f;font-weight:950;font-size:11px}
+.pipe-row strong{display:block;font-size:11.5px}.pipe-row small{font-size:10px;color:var(--muted);line-height:1.35}
+.compare-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:11px}
+.compare-table th,.compare-table td{border:1px solid var(--line);padding:9px;vertical-align:top;text-align:left}
+.compare-table th{background:#f5f7f8}
+.suitability{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.rule-list{display:grid;gap:7px}.rule{border:1px solid var(--line);border-radius:9px;padding:9px;font-size:11px;line-height:1.4}
+.source-box{margin-top:14px;border:1px solid var(--line);border-radius:10px;background:#fbfcfd;padding:11px;font-size:10px;line-height:1.5;color:var(--muted)}
+@media(max-width:1300px){.grid2{grid-template-columns:320px 1fr}.grid2 .wide{grid-column:1/-1}.evidence-tabs,.suitability{grid-template-columns:1fr}}
+@media(max-width:760px){.aggregation-flow{grid-template-columns:1fr}.agg-arrow{transform:rotate(90deg);text-align:center}.detail-tiles{grid-template-columns:repeat(2,1fr)}.evidence-tabs,.suitability{grid-template-columns:1fr}.modal-backdrop{padding:10px}}
+
+
+/* v6 patient-safe validation explainer */
+.metrics{grid-template-columns:repeat(6,1fr)}
+.training-bottom{display:grid;grid-template-columns:.72fr 1.28fr;gap:10px;margin-top:10px}
+.loop-box,.cv-box{border:1px solid var(--line);border-radius:11px;background:#fbfcfd;padding:11px}
+.loop-box .steps{grid-template-columns:repeat(2,1fr);margin-top:0}
+.cv-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.cv-head strong{font-size:13px}.cv-controls{display:flex;gap:6px;align-items:center}
+.cv-stage-badge{border-radius:999px;padding:5px 8px;background:#e9f4fa;color:#0f638f;font-size:10px;font-weight:900}
+.cv-progress{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:9px}
+.cv-progress span{height:5px;border-radius:999px;background:#dfe6ea}
+.cv-progress span.on{background:var(--blue)}
+.cv-viz{display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:168px}
+.cv-zone{border:1px solid var(--line);border-radius:9px;background:#fff;padding:8px}
+.cv-zone.locked{background:#f5f7f8;border-style:dashed}
+.cv-zone h4{font-size:10.5px;margin:0 0 5px;display:flex;justify-content:space-between;gap:5px}
+.cv-zone h4 span{font-weight:500;color:var(--muted)}
+.patient-cloud{display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start}
+.pt{width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:900;color:#fff;border:2px solid #fff;box-shadow:0 0 0 1px #cbd5db;transition:.35s}
+.pt.cancer{background:var(--red)}.pt.benign{background:var(--blue)}.pt.hidden{background:#98a5ad;color:#fff}
+.pt.pred-cancer{background:#d97b7b}.pt.pred-benign{background:#6ea9c9}
+.pt.error{box-shadow:0 0 0 3px var(--orange)}.pt.test{border-style:dashed;border-color:#243b48}
+.pt.split{background:linear-gradient(90deg,var(--truth) 0 50%,var(--pred) 50% 100%)}
+.cv-message{margin-top:8px;border-left:4px solid var(--blue);background:#eef6fb;border-radius:0 8px 8px 0;padding:8px 10px;font-size:10.5px;line-height:1.42}
+.confusion{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:8px}
+.conf-cell{border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center;background:#fff}
+.conf-cell b{display:block;font-size:16px}.conf-cell span{font-size:8.5px;color:var(--muted)}
+.cv-formulas{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:7px}
+.cv-formula{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;background:#f4f6f8;border-radius:7px;padding:7px}
+.privacy-note{font-size:9.5px;color:var(--muted);line-height:1.4;margin-top:7px}
+@media(max-width:1300px){.metrics{grid-template-columns:repeat(3,1fr)}.training-bottom{grid-template-columns:1fr}}
+@media(max-width:760px){.metrics{grid-template-columns:repeat(2,1fr)}.cv-viz{grid-template-columns:1fr}.confusion{grid-template-columns:repeat(2,1fr)}}
+
+
+/* v7 zoom + clearer held-out comparison */
+:root{--cvzoom:1}
+.cv-controls{flex-wrap:wrap}
+.zoom-box{display:flex;gap:6px;align-items:center;margin-left:4px}
+.zoom-box .mini{padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:#fff;font-weight:800;cursor:pointer;font-size:11px}
+.zoom-box .mini:hover{background:#eef6fb}
+.zoom-label{font-size:10px;color:var(--muted);min-width:70px;text-align:center}
+.cv-viz .cv-zone:last-child{transform:scale(var(--cvzoom));transform-origin:top left;transition:transform .2s ease}
+.cv-viz .cv-zone:last-child h4{font-size:11.5px}
+.cv-viz .cv-zone:last-child .patient-cloud{min-height:92px}
+.pt{width:27px;height:27px;font-size:7.2px}
+.cv-zone:last-child .pt{width:31px;height:31px;font-size:8px}
+.split-legend{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:10px;color:var(--muted)}
+.split-pill{display:inline-flex;align-items:center;gap:5px}
+.split-demo{width:26px;height:14px;border-radius:999px;background:linear-gradient(90deg,var(--truth) 0 50%, var(--pred) 50% 100%);border:1px solid #bfc9cf;display:inline-block}
+.orange-ring{width:14px;height:14px;border-radius:50%;border:3px solid var(--orange);display:inline-block;background:#fff}
+
+
+/* final demo stabilization */
+header{position:relative}
+.lang-switch{position:absolute;right:22px;top:18px;display:flex;border:1px solid rgba(255,255,255,.45);border-radius:9px;overflow:hidden;background:rgba(255,255,255,.08)}
+.lang-switch button{border:0;background:transparent;color:#dce8ed;font-weight:900;padding:7px 10px;min-width:42px}
+.lang-switch button.active{background:#fff;color:var(--navy)}
+.toolbar{min-height:68px;align-content:center}
+.toolbar>.btn,.toolbar>.preset,.toolbar>.run-status{min-height:38px;display:inline-flex;align-items:center;justify-content:center}
+.cv-head{display:grid;grid-template-columns:minmax(190px,1fr) 515px;gap:12px;align-items:start;min-height:82px}
+.cv-controls{display:grid;grid-template-columns:150px 112px 92px 145px;gap:7px;align-items:stretch;justify-content:end;width:100%}
+.cv-stage-badge{width:150px;min-height:39px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.15;white-space:normal}
+.cv-controls .btn{width:100%;height:39px;white-space:nowrap}
+.zoom-box{width:145px;height:39px;display:grid;grid-template-columns:38px 1fr 38px;gap:4px;margin:0}
+.zoom-box .mini{height:39px;padding:0}.zoom-label{min-width:0;display:flex;align-items:center;justify-content:center;font-size:9.5px}
+.cv-viz{min-height:188px}.cv-message{min-height:62px}.cvConfusion-placeholder{min-height:0}
+.cv-zone{min-height:165px}.cv-zone:last-child{transform:none!important;transform-origin:unset!important}
+.cv-zone:last-child .pt{width:calc(29px * var(--cvzoom));height:calc(29px * var(--cvzoom));font-size:calc(7.5px * var(--cvzoom))}
+.beta-card{border:1px solid #c9d9e2;background:#f4f9fb;border-radius:10px;padding:10px;margin:8px 0 10px}
+.beta-card h3{font-size:12px;margin:0 0 4px}.beta-card p{font-size:10px;color:var(--muted);line-height:1.38;margin:0 0 8px}
+.beta-actions{display:grid;grid-template-columns:1fr auto;gap:7px;align-items:center}.beta-actions button{padding:7px 9px;font-size:10px}
+.beta-results{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.beta-result{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px}.beta-result b{font-size:10px;display:block}.beta-result span{font-size:9px;color:var(--muted)}
+.beta-result .beta-metrics{font-size:10px;color:var(--ink);font-weight:800;margin-top:4px;line-height:1.45}
+.beta-warning{font-size:9px;color:#80551c;margin-top:7px;line-height:1.35}
+.beta-dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#7c57a5;border:1px solid #fff;box-shadow:0 0 0 1px #7c57a5}
+.model-map-note{font-size:10px;line-height:1.4;color:var(--muted);margin-top:8px;padding:8px;border-radius:8px;background:#f5f7f8}
+.roadmap-card{margin-top:14px;border:1px solid #d4c7e4;background:#faf7fd;border-radius:12px;padding:13px}
+.roadmap-card h3{margin:0 0 5px;font-size:14px}.roadmap-card p{font-size:11px;line-height:1.5;margin:5px 0}
+@media(max-width:1300px){.cv-head{grid-template-columns:1fr}.cv-controls{justify-content:start;width:auto;grid-template-columns:150px 112px 92px 145px}}
+@media(max-width:760px){header{padding-right:72px}.lang-switch{right:10px;top:10px}.cv-controls{grid-template-columns:1fr 1fr}.cv-stage-badge,.zoom-box{width:100%}.toolbar{min-height:0}}
+
+
+/* containment fix for the patient-safe panel */
+.training-bottom{grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr)}
+.loop-box,.cv-box{min-width:0;overflow:hidden}
+.cv-head{display:block;min-height:126px}
+.cv-controls{margin-top:9px;grid-template-columns:150px 110px 90px;width:100%;justify-content:start}
+.zoom-box{grid-column:1/-1;width:100%;grid-template-columns:42px minmax(100px,1fr) 42px}
+@media(max-width:760px){.cv-controls{grid-template-columns:1fr 1fr}.cv-stage-badge{width:100%}.zoom-box{grid-column:1/-1}}
+
+
+/* narrow-screen overflow guard */
+.tabs{flex-wrap:wrap}.tab{max-width:100%}
+.compare-table{table-layout:fixed}.compare-table th,.compare-table td,.product-card,.rule,.pipe-row{overflow-wrap:anywhere;word-break:normal}
+@media(max-width:520px){.tab{flex:1 1 100%;width:100%}.shell{overflow:hidden}.compare-table{font-size:9px}.compare-table th,.compare-table td{padding:5px}}
+
+
+/* PhD demo: geometry, threshold lab, and model-choice explanation */
+select{border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);padding:7px 8px;width:100%}
+.geometry-warning{margin-top:6px;font-size:9.5px;line-height:1.35;color:var(--muted)}
+.science-controls{display:grid;grid-template-columns:minmax(210px,.7fr) minmax(360px,1.3fr);gap:10px;margin:9px 0}
+.view-lab,.threshold-lab{border:1px solid var(--line);border-radius:10px;background:#fbfcfd;padding:10px}
+.view-lab h3,.threshold-lab h3{font-size:12px;margin:0 0 7px}
+.view-switch{display:flex;gap:6px;flex-wrap:wrap}
+.view-btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:7px 10px;font-size:10.5px;font-weight:900}
+.view-btn.active{background:var(--navy);border-color:var(--navy);color:#fff}
+.threshold-grid{display:grid;grid-template-columns:minmax(180px,1fr) 74px 110px 30px;gap:8px;align-items:center}
+.threshold-grid input[type=range]{width:100%}
+.threshold-value{font-size:19px;font-weight:950;color:var(--blue);text-align:center;font-variant-numeric:tabular-nums}
+.threshold-reset{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 8px;font-size:10px;font-weight:900}
+.threshold-summary{display:flex;gap:8px;flex-wrap:wrap;margin-top:7px}
+.threshold-chip{border-radius:999px;background:#edf3f6;padding:5px 8px;font-size:9.5px;font-weight:850}
+.threshold-chip strong{color:var(--blue)}
+.chart-explainer{border-left:4px solid var(--blue);background:#eef6fb;border-radius:0 8px 8px 0;padding:8px 10px;margin:0 0 8px;font-size:10.5px;line-height:1.4}
+.model-rationale{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+.rationale-card{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff}
+.rationale-card h3{font-size:12px;margin:0 0 5px}
+.rationale-card p{font-size:10px;color:var(--muted);line-height:1.45;margin:4px 0}
+.rationale-card .architecture{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5px;background:#f4f6f8;border-radius:7px;padding:7px;margin:6px 0}
+.rationale-badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.rationale-badge{border-radius:999px;padding:4px 7px;font-size:8.5px;font-weight:900;background:#e9f4fa;color:#0f638f}
+.rationale-badge.warn{background:#fff2e3;color:#875116}
+.chart-caption-row{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-top:5px;font-size:9.5px;color:var(--muted)}
+.geometry-key{display:flex;gap:8px;flex-wrap:wrap}
+.geometry-key span{display:inline-flex;align-items:center;gap:4px}
+.boundary-line{width:18px;border-top:2px dashed var(--navy)}
+.model-evidence{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.model-evidence div{border:1px solid var(--line);border-radius:8px;padding:7px;text-align:center}
+.model-evidence b{display:block;font-size:14px}.model-evidence span{font-size:8.5px;color:var(--muted)}
+@media(max-width:1300px){.science-controls{grid-template-columns:1fr}.threshold-grid{grid-template-columns:minmax(160px,1fr) 70px 105px 30px}}
+@media(max-width:760px){.model-rationale{grid-template-columns:1fr}.threshold-grid{grid-template-columns:1fr 70px}.threshold-reset,.threshold-grid .info-btn{width:100%}.science-controls{display:block}.threshold-lab{margin-top:8px}}
+
+
+/* Trustworthy PhD demo: evidence levels, 15D inspector, coefficient origin */
+.trust-strip{display:grid;grid-template-columns:1.05fr 1fr 1fr;gap:9px;margin:0 0 13px}
+.trust-card{border:1px solid var(--line);border-radius:11px;background:#fff;padding:11px}
+.trust-card h3{font-size:12px;margin:0 0 5px;display:flex;align-items:center;gap:6px}
+.trust-card p{font-size:10px;color:var(--muted);line-height:1.42;margin:0}
+.trust-card.exact{border-top:4px solid var(--green)}
+.trust-card.faithful{border-top:4px solid var(--blue)}
+.trust-card.illustrative{border-top:4px solid var(--orange)}
+.trust-level{border-radius:999px;padding:3px 6px;font-size:8px;font-weight:950}
+.trust-level.exact{background:#e9f5f1;color:#24735e}
+.trust-level.faithful{background:#e9f4fa;color:#0f638f}
+.trust-level.illustrative{background:#fff2e3;color:#875116}
+.trust-bottom{grid-column:1/-1;border-left:4px solid var(--red);background:#fff4f1;border-radius:0 9px 9px 0;padding:9px 11px;font-size:10px;line-height:1.42}
+.axis-pickers{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
+.axis-pickers label{font-size:9.5px;color:var(--muted)}
+.axis-pickers select{margin-top:4px;padding:6px;font-size:10px}
+.vector-lab{border:1px solid var(--line);border-radius:10px;background:#fbfcfd;padding:10px;margin-top:10px}
+.vector-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px}
+.vector-head h3{font-size:12px;margin:0}.vector-head select{max-width:180px;font-size:10px;padding:6px}
+.vector-equation{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#f2f5f7;border-radius:8px;padding:8px;font-size:9px;line-height:1.5;margin-bottom:7px}
+.vector-list{display:grid;gap:4px;max-height:240px;overflow:auto;padding-right:3px}
+.vector-row{display:grid;grid-template-columns:minmax(145px,1.1fr) minmax(100px,.9fr) 54px 58px;gap:6px;align-items:center;font-size:9px}
+.vector-row strong{font-size:9.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vector-track{height:9px;border-radius:999px;background:#e5ebee;position:relative;overflow:hidden}
+.vector-zero{position:absolute;left:50%;top:0;height:100%;width:1px;background:#8b989f}
+.vector-value-bar{position:absolute;top:0;height:100%;background:#0f6ea8}
+.vector-value-bar.neg{background:#cc7b23}
+.selected-patient-ring{filter:drop-shadow(0 0 3px #111)}
+.learning-math{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}
+.learn-card{border:1px solid var(--line);border-radius:10px;background:#fff;padding:10px}
+.learn-card h3{font-size:12px;margin:0 0 5px}
+.learn-card p{font-size:10px;color:var(--muted);line-height:1.44;margin:5px 0}
+.learn-formula{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#f4f6f8;border-radius:8px;padding:9px;font-size:9px;line-height:1.55}
+.gradient-list{display:grid;gap:4px;margin-top:7px}
+.gradient-row{display:grid;grid-template-columns:minmax(150px,1fr) 75px 75px;gap:6px;font-size:9px;padding:4px 0;border-bottom:1px solid #edf0f2}
+.gradient-row b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.solver-warning{border-left:4px solid var(--orange);background:#fff8eb;border-radius:0 8px 8px 0;padding:8px 10px;font-size:9.5px;line-height:1.42;margin-top:7px}
+.kbeta-physics{border:1px solid #d7c5e5;background:#faf7fc;border-radius:9px;padding:8px;margin:7px 0;font-size:9.5px;line-height:1.4}
+.kbeta-physics b{color:#6d468d}
+.patient-point{cursor:pointer}
+.patient-point:hover{stroke:#111;stroke-width:2.2}
+.why-safe{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+.safe-node{border:1px solid var(--line);border-radius:8px;padding:7px;text-align:center}
+.safe-node b{display:block;font-size:10px}.safe-node span{font-size:8.5px;color:var(--muted);line-height:1.25}
+@media(max-width:1300px){.trust-strip{grid-template-columns:1fr 1fr}.trust-bottom{grid-column:1/-1}.learning-math{grid-template-columns:1fr}}
+@media(max-width:760px){.trust-strip{grid-template-columns:1fr}.trust-bottom{grid-column:auto}.axis-pickers{grid-template-columns:1fr}.vector-row{grid-template-columns:1fr 1fr}.why-safe{grid-template-columns:repeat(2,1fr)}}
+
+
+/* independently verified artifact provenance */
+.artifact-proof{border:1px solid #8fc8b5;background:#eef9f5;border-radius:12px;padding:11px 13px;margin:0 0 13px;font-size:10.5px;line-height:1.46}
+.artifact-proof strong{display:block;font-size:12.5px;color:#246d59;margin-bottom:4px}
+.artifact-proof-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:8px}
+.artifact-proof-item{border:1px solid rgba(36,109,89,.2);border-radius:8px;background:#fff;padding:7px}
+.artifact-proof-item b{display:block;font-size:9.5px;color:#246d59}.artifact-proof-item span{font-size:8.8px;color:var(--muted);word-break:break-word}
+.artifact-proof code{font-size:9px}
+@media(max-width:900px){.artifact-proof-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.artifact-proof-grid{grid-template-columns:1fr}}
+
+
+/* English-only final demo + overflow fixes */
+html,body{overflow-x:hidden}
+*,*::before,*::after{box-sizing:border-box}
+.lang-switch{display:none!important}
+.panel,.trust-card,.trust-bottom,.view-lab,.threshold-lab,.learn-card,.cv-zone,.rationale-card,.artifact-proof,.safe-node{min-width:0}
+.science-controls>*,.learning-math>*,.cv-viz>*,.trust-strip>*,.model-rationale>*{min-width:0}
+.chart-explainer,.solver-warning,.cv-message,.privacy-note,.note,.geometry-warning,.trust-card p,.rationale-card p,.safe-node span,.artifact-proof,.help,.rule,.pipe-row small{overflow-wrap:anywhere;word-break:normal}
+.science-controls{grid-template-columns:minmax(240px,.9fr) minmax(0,1.1fr)}
+.threshold-grid{grid-template-columns:minmax(0,1fr) auto auto auto;gap:8px;align-items:center}
+.threshold-grid input[type=range]{min-width:0;width:100%}
+.threshold-value{min-width:78px}
+.threshold-reset,.threshold-grid .info-btn{max-width:100%;white-space:normal;line-height:1.15}
+.cv-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.cv-viz{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;min-height:168px}
+.confusion{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}
+.gradient-row{grid-template-columns:minmax(0,1fr) 88px 88px;align-items:start}
+.gradient-row b{white-space:normal;line-height:1.25}
+.vector-row,.axis-pickers{align-items:start}
+.metric-row,.metric-grid,.model-evidence{align-items:stretch}
+select,button,input{max-width:100%}
+@media(max-width:1200px){.science-controls{grid-template-columns:1fr}.trust-strip{grid-template-columns:1fr}.trust-bottom{grid-column:auto}.model-rationale{grid-template-columns:1fr}.learning-math{grid-template-columns:1fr}}
+@media(max-width:900px){.threshold-grid{grid-template-columns:minmax(0,1fr) auto}.threshold-value{grid-column:2}.threshold-reset{grid-column:1}.threshold-grid .info-btn{grid-column:2}.cv-viz{grid-template-columns:1fr}.gradient-row{grid-template-columns:minmax(0,1fr) 80px 80px}}
+@media(max-width:640px){.threshold-grid{grid-template-columns:1fr}.threshold-value,.threshold-reset,.threshold-grid .info-btn{grid-column:auto;width:100%}.cv-controls .btn,.cv-controls .cv-stage-badge{width:100%}.confusion{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+</style></head><body>
+<header class="hero"><nav class="guide-nav" aria-label="Demo navigation" style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:0 0 12px"><a href="/demo" style="color:#fff">Start</a><a href="/demo/control-room" style="color:#fff">Control Room</a><a href="/demo/model-guide" style="color:#fff">Model guide</a><a href="/demo/api-docs" style="color:#fff">API docs</a></nav><h1>Model Playground <strong>Bremen</strong> — Sandbox</h1><p>Сначала она учится на пациентах с известными ответами. Потом применяет зафиксированные коэффициенты к новому пациенту.</p><div class="lang-switch" aria-label="Language"><button id="langRU">RU</button><button id="langEN" class="active">EN</button></div></header>
+<div class="shell"><div class="sandbox-notice" style="background:#fff4e8;border:1px solid #e7c391;color:#7a4b13;padding:12px;border-radius:9px;margin:0 0 14px;font-size:13px;line-height:1.45"><strong>Model playground / sandbox / technical demo only.</strong> This page uses synthetic patients and prototype parameters for visual exploration only. It is not connected to real H5 uploads, real jobs, real reports, production model mutation, or deployable model creation. Export scenario controls, where shown, are visual placeholders.</div><div class="tabs"><button class="tab active" data-screen="train">1. Как модель обучалась</button><button class="tab" data-screen="predict">2. Как модель делает prediction</button><button class="tab" data-screen="compare">3. Bremen, Aramina и ограничения</button></div>
+<section id="train" class="screen active"><div class="toolbar"><button id="reset" class="btn secondary">↺ Сбросить</button><button id="play" class="btn play">▶</button><button id="step" class="btn secondary">Один шаг</button><label>Скорость <input id="lr" type="range" min="0.003" max="0.12" step="0.003" value="0.03"></label><label>Regularization <input id="reg" type="range" min="0" max="0.18" step="0.005" value="0.02"></label><span style="font-size:12px;color:var(--muted)">Test patients не меняют модель.</span></div>
+<div class="artifact-proof">
+  <strong>Независимая сверка с настоящим sandbox prototype page — пройдена</strong>
+  Все 15 коэффициентов, их порядок, intercept и threshold в этой версии извлечены из одного artifact и совпадают с исполняемым sklearn prototype calculator. Значения reviewer относятся не к этому artifact и не должны подмешиваться без совпадающего sandbox source marker.
+  <div class="artifact-proof-grid">
+    <div class="artifact-proof-item"><b>Model</b><span>bremen_mri_triage_symmetry_logreg<br>0.2.0-research</span></div>
+    <div class="artifact-proof-item"><b>Feature contract</b><span>bremen_h5_15feature_v0_2</span></div>
+    <div class="artifact-proof-item"><b>Sandbox source marker</b><span>sandbox-synthetic-not-production</span></div>
+    <div class="artifact-proof-item"><b>Sandbox consistency</b><span>prototype_model.coef == prototype calculator.coef_: TRUE<br>intercept equality: TRUE</span></div>
+  </div>
+  <button class="info-btn" data-modal="artifact-proof">Показать полный audit</button>
+</div>
+<div class="trust-strip">
+  <div class="trust-card exact"><h3><span class="trust-level exact">ПРОВЕРЕНО ТОЧНО</span> Один source of truth</h3><p>15 inputs, их порядок, coefficients, intercept, preprocessing parameters и threshold извлечены из sandbox prototype page sandbox marker sandbox-synthetic-not-production. <button class="info-btn" data-modal="trust-details">Подробнее</button></p></div>
+  <div class="trust-card faithful"><h3><span class="trust-level faithful">ВЕРНАЯ КОНЦЕПЦИЯ</span> Что демонстрация показывает честно</h3><p>Patient-safe split, labels только у train, frozen test prediction, вклад xᵢβᵢ, threshold trade-off, sensitivity и specificity.</p></div>
+  <div class="trust-card illustrative"><h3><span class="trust-level illustrative">ИЛЛЮСТРАЦИЯ</span> Что является синтетическим</h3><p>Пациенты, 2D-геометрия, траектория обучения, значения live metrics и Kβ proxy. Это не визуализация реальной Bremen cohort.</p></div>
+  <div class="trust-bottom"><b>«Безопасно разделить» — не свойство одной формулы.</b> Logistic regression ищет наилучшую линейную границу для training loss. Безопасность требует patient-safe validation, заранее выбранного operating point, независимой когорты, reliability rules и клинического контроля.</div>
+</div>
+<div class="grid1"><aside class="panel"><h2>Учебная когорта</h2><div class="help">Красный и синий — подтверждённые ответы. Они известны, потому что это обучение.</div><div class="block"><label>Пациентов <span class="v" id="nVal">60</span></label><input id="n" type="range" min="10" max="500" value="60"><div class="inline" style="margin-top:7px"><small>Вручную до 1000</small><input id="nM" type="number" min="10" max="1000" value="60"></div></div><div class="block"><label>Доля cancer <span class="v" id="pVal">35%</span></label><input id="prev" type="range" min="5" max="60" value="35"></div><div class="block"><label>Перекрытие групп <span class="v" id="noiseVal">0.75</span></label><input id="noise" type="range" min="0.2" max="1.8" step="0.05" value="0.75"></div>
+<div class="block">
+  <label>Синтетическая геометрия <span class="v" id="geometryVal">Линейная</span></label>
+  <select id="signalGeometry">
+    <option value="linear">Линейная baseline</option>
+    <option value="interaction">Взаимодействия / XOR-like</option>
+    <option value="curved">Кольца / curved boundary</option>
+  </select>
+  <div class="geometry-warning">Это педагогический stress test. Он не утверждает, что реальные Bremen patients распределены именно так.</div>
+</div><div class="block"><label>Relative Kβ contamination proxy <span class="v" id="batchVal">0.00</span></label><input id="batch" type="range" min="0" max="1.8" step="0.05" value="0"></div>
+<div class="beta-card">
+  <h3>Kβ spectral component ≠ coefficients βᵢ</h3>
+  <div class="kbeta-physics"><b>Физический смысл:</b> Kβ — нежелательная дополнительная X-ray spectral component, способная создавать дополнительные calibration rings и искажать radial profile.</div>
+  <p><b>Ограничение демо:</b> текущий ползунок не моделирует длины волн, detector geometry и дополнительные кольца. Он применяет feature-level perturbation к пяти синтетическим признакам как proxy sensitivity test.</p>
+  <div class="beta-actions"><span style="font-size:9.5px;color:var(--muted)">Те же patients, labels и test split</span><button id="betaCompare" class="btn secondary">Сравнить proxy Kβ=0 с текущим</button></div>
+  <div id="betaResults" class="beta-results"><div class="beta-result"><b>Kβ proxy = 0</b><span>Запустите сравнение</span></div><div class="beta-result"><b id="betaCurrentTitle">Current Kβ proxy = 0.00</b><span>Запустите сравнение</span></div></div>
+  <div class="beta-warning">Нельзя интерпретировать этот control как измеренное Kβ/Kα ratio. Физически корректная версия должна добавлять Kβ к profile/detector signal до feature extraction.</div>
+</div>
+<div class="block"><label>Test cohort <span class="v" id="testVal">25%</span></label><input id="testShare" type="range" min="10" max="50" value="25"></div><button id="regen" class="btn secondary" style="width:100%">Другая случайная группа</button><div class="note"><b>Цвет — правильный ответ.</b> Высота — мнение модели. Оранжевое кольцо — ошибка.</div></aside>
+<section class="panel"><h2>15 подсказок</h2><div class="help">Модель учится, насколько сильно слушать каждый признак. Все 15 коэффициентов βᵢ показаны ниже.</div><div id="featureList" class="scroll"></div><div class="card" style="margin-top:10px"><svg id="network" viewBox="0 0 720 520"></svg></div><div class="model-map-note"><b>Форма модели:</b> standardized feature xᵢ × learned coefficient βᵢ → sum z → sigmoid(z) → threshold. Kβ слева — feature-level proxy паразитной spectral component, а не коэффициент модели.</div>
+<div class="vector-lab">
+  <div class="vector-head"><h3>Один пациент как точка в ℝ¹⁵</h3><select id="patientSelect"></select></div>
+  <div id="patientVectorEquation" class="vector-equation"></div>
+  <div id="patientVectorList" class="vector-list"></div>
+  <div class="geometry-warning">На экране невозможно показать 15 независимых осей одновременно. Ranking plot показывает одно число βᵀx, а 2D-срез показывает только две выбранные координаты.</div>
+</div></section>
+<section class="panel wide">
+  <h2>Как точки расходятся во время обучения</h2>
+  <div class="metrics">
+    <div class="metric"><div class="big" id="epoch">0</div><div class="tiny">Шаг</div></div>
+    <div class="metric"><div class="big" id="loss">—</div><div class="tiny">Ошибка</div></div>
+    <div class="metric"><div class="big" id="trainAuc">—</div><div class="tiny">Train AUC</div></div>
+    <div class="metric"><div class="big" id="testAuc">—</div><div class="tiny">Test AUC</div></div>
+    <div class="metric"><div class="big" id="testSens">—</div><div class="tiny">Test sensitivity</div></div>
+    <div class="metric"><div class="big" id="testSpec">—</div><div class="tiny">Test specificity</div></div>
+  </div>
+  <div class="legend">
+    <span class="key"><span class="dot" style="background:var(--red)"></span>Cancer</span>
+    <span class="key"><span class="dot" style="background:var(--blue)"></span>Non-cancer</span>
+    <span class="key"><span class="dot" style="background:#fff;border:3px solid var(--orange)"></span>Ошибка</span>
+    <span>Пунктир — test patient</span><span class="key"><span class="beta-dot"></span>Kβ-proxy-affected synthetic measurement</span>
+  </div>
+  <div class="science-controls">
+    <div class="view-lab">
+      <h3>Что именно показывает график?</h3>
+      <div class="view-switch">
+        <button id="scoreView" class="view-btn active">Ранжирование по score</button>
+        <button id="planeView" class="view-btn">2D-срез признаков</button>
+      </div>
+      <div class="axis-pickers">
+        <label>Ось X<select id="planeX"></select></label>
+        <label>Ось Y<select id="planeY"></select></label>
+      </div>
+    </div>
+    <div class="threshold-lab">
+      <h3>Threshold lab — меняет решение, но не обученные веса</h3>
+      <div class="threshold-grid">
+        <input id="trainThreshold" type="range" min="0.05" max="0.95" step="0.005" value="0.5">
+        <span id="trainThresholdValue" class="threshold-value">0.5</span>
+        <button id="thresholdReset" class="threshold-reset">Вернуть 0.5</button>
+        <button class="info-btn" data-modal="threshold-evidence">i</button>
+      </div>
+      <div class="threshold-summary">
+        <span class="threshold-chip">Sensitivity <strong id="thresholdSens">—</strong></span>
+        <span class="threshold-chip">Specificity <strong id="thresholdSpec">—</strong></span>
+        <span class="threshold-chip">AUC <strong id="thresholdAuc">—</strong> — не меняется от порога</span>
+      </div>
+    </div>
+  </div>
+  <div id="chartExplainer" class="chart-explainer"></div>
+  <div class="card"><svg id="trainSvg" viewBox="0 0 980 455"></svg></div>
+  <div class="chart-caption-row">
+    <div class="geometry-key"><span><i class="boundary-line"></i>линейная граница logistic regression</span></div>
+    <span id="chartTechnicalCaption">Ранжирование — это одномерная проекция, а не форма исходного облака данных.</span>
+  </div>
+  <div class="model-rationale">
+    <div class="rationale-card">
+      <h3>Почему точки раньше выглядели как одна линия?</h3>
+      <p>Мы одновременно сортировали пациентов по одному и тому же score и рисовали этот score по вертикали. Поэтому диагональ возникала по определению — это ranking plot, а не геометрия 15-мерных данных.</p>
+      <p>В режиме «2D-срез» показаны два синтетических признака. Там классы могут образовывать перекрывающиеся облака, XOR-подобные квадранты или кольца.</p>
+    </div>
+    <div class="rationale-card">
+      <h3>Почему текущий baseline — logistic regression?</h3>
+      <div class="architecture">median imputer → StandardScaler → balanced L2 LogisticRegression
+C=1.0 · solver=liblinear · 15 features · 188 development patients</div>
+      <p>Это прозрачный, регуляризованный и аудируемый baseline для небольшой development cohort. Он создаёт линейную границу в стандартизированном 15D feature space; sigmoid только переводит linear score в диапазон 0–1. Это logistic regression, а не обычная linear regression.</p>
+      <p><b>Это не доказательство оптимальности.</b> Нелинейные модели или PCA/MCR representations должны сравниваться в patient-safe nested CV и затем на независимой когорте.</p>
+      <div class="rationale-badges"><span class="rationale-badge">auditable</span><span class="rationale-badge">regularized</span><span class="rationale-badge">small-n baseline</span><span class="rationale-badge warn">not proven best</span></div>
+    </div>
+  </div>
+
+  <div class="learning-math">
+    <div class="learn-card">
+      <h3>Кто создаёт коэффициенты β?</h3>
+      <p>Не исследователь вручную. Люди задают cohort, labels, features, preprocessing, loss, class weights и regularization. Численные coefficients определяет optimizer на training patients.</p>
+      <div class="learn-formula">xᵢ ∈ ℝ¹⁵
+β ∈ ℝ¹⁵
+zᵢ = β₀ + βᵀxᵢ
+pᵢ = sigmoid(zᵢ)
+
+Loss(β) =
+mean[class_weightᵢ · cross_entropy(yᵢ,pᵢ)]
++ λ‖β‖²</div>
+      <div class="why-safe">
+        <div class="safe-node"><b>Features</b><span>задают координаты</span></div>
+        <div class="safe-node"><b>Labels</b><span>задают учебную цель</span></div>
+        <div class="safe-node"><b>Optimizer</b><span>ищет β</span></div>
+        <div class="safe-node"><b>Validation</b><span>проверяет переносимость</span></div>
+      </div>
+    </div>
+    <div class="learn-card">
+      <h3>Что делает один шаг этой анимации?</h3>
+      <div class="learn-formula">errorᵢ = pᵢ − yᵢ
+
+gradientⱼ =
+mean[class_weightᵢ · errorᵢ · xᵢⱼ]
++ λβⱼ
+
+βⱼ ← βⱼ − learning_rate · gradientⱼ</div>
+      <div id="gradientList" class="gradient-list"></div>
+      <div class="solver-warning"><b>Очень важно:</b> эта пошаговая анимация использует простой batch gradient descent для объяснения. Сохранённый Bremen pipeline использует sklearn LogisticRegression с solver=<code>liblinear</code>. Финальная математическая задача похожа, но показанная траектория шагов не является историческим логом реального solver.</div>
+    </div>
+  </div>
+
+  <div class="training-bottom">
+    <div class="loop-box">
+      <strong style="font-size:13px">Что происходит внутри train cohort</strong>
+      <div class="steps">
+        <div class="step"><b>1. Попытка</b><span>Считает score</span></div>
+        <div class="step"><b>2. Проверка</b><span>Сравнивает с train label</span></div>
+        <div class="step"><b>3. Поправка</b><span>Меняет коэффициенты</span></div>
+        <div class="step"><b>4. Повтор</b><span>Test cohort не участвует</span></div>
+      </div>
+      <div class="note"><b>Важная поправка:</b> модель не обучается на пациентах без labels. Для train patients диагнозы доступны. У test patients labels временно закрыты от модели и открываются только после prediction.</div>
+    </div>
+
+    <div class="cv-box">
+      <div class="cv-head">
+        <div><strong>Анимация patient-safe проверки</strong><div class="help" style="margin:2px 0 0">Один fold из повторной cross-validation</div></div>
+        <div class="cv-controls">
+          <span id="cvStageBadge" class="cv-stage-badge">1 / 5</span>
+          <button id="cvNext" class="btn secondary" style="padding:6px 9px">Следующий шаг</button>
+          <button id="cvPlay" class="btn" style="padding:6px 9px">▶ Авто</button>
+          <div class="zoom-box">
+            <button id="cvZoomOut" class="mini">−20%</button>
+            <span id="cvZoomLabel" class="zoom-label">Масштаб 100%</span>
+            <button id="cvZoomIn" class="mini">+20%</button>
+          </div>
+        </div>
+      </div>
+      <div id="cvProgress" class="cv-progress"><span></span><span></span><span></span><span></span><span></span></div>
+      <div id="cvViz" class="cv-viz"></div>
+      <div id="cvMessage" class="cv-message"></div>
+      <div id="cvConfusion" class="confusion"></div>
+      <div class="split-legend">
+        <span class="split-pill"><span class="split-demo"></span> половина слева = truth, половина справа = prediction</span>
+        <span class="split-pill"><span class="orange-ring"></span> оранжевое кольцо = ошибка</span>
+      </div>
+      <div class="cv-formulas">
+        <div class="cv-formula">Sensitivity = TP / (TP + FN)</div>
+        <div class="cv-formula">Specificity = TN / (TN + FP)</div>
+      </div>
+      <div class="privacy-note"><b>Обезличивание и validation — разные вещи.</b> Имя и прямые идентификаторы заменяются псевдонимом для privacy. Диагноз сохраняется в контролируемой таблице, а patient/group ID используется только для patient-safe split и audit — не как признак модели. В описанной схеме 5 folds × 20 repeats этот процесс повторяется 100 раз.</div>
+    </div>
+  </div>
+  <div class="note">Пациенты и история обучения здесь синтетические. Threshold lab предназначен только для демонстрации trade-off: изменение порога не переобучает модель и не меняет AUC. В реальной cross-validation threshold выбирается только на training patients каждого fold и затем замораживается для held-out fold.</div>
+</section></div></section>
+
+
+<section id="predict" class="screen">
+  <div class="toolbar">
+    <button id="predReset" class="btn secondary">↺ Очистить</button>
+    <div class="presets">
+      <button class="preset active" data-pre="balanced">Почти симметричный</button>
+      <button class="preset" data-pre="asym">Выраженная асимметрия</button>
+      <button class="preset" data-pre="noisy">Нестабильные измерения</button>
+      <button class="preset" data-pre="unusual">Необычный профиль</button>
+    </div>
+    <label class="variation-control">Синтетическая вариативность
+      <input id="syntheticVariation" type="range" min="0.02" max="0.30" step="0.01" value="0.10">
+      <span id="variationValue">0.10</span>
+    </label>
+    <button id="lockedMode" class="preset active">Bremen v0.2 · веса зафиксированы</button>
+    <button id="sandboxMode" class="preset">Песочница · изменить веса</button>
+    <button id="runPrediction" class="btn runbtn">▶ НОВЫЙ ПАЦИЕНТ + RUN</button>
+    <span id="runState" class="run-status">Ещё не запускалось</span>
+  </div>
+
+  <div class="grid2">
+    <aside class="panel">
+      <h2>1. Шесть измерений — один пациент</h2>
+      <div class="help">Три точки слева и три справа являются исходными измерениями. Отдельная точка не получает отдельный диагноз.</div>
+      <div class="patient-level-banner"><strong>Как читать этот блок</strong>L1–L3 и R1–R3 проходят контроль и объединяются. Затем формируется один набор patient-level признаков и один итоговый score.</div>
+      <div class="aggregation-flow">
+        <div class="agg-node"><strong>6 профилей</strong><span>L1–L3 + R1–R3</span></div><div class="agg-arrow">→</div>
+        <div class="agg-node"><strong>Агрегация</strong><span>среднее, разброс, различия</span></div><div class="agg-arrow">→</div>
+        <div class="agg-node output"><strong>1 prediction</strong><span>score всего пациента</span></div>
+      </div>
+
+      <div id="sixPointBlank" class="blank">
+        <div><strong>Пациент ещё не создан</strong>Выберите общий сценарий и нажмите «НОВЫЙ ПАЦИЕНТ + RUN».</div>
+      </div>
+
+      <div id="sixPointCard" class="resultbox">
+        <div class="patient-banner">
+          <span><strong id="patientId">Synthetic patient —</strong><br><span id="patientScenario">—</span></span>
+          <span>6 точек<br>3L + 3R</span>
+        </div>
+        <div class="card"><svg id="scanMap" viewBox="0 0 430 205"></svg></div>
+        <div class="point-grid">
+          <div class="point-plot"><b>L1</b><svg id="point0" viewBox="0 0 150 72"></svg><span class="point-badge">измерение, не prediction</span></div>
+          <div class="point-plot"><b>L2</b><svg id="point1" viewBox="0 0 150 72"></svg><span class="point-badge">измерение, не prediction</span></div>
+          <div class="point-plot"><b>L3</b><svg id="point2" viewBox="0 0 150 72"></svg><span class="point-badge">измерение, не prediction</span></div>
+          <div class="point-plot"><b>R1</b><svg id="point3" viewBox="0 0 150 72"></svg><span class="point-badge">измерение, не prediction</span></div>
+          <div class="point-plot"><b>R2</b><svg id="point4" viewBox="0 0 150 72"></svg><span class="point-badge">измерение, не prediction</span></div>
+          <div class="point-plot"><b>R3</b><svg id="point5" viewBox="0 0 150 72"></svg><span class="point-badge">измерение, не prediction</span></div>
+        </div>
+        <div class="aggregate-title">Сводное bilateral-представление перед feature extraction</div>
+        <div class="card"><svg id="profile" viewBox="0 0 430 210"></svg></div>
+      </div>
+
+      <div class="note"><b>Научная оговорка:</b> шесть кривых синтетические. Демонстрация честно показывает структуру «6 measurements → patient features → 1 score», но не выдаёт схематичную генерацию кривых за production feature-extraction Bremen.</div>
+    </aside>
+
+    <section class="panel">
+      <h2>2. Признаки пациента и коэффициенты</h2>
+      <div class="help">Ползунок задаёт центр выбранного сценария. При RUN создаётся новый синтетический пациент: фактическое значение слегка отклоняется из-за вариации шести точек.</div>
+      <div id="modeNote" class="pred-mode-note"><b>Режим Bremen v0.2.</b> Коэффициенты зафиксированы. Случайными являются только синтетические данные пациента.</div>
+      <div class="model-settings">
+        <label>Intercept<input id="predIntercept" type="number" step="0.001" disabled></label>
+        <label>Threshold<input id="predThreshold" type="number" min="0" max="1" step="0.001" disabled></label>
+      </div>
+      <div class="coeff-head"><span>Признак</span><span>Центр сценария</span><span>Пациент</span><span>Коэффициент</span></div>
+      <div id="predRows" class="sliders"></div>
+      <div class="acquisition-note">«Пациент» появляется только после RUN. Малое отличие от центра — искусственная межточечная и межпациентная вариативность, а не измеренная погрешность устройства.</div>
+    </section>
+
+    <section class="panel wide">
+      <h2>3. Расчёт prediction</h2>
+      <div class="flowsteps">
+        <div class="flowstep" id="flow0"><b>1. Измерить</b><span>6 точек</span></div>
+        <div class="flowstep" id="flow1"><b>2. Собрать</b><span>15 признаков</span></div>
+        <div class="flowstep" id="flow2"><b>3. Умножить</b><span>x × coefficient</span></div>
+        <div class="flowstep" id="flow3"><b>4. Сложить</b><span>linear score</span></div>
+        <div class="flowstep" id="flow4"><b>5. Sigmoid</b><span>score 0–1</span></div>
+        <div class="flowstep" id="flow5"><b>6. Порог</b><span>маршрут</span></div>
+      </div>
+
+      <div id="resultPlaceholder" class="blank result-placeholder">
+        <div><strong>Prediction ещё не выполнен</strong>Каждый RUN создаёт нового псевдослучайного пациента. Поэтому профили, 15 значений и score немного меняются.</div>
+      </div>
+
+      <div id="resultBox" class="resultbox">
+        <div class="score" id="score">—</div>
+        <div class="meter"><div class="fill" id="fill" style="width:0"></div><div class="thr" id="thr"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted)"><span>0</span><span id="thresholdCaption">порог 0.5</span><span>1</span></div>
+        <div id="status" class="status low">—</div>
+        <div class="math-head"><strong>Математика текущего запуска</strong><button class="info-btn" data-modal="model-math">ƒ Показать формулу</button></div><div id="formula" class="formula"></div>
+
+        <div class="math-head"><h2 style="margin:0">Вклад каждого признака</h2><button class="info-btn" data-modal="feature-math">Что именно считается?</button></div>
+        <div id="contrib" class="contrib"></div>
+        <div class="detail-tiles">
+          <button class="detail-tile" data-modal="measurements"><b>1. Шесть измерений</b><span>Промежуточные профили L1–R3</span><span id="tileMeasurements" class="tile-value">—</span></button>
+          <button class="detail-tile" data-modal="aggregation"><b>2. Агрегация</b><span>Средние профили и вариативность</span><span id="tileAggregation" class="tile-value">—</span></button>
+          <button class="detail-tile" data-modal="features"><b>3. Patient features</b><span>15 стандартизированных значений</span><span id="tileFeatures" class="tile-value">—</span></button>
+          <button class="detail-tile" data-modal="decision"><b>4. Решение</b><span>Linear score, sigmoid и threshold</span><span id="tileDecision" class="tile-value">—</span></button>
+        </div>
+
+        <div class="note"><b>Prediction не переобучает модель.</b> Новый пациент получает шесть измерений, из них создаётся один patient-level feature vector, после чего зафиксированная модель вычисляет один score.</div>
+      </div>
+    </section>
+  </div>
+</section>
+<section id="compare" class="screen">
+  <div class="evidence-tabs">
+    <article class="product-card">
+      <span class="badge team">Bremen · концепция команды</span>
+      <span class="badge hypothesis">Точный repo audit ожидается</span>
+      <h2>Bremen: bilateral comparison</h2>
+      <p class="help">Стандартизованное сканирование обеих грудей без заранее заданного подозрительного ROI. Цель — один patient-level score для bilateral triage/MRI-support pathway.</p>
+      <div class="pipeline-list">
+        <div class="pipe-row"><div class="n">1</div><div><strong>Три точки слева + три справа</strong><small>Сопоставимые bilateral measurements.</small></div></div>
+        <div class="pipe-row"><div class="n">2</div><div><strong>Patient-level bilateral features</strong><small>Текущая демонстрация использует 15 признаков симметрии, формы и стабильности.</small></div></div>
+        <div class="pipe-row"><div class="n">3</div><div><strong>Balanced L2 logistic regression</strong><small>Один линейный score, sigmoid и зафиксированный threshold.</small></div></div>
+        <div class="pipe-row"><div class="n">4</div><div><strong>Один score пациента</strong><small>Не шесть диагнозов по точкам.</small></div></div>
+      </div>
+      <div class="note">Точные формулы Bremen feature extraction нельзя объявлять идентичными Aramina только из-за похожих имён. Для этого нужен отдельный аудит bremen-training-pipeline.</div>
+    </article>
+
+    <article class="product-card">
+      <span class="badge verified">Aramina · проверено в main</span>
+      <h2>Aramina: clinician-selected target breast</h2>
+      <p class="help">Репозиторий определяет target-breast decision-support route. Clinician передаёт target_side; модель не угадывает его из H5 или диагноза.</p>
+      <div class="pipeline-list">
+        <div class="pipe-row"><div class="n">1</div><div><strong>LR1 для каждого target measurement</strong><small>Каждый radial profile выбранной груди получает measurement-level p_cancer.</small></div></div>
+        <div class="pipe-row"><div class="n">2</div><div><strong>Logit-average</strong><small>Measurement probabilities объединяются: sigmoid(mean(logit(pᵢ))).</small></div></div>
+        <div class="pipe-row"><div class="n">3</div><div><strong>LR2 final model</strong><small>Profile score + age + age_available + optional gated Core4 symmetry.</small></div></div>
+        <div class="pipe-row"><div class="n">4</div><div><strong>Один результат для target breast</strong><small>Две подозрительные груди требуют двух отдельных prediction runs.</small></div></div>
+      </div>
+      <div class="math-block">profile_score = sigmoid(mean(log(pᵢ / (1 − pᵢ))))
+
+LR2 inputs =
+  profile_p_cancer_logit_average
+  age
+  age_available
+  gated Core4 symmetry</div>
+    </article>
+  </div>
+
+  <article class="product-card" style="margin-top:14px">
+    <h2>Почему нельзя менять модели местами</h2>
+    <table class="compare-table">
+      <thead><tr><th>Ситуация</th><th>Что произойдёт</th><th>Корректная реакция</th></tr></thead>
+      <tbody>
+        <tr><td>Aramina target-breast acquisition подать в Bremen</td><td>Протокол, endpoint и распределение данных отличаются. Число может получиться, но оно не будет валидированным Bremen prediction.</td><td><span class="badge stop">Не интерпретировать</span> Пометить как protocol/model mismatch.</td></tr>
+        <tr><td>Bremen bilateral scan подать в Aramina без target_side</td><td>Aramina route требует clinician-supplied target_side; target breast не выводится автоматически.</td><td><span class="badge stop">Не запускать</span> Сначала клиницист должен определить target side.</td></tr>
+        <tr><td>Сравнить score Bremen и p_cancer Aramina</td><td>Это разные модели, endpoints, preprocessing и thresholds.</td><td><span class="badge stop">Не сравнивать напрямую</span></td></tr>
+        <tr><td>Одна точка не прошла QC</td><td>Нельзя автоматически считать пациента benign. Должна сработать политика data sufficiency/reliability.</td><td>Показать количество valid measurements и причину снижения reliability.</td></tr>
+      </tbody>
+    </table>
+  </article>
+
+  <div class="suitability">
+    <article class="product-card">
+      <span class="badge verified">Проверено для Aramina</span>
+      <h2>Data sufficiency и reliability</h2>
+      <div class="rule-list">
+        <div class="rule"><b>High reliability:</b> минимум 2 valid measurements на каждой груди и применимы Core4 symmetry features.</div>
+        <div class="rule"><b>Medium reliability:</b> на target breast минимум 2 измерения, но paired symmetry недоступна.</div>
+        <div class="rule"><b>Low reliability:</b> на target breast осталось меньше 2 valid measurements.</div>
+        <div class="rule"><b>Risk ≠ reliability:</b> низкая reliability не уменьшает p_cancer автоматически; это отдельное предупреждение.</div>
+      </div>
+    </article>
+
+    <article class="product-card">
+      <span class="badge hypothesis">Нужно валидировать для Bremen</span>
+      <h2>Операции, рубцы и другие локальные изменения</h2>
+      <div class="rule-list">
+        <div class="rule"><b>Не писать «груди должны быть одинаковыми».</b> Нужны стандартизованные сопоставимые измерения; естественная асимметрия существует и является частью данных.</div>
+        <div class="rule"><b>Не утверждать направление эффекта рубца.</b> Предыдущие операции, рубцы, импланты, радиотерапию, воспаление и выраженные локальные изменения следует фиксировать как metadata/confounders.</div>
+        <div class="rule"><b>Не объявлять противопоказанием без данных.</b> Нужны заранее определённые subgroup analyses и protocol rules.</div>
+        <div class="rule"><b>Практическое правило до валидации:</b> не смешивать чистый research cohort и postoperative cases без маркировки и отдельного анализа.</div>
+      </div>
+    </article>
+  </div>
+
+
+  <div class="roadmap-card">
+    <span class="badge team">Team note · Sergey</span><span class="badge hypothesis">Exploratory, not frozen architecture</span>
+    <h3>Aramina q-binning and representation roadmap</h3>
+    <p>An exploratory grid from npt 50 to 100 found npt=60 as the numerical best point, but the gain was small. It should not be presented as a proven physical optimum.</p>
+    <p>Proposed next steps: first represent profiles using PCA components, then investigate a more physically interpretable MCR representation. This is a development direction, not the current frozen Aramina model.</p>
+  </div>
+  <article class="product-card" style="margin-top:14px">
+    <h2>Формулы, которые подтверждены Aramina-кодом</h2>
+    <div class="evidence-tabs">
+      <div>
+        <b>Weighted RMS, region 1/2</b>
+        <div class="math-block">var(q) = σT(q)² + σC(q)²
+w(q) = 1 / max(var(q), percentile₅(var) + 10⁻¹²)
+
+weighted_RMS =
+√[ Σ w(q)(μT(q) − μC(q))² / Σ w(q) ]</div>
+      </div>
+      <div>
+        <b>Wasserstein-like distance</b>
+        <div class="math-block">a = clip(μT, 0, ∞);  b = clip(μC, 0, ∞)
+a_norm = a / Σa;  b_norm = b / Σb
+
+distance =
+Σ |cumsum(a_norm) − cumsum(b_norm)| · Δq</div>
+      </div>
+    </div>
+    <div class="source-box">
+      Репозиторий: Eos-Dx/Aramina, branch main. Проверенные источники:
+      README.md; docs/modeling/aramina_t100_target_case_model_v0_1.md;
+      docs/modeling/prediction_pipeline_v0_1.md;
+      docs/modeling/sk_symmetry_features_v0_1.md;
+      src/aramina/patient_features.py; src/aramina/m2q_model.py; src/aramina/symmetry_features.py.
+    </div>
+  </article>
+</section>
+
+</div>
+<div id="mathModal" class="modal-backdrop" aria-hidden="true"><div class="modal"><div class="modal-head"><h2 id="modalTitle">Details</h2><button id="modalClose" class="modal-close">Close</button></div><div id="modalBody" class="modal-body"></div></div></div>
+<script>
+const CFG={"features": [{"key": "weightedrms1", "name": "Взвешенная RMS · зона 1", "simple": "Разница между грудями в первой зоне", "coef": 0.120, "group": "Разница между грудями"}, {"key": "wasserstein_distance_muLR", "name": "Вассерштейн · левая ↔ правая", "simple": "Насколько далеко друг от друга два профиля", "coef": -0.085, "group": "Разница между грудями"}, {"key": "wasserstein_distance_full_q2", "name": "Вассерштейн · полный профиль", "simple": "Разница между полными формами кривых", "coef": 0.065, "group": "Разница между грудями"}, {"key": "cosine_distance_full_q2", "name": "Косинусное расстояние", "simple": "Насколько различается общий рисунок кривых", "coef": -0.055, "group": "Разница между грудями"}, {"key": "weightedrms2", "name": "Взвешенная RMS · зона 2", "simple": "Разница между грудями во второй зоне", "coef": 0.095, "group": "Разница между грудями"}, {"key": "sigma_l1", "name": "Разброс слева · зона 1", "simple": "Стабильность повторов слева", "coef": 0.040, "group": "Стабильность измерений"}, {"key": "sigma_r1", "name": "Разброс справа · зона 1", "simple": "Стабильность повторов справа", "coef": -0.030, "group": "Стабильность измерений"}, {"key": "sigma_l2", "name": "Разброс слева · зона 2", "simple": "Стабильность повторов слева во второй зоне", "coef": 0.075, "group": "Стабильность измерений"}, {"key": "sigma_r2", "name": "Разброс справа · зона 2", "simple": "Стабильность повторов справа во второй зоне", "coef": -sandbox-only0505609590091, "group": "Стабильность измерений"}, {"key": "peak14_intensity", "name": "Высота пика q≈14", "simple": "Насколько выражен важный структурный пик", "coef": -0.060, "group": "Форма профиля"}, {"key": "mean_peak_value_raw", "name": "Средняя высота главного пика", "simple": "Среднее значение основной вершины", "coef": 0.050, "group": "Форма профиля"}, {"key": "meanrms1", "name": "Средняя RMS · зона 1", "simple": "Среднее расхождение в первой зоне", "coef": -0.045, "group": "Форма профиля"}, {"key": "meanrms2", "name": "Средняя RMS · зона 2", "simple": "Среднее расхождение во второй зоне", "coef": 0.035, "group": "Форма профиля"}, {"key": "mahalanobis1", "name": "Необычность · зона 1", "simple": "Насколько профиль отличается от большинства", "coef": 0.070, "group": "Необычность профиля"}, {"key": "mahalanobis2", "name": "Необычность · зона 2", "simple": "Насколько необычно сочетание характеристик", "coef": -0.025, "group": "Необычность профиля"}], "intercept": 0.0, "threshold": 0.5, "artifact_sandbox marker": "sandbox-synthetic-not-production", "prototype_parameter_source": "sandbox prototype page prototype_model, exact", "sandbox_verified": true},F=CFG.features,$=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],sig=z=>1/(1+Math.exp(-Math.max(-30,Math.min(30,z)))),cl=(v,a,b)=>Math.max(a,Math.min(b,v));let rng=mulberry32(219);function mulberry32(seed){return function(){let t=seed+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}function normal(){let u=0,v=0;while(!u)u=rng();while(!v)v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}function fmt(v){return Number.isFinite(v)?v.toFixed(3):'—'}
+$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.remove('active'));$$('.screen').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('#'+b.dataset.screen).classList.add('active')});
+
+let currentLang='en';
+const EN_MAP={"Как работает модель": "Model Playground — Sandbox", "Сначала она учится на пациентах с известными ответами. Потом применяет зафиксированные коэффициенты к новому пациенту.": "First it learns from patients with known outcomes. Then it applies frozen coefficients to a new patient.", "1. Как модель обучалась": "1. How the model was trained", "2. Как модель делает prediction": "2. How the model makes a prediction", "3. Bremen, Aramina и ограничения": "3. Bremen, Aramina and limitations", "↺ Сбросить": "↺ Reset", "Один шаг": "One step", "Скорость": "Learning rate", "Test patients не меняют модель.": "Test patients do not change the model.", "Учебная когорта": "Training cohort", "Красный и синий — подтверждённые ответы. Они известны, потому что это обучение.": "Red and blue are confirmed outcomes. They are known because this is training.", "Пациентов": "Patients", "Вручную до 1000": "Manual, up to 1000", "Доля cancer": "Cancer share", "Перекрытие групп": "Class overlap", "Test cohort": "Test cohort", "Другая случайная группа": "Another random cohort", "Цвет — правильный ответ.": "Color is the confirmed outcome.", "Высота — мнение модели. Оранжевое кольцо — ошибка.": "Vertical position is the model output. An orange ring marks an error.", "15 подсказок": "15 model inputs", "Модель учится, насколько сильно слушать каждый признак. Все 15 коэффициентов βᵢ показаны ниже.": "The model learns how strongly to weight each feature. All 15 coefficients βᵢ are shown below.", "Форма модели:": "Model form:", "Kβ слева — feature-level proxy паразитной spectral component, а не коэффициент модели.": "K-beta on the left is a separate acquisition shift, not a model coefficient.", "Как точки расходятся во время обучения": "How patient scores separate during training", "Шаг": "Step", "Ошибка": "Loss", "Test sensitivity": "Test sensitivity", "Test specificity": "Test specificity", "Пунктир — test patient": "Dashed outline — test patient", "Kβ-proxy-affected synthetic measurement": "Kβ-proxy-affected synthetic measurement", "Что происходит внутри train cohort": "What happens inside the training cohort", "1. Попытка": "1. Attempt", "Считает score": "Calculate score", "2. Проверка": "2. Check", "Сравнивает с train label": "Compare with train label", "3. Поправка": "3. Update", "Меняет коэффициенты": "Update coefficients", "4. Повтор": "4. Repeat", "Test cohort не участвует": "Test cohort does not participate", "Важная поправка:": "Important correction:", "модель не обучается на пациентах без labels. Для train patients диагнозы доступны. У test patients labels временно закрыты от модели и открываются только после prediction.": "the model is not trained on patients without labels. Diagnoses are available for training patients. Test labels are hidden from the model and revealed only after prediction.", "Анимация patient-safe проверки": "Patient-safe validation animation", "Один fold из повторной cross-validation": "One fold from repeated cross-validation", "Следующий шаг": "Next step", "▶ Авто": "▶ Auto", "Масштаб 100%": "Zoom 100%", "половина слева = truth, половина справа = prediction": "left half = truth, right half = prediction", "оранжевое кольцо = ошибка": "orange ring = error", "Обезличивание и validation — разные вещи.": "De-identification and validation are different processes.", "Имя и прямые идентификаторы заменяются псевдонимом для privacy. Диагноз сохраняется в контролируемой таблице, а patient/group ID используется только для patient-safe split и audit — не как признак модели. В описанной схеме 5 folds × 20 repeats этот процесс повторяется 100 раз.": "Names and direct identifiers are replaced with pseudonyms for privacy. The diagnosis remains in a controlled table, while the patient/group ID is used only for patient-safe splitting and audit—not as a model feature. In the described design, 5 folds × 20 repeats produces 100 held-out folds.", "Пациенты и история обучения здесь синтетические. Threshold lab предназначен только для демонстрации trade-off: изменение порога не переобучает модель и не меняет AUC. В реальной cross-validation threshold выбирается только на training patients каждого fold и затем замораживается для held-out fold.": "Patients and the training trajectory are synthetic. This page uses a fixed threshold of 0.5 for illustration. In real cross-validation, threshold selection must use training patients only and then be frozen for the held-out fold.", "K-beta acquisition shift": "K-beta acquisition shift", "K-beta ≠ model coefficients βᵢ": "K-beta ≠ model coefficients βᵢ", "Сравнить Kβ=0 с текущим": "Сравнить Kβ=0 с текущим", "Те же пациенты, labels и test split": "Те же пациенты, labels и test split", "Запустите сравнение": "Запустите сравнение", "Calculating…": "Calculating…", "2. Признаки пациента и коэффициенты": "2. Patient features and coefficients", "1. Шесть измерений — один пациент": "1. Six measurements — one patient", "Три точки слева и три справа являются исходными измерениями. Отдельная точка не получает отдельный диагноз.": "Three points on the left and three on the right are source measurements. An individual point does not receive an individual diagnosis.", "Как читать этот блок": "How to read this block", "L1–L3 и R1–R3 проходят контроль и объединяются. Затем формируется один набор patient-level признаков и один итоговый score.": "L1–L3 and R1–R3 are checked and combined. They produce one patient-level feature vector and one final score.", "6 профилей": "6 profiles", "среднее, разброс, различия": "mean, variability, differences", "1 prediction": "1 prediction", "score всего пациента": "whole-patient score", "Пациент ещё не создан": "No patient has been created", "Выберите общий сценарий и нажмите «НОВЫЙ ПАЦИЕНТ + RUN».": "Choose a scenario and press “NEW PATIENT + RUN”.", "6 точек": "6 points", "измерение, не prediction": "measurement, not prediction", "Сводное bilateral-представление перед feature extraction": "Combined bilateral representation before feature extraction", "Научная оговорка:": "Scientific caveat:", "шесть кривых синтетические. Демонстрация честно показывает структуру «6 measurements → patient features → 1 score», но не выдаёт схематичную генерацию кривых за production feature-extraction Bremen.": "the six curves are synthetic. The demo accurately shows the structure “6 measurements → patient features → 1 score” but does not present schematic curve generation as the Bremen production feature-extraction implementation.", "↺ Очистить": "↺ Clear", "Почти симметричный": "Nearly symmetric", "Выраженная асимметрия": "Pronounced asymmetry", "Нестабильные измерения": "Unstable measurements", "Необычный профиль": "Unusual profile", "Синтетическая вариативность": "Synthetic variability", "Песочница · изменить веса": "Sandbox · edit weights", "▶ НОВЫЙ ПАЦИЕНТ + RUN": "▶ NEW PATIENT + RUN", "Ещё не запускалось": "Not run yet", "Ползунок задаёт центр выбранного сценария. При RUN создаётся новый синтетический пациент: фактическое значение слегка отклоняется из-за вариации шести точек.": "The slider defines the scenario center. RUN creates a new synthetic patient whose actual value varies slightly because of the six measurement points.", "Режим Bremen v0.2.": "Bremen v0.2 mode.", "Коэффициенты зафиксированы. Случайными являются только синтетические данные пациента.": "Coefficients are frozen. Only the synthetic patient data are random.", "Признак": "Feature", "Центр сценария": "Scenario center", "Пациент": "Patient", "Коэффициент": "Coefficient", "«Пациент» появляется только после RUN. Малое отличие от центра — искусственная межточечная и межпациентная вариативность, а не измеренная погрешность устройства.": "The “Patient” value appears only after RUN. Its small deviation from the center is synthetic point-to-point and patient-to-patient variability, not a measured device error.", "3. Расчёт prediction": "3. Prediction calculation", "1. Измерить": "1. Measure", "2. Собрать": "2. Aggregate", "3. Умножить": "3. Multiply", "4. Сложить": "4. Sum", "5. Sigmoid": "5. Sigmoid", "6. Порог": "6. Threshold", "маршрут": "routing", "Prediction ещё не выполнен": "Prediction has not been run", "Каждый RUN создаёт нового псевдослучайного пациента. Поэтому профили, 15 значений и score немного меняются.": "Each RUN creates a new pseudo-random patient, so the profiles, 15 values, and score change slightly.", "порог 0.5": "threshold 0.5", "Математика текущего запуска": "Mathematics of this run", "ƒ Показать формулу": "ƒ Show formula", "Вклад каждого признака": "Contribution of each feature", "Что именно считается?": "What is calculated?", "1. Шесть измерений": "1. Six measurements", "Промежуточные профили L1–R3": "Intermediate L1–R3 profiles", "2. Агрегация": "2. Aggregation", "Средние профили и вариативность": "Mean profiles and variability", "3. Patient features": "3. Patient features", "15 стандартизированных значений": "15 standardized values", "4. Решение": "4. Decision", "Linear score, sigmoid и threshold": "Linear score, sigmoid, and threshold", "Prediction не переобучает модель.": "Prediction does not retrain the model.", "Новый пациент получает шесть измерений, из них создаётся один patient-level feature vector, после чего зафиксированная модель вычисляет один score.": "A new patient provides six measurements, which form one patient-level feature vector; the frozen model then calculates one score.", "Bremen · концепция команды": "Bremen · team concept", "Точный repo audit ожидается": "Exact repository audit pending", "Bremen: bilateral comparison": "Bremen: bilateral comparison", "Стандартизованное сканирование обеих грудей без заранее заданного подозрительного ROI. Цель — один patient-level score для bilateral triage/MRI-support pathway.": "Standardized scanning of both breasts without a predefined suspicious ROI. The goal is one patient-level score for a bilateral triage/MRI-support pathway.", "Три точки слева + три справа": "Three points left + three points right", "Сопоставимые bilateral measurements.": "Comparable bilateral measurements.", "Текущая демонстрация использует 15 признаков симметрии, формы и стабильности.": "The current demo uses 15 symmetry, shape, and stability features.", "Один линейный score, sigmoid и зафиксированный threshold.": "One linear score, sigmoid, and a frozen threshold.", "Один score пациента": "One patient score", "Не шесть диагнозов по точкам.": "Not six point-level diagnoses.", "Точные формулы Bremen feature extraction нельзя объявлять идентичными Aramina только из-за похожих имён. Для этого нужен отдельный аудит bremen-training-pipeline.": "Bremen feature-extraction formulas cannot be declared identical to Aramina simply because names are similar. A separate audit of bremen-training-pipeline is required.", "Aramina · проверено в main": "Aramina · verified in main", "Aramina: clinician-selected target breast": "Aramina: clinician-selected target breast", "Репозиторий определяет target-breast decision-support route. Clinician передаёт target_side; модель не угадывает его из H5 или диагноза.": "The repository defines a target-breast decision-support route. The clinician supplies target_side; the model does not infer it from H5 data or diagnosis.", "LR1 для каждого target measurement": "LR1 for each target measurement", "Каждый radial profile выбранной груди получает measurement-level p_cancer.": "Each radial profile of the selected breast receives a measurement-level p_cancer.", "Logit-average": "Logit average", "Measurement probabilities объединяются: sigmoid(mean(logit(pᵢ))).": "Measurement probabilities are combined as sigmoid(mean(logit(pᵢ))).", "LR2 final model": "LR2 final model", "Profile score + age + age_available + optional gated Core4 symmetry.": "Profile score + age + age_available + optional gated Core4 symmetry.", "Один результат для target breast": "One result for the target breast", "Две подозрительные груди требуют двух отдельных prediction runs.": "Two suspicious breasts require two separate prediction runs.", "Почему нельзя менять модели местами": "Why the models cannot be interchanged", "Ситуация": "Situation", "Что произойдёт": "What happens", "Корректная реакция": "Correct response", "Aramina target-breast acquisition подать в Bremen": "Submit an Aramina target-breast acquisition to Bremen", "Протокол, endpoint и распределение данных отличаются. Число может получиться, но оно не будет валидированным Bremen prediction.": "The protocol, endpoint, and data distribution differ. A number might be produced, but it would not be a validated Bremen prediction.", "Не интерпретировать": "Do not interpret", "Пометить как protocol/model mismatch.": "Mark as a protocol/model mismatch.", "Bremen bilateral scan подать в Aramina без target_side": "Submit a Bremen bilateral scan to Aramina without target_side", "Aramina route требует clinician-supplied target_side; target breast не выводится автоматически.": "The Aramina route requires clinician-supplied target_side; the target breast is not inferred automatically.", "Не запускать": "Do not run", "Сначала клиницист должен определить target side.": "A clinician must first define the target side.", "Сравнить score Bremen и p_cancer Aramina": "Compare the Bremen score with Aramina p_cancer", "Это разные модели, endpoints, preprocessing и thresholds.": "These are different models, endpoints, preprocessing pipelines, and thresholds.", "Не сравнивать напрямую": "Do not compare directly", "Одна точка не прошла QC": "One point failed QC", "Нельзя автоматически считать пациента benign. Должна сработать политика data sufficiency/reliability.": "The patient cannot automatically be considered benign. The data-sufficiency/reliability policy must apply.", "Показать количество valid measurements и причину снижения reliability.": "Show the number of valid measurements and the reason for reduced reliability.", "Проверено для Aramina": "Verified for Aramina", "Data sufficiency и reliability": "Data sufficiency and reliability", "Нужно валидировать для Bremen": "Requires validation for Bremen", "Операции, рубцы и другие локальные изменения": "Surgery, scars, and other local changes", "Не писать «груди должны быть одинаковыми».": "Do not write “the breasts must be identical.”", "Нужны стандартизованные сопоставимые измерения; естественная асимметрия существует и является частью данных.": "Measurements must be standardized and comparable; natural asymmetry exists and is part of the data.", "Не утверждать направление эффекта рубца.": "Do not claim a direction for a scar effect.", "Предыдущие операции, рубцы, импланты, радиотерапию, воспаление и выраженные локальные изменения следует фиксировать как metadata/confounders.": "Previous surgery, scars, implants, radiotherapy, inflammation, and pronounced local changes should be recorded as metadata/confounders.", "Не объявлять противопоказанием без данных.": "Do not declare a contraindication without data.", "Нужны заранее определённые subgroup analyses и protocol rules.": "Predefined subgroup analyses and protocol rules are required.", "Практическое правило до валидации:": "Practical rule before validation:", "не смешивать чистый research cohort и postoperative cases без маркировки и отдельного анализа.": "do not mix a clean research cohort with postoperative cases without labeling and separate analysis.", "Формулы, которые подтверждены Aramina-кодом": "Formulas verified in Aramina code", "Репозиторий: Eos-Dx/Aramina, branch main. Проверенные источники: README.md; docs/modeling/aramina_t100_target_case_model_v0_1.md; docs/modeling/prediction_pipeline_v0_1.md; docs/modeling/sk_symmetry_features_v0_1.md; src/aramina/patient_features.py; src/aramina/m2q_model.py; src/aramina/symmetry_features.py.": "Repository: Eos-Dx/Aramina, main branch. Verified sources: README.md; docs/modeling/aramina_t100_target_case_model_v0_1.md; docs/modeling/prediction_pipeline_v0_1.md; docs/modeling/sk_symmetry_features_v0_1.md; src/aramina/patient_features.py; src/aramina/m2q_model.py; src/aramina/symmetry_features.py.", "Закрыть": "Close", "Подробности": "Details", "Промежуточный расчёт": "Intermediate calculation", "Сначала нажмите RUN.": "Press RUN first.", "Подробности недоступны.": "Details are unavailable.", "Ниже порога": "Below threshold", "Выше порога: передать на дополнительную проверку": "Above threshold: refer for additional review", "Создаётся synthetic patient…": "Creating synthetic patient…", "Очищено — нажмите RUN": "Cleared — press RUN", "Сценарий выбран — нажмите RUN": "Scenario selected — press RUN", "Входы изменены — нажмите RUN": "Inputs changed — press RUN", "Вес изменён — нажмите RUN": "Weight changed — press RUN", "Вариативность изменена — нажмите RUN": "Variability changed — press RUN", "Песочница рассчитана — это не Bremen": "Sandbox calculated — this is not Bremen", "Почти симметричный профиль": "Nearly symmetric profile", "Выраженная bilateral asymmetry": "Pronounced bilateral asymmetry", "Повышенная межточечная вариативность": "Increased between-point variability", "Необычный структурный профиль": "Unusual structural profile", "Пользовательский сценарий": "Custom scenario", "Разница между грудями": "Between-breast differences", "Стабильность измерений": "Measurement stability", "Форма профиля": "Profile shape", "Необычность профиля": "Profile unusualness", "Взвешенная RMS · зона 1": "Weighted RMS · region 1", "Взвешенная RMS · зона 2": "Weighted RMS · region 2", "Вассерштейн · левая ↔ правая": "Wasserstein · left ↔ right", "Вассерштейн · полный профиль": "Wasserstein · full profile", "Косинусное расстояние": "Cosine distance", "Разброс слева · зона 1": "Left variability · region 1", "Разброс справа · зона 1": "Right variability · region 1", "Разброс слева · зона 2": "Left variability · region 2", "Разброс справа · зона 2": "Right variability · region 2", "Высота пика q≈14": "Peak height q≈14", "Средняя высота главного пика": "Mean main-peak height", "Средняя RMS · зона 1": "Mean RMS · region 1", "Средняя RMS · зона 2": "Mean RMS · region 2", "Необычность · зона 1": "Unusualness · region 1", "Необычность · зона 2": "Unusualness · region 2", "Разница между грудями в первой зоне": "Between-breast difference in region 1", "Разница между грудями во второй зоне": "Between-breast difference in region 2", "Насколько далеко друг от друга два профиля": "How far apart the two profiles are", "Разница между полными формами кривых": "Difference between the full curve shapes", "Насколько различается общий рисунок кривых": "How different the overall curve pattern is", "Стабильность повторов слева": "Left replicate stability", "Стабильность повторов справа": "Right replicate stability", "Стабильность повторов слева во второй зоне": "Left replicate stability in region 2", "Стабильность повторов справа во второй зоне": "Right replicate stability in region 2", "Насколько выражен важный структурный пик": "Strength of an important structural peak", "Среднее значение основной вершины": "Mean value of the main peak", "Среднее расхождение в первой зоне": "Mean difference in region 1", "Среднее расхождение во второй зоне": "Mean difference in region 2", "Насколько профиль отличается от большинства": "How far the profile differs from most profiles", "Насколько необычно сочетание характеристик": "How unusual the combination of characteristics is", "Исходная когорта": "Source cohort", "Обезличенная cohort": "De-identified cohort", "labels известны": "labels known", "Patient-safe split": "Patient-safe split", "идут в обучение": "used for training", "отложены": "held out", "Обучение": "Training", "labels закрыты": "labels hidden", "Frozen prediction": "Frozen prediction", "train завершён": "training complete", "labels ещё закрыты": "labels still hidden", "Открытие ответов": "Reveal outcomes", "не оцениваем здесь": "not evaluated here", "Held-out comparison": "Held-out comparison", "Research team имеет подтверждённые labels, но прямые идентификаторы заменены псевдонимами. Это de-identification, а не скрытие диагноза от training.": "The research team has confirmed labels, while direct identifiers are replaced with pseudonyms. This is de-identification, not hiding the diagnosis from training.", "Когорту делят по пациентам. Все измерения одного пациента — включая bilateral cases — остаются в одном fold и не пересекают границу train/test.": "The cohort is split by patient. All measurements from one patient—including bilateral cases—remain in one fold and never cross the train/test boundary.", "Модель получает features + labels только train patients. Она меняет коэффициенты, уменьшая ошибку. Test patients не участвуют ни в fitting, ни в выборе threshold.": "The model receives features + labels only for training patients. It changes coefficients to reduce loss. Test patients do not participate in fitting or threshold selection.", "После обучения коэффициенты и threshold заморожены. Модель получает только features held-out patients и делает prediction, не видя их подтверждённых labels.": "After training, coefficients and the threshold are frozen. The model receives only held-out patient features and predicts without seeing confirmed labels.", "Evaluator открывает test labels и сравнивает их с predictions. Левая половина точки показывает подтверждённый label, правая — prediction модели. Это не вероятность и не вес; это визуальное сравнение truth и prediction. Оранжевое кольцо означает mismatch.": "The evaluator reveals test labels and compares them with predictions. The left half shows the confirmed label and the right half shows the model prediction. This is not probability or weight; it is a truth-versus-prediction comparison. An orange ring marks a mismatch.", "TP · cancer найден": "TP · cancer detected", "FN · cancer пропущен": "FN · cancer missed", "TN · non-cancer ниже порога": "TN · non-cancer below threshold", "FP · ложная тревога": "FP · false positive", "Веса нулевые — всем почти одинаковый score": "Weights are zero — nearly everyone has the same score", "Пациенты: от меньшего score к большему": "Patients: lower score to higher score", "порог": "threshold", "Сумма": "Sum", "Левая грудь": "Left breast", "Правая грудь": "Right breast", "Среднее L1–L3": "Mean L1–L3", "Среднее R1–R3": "Mean R1–R3", "Точная математика текущей Bremen-демонстрации:": "Exact mathematics of the current Bremen demo:", "Ползунки уже представляют стандартизированные значения xᵢ. Поэтому вклад строки равен βᵢ×xᵢ.": "The sliders already represent standardized xᵢ values. Therefore each row contribution equals βᵢ×xᵢ.", "Два разных уровня математики:": "Two levels of mathematics:", "Точный вклад в текущий model score:": "Exact contribution to the current model score:", "Feature formula status:": "Feature formula status:", "Один patient-level vector:": "One patient-level vector:", "В демо создано шесть синтетических профилей: L1–L3 и R1–R3.": "The demo created six synthetic profiles: L1–L3 and R1–R3.", "Эти графики объясняют структуру acquisition, но не являются обратной реконструкцией из реального H5.": "These plots explain the acquisition structure but are not a reverse reconstruction from a real H5 file.", "Промежуточные значения текущего синтетического запуска:": "Intermediate values for the current synthetic run:", "Это debug-числа самой демонстрации, а не заявленные production features Bremen.": "These are debug values of the demo itself, not claimed Bremen production features.", "Team note · Sergey": "Team note · Sergey", "Exploratory, not frozen architecture": "Exploratory, not frozen architecture"};
+
+Object.assign(EN_MAP,{
+'K-beta — синтетический acquisition/batch shift пяти наблюдаемых признаков. Label создаётся из чистого latent patient и не изменяется из-за K-beta.':'K-beta is a synthetic acquisition/batch shift applied to five observed features. The label is generated from the clean latent patient and is not changed by K-beta.',
+'Те же пациенты, labels и test split':'Same patients, labels and test split',
+'Сравнить Kβ=0 с текущим':'Compare Kβ=0 vs current',
+'Запустите сравнение':'Run comparison',
+'Только синтетический sensitivity analysis. Он не оценивает измеренный физический эффект K-beta или клиническую эффективность.':'Synthetic sensitivity analysis only. It does not estimate a measured physical K-beta effect or clinical performance.',
+'Вычисление…':'Calculating…'
+});
+Object.assign(EN_MAP,{
+'standardized feature xᵢ × learned coefficient βᵢ → sum z → sigmoid(z) → threshold. Kβ слева — feature-level proxy паразитной spectral component, а не коэффициент модели.':'standardized feature xᵢ × learned coefficient βᵢ → sum z → sigmoid(z) → threshold. K-beta on the left is a separate acquisition shift, not a model coefficient.',
+'15 признаков':'15 features',
+'Bremen v0.2 · веса зафиксированы':'Bremen v0.2 · frozen weights',
+'Агрегация':'Aggregation',
+'Стандартизованный bilateral acquisition: 3 точки + 3 точки':'Standardized bilateral acquisition: 3 points + 3 points',
+'минимум 2 valid measurements на каждой груди и применимы Core4 symmetry features.':'at least 2 valid measurements per breast and applicable Core4 symmetry features.',
+'на target breast минимум 2 измерения, но paired symmetry недоступна.':'at least 2 measurements on the target breast, but paired symmetry is unavailable.',
+'на target breast осталось меньше 2 valid measurements.':'fewer than 2 valid measurements remain on the target breast.',
+'низкая reliability не уменьшает p_cancer автоматически; это отдельное предупреждение.':'low reliability does not automatically reduce p_cancer; it is a separate warning.',
+'Репозиторий: Eos-Dx/Aramina, branch main. Проверенные источники: README.md; docs/modeling/aramina_t100_target_case_model_v0_1.md; docs/modeling/prediction_pipeline_v0_1.md; docs/modeling/sk_symmetry_features_v0_1.md; src/aramina/patient_features.py; src/aramina/m2q_model.py; src/aramina/symmetry_features.py.':'Repository: Eos-Dx/Aramina, main branch. Verified sources: README.md; docs/modeling/aramina_t100_target_case_model_v0_1.md; docs/modeling/prediction_pipeline_v0_1.md; docs/modeling/sk_symmetry_features_v0_1.md; src/aramina/patient_features.py; src/aramina/m2q_model.py; src/aramina/symmetry_features.py.'
+});
+
+Object.assign(EN_MAP,{
+'Синтетическая геометрия':'Synthetic data geometry',
+'Линейная baseline':'Linear baseline',
+'Взаимодействия / XOR-like':'Interactions / XOR-like',
+'Кольца / curved boundary':'Rings / curved boundary',
+'Это педагогический stress test. Он не утверждает, что реальные Bremen patients распределены именно так.':'This is a pedagogical stress test. It does not claim that real Bremen patients are distributed this way.',
+'Что именно показывает график?':'What does the graph actually show?',
+'Ранжирование по score':'Score ranking',
+'2D-срез признаков':'2D feature slice',
+'Threshold lab — меняет решение, но не обученные веса':'Threshold lab — changes decisions, not trained weights',
+'Вернуть 0.5':'Reset to 0.5',
+'не меняется от порога':'does not change with threshold',
+'линейная граница logistic regression':'linear logistic-regression boundary',
+'Ранжирование — это одномерная проекция, а не форма исходного облака данных.':'Ranking is a one-dimensional projection, not the shape of the original data cloud.',
+'Почему точки раньше выглядели как одна линия?':'Why did the points previously look like one line?',
+'Мы одновременно сортировали пациентов по одному и тому же score и рисовали этот score по вертикали. Поэтому диагональ возникала по определению — это ranking plot, а не геометрия 15-мерных данных.':'We sorted patients by the same score that was plotted vertically. The diagonal therefore appeared by construction—it is a ranking plot, not the geometry of the 15-dimensional data.',
+'В режиме «2D-срез» показаны два синтетических признака. Там классы могут образовывать перекрывающиеся облака, XOR-подобные квадранты или кольца.':'The 2D-slice view shows two synthetic features. Classes can form overlapping clouds, XOR-like quadrants, or rings.',
+'Почему текущий baseline — logistic regression?':'Why is the current baseline logistic regression?',
+'Это прозрачный, регуляризованный и аудируемый baseline для небольшой development cohort. Он создаёт линейную границу в стандартизированном 15D feature space; sigmoid только переводит linear score в диапазон 0–1. Это logistic regression, а не обычная linear regression.':'It is a transparent, regularized, auditable baseline for a small development cohort. It creates a linear boundary in standardized 15D feature space; the sigmoid only maps the linear score into the 0–1 range. This is logistic regression, not ordinary linear regression.',
+'Это не доказательство оптимальности.':'This is not proof of optimality.',
+'Нелинейные модели или PCA/MCR representations должны сравниваться в patient-safe nested CV и затем на независимой когорте.':'Nonlinear models or PCA/MCR representations must be compared using patient-safe nested CV and then an independent cohort.',
+'Пациенты и история обучения здесь синтетические. Threshold lab предназначен только для демонстрации trade-off: изменение порога не переобучает модель и не меняет AUC. В реальной cross-validation threshold выбирается только на training patients каждого fold и затем замораживается для held-out fold.':'Patients and the training trajectory are synthetic. The threshold lab only demonstrates the trade-off: moving the threshold does not retrain the model and does not change AUC. In real cross-validation, the threshold is selected using training patients in each fold and then frozen for the held-out fold.',
+'Почему точки идут по диагонали:':'Why the points form a diagonal:',
+'x-axis уже отсортирован по score, а y-axis показывает тот же score. Такая линия появляется по построению и ничего не говорит о форме исходного 15D облака.':'the x-axis is already sorted by score, while the y-axis shows the same score. This line is created by the plotting method and says nothing about the shape of the original 15D cloud.',
+'Текущий stress test:':'Current stress test:',
+'Logistic regression может провести только линейную границу в feature space. Порог двигает эту границу параллельно, но не делает её изогнутой.':'Logistic regression can draw only a linear boundary in feature space. The threshold shifts that boundary in parallel but cannot bend it.',
+'2D-срез синтетических x₁/x₂. Он иллюстрирует геометрию, но не является PCA реальной Bremen cohort.':'A 2D slice of synthetic x₁/x₂. It illustrates geometry but is not a PCA of the real Bremen cohort.',
+'Линейная':'Linear',
+'Кольца':'Rings'
+});
+
+
+Object.assign(EN_MAP,{
+'ТОЧНО':'EXACT',
+'Что взято из saved model':'What comes from the saved model',
+'15 входов, стандартизация, logistic formula, сохранённые coefficients, intercept и threshold. Это фактическая форма model artifact.':'15 inputs, standardization, the logistic formula, saved coefficients, intercept, and threshold. This is the actual form of the model artifact.',
+'ВЕРНАЯ КОНЦЕПЦИЯ':'FAITHFUL CONCEPT',
+'Что демонстрация показывает честно':'What the demonstration represents faithfully',
+'Patient-safe split, labels только у train, frozen test prediction, вклад xᵢβᵢ, threshold trade-off, sensitivity и specificity.':'Patient-safe splitting, labels only for train, frozen test prediction, xᵢβᵢ contributions, the threshold trade-off, sensitivity, and specificity.',
+'ИЛЛЮСТРАЦИЯ':'ILLUSTRATION',
+'Что является синтетическим':'What is synthetic',
+'Пациенты, 2D-геометрия, траектория обучения, значения live metrics и Kβ proxy. Это не визуализация реальной Bremen cohort.':'Patients, 2D geometry, the training trajectory, live metrics, and the Kβ proxy. This is not a visualization of the real Bremen cohort.',
+'«Безопасно разделить» — не свойство одной формулы.':'“Safe separation” is not a property of one formula.',
+'Logistic regression ищет наилучшую линейную границу для training loss. Безопасность требует patient-safe validation, заранее выбранного operating point, независимой когорты, reliability rules и клинического контроля.':'Logistic regression finds the best linear boundary for the training loss. Safety requires patient-safe validation, a prespecified operating point, an independent cohort, reliability rules, and clinical oversight.',
+'Relative Kβ contamination proxy':'Relative Kβ contamination proxy',
+'Kβ spectral component ≠ coefficients βᵢ':'Kβ spectral component ≠ coefficients βᵢ',
+'Физический смысл:':'Physical meaning:',
+'Kβ — нежелательная дополнительная X-ray spectral component, способная создавать дополнительные calibration rings и искажать radial profile.':'Kβ is an unwanted additional X-ray spectral component that can create extra calibration rings and distort the radial profile.',
+'Ограничение демо:':'Demo limitation:',
+'текущий ползунок не моделирует длины волн, detector geometry и дополнительные кольца. Он применяет feature-level perturbation к пяти синтетическим признакам как proxy sensitivity test.':'the current slider does not simulate wavelengths, detector geometry, or additional rings. It applies a feature-level perturbation to five synthetic features as a proxy sensitivity test.',
+'Сравнить proxy Kβ=0 с текущим':'Compare proxy Kβ=0 with current',
+'Нельзя интерпретировать этот control как измеренное Kβ/Kα ratio. Физически корректная версия должна добавлять Kβ к profile/detector signal до feature extraction.':'This control must not be interpreted as a measured Kβ/Kα ratio. A physically correct version should add Kβ to the profile/detector signal before feature extraction.',
+'Ось X':'X axis',
+'Ось Y':'Y axis',
+'Один пациент как точка в ℝ¹⁵':'One patient as a point in ℝ¹⁵',
+'На экране невозможно показать 15 независимых осей одновременно. Ranking plot показывает одно число βᵀx, а 2D-срез показывает только две выбранные координаты.':'A screen cannot show 15 independent axes at once. The ranking plot shows one value βᵀx, while the 2D slice shows only two selected coordinates.',
+'Кто создаёт коэффициенты β?':'Who creates the coefficients β?',
+'Не исследователь вручную. Люди задают cohort, labels, features, preprocessing, loss, class weights и regularization. Численные coefficients определяет optimizer на training patients.':'Not a researcher by hand. People define the cohort, labels, features, preprocessing, loss, class weights, and regularization. The optimizer determines the numerical coefficients from the training patients.',
+'задают координаты':'define coordinates',
+'задают учебную цель':'define the learning target',
+'ищет β':'searches for β',
+'проверяет переносимость':'tests generalization',
+'Что делает один шаг этой анимации?':'What does one step of this animation do?',
+'Очень важно:':'Very important:',
+'эта пошаговая анимация использует простой batch gradient descent для объяснения. Сохранённый Bremen pipeline использует sklearn LogisticRegression с solver=liblinear. Финальная математическая задача похожа, но показанная траектория шагов не является историческим логом реального solver.':'this step-by-step animation uses simple batch gradient descent for explanation. The saved Bremen pipeline uses sklearn LogisticRegression with solver=liblinear. The final mathematical objective is similar, but the displayed sequence of steps is not a historical log of the real solver.',
+'Подробнее':'Details',
+'Kβ-proxy-affected synthetic measurement':'Kβ-proxy-affected synthetic measurement'
+});
+
+
+Object.assign(EN_MAP,{
+'Независимая сверка с настоящим sandbox prototype page — пройдена':'Independent verification against the actual sandbox prototype page — passed',
+'Все 15 коэффициентов, их порядок, intercept и threshold в этой версии извлечены из одного artifact и совпадают с исполняемым sklearn prototype calculator. Значения reviewer относятся не к этому artifact и не должны подмешиваться без совпадающего sandbox source marker.':'All 15 coefficients, their order, the intercept, and the threshold in this version come from one artifact and match the executable sklearn prototype calculator. The reviewer values do not belong to this artifact and must not be mixed in without a matching sandbox source marker.',
+'Показать полный audit':'Show full audit',
+'ПРОВЕРЕНО ТОЧНО':'VERIFIED EXACTLY',
+'Один source of truth':'One source of truth',
+'15 inputs, их порядок, coefficients, intercept, preprocessing parameters и threshold извлечены из sandbox prototype page sandbox marker sandbox-synthetic-not-production.':'The 15 inputs, their order, coefficients, intercept, preprocessing parameters, and threshold were extracted from sandbox prototype page sandbox marker sandbox-synthetic-not-production.'
+});
+
+
+Object.assign(EN_MAP,{
+'Вычисление…':'Calculating…',
+'Сравнить proxy Kβ=0 с текущим':'Compare Kβ=0 with current',
+'Запустите сравнение':'Run comparison',
+'Current Kβ proxy = 0.00':'Current Kβ proxy = 0.00',
+'Current Kβ = 0.00':'Current Kβ = 0.00',
+'ВЕРНАЯ КОНЦЕПЦИЯ':'FAITHFUL CONCEPT',
+'Что демонстрация показывает честно':'What the demo shows faithfully',
+'ИЛЛЮСТРАЦИЯ':'ILLUSTRATION',
+'Что является синтетическим':'What is synthetic',
+'«Безопасно разделить» — не свойство одной формулы.':'“Safe separation” is not a property of a single formula.',
+'Logistic regression ищет наилучшую линейную границу для training loss. Безопасность требует patient-safe validation, frozen threshold selection inside each fold и проверки на независимой когорте.':'Logistic regression searches for the best linear boundary for the training loss. Safety requires patient-safe validation, frozen threshold selection inside each fold, and testing on an independent cohort.',
+'Физический смысл:':'Physical meaning:',
+'Kβ — нежелательная дополнительная X-ray spectral component, способная создавать дополнительные calibration rings и искажать radial profile.':'Kβ is an unwanted extra X-ray spectral component that can create additional calibration rings and distort the radial profile.',
+'Ограничение демо:':'Demo limitation:',
+'текущий ползунок не моделирует длины волн, detector geometry и дополнительные кольца. Он применяет feature-level perturbation к пяти синтетическим признакам как proxy sensitivity test.':'the current slider does not model wavelengths, detector geometry, or additional rings. It applies a feature-level perturbation to five synthetic features as a proxy sensitivity test.',
+'Те же patients, labels и test split':'Same patients, labels, and test split',
+'Нельзя интерпретировать этот control как измеренное Kβ/Kα ratio. Физически корректная версия должна добавлять Kβ к profile/detector signal до feature extraction.':'This control must not be interpreted as a measured Kβ/Kα ratio. A physically correct version would add Kβ to the profile/detector signal before feature extraction.',
+'линейная граница logistic regression':'linear logistic-regression boundary',
+'Важная поправка:':'Important correction:',
+'Очень важно:':'Very important:',
+'Сравнить Kβ=0 с текущим':'Compare Kβ=0 with current',
+'Те же пациенты, labels и test split':'Same patients, labels, and test split',
+'Включён перевод по умолчанию':'English is the default language'
+});
+
+const originalText=new WeakMap(),originalAttrs=new WeakMap();
+function translateString(raw,lang){
+  if(lang==='ru')return raw;
+  const lead=raw.match(/^\s*/)[0],trail=raw.match(/\s*$/)[0],core=raw.trim();
+  if(EN_MAP[core])return lead+EN_MAP[core]+trail;
+  const flat=core.replace(/\s+/g,' ');if(EN_MAP[flat])return lead+EN_MAP[flat]+trail;
+  let m;
+  if((m=core.match(/^Масштаб\s+(\d+)%$/)))return lead+'Zoom '+m[1]+'%'+trail;
+  if((m=core.match(/^(\d+) \/ 5 · (.+)$/)))return lead+m[1]+' / 5 · '+(EN_MAP[m[2]]||m[2])+trail;
+  if((m=core.match(/^Patient S-(\d+) · Bremen v0\.2 рассчитана$/)))return lead+'Patient S-'+m[1]+' · Bremen v0.2 calculated'+trail;
+  if((m=core.match(/^Current Kβ = ([\d.]+)$/)))return lead+'Current Kβ = '+m[1]+trail;
+  if((m=core.match(/^Пациенты: от меньшего score к большему · N=(\d+)$/)))return lead+'Patients: lower score to higher score · N='+m[1]+trail;
+  if((m=core.match(/^порог ([\d.]+)$/)))return lead+'threshold '+m[1]+trail;
+  if((m=core.match(/^линейный synthetic baseline$/)))return lead+'linear synthetic baseline'+trail;
+  if((m=core.match(/^XOR-like взаимодействия$/)))return lead+'XOR-like interactions'+trail;
+  if((m=core.match(/^кольцевая \/ curved структура$/)))return lead+'ring / curved structure'+trail;
+  return raw;
+}
+function translateNode(node){
+  if(node.nodeType===Node.TEXT_NODE){
+    if(!originalText.has(node))originalText.set(node,node.nodeValue);
+    const src=originalText.get(node),next=translateString(src,currentLang);if(node.nodeValue!==next)node.nodeValue=next;return;
+  }
+  if(node.nodeType!==Node.ELEMENT_NODE)return;
+  if(!originalAttrs.has(node))originalAttrs.set(node,{title:node.getAttribute('title'),placeholder:node.getAttribute('placeholder'),aria:node.getAttribute('aria-label')});
+  const a=originalAttrs.get(node);
+  if(a.title!==null){const v=translateString(a.title,currentLang);if(node.getAttribute('title')!==v)node.setAttribute('title',v)}
+  if(a.placeholder!==null){const v=translateString(a.placeholder,currentLang);if(node.getAttribute('placeholder')!==v)node.setAttribute('placeholder',v)}
+  if(a.aria!==null){const v=translateString(a.aria,currentLang);if(node.getAttribute('aria-label')!==v)node.setAttribute('aria-label',v)}
+  [...node.childNodes].forEach(translateNode);
+}
+let translating=false;
+function applyLanguage(){
+  if(translating)return;translating=true;
+  document.documentElement.lang=currentLang;document.title=currentLang==='en'?'Bremen — training and prediction':'Bremen — обучение и prediction';
+  translateNode(document.body);
+  $('#langRU').classList.toggle('active',currentLang==='ru');$('#langEN').classList.toggle('active',currentLang==='en');
+  translating=false;
+}
+const languageObserver=new MutationObserver(muts=>{
+  if(translating)return;translating=true;
+  for(const mut of muts){
+    if(mut.type==='characterData')translateNode(mut.target);
+    mut.addedNodes&&mut.addedNodes.forEach(translateNode);
+  }
+  translating=false;
+});
+languageObserver.observe(document.body,{subtree:true,childList:true,characterData:true});
+$('#langRU').onclick=()=>{currentLang='ru';applyLanguage();if(typeof chart==='function')chart()};
+$('#langEN').onclick=()=>{currentLang='en';applyLanguage();if(typeof chart==='function')chart()};
+
+let active=new Set(F.map(f=>f.key)),w=F.map(()=>0),b0=0,cohort=[],sorted=[],epoch=0,loss=NaN,timer=null,delay=null,seed=219;
+let trainThreshold=CFG.threshold,chartMode='score',planeXIndex=0,planeYIndex=1,selectedPatientId=null;
+const KBETA_FEATURES=new Set(['weightedrms1','wasserstein_distance_muLR','mean_peak_value_raw','sigma_l2','cosine_distance_full_q2']);
+let cvStage=0,cvTimer=null,cvZoom=1.0;
+function mscore(p){let z=b0;F.forEach((f,i)=>{if(active.has(f.key))z+=w[i]*p.x[i]});return sig(z)}
+function truthFromClean(cleanX){
+  const geometry=$('#signalGeometry')?$('#signalGeometry').value:'linear';
+  let z=-.45;
+  if(geometry==='interaction'){
+    z=1.55*cleanX[0]*cleanX[1];
+  }else if(geometry==='curved'){
+    z=1.75*(cleanX[0]*cleanX[0]+cleanX[1]*cleanX[1]-3.15);
+  }else{
+    F.forEach((f,i)=>z+=f.coef*(.92+.12*Math.sin(i*1.7+.5))*cleanX[i]);
+  }
+  return sig(z)
+}
+function observedFromClean(cleanX,batch,kbeta){return cleanX.map((v,i)=>cl(v+(batch&&KBETA_FEATURES.has(F[i].key)?kbeta:0),-3.2,3.2))}
+function N(){return cl(parseInt($('#nM').value||$('#n').value,10),10,1000)}function sync(src){let v;if(src==='slider'){v=+$('#n').value;$('#nM').value=v}else{v=cl(parseInt($('#nM').value||60,10),10,1000);$('#nM').value=v;$('#n').value=Math.min(v,500)}$('#nVal').textContent=v}function gen(rand=false){
+  stop();cvStage=0;if(rand)seed+=997;rng=mulberry32(seed);
+  let n=N(),prev=+$('#prev').value/100,noise=+$('#noise').value,bat=+$('#batch').value,ts=+$('#testShare').value/100;
+  cohort=[];
+  for(let i=0;i<n;i++){
+    let latent=normal(),batch=rng()<.34;
+    const geometry=$('#signalGeometry')?$('#signalGeometry').value:'linear';
+    let cleanX=F.map(()=>cl(.5*latent+normal()*noise,-3.2,3.2));
+    if(geometry!=='linear'){
+      // The first two synthetic dimensions are intentionally spread out so
+      // XOR/ring geometry is visible. This is a pedagogical stress test only.
+      cleanX[0]=(rng()*2-1)*2.65;
+      cleanX[1]=(rng()*2-1)*2.65;
+    }
+    let x=observedFromClean(cleanX,batch,bat);
+    let p={id:i+1,cleanX,x,batch,isTest:rng()<ts};
+    let pr=truthFromClean(cleanX),shift=Math.log(prev/(1-prev))-Math.log(.35/.65);
+    pr=sig(Math.log(pr/(1-pr))+shift);p.y=rng()<pr?1:0;cohort.push(p)
+  }
+  w=F.map(()=>0);b0=0;epoch=0;loss=NaN;rec();clearBetaResults();renderTrain()
+}
+function clearBetaResults(){
+  if(!$('#betaResults'))return;
+  const kb=(+$('#batch').value).toFixed(2);
+  $('#betaResults').innerHTML=`<div class="beta-result"><b>Kβ proxy = 0</b><span>Запустите сравнение</span></div><div class="beta-result"><b id="betaCurrentTitle">Current Kβ = ${kb}</b><span>Запустите сравнение</span></div>`;
+}
+function localMetrics(items,weights,intercept,kbeta){
+  const scored=items.map(p=>{let x=observedFromClean(p.cleanX,p.batch,kbeta),z=intercept;F.forEach((f,i)=>{if(active.has(f.key))z+=weights[i]*x[i]});return {...p,x,score:sig(z)}});
+  const test=scored.filter(p=>p.isTest),cm=confusion(test);
+  return {auc:auc(test),sens:cm.sens,spec:cm.spec,scored};
+}
+function fitPairedKbeta(kbeta,steps=260){
+  let lw=F.map(()=>0),lb=0,lr=+$('#lr').value,reg=+$('#reg').value;
+  const tr=cohort.filter(p=>!p.isTest),pos=tr.filter(p=>p.y).length,neg=tr.length-pos;
+  for(let ep=0;ep<steps;ep++){
+    const gw=lw.map(()=>0);let gb=0;
+    for(const p of tr){
+      const x=observedFromClean(p.cleanX,p.batch,kbeta);let z=lb;F.forEach((f,i)=>{if(active.has(f.key))z+=lw[i]*x[i]});
+      const pr=sig(z),cw=p.y?tr.length/(2*Math.max(1,pos)):tr.length/(2*Math.max(1,neg)),e=(pr-p.y)*cw;
+      gb+=e;F.forEach((f,i)=>{if(active.has(f.key))gw[i]+=e*x[i]});
+    }
+    lw=lw.map((v,i)=>active.has(F[i].key)?v-lr*(gw[i]/tr.length+reg*v):0);lb-=lr*gb/tr.length;
+  }
+  return localMetrics(cohort,lw,lb,kbeta);
+}
+function metricText(m){return `AUC ${fmt(m.auc)} · Sens ${pct(m.sens)} · Spec ${pct(m.spec)}`}
+function compareKbeta(){
+  const btn=$('#betaCompare'),kb=+$('#batch').value;btn.disabled=true;btn.textContent='Вычисление…';
+  setTimeout(()=>{
+    const m0=fitPairedKbeta(0),mk=fitPairedKbeta(kb);
+    $('#betaResults').innerHTML=`<div class="beta-result"><b>Kβ proxy = 0</b><div class="beta-metrics">${metricText(m0)}</div></div><div class="beta-result"><b>Current Kβ proxy = ${kb.toFixed(2)}</b><div class="beta-metrics">${metricText(mk)}<br>ΔAUC ${Number.isFinite(m0.auc)&&Number.isFinite(mk.auc)?(mk.auc-m0.auc).toFixed(3):'—'}</div></div>`;
+    btn.disabled=false;btn.textContent='Сравнить proxy Kβ=0 с текущим';applyLanguage();
+  },20)
+}
+function rec(){cohort.forEach(p=>p.score=mscore(p));sorted=[...cohort].sort((a,b)=>a.score-b.score)}function auc(a){let p=a.filter(x=>x.y),n=a.filter(x=>!x.y);if(!p.length||!n.length)return NaN;let q=0;for(const x of p)for(const y of n){if(x.score>y.score)q++;else if(x.score===y.score)q+=.5}return q/(p.length*n.length)}function out(p){let pr=p.score>=trainThreshold;if(!p.y&&!pr)return'tn';if(p.y&&!pr)return'fn';if(!p.y&&pr)return'fp';return'tp'}
+function confusion(items){
+  const c={tp:0,tn:0,fp:0,fn:0};
+  items.forEach(p=>c[out(p)]++);
+  c.sens=(c.tp+c.fn)?c.tp/(c.tp+c.fn):NaN;
+  c.spec=(c.tn+c.fp)?c.tn/(c.tn+c.fp):NaN;
+  return c;
+}
+function pct(v){return Number.isFinite(v)?(v*100).toFixed(1)+'%':'—'}function one(){let tr=cohort.filter(p=>!p.isTest);if(!tr.length)return;let lr=+$('#lr').value,reg=+$('#reg').value,gw=w.map(()=>0),gb=0,total=0,pos=tr.filter(p=>p.y).length,neg=tr.length-pos;for(const p of tr){let pr=mscore(p),cw=p.y?tr.length/(2*Math.max(1,pos)):tr.length/(2*Math.max(1,neg)),e=(pr-p.y)*cw;gb+=e;F.forEach((f,i)=>{if(active.has(f.key))gw[i]+=e*p.x[i]});total+=-cw*(p.y*Math.log(pr+1e-9)+(1-p.y)*Math.log(1-pr+1e-9))}w=w.map((x,i)=>active.has(F[i].key)?x-lr*(gw[i]/tr.length+reg*x):0);b0-=lr*gb/tr.length;epoch++;loss=total/tr.length;rec();renderTrain()}function play(){if(timer){stop();return}$('#play').textContent='❚❚';timer=setInterval(()=>{one();one();if(epoch>=700)stop()},38)}function stop(){if(timer){clearInterval(timer);timer=null}$('#play').textContent='▶'}function reset(){stop();cvStage=0;trainThreshold=CFG.threshold;$('#trainThreshold').value=CFG.threshold;w=F.map(()=>0);b0=0;epoch=0;loss=NaN;rec();renderTrain()}function schedule(src){sync(src);clearTimeout(delay);delay=setTimeout(()=>gen(false),120)}
+
+function cvToken(p,mode){
+  const truth=p.y?'#b84040':'#0f6ea8';
+  const predicted=p.score>=trainThreshold?'#b84040':'#0f6ea8';
+  const err=out(p)==='fn'||out(p)==='fp';
+  if(mode==='truth')return `<span class="pt ${p.y?'cancer':'benign'}" title="P${p.id}: known label">P${p.id}</span>`;
+  if(mode==='hidden')return `<span class="pt hidden test" title="P${p.id}: label locked">?</span>`;
+  if(mode==='prediction')return `<span class="pt ${p.score>=trainThreshold?'pred-cancer':'pred-benign'} test" title="P${p.id}: model prediction">${p.score>=trainThreshold?'C?':'B?'}</span>`;
+  return `<span class="pt split ${err?'error':''} test" style="--truth:${truth};--pred:${predicted}" title="P${p.id}: left=true label, right=prediction">${p.id}</span>`;
+}
+function cvZone(title,subtitle,patients,mode,locked=false){
+  return `<div class="cv-zone ${locked?'locked':''}"><h4>${title}<span>${subtitle}</span></h4><div class="patient-cloud">${patients.map(p=>cvToken(p,mode)).join('')}</div></div>`;
+}
+function renderCV(){
+  const train=cohort.filter(p=>!p.isTest).slice(0,18);
+  const test=cohort.filter(p=>p.isTest).slice(0,14);
+  const c=confusion(cohort.filter(p=>p.isTest));
+  const stages=[
+    {
+      title:'Исходная когорта',
+      message:'Research team имеет подтверждённые labels, но прямые идентификаторы заменены псевдонимами. Это de-identification, а не скрытие диагноза от training.',
+      html:cvZone('Обезличенная cohort','labels известны',[...train.slice(0,10),...test.slice(0,8)],'truth')
+    },
+    {
+      title:'Patient-safe split',
+      message:'Когорту делят по пациентам. Все измерения одного пациента — включая bilateral cases — остаются в одном fold и не пересекают границу train/test.',
+      html:cvZone('Train patients','идут в обучение',train,'truth')+cvZone('Held-out test patients','отложены',test,'truth')
+    },
+    {
+      title:'Обучение',
+      message:'Модель получает features + labels только train patients. Она меняет коэффициенты, уменьшая ошибку. Test patients не участвуют ни в fitting, ни в выборе threshold.',
+      html:cvZone('Train','features + labels',train,'truth')+cvZone('Test locked','labels закрыты',test,'hidden',true)
+    },
+    {
+      title:'Frozen prediction',
+      message:'После обучения коэффициенты и threshold заморожены. Модель получает только features held-out patients и делает prediction, не видя их подтверждённых labels.',
+      html:cvZone('Frozen model','train завершён',train.slice(0,8),'truth')+cvZone('Test predictions','labels ещё закрыты',test,'prediction',true)
+    },
+    {
+      title:'Открытие ответов',
+      message:'Evaluator открывает test labels и сравнивает их с predictions. Левая половина точки показывает подтверждённый label, правая — prediction модели. Это не вероятность и не вес; это визуальное сравнение truth и prediction. Оранжевое кольцо означает mismatch.',
+      html:cvZone('Train','не оцениваем здесь',train.slice(0,8),'truth')+cvZone('Held-out comparison','truth | prediction',test,'reveal')
+    }
+  ];
+  const s=stages[cvStage];
+  $('#cvStageBadge').textContent=(cvStage+1)+' / 5 · '+s.title;
+  $('#cvViz').innerHTML=s.html;
+  $('#cvMessage').textContent=s.message;$('#cvZoomLabel').textContent='Масштаб '+Math.round(cvZoom*100)+'%';document.documentElement.style.setProperty('--cvzoom',cvZoom.toFixed(2));
+  $$('#cvProgress span').forEach((x,i)=>x.classList.toggle('on',i<=cvStage));
+  $('#cvConfusion').innerHTML=cvStage===4
+    ?`<div class="conf-cell"><b>${c.tp}</b><span>TP · cancer найден</span></div>
+      <div class="conf-cell"><b>${c.fn}</b><span>FN · cancer пропущен</span></div>
+      <div class="conf-cell"><b>${c.tn}</b><span>TN · non-cancer ниже порога</span></div>
+      <div class="conf-cell"><b>${c.fp}</b><span>FP · ложная тревога</span></div>`
+    :'';
+}
+function nextCV(){cvStage=(cvStage+1)%5;renderCV()}
+function toggleCV(){
+  if(cvTimer){clearInterval(cvTimer);cvTimer=null;$('#cvPlay').textContent='▶ Auto';return}
+  $('#cvPlay').textContent='❚❚ Stop';
+  cvTimer=setInterval(nextCV,1800);
+}
+
+
+function logit(p){const q=cl(p,1e-9,1-1e-9);return Math.log(q/(1-q))}
+function patientLinearScore(p){let z=b0;F.forEach((f,i)=>{if(active.has(f.key))z+=w[i]*p.x[i]});return z}
+function currentGradient(){
+  const tr=cohort.filter(p=>!p.isTest),gw=w.map(()=>0);
+  if(!tr.length)return {gw,gb:0};
+  const pos=tr.filter(p=>p.y).length,neg=tr.length-pos,reg=+$('#reg').value;
+  let gb=0;
+  for(const p of tr){
+    const pr=mscore(p),cw=p.y?tr.length/(2*Math.max(1,pos)):tr.length/(2*Math.max(1,neg)),e=(pr-p.y)*cw;
+    gb+=e;F.forEach((f,i)=>{if(active.has(f.key))gw[i]+=e*p.x[i]});
+  }
+  return {gw:gw.map((g,i)=>active.has(F[i].key)?g/tr.length+reg*w[i]:0),gb:gb/tr.length}
+}
+function renderGradient(){
+  const g=currentGradient(),rows=F.map((f,i)=>({f,i,g:g.gw[i]})).sort((a,b)=>Math.abs(b.g)-Math.abs(a.g)).slice(0,6);
+  $('#gradientList').innerHTML=rows.map(o=>`<div class="gradient-row"><b>${o.f.name}</b><span>∂L/∂β=${o.g>=0?'+':''}${o.g.toFixed(4)}</span><span>next Δβ=${(-(+$('#lr').value)*o.g)>=0?'+':''}${(-(+$('#lr').value)*o.g).toFixed(4)}</span></div>`).join('');
+}
+function ensurePatientSelection(){
+  if(!cohort.length)return null;
+  if(selectedPatientId===null||!cohort.some(p=>p.id===selectedPatientId))selectedPatientId=cohort[0].id;
+  return cohort.find(p=>p.id===selectedPatientId)||cohort[0];
+}
+function populatePatientSelect(){
+  const p=ensurePatientSelection();
+  $('#patientSelect').innerHTML=cohort.slice(0,Math.min(200,cohort.length)).map(x=>`<option value="${x.id}" ${x.id===p.id?'selected':''}>P${x.id} · ${x.isTest?'test':'train'} · ${x.y?'cancer':'non-cancer'}</option>`).join('');
+}
+function renderPatientVector(){
+  const p=ensurePatientSelection();if(!p)return;
+  populatePatientSelect();
+  const z=patientLinearScore(p),score=sig(z);
+  $('#patientVectorEquation').textContent=`x(P${p.id}) = [${p.x.map(v=>v.toFixed(2)).join(', ')}] ∈ ℝ¹⁵
+β = [${w.map(v=>v.toFixed(3)).join(', ')}]
+z = β₀ + βᵀx = ${z.toFixed(4)}
+sigmoid(z) = ${score.toFixed(4)} · threshold ${trainThreshold.toFixed(3)}`;
+  $('#patientVectorList').innerHTML=F.map((f,i)=>{
+    const x=p.x[i],c=x*w[i],width=Math.min(50,Math.abs(x)/3.2*50),left=x>=0?50:50-width;
+    return `<div class="vector-row"><strong title="${f.name}">${f.name}</strong><div class="vector-track"><span class="vector-zero"></span><span class="vector-value-bar ${x<0?'neg':''}" style="left:${left}%;width:${width}%"></span></div><span>x=${x.toFixed(2)}</span><span>xβ=${c>=0?'+':''}${c.toFixed(3)}</span></div>`;
+  }).join('');
+}
+function populatePlaneAxes(){
+  const options=F.map((f,i)=>`<option value="${i}">${f.name}</option>`).join('');
+  $('#planeX').innerHTML=options;$('#planeY').innerHTML=options;
+  $('#planeX').value=planeXIndex;$('#planeY').value=planeYIndex;
+}
+function attachPatientClicks(){
+  $$('.patient-point').forEach(el=>el.addEventListener('click',()=>{
+    selectedPatientId=+el.dataset.pid;renderPatientVector();chart()
+  }));
+}
+
+function featureList(){let gs=[...new Set(F.map(f=>f.group))];$('#featureList').innerHTML=gs.map(g=>{let rows=F.filter(f=>f.group===g);return`<div class="group"><div class="gtitle"><span>${g}</span><span>${rows.filter(f=>active.has(f.key)).length}/${rows.length}</span></div>${rows.map(f=>{let i=F.indexOf(f);return`<label class="frow"><input type="checkbox" data-f="${f.key}" ${active.has(f.key)?'checked':''}><span><strong>${f.name}</strong><small>${f.simple}</small></span><span class="coef">${w[i]>=0?'+':''}${w[i].toFixed(3)}</span></label>`}).join('')}</div>`}).join('');$$('[data-f]').forEach(e=>e.onchange=()=>{e.checked?active.add(e.dataset.f):active.delete(e.dataset.f);rec();renderTrain()})}function network(){
+  const rows=F.map((f,i)=>({f,i,w:w[i],on:active.has(f.key)}));
+  const W=720,H=520,leftX=12,labelW=238,betaX=282,sumX=455,sigX=570,outX=668;
+  let h=`<rect width="${W}" height="${H}" fill="#fbfcfd"/>`;
+  rows.forEach((o,k)=>{
+    const y=26+k*29,c=o.w>=0?'#0f6ea8':'#cc7b23',sw=o.on?1.2+Math.min(6,Math.abs(o.w)*10):.7,opacity=o.on?.72:.16;
+    h+=`<rect x="${leftX}" y="${y-10}" width="${labelW}" height="21" rx="6" fill="${o.on?'#fff':'#f1f3f4'}" stroke="#dbe3e8"/>
+      <text x="20" y="${y+4}" font-size="9.5" font-weight="800" fill="${o.on?'#17303d':'#8d99a1'}">${o.f.name}</text>
+      <text x="${betaX}" y="${y+4}" text-anchor="middle" font-size="9.5" font-weight="900" fill="${c}">β${k+1}=${o.w>=0?'+':''}${o.w.toFixed(3)}</text>
+      <path d="M250 ${y} C340 ${y},390 230,420 230" fill="none" stroke="${c}" stroke-width="${sw}" opacity="${opacity}"/>`;
+  });
+  h+=`<text x="125" y="486" text-anchor="middle" font-size="10" fill="#6b7a85">15 standardized inputs xᵢ</text>
+    <text x="${betaX}" y="486" text-anchor="middle" font-size="10" fill="#6b7a85">learned βᵢ</text>
+    <circle cx="${sumX}" cy="230" r="40" fill="#eef6fb" stroke="#0f6ea8" stroke-width="2.5"/>
+    <text x="${sumX}" y="225" text-anchor="middle" font-size="14" font-weight="900">Σ</text><text x="${sumX}" y="244" text-anchor="middle" font-size="10">z=β₀+Σβᵢxᵢ</text>
+    <path d="M495 230 L525 230" stroke="#173f52" stroke-width="2" marker-end="url(#arr)"/>
+    <rect x="530" y="198" width="80" height="64" rx="14" fill="#e9f5f1" stroke="#2b8a78" stroke-width="2"/>
+    <text x="570" y="224" text-anchor="middle" font-size="12" font-weight="900">sigmoid</text><text x="570" y="244" text-anchor="middle" font-size="10">p=1/(1+e⁻ᶻ)</text>
+    <path d="M610 230 L632 230" stroke="#173f52" stroke-width="2" marker-end="url(#arr)"/>
+    <rect x="638" y="198" width="70" height="64" rx="14" fill="#fff2e3" stroke="#cc7b23" stroke-width="2"/>
+    <text x="673" y="222" text-anchor="middle" font-size="11" font-weight="900">threshold</text><text x="673" y="243" text-anchor="middle" font-size="10">${trainThreshold.toFixed(3)}</text>
+    <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#173f52"/></marker></defs>
+    <text x="455" y="320" text-anchor="middle" font-size="10" fill="#6b7a85">β₀=${b0.toFixed(3)} · weights change only during training</text>
+    <text x="455" y="340" text-anchor="middle" font-size="10" fill="#80551c">K-beta is an acquisition shift; it is not any βᵢ shown here.</text>`;
+  $('#network').innerHTML=h
+}
+function radius(n){return n<=20?9:n<=50?7.5:n<=100?6.2:n<=200?5:n<=500?3.5:2.2}
+function pointDecor(p,x,y,r){
+  const o=out(p),err=o==='fn'||o==='fp',c=p.y?'#b84040':'#0f6ea8';
+  let h='';
+  if(err)h+=`<circle cx="${x}" cy="${y}" r="${r+3}" fill="none" stroke="#cc7b23" stroke-width="${Math.max(2,r*.42)}"/>`;
+  if(p.isTest)h+=`<circle cx="${x}" cy="${y}" r="${r+1.2}" fill="none" stroke="#17303d" stroke-width="${Math.max(1.1,r*.24)}" stroke-dasharray="${Math.max(2,r*.5)} ${Math.max(1.5,r*.35)}"/>`;
+  const selected=p.id===selectedPatientId;
+  h+=`<circle class="patient-point ${selected?'selected-patient-ring':''}" data-pid="${p.id}" cx="${x}" cy="${y}" r="${selected?r+2:r}" fill="${c}" stroke="${selected?'#111':'#fff'}" stroke-width="${selected?2.2:Math.max(.6,r*.16)}"/>`;
+  if(p.batch&&+$('#batch').value>0)h+=`<circle cx="${x+r*.62}" cy="${y-r*.62}" r="${Math.max(1.6,r*.25)}" fill="#7c57a5" stroke="#fff" stroke-width=".7" pointer-events="none"/>`;
+  return h
+}
+function scoreChart(){
+  let W=980,H=455,L=64,R=26,T=24,B=58,iw=W-L-R,ih=H-T-B,r=radius(sorted.length),ty=T+ih*(1-trainThreshold);
+  let h=`<rect width="${W}" height="${H}" fill="#fff"/><rect x="${L}" y="${T}" width="${iw}" height="${ty-T}" fill="#fff7f0"/><rect x="${L}" y="${ty}" width="${iw}" height="${T+ih-ty}" fill="#f3f8fb"/>`;
+  for(let j=0;j<=5;j++){let y=T+ih*(1-j/5);h+=`<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="#e8edef"/><text x="${L-10}" y="${y+4}" text-anchor="end" font-size="11" fill="#6b7a85">${(j/5).toFixed(1)}</text>`}
+  h+=`<line x1="${L}" y1="${ty}" x2="${W-R}" y2="${ty}" stroke="#173f52" stroke-width="2" stroke-dasharray="8 5"/><text x="${W-R-8}" y="${ty-8}" text-anchor="end" font-size="11" font-weight="800">порог ${trainThreshold.toFixed(3)}</text>`;
+  sorted.forEach((p,i)=>{
+    let x=L+(sorted.length===1?.5:i/(sorted.length-1))*iw,y=T+ih*(1-p.score);
+    h+=pointDecor(p,x,y,r);
+    if(sorted.length<=20)h+=`<text x="${x}" y="${y-r-7}" text-anchor="middle" font-size="9" fill="#6b7a85">P${p.id}</text>`
+  });
+  h+=`<text x="${W/2}" y="${H-17}" text-anchor="middle" font-size="12">Пациенты: от меньшего score к большему · N=${sorted.length}</text><text transform="translate(17 ${H/2}) rotate(-90)" text-anchor="middle" font-size="11">model score</text>`;
+  if(epoch===0)h+=`<rect x="310" y="50" width="360" height="42" rx="10" fill="#fff8eb" stroke="#e5c58c"/><text x="490" y="76" text-anchor="middle" font-size="13" font-weight="800" fill="#865700">Веса нулевые — всем почти одинаковый score</text>`;
+  return h
+}
+function planeChart(){
+  const W=980,H=455,L=64,R=28,T=24,B=58,iw=W-L-R,ih=H-T-B;
+  const pts=cohort.map(p=>({p,x:p.x[planeXIndex],y:p.x[planeYIndex]}));
+  const lim=3.25,mapX=x=>L+(x+lim)/(2*lim)*iw,mapY=y=>T+(lim-y)/(2*lim)*ih,r=radius(cohort.length);
+  let h=`<rect width="${W}" height="${H}" fill="#fff"/>`;
+  for(let gx=-3;gx<=3;gx++){const x=mapX(gx),y=mapY(gx);h+=`<line x1="${x}" y1="${T}" x2="${x}" y2="${T+ih}" stroke="#edf0f2"/><line x1="${L}" y1="${y}" x2="${L+iw}" y2="${y}" stroke="#edf0f2"/><text x="${x}" y="${H-37}" text-anchor="middle" font-size="9" fill="#6b7a85">${gx}</text><text x="${L-9}" y="${y+3}" text-anchor="end" font-size="9" fill="#6b7a85">${gx}</text>`}
+  // Background is a 2D slice: other standardized inputs are fixed at zero.
+  const cells=28;
+  for(let ix=0;ix<cells;ix++)for(let iy=0;iy<cells;iy++){
+    const x=-lim+(ix+.5)*2*lim/cells,y=-lim+(iy+.5)*2*lim/cells;
+    const z=b0+(active.has(F[planeXIndex].key)?w[planeXIndex]*x:0)+(active.has(F[planeYIndex].key)?w[planeYIndex]*y:0),p=sig(z);
+    const fill=p>=trainThreshold?'#f6d5d2':'#dcecf5',alpha=.20+.28*Math.abs(p-.5)*2;
+    h+=`<rect x="${mapX(x-lim/cells)}" y="${mapY(y+lim/cells)}" width="${iw/cells+1}" height="${ih/cells+1}" fill="${fill}" opacity="${alpha.toFixed(2)}"/>`
+  }
+  // Linear decision line in the x1/x2 slice.
+  const a=active.has(F[planeXIndex].key)?w[planeXIndex]:0,bb=active.has(F[planeYIndex].key)?w[planeYIndex]:0;
+  const targetLogit=Math.log(trainThreshold/(1-trainThreshold));
+  if(Math.abs(bb)>1e-7){
+    const y1=(targetLogit-b0-a*(-lim))/bb,y2=(targetLogit-b0-a*(lim))/bb;
+    h+=`<line x1="${mapX(-lim)}" y1="${mapY(y1)}" x2="${mapX(lim)}" y2="${mapY(y2)}" stroke="#173f52" stroke-width="2.5" stroke-dasharray="8 5"/>`
+  }else if(Math.abs(a)>1e-7){
+    const xb=(targetLogit-b0)/a;h+=`<line x1="${mapX(xb)}" y1="${T}" x2="${mapX(xb)}" y2="${T+ih}" stroke="#173f52" stroke-width="2.5" stroke-dasharray="8 5"/>`
+  }
+  pts.forEach(({p,x,y})=>{h+=pointDecor(p,mapX(x),mapY(y),r)});
+  h+=`<line x1="${L}" y1="${T+ih}" x2="${L+iw}" y2="${T+ih}" stroke="#89969e"/><line x1="${L}" y1="${T}" x2="${L}" y2="${T+ih}" stroke="#89969e"/><text x="${W/2}" y="${H-15}" text-anchor="middle" font-size="11">${F[planeXIndex].name} · standardized coordinate</text><text transform="translate(17 ${H/2}) rotate(-90)" text-anchor="middle" font-size="11">${F[planeYIndex].name} · standardized coordinate</text><rect x="${L+10}" y="${T+10}" width="390" height="39" rx="8" fill="#fff8eb" stroke="#e5c58c"/><text x="${L+205}" y="${T+27}" text-anchor="middle" font-size="10.5" font-weight="800" fill="#865700">2D-срез: остальные 13 признаков скрыты</text><text x="${L+205}" y="${T+41}" text-anchor="middle" font-size="9.5" fill="#865700">фон и прямая — linear LR slice; точки используют полный 15D score</text>`;
+  return h
+}
+function chart(){
+  $('#trainSvg').innerHTML=chartMode==='plane'?planeChart():scoreChart();
+  const geometry=$('#signalGeometry')?$('#signalGeometry').value:'linear';
+  const geoNames={linear:'линейный synthetic baseline',interaction:'XOR-like взаимодействия',curved:'кольцевая / curved структура'};
+  const geoNamesEn={linear:'linear synthetic baseline',interaction:'XOR-like interactions',curved:'ring / curved structure'};
+  if(currentLang==='en'){
+    $('#chartExplainer').innerHTML=chartMode==='score'
+      ?`<b>Why the points form a diagonal:</b> each patient is first reduced to one value z=β₀+βᵀx and score=sigmoid(z). The x-axis is then sorted by that score and the y-axis shows the same score. The diagonal is created by definition and does not mean that 15D patients lie on a line.`
+      :`<b>Current stress test:</b> ${geoNamesEn[geometry]}. Logistic regression can draw only a linear boundary in feature space. Moving the threshold shifts that boundary in parallel but cannot bend it.`;
+    $('#chartTechnicalCaption').textContent=chartMode==='score'
+      ?'Ranking is a one-dimensional projection, not the shape of the original data cloud.'
+      :'A 2D slice of synthetic x₁/x₂. It illustrates geometry but is not a PCA of the real Bremen cohort.';
+  }else{
+    $('#chartExplainer').innerHTML=chartMode==='score'
+      ?`<b>Почему точки идут по диагонали:</b> для каждого пациента сначала вычисляется одно число z=β₀+βᵀx и score=sigmoid(z). Затем x-axis сортируется по этому score, а y-axis показывает тот же score. Диагональ появляется по определению и не означает, что 15D patients лежат на прямой.`
+      :`<b>Текущий stress test:</b> ${geoNames[geometry]}. Logistic regression может провести только линейную границу в feature space. Порог двигает эту границу параллельно, но не делает её изогнутой.`;
+    $('#chartTechnicalCaption').textContent=chartMode==='score'
+      ?'Ранжирование — это одномерная проекция, а не форма исходного облака данных.'
+      :'2D-срез синтетических x₁/x₂. Он иллюстрирует геометрию, но не является PCA реальной Bremen cohort.';
+  }
+  attachPatientClicks();
+}
+function renderTrain(){
+  const testItems=cohort.filter(p=>p.isTest),cm=confusion(testItems);
+  const geo=$('#signalGeometry')?$('#signalGeometry').value:'linear';
+  const geoLabel={linear:'Линейная',interaction:'XOR-like',curved:'Кольца'}[geo];
+  $('#nVal').textContent=N();$('#pVal').textContent=$('#prev').value+'%';$('#noiseVal').textContent=(+$('#noise').value).toFixed(2);$('#geometryVal').textContent=geoLabel;$('#batchVal').textContent=(+$('#batch').value).toFixed(2);$('#testVal').textContent=$('#testShare').value+'%';
+  $('#betaCurrentTitle')&&($('#betaCurrentTitle').textContent='Current Kβ proxy = '+(+$('#batch').value).toFixed(2));$('#epoch').textContent=epoch;$('#loss').textContent=fmt(loss);const testAucNow=auc(testItems);$('#trainAuc').textContent=fmt(auc(cohort.filter(p=>!p.isTest)));$('#testAuc').textContent=fmt(testAucNow);$('#testSens').textContent=pct(cm.sens);$('#testSpec').textContent=pct(cm.spec);$('#trainThresholdValue').textContent=trainThreshold.toFixed(3);$('#thresholdSens').textContent=pct(cm.sens);$('#thresholdSpec').textContent=pct(cm.spec);$('#thresholdAuc').textContent=fmt(testAucNow);
+  featureList();network();chart();renderCV();renderPatientVector();renderGradient()
+}
+function setCVZoom(v){cvZoom=Math.max(0.8,Math.min(1.2,v));renderCV()}
+$('#betaCompare').onclick=compareKbeta;
+$('#scoreView').onclick=()=>{chartMode='score';$('#scoreView').classList.add('active');$('#planeView').classList.remove('active');chart();applyLanguage()};
+$('#planeView').onclick=()=>{chartMode='plane';$('#planeView').classList.add('active');$('#scoreView').classList.remove('active');chart();applyLanguage()};
+$('#trainThreshold').oninput=e=>{trainThreshold=+e.target.value;renderTrain()};
+$('#thresholdReset').onclick=()=>{trainThreshold=CFG.threshold;$('#trainThreshold').value=CFG.threshold;renderTrain()};
+$('#signalGeometry').onchange=()=>gen(false);
+$('#planeX').onchange=e=>{planeXIndex=+e.target.value;chart()};
+$('#planeY').onchange=e=>{planeYIndex=+e.target.value;chart()};
+$('#patientSelect').onchange=e=>{selectedPatientId=+e.target.value;renderPatientVector();chart()};
+$('#cvNext').onclick=nextCV;$('#cvPlay').onclick=toggleCV;
+$('#cvZoomIn').onclick=()=>setCVZoom(cvZoom+0.2);
+$('#cvZoomOut').onclick=()=>setCVZoom(cvZoom-0.2);
+$('#n').oninput=()=>schedule('slider');$('#nM').oninput=()=>schedule('manual');['prev','noise','batch','testShare'].forEach(id=>$('#'+id).oninput=()=>schedule('manual'));$('#regen').onclick=()=>gen(true);$('#play').onclick=play;$('#step').onclick=one;$('#reset').onclick=reset;
+
+
+let basePx=F.map(()=>0);
+let actualPx=null;
+let predCoef=F.map(f=>f.coef);
+let predIntercept=CFG.intercept;
+let predThreshold=CFG.threshold;
+let predMode='locked';
+let predTimers=[];
+let predictionCounter=0;
+let currentPreset='balanced';
+let sixCurves=[];
+let lastPrediction=null;
+let lastAggregation=null;
+const presetNames={
+  balanced:'Почти симметричный профиль',
+  asym:'Выраженная bilateral asymmetry',
+  noisy:'Повышенная межточечная вариативность',
+  unusual:'Необычный структурный профиль',
+  custom:'Пользовательский сценарий'
+};
+const presets={
+  balanced:[.15,.10,.08,-.05,.05,.10,.05,-.10,-.05,.10,.05,.05,-.05,.05,.02],
+  asym:[1.70,1.50,1.30,.90,1.10,.15,.10,.20,.15,.80,.30,.60,.70,.20,.25],
+  noisy:[.40,.35,.30,.15,.20,1.60,1.20,1.70,1.40,.25,.10,.30,.30,.20,.20],
+  unusual:[.30,.20,.25,.10,.15,.30,.20,.25,.20,1.10,.80,.40,.50,1.80,1.70]
+};
+
+function clearPredTimers(){predTimers.forEach(clearTimeout);predTimers=[]}
+function markPredictionDirty(message='Изменения не рассчитаны'){
+  clearPredTimers();
+  actualPx=null;sixCurves=[];
+  $('#resultBox').classList.remove('on');
+  $('#resultPlaceholder').style.display='flex';
+  $('#sixPointCard').classList.remove('on');
+  $('#sixPointBlank').style.display='flex';
+  $$('.flowstep').forEach(x=>x.classList.remove('on'));
+  $('#runState').className='run-status';
+  $('#runState').textContent=message;
+  renderPredInputs();
+}
+function setPredMode(mode){
+  predMode=mode;
+  $('#lockedMode').classList.toggle('active',mode==='locked');
+  $('#sandboxMode').classList.toggle('active',mode==='sandbox');
+  if(mode==='locked'){
+    predCoef=F.map(f=>f.coef);
+    predIntercept=CFG.intercept;
+    predThreshold=CFG.threshold;
+    $('#modeNote').className='pred-mode-note';
+    $('#modeNote').innerHTML='<b>Режим Bremen v0.2.</b> Коэффициенты зафиксированы. Случайными являются только синтетические данные пациента.';
+  }else{
+    $('#modeNote').className='pred-mode-note sandbox';
+    $('#modeNote').innerHTML='<b>Песочница.</b> Коэффициенты, intercept и threshold можно менять. Такой результат больше не является prediction Bremen.';
+  }
+  renderPredInputs();
+  markPredictionDirty();
+}
+function setPreset(name){
+  currentPreset=name;
+  basePx=[...presets[name]];
+  $$('.preset[data-pre]').forEach(b=>b.classList.toggle('active',b.dataset.pre===name));
+  markPredictionDirty('Сценарий выбран — нажмите RUN');
+}
+function resetPatient(){
+  currentPreset='balanced';
+  basePx=[...presets.balanced];
+  $$('.preset[data-pre]').forEach(b=>b.classList.toggle('active',b.dataset.pre==='balanced'));
+  markPredictionDirty('Очищено — нажмите RUN');
+}
+function renderPredInputs(){
+  $('#predIntercept').value=predIntercept.toFixed(6);
+  $('#predThreshold').value=predThreshold.toFixed(6);
+  $('#predIntercept').disabled=predMode==='locked';
+  $('#predThreshold').disabled=predMode==='locked';
+  $('#predRows').innerHTML=F.map((f,i)=>`
+    <div class="predrow">
+      <div class="fname"><strong>${f.name}</strong><small>${f.simple}</small></div>
+      <div>
+        <input id="px${i}" type="range" min="-3" max="3" step="0.05" value="${basePx[i]}">
+        <div class="v" id="pxv${i}" style="font-size:10px;text-align:center">${basePx[i].toFixed(2)}</div>
+      </div>
+      <div id="actual${i}" class="actual-val ${actualPx?'ready':''}">${actualPx?actualPx[i].toFixed(2):'—'}</div>
+      <input id="pc${i}" type="number" step="0.001" value="${predCoef[i].toFixed(6)}" ${predMode==='locked'?'disabled':''}>
+    </div>`).join('');
+  F.forEach((f,i)=>{
+    $('#px'+i).oninput=e=>{
+      basePx[i]=+e.target.value;
+      currentPreset='custom';
+      $('#pxv'+i).textContent=basePx[i].toFixed(2);
+      $$('.preset[data-pre]').forEach(b=>b.classList.remove('active'));
+      markPredictionDirty('Входы изменены — нажмите RUN');
+    };
+    if(predMode==='sandbox'){
+      $('#pc'+i).oninput=e=>{predCoef[i]=+e.target.value||0;markPredictionDirty('Вес изменён — нажмите RUN')};
+    }
+  });
+}
+function readModelSettings(){
+  if(predMode==='sandbox'){
+    predIntercept=+$('#predIntercept').value||0;
+    predThreshold=cl(+$('#predThreshold').value||0,0,1);
+    predCoef=F.map((f,i)=>+$('#pc'+i).value||0);
+  }else{
+    predIntercept=CFG.intercept;
+    predThreshold=CFG.threshold;
+    predCoef=F.map(f=>f.coef);
+  }
+}
+function gaussian(){
+  let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+function generateSyntheticPatient(){
+  predictionCounter++;
+  const variation=+$('#syntheticVariation').value;
+  const pointOffsets=Array.from({length:6},()=>gaussian());
+  const left=pointOffsets.slice(0,3),right=pointOffsets.slice(3);
+  const mean=a=>a.reduce((s,v)=>s+v,0)/a.length;
+  const sd=a=>{const m=mean(a);return Math.sqrt(a.reduce((s,v)=>s+(v-m)*(v-m),0)/a.length)};
+  const leftMean=mean(left),rightMean=mean(right),overall=mean(pointOffsets);
+  const asym=rightMean-leftMean,repeatability=(sd(left)+sd(right))/2;
+
+  actualPx=F.map((f,i)=>{
+    let correlated=0;
+    if(f.group==='Разница между грудями') correlated=.60*asym+.25*overall;
+    else if(f.group==='Стабильность измерений') correlated=.70*repeatability+.20*(i%2?rightMean:leftMean);
+    else if(f.group==='Форма профиля') correlated=.55*overall+.25*Math.sin((i+1)*1.4)*asym;
+    else correlated=.45*Math.abs(asym)+.35*overall;
+    return cl(basePx[i]+variation*(correlated+.35*gaussian()),-3,3);
+  });
+
+  const qCount=100;
+  sixCurves=pointOffsets.map((off,k)=>{
+    const side=k<3?-1:1;
+    const localPeak=actualPx[9]*.055+off*variation*.045;
+    const localShape=actualPx[10]*.035+overall*variation*.025;
+    const localAsym=side*(actualPx[0]*.055+actualPx[1]*.045);
+    const instability=(Math.abs(actualPx[k<3?7:8])*.008+variation*.012);
+    const arr=[];
+    for(let i=0;i<qCount;i++){
+      const q=2+i*21/(qCount-1);
+      const base=1+.52*Math.exp(-Math.pow((q-3.4)/1.45,2))+2.2*Math.exp(-Math.pow((q-14)/3.0,2));
+      const peak=localPeak*Math.exp(-Math.pow((q-13.8)/1.5,2));
+      const tilt=(localShape+localAsym)*(q-12)/13;
+      const ripple=instability*Math.sin(q*(2.9+.08*k)+off);
+      arr.push(base+peak+tilt+ripple+off*variation*.025);
+    }
+    return arr;
+  });
+}
+function calculatePrediction(){
+  let z=predIntercept;
+  const contributions=F.map((f,i)=>{
+    const val=predCoef[i]*actualPx[i];
+    z+=val;
+    return {f,val,x:actualPx[i],coef:predCoef[i]};
+  });
+  return {z,p:sig(z),contributions};
+}
+function svgPath(arr,W,H,L=4,R=4,T=4,B=4,min=.75,max=4.15){
+  const iw=W-L-R,ih=H-T-B;
+  return arr.map((v,i)=>`${i?'L':'M'} ${L+i/(arr.length-1)*iw} ${T+(1-(v-min)/(max-min))*ih}`).join(' ');
+}
+function renderScanMap(){
+  $('#scanMap').innerHTML=`
+    <rect width="430" height="205" fill="#fbfcfd"/>
+    <text x="108" y="26" text-anchor="middle" font-size="13" font-weight="900" fill="#2b8a78">Левая грудь</text>
+    <text x="322" y="26" text-anchor="middle" font-size="13" font-weight="900" fill="#0f6ea8">Правая грудь</text>
+    <ellipse cx="108" cy="112" rx="76" ry="70" fill="#f5f8f9" stroke="#9caab3" stroke-width="2"/>
+    <ellipse cx="322" cy="112" rx="76" ry="70" fill="#f5f8f9" stroke="#9caab3" stroke-width="2"/>
+    ${[[82,80,'L1'],[132,106,'L2'],[93,143,'L3']].map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="13" fill="#2b8a78"/><text x="${p[0]}" y="${p[1]+4}" text-anchor="middle" font-size="10" font-weight="900" fill="#fff">${p[2]}</text>`).join('')}
+    ${[[296,80,'R1'],[346,106,'R2'],[307,143,'R3']].map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="13" fill="#0f6ea8"/><text x="${p[0]}" y="${p[1]+4}" text-anchor="middle" font-size="10" font-weight="900" fill="#fff">${p[2]}</text>`).join('')}
+    <text x="215" y="195" text-anchor="middle" font-size="10.5" fill="#6b7a85">Стандартизованный bilateral acquisition: 3 точки + 3 точки</text>`;
+}
+function renderPointProfiles(){
+  sixCurves.forEach((arr,k)=>{
+    const color=k<3?'#2b8a78':'#0f6ea8';
+    $('#point'+k).innerHTML=`<rect width="150" height="72" fill="#fff"/>
+      <line x1="4" y1="64" x2="146" y2="64" stroke="#e3e9ed"/>
+      <path d="${svgPath(arr,150,72,4,4,4,8)}" fill="none" stroke="${color}" stroke-width="1.8"/>`;
+  });
+}
+function averageCurves(curves){
+  return curves[0].map((_,i)=>curves.reduce((s,a)=>s+a[i],0)/curves.length);
+}
+function renderAggregateProfile(){
+  const left=averageCurves(sixCurves.slice(0,3)),right=averageCurves(sixCurves.slice(3));
+  $('#profile').innerHTML=`<rect width="430" height="210" fill="#fff"/>
+    ${[0,1,2,3].map(j=>`<line x1="35" y1="${18+j*42}" x2="418" y2="${18+j*42}" stroke="#edf0f2"/>`).join('')}
+    <path d="${svgPath(left,430,210,35,12,18,28)}" fill="none" stroke="#2b8a78" stroke-width="2.5"/>
+    <path d="${svgPath(right,430,210,35,12,18,28)}" fill="none" stroke="#0f6ea8" stroke-width="2.5"/>
+    <text x="325" y="15" font-size="10.5" fill="#2b8a78">Среднее L1–L3</text>
+    <text x="325" y="31" font-size="10.5" fill="#0f6ea8">Среднее R1–R3</text>
+    <text x="35" y="202" font-size="10.5" fill="#6b7a85">q = 2–23 nm⁻¹</text>`;
+}
+function renderSixMeasurements(){
+  $('#patientId').textContent='Synthetic patient S-'+String(predictionCounter).padStart(3,'0');
+  $('#patientScenario').textContent=presetNames[currentPreset]||presetNames.custom;
+  renderScanMap();renderPointProfiles();renderAggregateProfile();
+}
+function renderContributions(items){
+  const vals=[...items].sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
+  $('#contrib').innerHTML=vals.map(o=>{
+    const ww=Math.min(50,Math.abs(o.val)/1.7*50),left=o.val>=0?50:50-ww;
+    const idx=F.indexOf(o.f);
+    return `<div class="crow"><span>${o.f.name}</span><div class="track"><span class="zero"></span><span class="bar ${o.val>=0?'pos':'neg'}" style="left:${left}%;width:${ww}%"></span></div><span>${o.val>=0?'+':''}${o.val.toFixed(3)}</span><button class="info-btn contrib-info" data-index="${idx}">i</button></div>`;
+  }).join('');
+}
+function runPrediction(){
+  clearPredTimers();
+  readModelSettings();
+  generateSyntheticPatient();
+  renderPredInputs();
+  const r=calculatePrediction();
+  lastPrediction=r;
+  const leftMean=averageCurves(sixCurves.slice(0,3));
+  const rightMean=averageCurves(sixCurves.slice(3));
+  const meanAbsDelta=leftMean.reduce((s,v,i)=>s+Math.abs(v-rightMean[i]),0)/leftMean.length;
+  const withinLeft=sixCurves.slice(0,3).reduce((s,a)=>s+a.reduce((q,v,i)=>q+Math.abs(v-leftMean[i]),0)/a.length,0)/3;
+  const withinRight=sixCurves.slice(3).reduce((s,a)=>s+a.reduce((q,v,i)=>q+Math.abs(v-rightMean[i]),0)/a.length,0)/3;
+  lastAggregation={meanAbsDelta,withinLeft,withinRight,leftMean,rightMean};
+  $('#tileMeasurements').textContent='3L + 3R';
+  $('#tileAggregation').textContent='Δ '+meanAbsDelta.toFixed(3);
+  $('#tileFeatures').textContent='15 values';
+  $('#tileDecision').textContent=r.p.toFixed(3);
+
+  $('#runState').className='run-status ready';
+  $('#runState').textContent='Создаётся synthetic patient…';
+  $('#resultBox').classList.remove('on');
+  $('#resultPlaceholder').style.display='flex';
+  $('#sixPointCard').classList.remove('on');
+  $('#sixPointBlank').style.display='flex';
+  $$('.flowstep').forEach(x=>x.classList.remove('on'));
+
+  const activate=(i,fn)=>predTimers.push(setTimeout(()=>{$('#flow'+i).classList.add('on');if(fn)fn()},i*470));
+  activate(0,()=>{
+    renderSixMeasurements();
+    $('#sixPointBlank').style.display='none';
+    $('#sixPointCard').classList.add('on');
+  });
+  activate(1,()=>renderPredInputs());
+  activate(2,()=>renderContributions(r.contributions));
+  activate(3,()=>{
+    $('#resultPlaceholder').style.display='none';
+    $('#resultBox').classList.add('on');
+    $('#formula').innerHTML=`linear score = intercept + Σ(feature × coefficient)<br>linear score = ${r.z.toFixed(3)}`;
+  });
+  activate(4,()=>{
+    $('#score').textContent=r.p.toFixed(3);
+    $('#fill').style.width=(r.p*100)+'%';
+    $('#formula').innerHTML+=`<br>sigmoid(${r.z.toFixed(3)}) = ${r.p.toFixed(3)}`;
+  });
+  activate(5,()=>{
+    $('#thr').style.left=(predThreshold*100)+'%';
+    $('#thresholdCaption').textContent='порог '+predThreshold.toFixed(3);
+    const high=r.p>=predThreshold;
+    $('#status').className='status '+(high?'high':'low');
+    $('#status').textContent=high?'Выше порога: передать на дополнительную проверку':'Ниже порога';
+    $('#formula').innerHTML+=`<br>${r.p.toFixed(3)} ${high?'≥':'<'} ${predThreshold.toFixed(3)}`;
+    $('#runState').textContent=predMode==='locked'
+      ?`Patient S-${String(predictionCounter).padStart(3,'0')} · Bremen v0.2 рассчитана`
+      :'Песочница рассчитана — это не Bremen';
+  });
+}
+$('#predIntercept').oninput=()=>{if(predMode==='sandbox'){predIntercept=+$('#predIntercept').value||0;markPredictionDirty('Intercept изменён — нажмите RUN')}};
+$('#predThreshold').oninput=()=>{if(predMode==='sandbox'){predThreshold=cl(+$('#predThreshold').value||0,0,1);markPredictionDirty('Threshold изменён — нажмите RUN')}};
+$('#syntheticVariation').oninput=()=>{
+  $('#variationValue').textContent=(+$('#syntheticVariation').value).toFixed(2);
+  markPredictionDirty('Вариативность изменена — нажмите RUN');
+};
+$('#lockedMode').onclick=()=>setPredMode('locked');
+$('#sandboxMode').onclick=()=>setPredMode('sandbox');
+$('#predReset').onclick=resetPatient;
+$('#runPrediction').onclick=runPrediction;
+$$('.preset[data-pre]').forEach(b=>b.onclick=()=>setPreset(b.dataset.pre));
+
+
+const featureFamilyFormula={
+  weightedrms1:`Aramina-verified formula family (region 1):
+var(q)=σT(q)²+σC(q)²
+w(q)=1/max(var(q), percentile₅(var)+10⁻¹²)
+weighted_RMS=√[Σw(q)(μT−μC)²/Σw(q)]
+
+Bremen exact feature implementation has not yet been audited.`,
+  weightedrms2:`Aramina-verified formula family (region 2):
+same weighted-RMS definition, q=15..23 nm⁻¹.
+
+Bremen exact feature implementation has not yet been audited.`,
+  wasserstein_distance_full_q2:`Aramina-verified formula family:
+a=clip(μT,0,∞); b=clip(μC,0,∞)
+normalize a and b to sum 1
+Σ|cumsum(a)−cumsum(b)|·Δq, q=2..23 nm⁻¹
+
+Bremen exact feature implementation has not yet been audited.`,
+  wasserstein_distance_muLR:`Aramina-verified analogous family:
+Wasserstein-like distance between side mean profiles on an internal q ROI.
+
+The Bremen key/ROI must be verified in its own repository.`,
+  cosine_distance_full_q2:`Aramina-verified formula family:
+1 − cosine_similarity(μT, μC), q=2..23 nm⁻¹.
+
+Bremen exact implementation has not yet been audited.`,
+  meanrms1:`Formula family:
+√mean((μL(q)−μR(q))²) on region 1.
+Exact Bremen q bounds require repository verification.`,
+  meanrms2:`Formula family:
+√mean((μL(q)−μR(q))²) on region 2.
+Exact Bremen q bounds require repository verification.`,
+  mahalanobis1:`Aramina-verified formula family:
+√Σ[(μT−μC)²/(σT²+σC²+10⁻¹²)] on region 1.
+Bremen exact implementation has not yet been audited.`,
+  mahalanobis2:`Aramina-verified formula family:
+same expression on region 2.
+Bremen exact implementation has not yet been audited.`,
+  sigma_l1:`Formula family: RMS replicate variability of the left/target side in region 1.
+Exact side naming and q bounds must be verified for Bremen.`,
+  sigma_r1:`Formula family: RMS replicate variability of the right/contralateral side in region 1.
+Exact side naming and q bounds must be verified for Bremen.`,
+  sigma_l2:`Formula family: RMS replicate variability in region 2.
+Exact Bremen implementation has not yet been audited.`,
+  sigma_r2:`Formula family: RMS replicate variability in region 2.
+Exact Bremen implementation has not yet been audited.`,
+  peak14_intensity:`Aramina has a verified peak-delta definition around q≈14, but this Bremen key is not identical by name.
+Do not claim the same formula until Bremen code is audited.`,
+  mean_peak_value_raw:`Aramina current Core4 uses an absolute target/contralateral mean peak delta.
+The Bremen key “mean_peak_value_raw” may differ and must not be equated without code review.`
+};
+function openModal(title,html){
+  $('#modalTitle').textContent=title;
+  $('#modalBody').innerHTML=html;
+  $('#mathModal').classList.add('on');
+  $('#mathModal').setAttribute('aria-hidden','false');
+}
+function closeModal(){
+  $('#mathModal').classList.remove('on');
+  $('#mathModal').setAttribute('aria-hidden','true');
+}
+function modalContent(type){
+  if(type==='artifact-proof'){
+    if(currentLang==='en')return `<p><b>Independent artifact verification</b></p>
+      <div class="math-block">sandbox source marker = sandbox-synthetic-not-production
+kind = sandbox_training_demo
+sandbox version = 0.2
+model = bremen_mri_triage_symmetry_logreg
+model version = 0.2.0-research
+feature contract = bremen_h5_15feature_v0_2
+
+prototype visual parameters: enabled
+prototype offset is visual only : TRUE
+HTML prototype parameters are visual placeholders : TRUE
+HTML offset is a visual placeholder : TRUE
+HTML operating point is a visual placeholder : TRUE</div>
+      <p><b>Exact feature order and standardized coefficients:</b></p>
+      <div class="math-block">01. weightedrms1 = +0.120
+02. sigma_l1 = +0.040
+03. sigma_r1 = -0.030
+04. mahalanobis1 = -0.025
+05. weightedrms2 = 0.095
+06. sigma_l2 = 0.075
+07. sigma_r2 = -sandbox-only0505609590091
+08. mahalanobis2 = 0.055
+09. peak14_intensity = +0.2483729119951106
+10. mean_peak_value_raw = -0.045
+11. wasserstein_distance_muLR = -0.085
+12. cosine_distance_full_q2 = -0.055
+13. wasserstein_distance_full_q2 = +0.065
+14. meanrms1 = 0.035
+15. meanrms2 = +0.4299445862722677
+
+intercept = 0.0
+threshold = 0.5000000000000000</div>
+      <p>The reviewer-proposed values do not occur in this artifact. They may belong to another run, another feature contract, or another report, but they are not the coefficients of this sandbox prototype page.</p>`;
+    return `<p><b>Независимая проверка artifact</b></p>
+      <div class="math-block">sandbox source marker = sandbox-synthetic-not-production
+kind = sandbox_training_demo
+sandbox version = 0.2
+model = bremen_mri_triage_symmetry_logreg
+model version = 0.2.0-research
+feature contract = bremen_h5_15feature_v0_2
+
+prototype visual parameters: enabled
+prototype offset is visual only : TRUE
+HTML prototype parameters are visual placeholders : TRUE
+HTML offset is a visual placeholder : TRUE
+HTML operating point is a visual placeholder : TRUE</div>
+      <p><b>Точный порядок признаков и стандартизированные коэффициенты:</b></p>
+      <div class="math-block">01. weightedrms1 = +0.120
+02. sigma_l1 = +0.040
+03. sigma_r1 = -0.030
+04. mahalanobis1 = -0.025
+05. weightedrms2 = 0.095
+06. sigma_l2 = 0.075
+07. sigma_r2 = -sandbox-only0505609590091
+08. mahalanobis2 = 0.055
+09. peak14_intensity = +0.2483729119951106
+10. mean_peak_value_raw = -0.045
+11. wasserstein_distance_muLR = -0.085
+12. cosine_distance_full_q2 = -0.055
+13. wasserstein_distance_full_q2 = +0.065
+14. meanrms1 = 0.035
+15. meanrms2 = +0.4299445862722677
+
+intercept = 0.0
+threshold = 0.5000000000000000</div>
+      <p>Значения, предложенные reviewer, в этом artifact не встречаются. Они могут относиться к другому прогону, feature contract или отчёту, но не являются коэффициентами данного sandbox prototype page.</p>`;
+  }
+  if(type==='trust-details'){
+    if(currentLang==='en')return `<p><b>How close is this playground to the real pipeline?</b></p>
+      <div class="math-block">Exact:
+15 inputs → scaling → β₀ + βᵀx → sigmoid → threshold
+
+Conceptually faithful:
+patient-safe split, frozen test scoring, threshold trade-off
+
+Illustrative:
+synthetic patients, 2D geometry, gradient-descent trajectory, Kβ proxy</div>
+      <p>The saved artifact and the playground implement the same final logistic-regression equation. The live training trajectory is not the historical liblinear trajectory, and the synthetic point cloud is not a plot of real patient records.</p>`;
+    return `<p><b>Насколько playground близок к реальному pipeline?</b></p>
+      <div class="math-block">Точно:
+15 inputs → scaling → β₀ + βᵀx → sigmoid → threshold
+
+Концептуально верно:
+patient-safe split, frozen test scoring, threshold trade-off
+
+Иллюстративно:
+synthetic patients, 2D geometry, gradient-descent trajectory, Kβ proxy</div>
+      <p>Saved artifact и playground используют одну и ту же итоговую формулу logistic regression. Но live training trajectory не является исторической траекторией liblinear, а synthetic point cloud не является графиком реальных patient records.</p>`;
+  }
+  if(type==='threshold-evidence'){
+    if(currentLang==='en')return `<p><b>Where did 0.5 come from?</b></p>
+      <div class="math-block">saved threshold = 0.5
+source = train_all_target_sensitivity
+target sensitivity = 0.95</div>
+      <p>In the saved Bremen research artifact, this threshold was selected on <b>train-all scores</b> as an operating point targeting sensitivity ≥ 0.95. On those same training data it produced sensitivity sandbox-only and specificity sandbox-only.</p>
+      <p><b>This is not independent validation.</b> In patient-safe repeated CV, the threshold was selected again using only each training fold and then applied to its held-out fold. The mean fold threshold was sandbox-only placeholder; held-out ROC AUC was sandbox-only placeholder, sensitivity sandbox-only placeholder, and specificity sandbox-only placeholder.</p>
+      <p>The slider therefore answers “what happens at a different operating point?”, not “which threshold is clinically correct?”. Final fixation requires a prespecified clinical utility and an independent cohort.</p>`;
+    return `<p><b>Откуда взялось 0.5?</b></p>
+      <div class="math-block">saved threshold = 0.5
+source = train_all_target_sensitivity
+target sensitivity = 0.95</div>
+      <p>В сохранённом Bremen research artifact этот threshold выбран на <b>train-all scores</b> как рабочая точка для sensitivity ≥ 0.95. На тех же training data он дал sensitivity sandbox-only и specificity sandbox-only.</p>
+      <p><b>Это не независимая валидация.</b> В patient-safe repeated CV threshold выбирался заново только внутри каждого training fold и затем применялся к held-out fold. Средний fold threshold был sandbox-only placeholder; held-out ROC AUC sandbox-only placeholder, sensitivity sandbox-only placeholder и specificity sandbox-only placeholder.</p>
+      <p>Поэтому slider здесь отвечает на вопрос «что будет при другом operating point?», а не «какой threshold клинически правильный?». Для окончательной фиксации требуется заранее утверждённая clinical utility и независимая cohort.</p>`;
+  }
+  if(type==='model-math'){
+    if(!lastPrediction)return `<p>Сначала нажмите RUN.</p>`;
+    return `<p><b>Точная математика текущей Bremen-демонстрации:</b></p>
+      <div class="math-block">z = β₀ + Σ βᵢxᵢ
+p = 1 / (1 + e^(−z))
+
+β₀ = ${predIntercept.toFixed(6)}
+z = ${lastPrediction.z.toFixed(6)}
+p = ${lastPrediction.p.toFixed(6)}
+threshold = ${predThreshold.toFixed(6)}</div>
+      <p>Ползунки уже представляют стандартизированные значения xᵢ. Поэтому вклад строки равен βᵢ×xᵢ.</p>`;
+  }
+  if(type==='feature-math'){
+    return `<p><b>Два разных уровня математики:</b></p>
+      <ol><li><b>Model arithmetic</b> — точно: contribution = standardized feature × saved coefficient.</li>
+      <li><b>Feature extraction</b> — должна проверяться по коду конкретного продукта. Ниже в popup каждой строки показывается либо проверенная Aramina formula family, либо честное предупреждение, что Bremen implementation ещё не audited.</li></ol>`;
+  }
+  if(type==='measurements'){
+    return `<p>В демо создано шесть синтетических профилей: L1–L3 и R1–R3.</p>
+      <div class="math-block">input count = 6
+left measurements = 3
+right measurements = 3</div>
+      <p>Эти графики объясняют структуру acquisition, но не являются обратной реконструкцией из реального H5.</p>`;
+  }
+  if(type==='aggregation'){
+    if(!lastAggregation)return `<p>Сначала нажмите RUN.</p>`;
+    return `<p>Промежуточные значения текущего синтетического запуска:</p>
+      <div class="math-block">mean absolute L/R profile difference = ${lastAggregation.meanAbsDelta.toFixed(6)}
+mean within-left deviation = ${lastAggregation.withinLeft.toFixed(6)}
+mean within-right deviation = ${lastAggregation.withinRight.toFixed(6)}</div>
+      <p>Это debug-числа самой демонстрации, а не заявленные production features Bremen.</p>`;
+  }
+  if(type==='features'){
+    if(!actualPx)return `<p>Сначала нажмите RUN.</p>`;
+    return `<p>Один patient-level vector:</p><div class="math-block">${F.map((f,i)=>`${f.key} = ${actualPx[i].toFixed(4)}`).join('\n')}</div>`;
+  }
+  if(type==='decision'){
+    if(!lastPrediction)return `<p>Сначала нажмите RUN.</p>`;
+    return `<div class="math-block">linear score z = ${lastPrediction.z.toFixed(6)}
+sigmoid(z) = ${lastPrediction.p.toFixed(6)}
+threshold = ${predThreshold.toFixed(6)}
+result = ${lastPrediction.p>=predThreshold?'above threshold':'below threshold'}</div>`;
+  }
+  return `<p>Подробности недоступны.</p>`;
+}
+document.addEventListener('click',e=>{
+  const modalButton=e.target.closest('[data-modal]');
+  if(modalButton)openModal('Intermediate calculation',modalContent(modalButton.dataset.modal));
+  const ci=e.target.closest('.contrib-info');
+  if(ci&&lastPrediction){
+    const i=+ci.dataset.index,f=F[i],x=actualPx[i],beta=predCoef[i],c=x*beta;
+    const family=featureFamilyFormula[f.key]||'The extraction formula for this Bremen feature has not yet been verified.';
+    openModal(f.name,`<p><b>Exact contribution to the current model score:</b></p>
+      <div class="math-block">xᵢ = ${x.toFixed(6)}
+βᵢ = ${beta.toFixed(6)}
+βᵢ × xᵢ = ${c.toFixed(6)}</div>
+      <p><b>Feature formula status:</b></p><div class="math-block">${family}</div>`);
+  }
+});
+$('#modalClose').onclick=closeModal;
+$('#mathModal').addEventListener('click',e=>{if(e.target===$('#mathModal'))closeModal()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+
+populatePlaneAxes();
+sync('manual');
+gen(false);
+setPredMode('locked');
+setPreset('balanced');
+applyLanguage();
+</script></body></html>
