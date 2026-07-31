@@ -1,0 +1,56 @@
+PR0104S Implementation Report
+
+Branch
+0104s-demo-model-guide-page
+
+Summary
+Added a sanitized FastAPI demo page at GET /demo/model-guide.
+The page is implemented as a self-contained repo-local HTML builder in
+src/bremen/model_guide_ui.py and is linked from /demo and /demo/control-room.
+The original standalone HTML input is retained as a non-published source
+artifact at:
+.project-memory/pr/0104s-demo-model-guide-page/source-bremen_ML_demo_en.raw.html
+
+Sanitization
+The provided standalone HTML was reviewed and found to include private
+artifact-specific material, including a full cryptographic fingerprint,
+learned numerical parameters, serialized artifact references, and raw model
+internals. Those details are not served.
+
+The integrated guide keeps only public conceptual content:
+- technical demo only
+- training and prediction flow at a high level
+- synthetic illustration framing
+- logistic regression as a transparent baseline
+- clinician review remains required
+- no autonomous diagnosis or clinical validation claim
+
+Routes
+GET /demo/model-guide
+
+Tests
+Added tests/test_bremen_fastapi_model_guide_page.py for route availability,
+navigation links, and safety markers.
+
+Verification
+venv/bin/python -m compileall src tests
+PASS
+
+venv/bin/python -m pytest -q tests/test_bremen_fastapi_model_guide_page.py -v --tb=short
+PASS: 8 passed
+
+venv/bin/python -m pytest -q tests/test_bremen_fastapi_demo_routes.py -v --tb=short
+PASS: 16 passed
+
+venv/bin/python -m pytest -q tests/test_bremen_no_server_spawning_tests.py -v --tb=short
+PASS: 91 passed
+
+venv/bin/python -m pytest -q
+PASS: 3234 passed, 11 skipped
+
+venv/bin/python -m pytest --cov=src/bremen --cov-report=term -q
+PASS: 3234 passed, 11 skipped; total coverage 83%
+
+Notes
+No runtime backend, Dockerfile, auth, model, training, or report routes were
+changed.

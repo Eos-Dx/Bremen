@@ -10,6 +10,7 @@ Phase 1:
 Phase 2:
 - ``GET /demo/api/models``
 - ``GET /demo/api/h5/containers``
+- ``GET /demo/model-guide``
 
 Phase 3:
 - ``POST /demo/api/h5/containers`` (upload)
@@ -438,6 +439,16 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         forwarded_proto = request.headers.get("X-Forwarded-Proto", "http")
         base_url = f"{forwarded_proto}://{host_header}"
         html = build_control_room_page(base_url=base_url, request_id=request_id)
+        return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
+
+    @app.get("/demo/model-guide")
+    async def demo_model_guide(request: Request) -> HTMLResponse:
+        """Render the sanitized Bremen Model Guide page."""
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.model_guide_ui import build_model_guide_page  # noqa: PLC0415
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+        html = build_model_guide_page()
         return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
 
     # ------------------------------------------------------------------
