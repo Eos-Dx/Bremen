@@ -11,6 +11,7 @@ Phase 2:
 - ``GET /demo/api/models``
 - ``GET /demo/api/h5/containers``
 - ``GET /demo/model-guide``
+- ``GET /demo/model-playground``
 
 Phase 3:
 - ``POST /demo/api/h5/containers`` (upload)

@@ -67,6 +67,21 @@ class TestSandboxBranding:
 class TestNavLinks:
     """Page must have navigation links to other demo pages."""
 
+    def test_start_page_has_playground_link(self, client: TestClient) -> None:
+        resp = client.get("/demo")
+        assert 'href="/demo/model-playground"' in resp.text
+        assert "Model playground" in resp.text
+
+    def test_control_room_has_playground_link(self, client: TestClient) -> None:
+        resp = client.get("/demo/control-room")
+        assert 'href="/demo/model-playground"' in resp.text
+        assert "Model playground" in resp.text
+
+    def test_model_guide_has_playground_link(self, client: TestClient) -> None:
+        resp = client.get("/demo/model-guide")
+        assert 'href="/demo/model-playground"' in resp.text
+        assert "Model playground" in resp.text
+
     def test_start_link(self, client: TestClient) -> None:
         resp = client.get("/demo/model-playground")
         assert 'href="/demo"' in resp.text
@@ -89,7 +104,11 @@ class TestNoProductionInternals:
 
     def test_no_full_sha256(self, client: TestClient) -> None:
         resp = client.get("/demo/model-playground")
-        # Must not contain the production SHA256
+        lower = resp.text.lower()
+
+        assert "sha256" not in lower
+        assert "checksum" not in lower
+        assert re.search(r"\b[a-f0-9]{64}\b", lower) is None
         assert "971b20baf299295ac744746c2b7e751ab3df81205f55b695ae516ad2114069d4" not in resp.text
 
     def test_no_production_intercept(self, client: TestClient) -> None:
@@ -102,9 +121,37 @@ class TestNoProductionInternals:
         # Must not contain exact production threshold
         assert "0.4130396520921527" not in resp.text
 
+    def test_no_exact_production_coefficients(self, client: TestClient) -> None:
+        resp = client.get("/demo/model-playground")
+        exact_values = (
+            "0.3680918726686177",
+            "0.3003113268439438",
+            "0.2965611503956957",
+            "-0.2908129577762756",
+            "-0.27647967038282434",
+        )
+
+        for value in exact_values:
+            assert value not in resp.text
+
     def test_no_raw_model_joblib(self, client: TestClient) -> None:
         resp = client.get("/demo/model-playground")
-        assert "model.joblib" not in resp.text.lower() or "sandbox" in resp.text.lower()
+        lower = resp.text.lower()
+        prohibited = (
+            "model.joblib",
+            "joblib",
+            "pickle",
+            "portable_logreg",
+            "estimator",
+            "_package",
+            "artifact_verified",
+            "coefficient_source",
+            "source-bremen_ml_demo_en.raw.html",
+            ".project-memory",
+        )
+
+        for marker in prohibited:
+            assert marker not in lower
 
     def test_no_s3_paths(self, client: TestClient) -> None:
         resp = client.get("/demo/model-playground")
