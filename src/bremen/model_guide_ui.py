@@ -214,6 +214,7 @@ def build_model_guide_page() -> str:
     <nav class="guide-nav" aria-label="Demo navigation">
       <a href="/demo">Start</a>
       <a href="/demo/control-room">Control Room</a>
+      <a href="/demo/model-playground">Model playground</a>
       <a href="/demo/api-docs">API docs</a>
     </nav>
   </header>

@@ -1,0 +1,51 @@
+status: valid
+head: 8c15f7ff648f6355f3125225cfeafffcc0018421
+branch: 0104t-demo-model-playground
+base_branch: dev
+pr_target: main
+blockers: []
+warnings:
+  - "on_event('startup') is deprecated in favor of lifespan event handlers. Non-blocking — existing tests pass."
+changed_files:
+  - src/bremen/api/fastapi_app.py (modified)
+  - src/bremen/control_room_ui.py (modified)
+  - src/bremen/model_guide_ui.py (modified)
+  - src/bremen/start_page_ui.py (modified)
+  - src/bremen/model_playground_ui.py (added)
+  - tests/test_bremen_fastapi_model_playground_page.py (added)
+working_tree_state: dirty (4 modified, 2 added, 1 untracked directory)
+summary: "PR0104T adds a sanitized Model Playground sandbox page at GET /demo/model-playground. The page reads the uploaded standalone HTML, sanitizes it (removes production SHA256, intercept, threshold, coefficient_source), adds sandbox/synthetic/technical demo branding, and adds nav links. Linked from /demo, /demo/control-room, and /demo/model-guide. All 3260 tests pass."
+
+model_playground_route_added: true
+nav_links_added: true
+sandbox_only_verified: true
+sanitization_verified: true
+checksums_not_exposed: true
+coefficients_not_exposed: true
+model_internals_not_exposed: true
+existing_routes_preserved: true
+fastapi_default_preserved: true
+legacy_fallback_preserved: true
+serve_fastapi_preserved: true
+fastapi_factory_target_preserved: true
+dockerfile_unchanged: true
+auth_unchanged: true
+model_training_unchanged: true
+no_clinical_claims: true
+no_external_js_cdn: true
+no_real_h5_jobs_reports_mutation: true
+no_production_model_claim: true
+zero_server_policy_preserved: true
+guard_test:
+  file: tests/test_bremen_no_server_spawning_tests.py
+  result: 92 passed, 0 skipped, 0 failed
+model_playground_page_tests: 25 passed
+model_guide_page_tests: 8 passed
+full_suite_mandatory: true
+full_suite_result: 3260 passed, 11 skipped, 0 failed
+coverage_result: "83% total (no fail-under threshold configured)"
+project_memory_format: valid
+implementation_report:
+  path: .project-memory/pr/0104t-demo-model-playground/implementation-report.txt
+  matches_diff: true
+commit_readiness: ready

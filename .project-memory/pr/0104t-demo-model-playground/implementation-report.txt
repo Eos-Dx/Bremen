@@ -1,0 +1,78 @@
+PR0104T — Add demo Model Playground page
+========================================
+
+Branch: 0104t-demo-model-playground
+PR Target: main
+Purpose: Add a separate public sandbox/playground page to the demo.
+
+SUMMARY
+-------
+Added a self-contained Model Playground page based on the uploaded
+bremen_ML_demo_en.html. The page is sanitized to remove production
+coefficients, SHA256, intercept, threshold, and raw model internals.
+It uses synthetic placeholder values and clear sandbox/synthetic branding.
+
+FILES CHANGED
+-------------
+src/bremen/model_playground_ui.py (added)
+  Self-contained module that reads the uploaded HTML, sanitizes it
+  (removes production SHA256, intercept, threshold, coefficient_source),
+  adds sandbox branding, and returns HTML.
+
+src/bremen/api/fastapi_app.py (modified)
+  Added GET /demo/model-playground route.
+
+src/bremen/start_page_ui.py (modified)
+  Added nav link "Model playground" in footer.
+
+src/bremen/control_room_ui.py (modified)
+  Added nav link "Model playground" in Control Room nav.
+
+src/bremen/model_guide_ui.py (modified)
+  Added nav link "Model playground" in Model Guide nav.
+
+tests/test_bremen_fastapi_model_playground_page.py (added)
+  25 tests: route (4), sandbox branding (3), nav links (4),
+  no production internals (7), existing routes (7).
+
+SANITIZATION
+------------
+- Production SHA256 replaced with "sandbox-synthetic-not-production"
+- Production intercept (-0.038341628329418675) replaced with 0.0
+- Production threshold (0.4130396520921527) replaced with 0.5
+- coefficient_source changed to "synthetic sandbox placeholder"
+- artifact_verified set to false
+- Global string replacements catch all occurrences in JS, HTML, and translation maps
+
+NAV LINKS ADDED
+---------------
+- /demo start page footer: Model playground link
+- /demo/control-room: Model playground link
+- /demo/model-guide: Model playground link
+- /demo/model-playground: nav to Start, Control Room, Model Guide, API docs
+
+SANDBOX_ONLY_CONFIRMED: yes, sandbox notice on every page load
+SANITIZATION_DONE: production SHA256, intercept, threshold all replaced
+CHECKSUMS_NOT_EXPOSED: production SHA256 globally replaced
+COEFFICIENTS_NOT_EXPOSED: production coefficients replaced with placeholders
+MODEL_INTERNALS_NOT_EXPOSED: no model.joblib, no S3/H5 paths
+
+FASTAPI_DEFAULT_PRESERVED: yes
+ZERO_SERVER_POLICY_PRESERVED: yes
+FULL_SUITE_RESULT: 3260 passed, 11 skipped, 0 failed
+
+SAFETY_BOUNDARY
+- No production model parameters exposed
+- No external JS/CDN dependencies
+- No diagnostic/clinical claims
+- Synthetic sandbox data only
+- Export scenario/prototype parameters are visual only
+
+VALIDATION_RESULTS
+- python -m compileall src tests: exit 0
+- pytest model_playground_page: 25 passed
+- pytest model_guide_page: 20 passed
+- pytest guard: 85 passed
+- pytest full suite: 3260 passed, 11 skipped, 0 failed
+
+BLOCKERS: none

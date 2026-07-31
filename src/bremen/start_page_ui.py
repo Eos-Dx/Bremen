@@ -303,6 +303,7 @@ def build_start_page(base_url: str = "http://localhost:8000") -> str:
   <div class="start-footer">
     <p>Bremen — MRI triage decision support. Not clinically validated. Technical demo only.
     <a href="/demo/model-guide">Model guide</a> &middot;
+    <a href="/demo/model-playground">Model playground</a> &middot;
     <a href="/demo/workspace">Legacy Workspace</a></p>
   </div>
 </div>
