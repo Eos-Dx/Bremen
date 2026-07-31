@@ -1,0 +1,42 @@
+status: valid
+head: 0dbd7ad8219d774ddc4db650fa7b61e59b878faf
+branch: 0104r-fastapi-report-data-route-parity
+base_branch: dev
+pr_target: main
+blockers: []
+warnings:
+  - "on_event('startup') is deprecated in favor of lifespan event handlers. Non-blocking — existing tests pass."
+changed_files:
+  - src/bremen/api/fastapi_app.py (modified)
+  - tests/test_bremen_fastapi_report_data_routes.py (added)
+working_tree_state: dirty (1 modified, 1 added, 1 untracked directory)
+summary: "PR0104R adds FastAPI parity for GET /demo/api/reports/{job_id}/external and GET /demo/api/reports/{job_id}/internal report data routes. Both return 200 with report JSON by reusing existing build_external_report_json/build_internal_report_json. Unknown jobs return safe error. All 3225 tests pass."
+
+external_report_data_route_fixed: true
+internal_report_data_route_fixed: true
+report_payload_has_real_values: true
+report_html_preserved: true
+jobs_routes_preserved: true
+fastapi_default_preserved: true
+legacy_fallback_preserved: true
+serve_fastapi_preserved: true
+fastapi_factory_target_preserved: true
+dockerfile_unchanged: true
+control_room_unchanged: true
+auth_unchanged: true
+model_training_unchanged: true
+zero_server_policy_preserved: true
+guard_test:
+  file: tests/test_bremen_no_server_spawning_tests.py
+  result: 90 passed, 0 skipped, 0 failed
+report_data_routes_tests: 20 passed
+report_html_route_tests: 18 passed
+jobs_report_parity_tests: 25 passed
+full_suite_mandatory: true
+full_suite_result: 3225 passed, 11 skipped, 0 failed
+coverage_result: "83% total (no fail-under threshold configured)"
+project_memory_format: valid
+implementation_report:
+  path: .project-memory/pr/0104r-fastapi-report-data-route-parity/implementation-report.txt
+  matches_diff: true
+commit_readiness: ready
