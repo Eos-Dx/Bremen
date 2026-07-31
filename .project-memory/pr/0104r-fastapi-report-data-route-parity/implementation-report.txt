@@ -1,0 +1,65 @@
+PR0104R — FastAPI report data route parity hotfix
+=================================================
+
+Branch: 0104r-fastapi-report-data-route-parity
+PR Target: main
+Purpose: Add FastAPI parity for external/internal report data routes.
+
+PROBLEM
+-------
+GET /demo/api/reports/{job_id}/external -> 404
+GET /demo/api/reports/{job_id}/internal -> 404
+Report HTML opens but has no data.
+
+SOLUTION
+--------
+Added two FastAPI routes reusing legacy business logic:
+- GET /demo/api/reports/{job_id}/external -> build_external_report_json
+- GET /demo/api/reports/{job_id}/internal -> build_internal_report_json
+
+Both mirror handle_external_report/handle_internal_report from job_api_handler.
+Error responses include technical_demo_only for safety consistency.
+
+FILES CHANGED
+-------------
+src/bremen/api/fastapi_app.py (modified)
+  Added GET /demo/api/reports/{job_id}/external and
+  GET /demo/api/reports/{job_id}/internal routes.
+  Both reuse _get_report_provider, _jobs, _jobs_lock, and
+  build_external_report_json/build_internal_report_json.
+  Error responses include technical_demo_only for consistency.
+
+tests/test_bremen_fastapi_report_data_routes.py (added)
+  20 tests: external report (5), internal report (5), safety (4),
+  existing routes (6).
+
+TESTS
+-----
+test_bremen_fastapi_report_data_routes.py: 20 tests
+  - TestExternalReportRoute: 200+error, job_id, technical_demo_only, request_id
+  - TestInternalReportRoute: 200+error, job_id, technical_demo_only, request_id
+  - TestReportDataSafety: no S3, no filesystem, no traces
+  - TestExistingRoutesPreserved: report HTML, jobs, health, models
+
+EXTERNAL_REPORT_DATA_ROUTE_FIXED: yes
+INTERNAL_REPORT_DATA_ROUTE_FIXED: yes
+REPORT_HTML_PRESERVED: yes
+JOBS_ROUTES_PRESERVED: yes
+FASTAPI_DEFAULT_PRESERVED: yes
+
+ZERO_SERVER_POLICY_PRESERVED: yes
+FULL_SUITE_RESULT: 3225 passed, 11 skipped, 0 failed
+
+SAFETY_BOUNDARY
+- No production code changes beyond route additions
+- Reuses existing business logic (no duplicate report generation)
+- No real servers, sockets, localhost HTTP
+- No raw S3/H5/model internals, exceptions, or PHI
+
+VALIDATION_RESULTS
+- python -m compileall src tests: exit 0
+- pytest report_data_routes: 20 passed
+- pytest all report/jobs/guard: 153 passed
+- pytest full suite: 3225 passed, 11 skipped, 0 failed
+
+BLOCKERS: none

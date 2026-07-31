@@ -602,6 +602,102 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         result["technical_demo_only"] = True
         return JSONResponse(content=result)
 
+    # ------------------------------------------------------------------
+    # Report data routes — parity with legacy http.server
+    # ------------------------------------------------------------------
+
+    @app.get("/demo/api/reports/{job_id}/external")
+    async def demo_external_report_route(
+        job_id: str, request: Request,
+    ) -> JSONResponse:
+        """Return external report JSON.
+
+        Mirrors ``handle_external_report()`` from job_api_handler.
+        """
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.api.job_api_handler import (  # noqa: PLC0415
+            _jobs, _jobs_lock, _get_report_provider,
+        )
+        from bremen.report_ui import build_external_report_json  # noqa: PLC0415
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+
+        with _jobs_lock:
+            job = _jobs.get(job_id)
+
+        if job is None:
+            return JSONResponse(content={
+                "error": "Job not found", "job_id": job_id,
+                "request_id": request_id,
+                "technical_demo_only": True,
+            })
+
+        provider = _get_report_provider("bremen")
+        wf_run = job.workflow_runs.get("bremen")
+        if provider is None or wf_run is None:
+            return JSONResponse(content={
+                "error": "Report not available", "job_id": job_id,
+                "request_id": request_id,
+                "technical_demo_only": True,
+            })
+
+        report = provider.generate_report(
+            job_id=job_id,
+            workflow_result=wf_run.result_summary,
+            model_identity=wf_run.model_identity,
+            readiness_snapshot=wf_run.readiness_snapshot,
+        )
+        external = build_external_report_json(report.to_dict())
+        external["request_id"] = request_id
+        external["technical_demo_only"] = True
+        return JSONResponse(content=external)
+
+    @app.get("/demo/api/reports/{job_id}/internal")
+    async def demo_internal_report_route(
+        job_id: str, request: Request,
+    ) -> JSONResponse:
+        """Return internal report JSON.
+
+        Mirrors ``handle_internal_report()`` from job_api_handler.
+        """
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.api.job_api_handler import (  # noqa: PLC0415
+            _jobs, _jobs_lock, _get_report_provider,
+        )
+        from bremen.report_ui import build_internal_report_json  # noqa: PLC0415
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+
+        with _jobs_lock:
+            job = _jobs.get(job_id)
+
+        if job is None:
+            return JSONResponse(content={
+                "error": "Job not found", "job_id": job_id,
+                "request_id": request_id,
+                "technical_demo_only": True,
+            })
+
+        provider = _get_report_provider("bremen")
+        wf_run = job.workflow_runs.get("bremen")
+        if provider is None or wf_run is None:
+            return JSONResponse(content={
+                "error": "Report not available", "job_id": job_id,
+                "request_id": request_id,
+                "technical_demo_only": True,
+            })
+
+        report = provider.generate_report(
+            job_id=job_id,
+            workflow_result=wf_run.result_summary,
+            model_identity=wf_run.model_identity,
+            readiness_snapshot=wf_run.readiness_snapshot,
+        )
+        internal = build_internal_report_json(report.to_dict())
+        internal["request_id"] = request_id
+        internal["technical_demo_only"] = True
+        return JSONResponse(content=internal)
+
     # Terminal statuses — must match http.server handler exactly
     _TERMINAL_STATUSES = frozenset({
         "completed", "failed", "partial_success",
