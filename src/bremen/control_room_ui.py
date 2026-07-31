@@ -9,9 +9,6 @@ PR0082b — Bremen Product-Grade Demo Redesign.
 
 from __future__ import annotations
 
-import json as _json
-from typing import Any
-
 # ---------------------------------------------------------------------------
 # Design tokens (from BREMEN_DESIGN_SPEC_v1.md)
 # ---------------------------------------------------------------------------
@@ -1030,6 +1027,7 @@ def build_control_room_page(
     </div>
     <div class="cr-header-right">
       <a href="/demo" class="cr-model-link" id="cr-model-link">Change model</a>
+      <a href="/demo/model-guide" class="cr-model-link">Model guide</a>
       <a href="/demo/api-docs" class="cr-model-link">API docs</a>
       <div class="cr-badges" id="cr-readiness">
         <span class="cr-badge pending">Checking...</span>
