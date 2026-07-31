@@ -4,16 +4,16 @@ Branch
 0104t-demo-model-playground
 
 Summary
-Added a separate public sandbox page at GET /demo/model-playground.
-The page is implemented as the full three-tab standalone playground preserved
-as a sanitized app asset at src/bremen/model_playground_page.html and served
-through src/bremen/model_playground_ui.py.
+Added two separate Model Playground entry points:
+- public adapted sandbox page at GET /demo/model-playground
+- unlisted standalone source copy at GET /demo/model-playground/sandpit-0104t-preview
 
 Fix Applied
-The simplified replacement page was removed. The route now serves the full
-interactive standalone playground structure, including training, prediction,
-and comparison tabs. The raw PR-memory HTML is not read at runtime; the served
-asset is sanitized and lives in application source.
+The public route serves the full three-tab playground structure as a sanitized
+application asset at src/bremen/model_playground_page.html.  The unlisted route
+serves a separate application asset copied from the provided standalone HTML at
+src/bremen/model_playground_private_page.html.  The raw PR-memory source copy
+is retained only for audit and is not read at runtime.
 
 Routes
 GET /demo/model-playground
@@ -27,9 +27,9 @@ Added Model playground links from:
 
 Unlisted Preview
 Added /demo/model-playground/sandpit-0104t-preview for direct-link preview.
-It is intentionally not linked from public navigation. Because it is not
-authentication, it serves the same sanitized page with an additional unlisted
-preview notice.
+It is intentionally not linked from public navigation. It serves the provided
+standalone page copy with its source parameters preserved. This is not
+authentication; it is URL knowledge only until real access control is added.
 
 Safety Boundary
 - Synthetic sandbox only
@@ -40,8 +40,10 @@ Safety Boundary
 - No real job/report integration
 - No production model mutation
 - Export scenario is a disabled visual placeholder
+- Interactive runtime modal copy is English-only on both playground routes
 
 Sanitization
+Public /demo/model-playground:
 - No full artifact fingerprint or checksum wording in the rendered page
 - No exact production learned weights
 - No exact production intercept
@@ -52,9 +54,15 @@ Sanitization
 - No PHI
 - No diagnostic or autonomous clinical claim
 
+Unlisted /demo/model-playground/sandpit-0104t-preview:
+- Standalone source copy preserved with original parameters
+- Not exposed in public navigation
+- Not connected to uploads, jobs, reports, training, or production mutation
+- Not access-controlled; route secrecy is not authentication
+
 Tests
 Updated tests/test_bremen_fastapi_model_playground_page.py with strict route,
-navigation, full three-tab playground, unlisted preview, sandbox wording,
+navigation, full three-tab playground, unlisted standalone copy, public
 sanitization, and route preservation checks.
 
 Verification
@@ -62,19 +70,22 @@ venv/bin/python -m compileall src tests
 PASS
 
 venv/bin/python -m pytest -q tests/test_bremen_fastapi_model_playground_page.py -v --tb=short
-PASS: 32 passed
+PASS: 33 passed
 
 venv/bin/python -m pytest -q tests/test_bremen_fastapi_model_guide_page.py -v --tb=short
 PASS: 8 passed
+
+venv/bin/python -m pytest -q tests/test_bremen_fastapi_demo_routes.py -v --tb=short
+PASS: 16 passed
 
 venv/bin/python -m pytest -q tests/test_bremen_no_server_spawning_tests.py -v --tb=short
 PASS: 92 passed
 
 venv/bin/python -m pytest -q
-PASS: 3267 passed, 11 skipped
+PASS: 3268 passed, 11 skipped
 
 venv/bin/python -m pytest --cov=src/bremen --cov-report=term -q
-PASS: 3267 passed, 11 skipped; total coverage 83%
+PASS: 3268 passed, 11 skipped; total coverage 83%
 
 venv/bin/python -m ruff check touched files
 PASS

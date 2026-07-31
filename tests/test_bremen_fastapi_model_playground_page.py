@@ -7,6 +7,7 @@ Covers:
 - No full checksum/SHA
 - No exact coefficients/intercept/threshold
 - No raw model internals
+- Unlisted standalone copy is reachable only by direct URL and is not in nav
 - Existing /demo/model-guide still works
 - Existing report routes still work
 - No real servers, sockets, localhost HTTP, uvicorn launch
@@ -55,18 +56,39 @@ class TestModelPlaygroundRoute:
         assert 'data-screen="compare"' in resp.text
         assert 'id="featureList"' in resp.text
         assert "const CFG=" in resp.text
+        assert "Press RUN first." in resp.text
+        assert "Exact mathematics of the current Bremen demo" in resp.text
 
-    def test_unlisted_preview_route_returns_same_sandbox(
+    def test_unlisted_preview_route_returns_standalone_copy(
         self, client: TestClient
     ) -> None:
         resp = client.get("/demo/model-playground/sandpit-0104t-preview")
 
         assert resp.status_code == 200
         assert "text/html" in resp.headers.get("content-type", "")
-        assert "Unlisted preview link" in resp.text
+        assert "<!doctype html>" in resp.text.lower()
+        assert "<html lang=\"en\">" in resp.text.lower()
         assert 'data-screen="train"' in resp.text
         assert 'data-screen="predict"' in resp.text
         assert 'data-screen="compare"' in resp.text
+        assert "const CFG=" in resp.text
+        assert "let currentLang='en'" in resp.text
+        assert ".lang-switch{display:none!important}" in resp.text
+        assert "Press RUN first." in resp.text
+        assert "Exact mathematics of the current Bremen demo" in resp.text
+
+    def test_unlisted_preview_preserves_source_parameters(
+        self, client: TestClient
+    ) -> None:
+        resp = client.get("/demo/model-playground/sandpit-0104t-preview")
+
+        assert (
+            "971b20baf299295ac744746c2b7e751ab3df81205f55b695ae516ad2114069d4"
+            in resp.text
+        )
+        assert "0.3680918726686177" in resp.text
+        assert "-0.038341628329418675" in resp.text
+        assert "0.4130396520921527" in resp.text
 
 
 class TestSandboxBranding:
