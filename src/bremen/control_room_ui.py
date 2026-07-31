@@ -1028,6 +1028,7 @@ def build_control_room_page(
     <div class="cr-header-right">
       <a href="/demo" class="cr-model-link" id="cr-model-link">Change model</a>
       <a href="/demo/model-guide" class="cr-model-link">Model guide</a>
+      <a href="/demo/model-playground" class="cr-model-link">Model playground</a>
       <a href="/demo/api-docs" class="cr-model-link">API docs</a>
       <div class="cr-badges" id="cr-readiness">
         <span class="cr-badge pending">Checking...</span>

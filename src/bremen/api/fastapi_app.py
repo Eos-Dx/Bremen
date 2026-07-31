@@ -452,6 +452,19 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
 
     # ------------------------------------------------------------------
+    # GET /demo/model-playground — sandbox/playground page
+    # ------------------------------------------------------------------
+    @app.get("/demo/model-playground")
+    async def demo_model_playground(request: Request) -> HTMLResponse:
+        """Render the Bremen Model Playground sandbox page."""
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.model_playground_ui import build_model_playground_page  # noqa: PLC0415
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+        html = build_model_playground_page()
+        return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
+
+    # ------------------------------------------------------------------
     # GET /demo/report/{job_id} — report HTML page parity
     # ------------------------------------------------------------------
     @app.get("/demo/report/{job_id}")
