@@ -1,0 +1,47 @@
+status: valid
+head: 68ce905a03581b145008346a577b01024734dedd
+branch: 0112-auth-activation-readiness
+base_branch: dev
+pr_target: main
+blockers: []
+warnings:
+  - "on_event('startup') is deprecated in favor of lifespan event handlers. Non-blocking — existing tests pass."
+changed_files:
+  - scripts/check_auth_activation_readiness.py (added)
+  - tests/test_bremen_auth_activation_readiness.py (added)
+working_tree_state: dirty (2 added, 1 untracked directory)
+summary: "PR0112 adds an auth activation readiness guard (13-check script) and 38 focused tests. No source files changed. Verifies auth disabled by default, fail-closed config, test token flow, protected route access, public routes remain public, and no secret exposure. All 3539 tests pass."
+
+auth_activation_readiness_added: true
+auth_disabled_default_preserved: true
+fail_closed_config_verified: true
+test_token_flow_verified: true
+protected_route_access_verified: true
+public_routes_still_public: true
+no_secret_exposure: true
+no_real_secrets_found: true
+no_server_guard_passed: true
+fastapi_default_preserved: true
+legacy_fallback_preserved: true
+serve_fastapi_preserved: true
+fastapi_factory_target_preserved: true
+dockerfile_unchanged: true
+requirements_unchanged: true
+no_new_dependencies: true
+model_h5_report_workspace_unchanged: true
+no_clinical_claims: true
+zero_server_policy_preserved: true
+guard_test:
+  file: tests/test_bremen_no_server_spawning_tests.py
+  result: 99 passed, 0 skipped, 0 failed
+auth_activation_readiness_tests: 38 passed
+auth_enforcement_tests: 25 passed
+readiness_script: ALL CHECKS PASSED (13/13)
+full_suite_mandatory: true
+full_suite_result: 3539 passed, 11 skipped, 0 failed
+coverage_result: "84% total (no fail-under threshold configured)"
+project_memory_format: valid
+implementation_report:
+  path: .project-memory/pr/0112-auth-activation-readiness/implementation-report.txt
+  matches_diff: true
+commit_readiness: ready
