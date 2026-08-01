@@ -1060,12 +1060,14 @@ function renderExternalReport(report){
   html+='</div>';
   html+='</section>';
 
-  // 6. Interpretation cards
+  // 6. Interpretation cards — highlight derived from decisionCode (same as top card)
+  var isDefer = decisionCode === 'MRI_REVIEW_DEFER';
+  var isContinue = decisionCode === 'CONTINUE_MRI';
   html+='<section class="decision-meaning">';
   html+='<h2>Decision Interpretation</h2>';
   html+='<div class="interpretation-grid">';
-  html+='<div class="interpretation-card"><h3>MRI REVIEW DEFER</h3><p>Score below threshold. MRI continuation may be deferred, subject to clinician review.</p></div>';
-  html+='<div class="interpretation-card'+(decisionCode==='CONTINUE_MRI'?' is-current':'')+'"><h3>'+(decisionCode==='CONTINUE_MRI'?'CONTINUE MRI \u00B7 THIS RESULT':'CONTINUE MRI')+'</h3><p>'+explanationText(decisionCode)+'</p></div>';
+  html+='<div class="interpretation-card'+(isDefer?' is-current':'')+'"><h3>'+(isDefer?'MRI REVIEW DEFER \u00B7 THIS RESULT':'MRI REVIEW DEFER')+'</h3><p>Score below threshold. MRI continuation may be deferred, subject to clinician review.</p></div>';
+  html+='<div class="interpretation-card'+(isContinue?' is-current':'')+'"><h3>'+(isContinue?'CONTINUE MRI \u00B7 THIS RESULT':'CONTINUE MRI')+'</h3><p>Score at or above threshold. MRI continuation is flagged for clinician review.</p></div>';
   html+='</div>';
   html+='</section>';
 

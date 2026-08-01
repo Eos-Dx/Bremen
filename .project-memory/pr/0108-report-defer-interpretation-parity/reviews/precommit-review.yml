@@ -1,0 +1,42 @@
+status: valid
+head: 68f0d0ed749be39b3a9dfebc4612fe0281e3101b
+branch: 0108-report-defer-interpretation-parity
+base_branch: dev
+pr_target: main
+blockers: []
+warnings: []
+changed_files:
+  - src/bremen/report_ui.py (modified)
+  - tests/test_bremen_report_defer_interpretation_parity.py (added)
+working_tree_state: dirty (1 modified, 1 added, 1 untracked directory)
+summary: "PR0108 fixes the report Decision Interpretation cards so that MRI_REVIEW_DEFER highlights the left 'MRI REVIEW DEFER' card as THIS RESULT, and CONTINUE_MRI highlights the right 'CONTINUE MRI' card as THIS RESULT. Each card now has fixed meaning text (no shared explanationText). Only JS rendering logic in report_ui.py changed. All 3393 tests pass."
+
+defer_interpretation_fixed: true
+continue_interpretation_preserved: true
+report_api_unchanged: true
+model_logic_unchanged: true
+public_safety_verified: true
+no_server_guard_passed: true
+fastapi_default_preserved: true
+legacy_fallback_preserved: true
+serve_fastapi_preserved: true
+fastapi_factory_target_preserved: true
+dockerfile_unchanged: true
+auth_unchanged: true
+model_training_unchanged: true
+no_clinical_claims: true
+zero_server_policy_preserved: true
+guard_test:
+  file: tests/test_bremen_no_server_spawning_tests.py
+  result: 95 passed, 0 skipped, 0 failed
+report_defer_interpretation_tests: 20 passed
+report_html_route_tests: 18 passed
+report_data_routes_tests: 20 passed
+full_suite_mandatory: true
+full_suite_result: 3393 passed, 11 skipped, 0 failed
+coverage_result: "84% total (no fail-under threshold configured)"
+project_memory_format: valid
+implementation_report:
+  path: .project-memory/pr/0108-report-defer-interpretation-parity/implementation-report.txt
+  matches_diff: true
+commit_readiness: ready
