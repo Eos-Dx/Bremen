@@ -1,0 +1,46 @@
+status: valid
+head: 60d3850ccd54239a7727272b1a2d359ba663fbdd
+branch: 0109-workspace-process-technical-and-link
+base_branch: dev
+pr_target: main
+blockers: []
+warnings: []
+changed_files:
+  - src/bremen/workspace_ui.py (modified)
+  - src/bremen/control_room_ui.py (modified)
+  - tests/test_bremen_workspace_process_technical_tabs.py (added)
+working_tree_state: dirty (2 modified, 1 added, 1 untracked directory)
+summary: "PR0109 makes Process and Technical tabs render distinct content (Process uses friendly processLabel(), Technical shows raw ev.event_type), adds event cache for re-render on mode switch, and adds an 'Open workspace' link to /demo/workspace/{jobId} in the Control Room decision card for completed jobs (with failed-state gating preserved). All 3426 tests pass."
+
+process_technical_tabs_distinct: true
+process_tab_user_friendly: true
+technical_tab_safe_details: true
+workspace_link_added_after_success: true
+failed_state_link_gating_preserved: true
+public_safety_verified: true
+no_server_guard_passed: true
+fastapi_default_preserved: true
+legacy_fallback_preserved: true
+serve_fastapi_preserved: true
+fastapi_factory_target_preserved: true
+dockerfile_unchanged: true
+auth_unchanged: true
+model_training_unchanged: true
+model_scoring_unchanged: true
+report_generation_unchanged: true
+fastapi_routes_unchanged: true
+no_clinical_claims: true
+zero_server_policy_preserved: true
+guard_test:
+  file: tests/test_bremen_no_server_spawning_tests.py
+  result: 96 passed, 0 skipped, 0 failed
+workspace_process_technical_tabs_tests: 32 passed
+public_demo_surface_smoke_tests: 75 passed
+full_suite_mandatory: true
+full_suite_result: 3426 passed, 11 skipped, 0 failed
+coverage_result: "84% total (no fail-under threshold configured)"
+project_memory_format: valid
+implementation_report:
+  path: .project-memory/pr/0109-workspace-process-technical-and-link/implementation-report.txt
+  matches_diff: true
+commit_readiness: ready

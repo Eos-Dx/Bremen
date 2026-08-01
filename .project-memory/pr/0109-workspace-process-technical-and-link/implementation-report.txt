@@ -1,0 +1,45 @@
+# PR0109 — Workspace Process/Technical Tabs and Workspace Link — Implementation Report
+
+## STATUS
+COMPLETE
+
+## HEAD
+60d3850ccd54239a7727272b1a2d359ba663fbdd
+
+## BRANCH
+0109-workspace-process-technical-and-link
+
+## FILES CHANGED
+- src/bremen/workspace_ui.py (event cache, mode-switch re-render, renderProcessEvent extracted)
+- src/bremen/control_room_ui.py (workspace link in decision card)
+- tests/test_bremen_workspace_process_technical_tabs.py (NEW — 32 tests)
+
+## PROCESS_TECHNICAL_TABS_DISTINCT
+Yes — Process tab uses processLabel() to show friendly labels (e.g. "Request accepted", "Normalization started"). Technical tab shows raw ev.event_type (e.g. "runtime.request.accepted"). switchMode now re-renders all cached events from eventCache[] so tab content actually differs.
+
+## WORKSPACE_LINK_ADDED_AFTER_SUCCESS
+Yes — In fetchDecision(), completed/report-available job decision card now includes both "Open report" and "Open workspace" links to /demo/workspace/{jobId}, opened in new tab with rel=noopener.
+
+## FAILED_STATE_LINK_GATING_PRESERVED
+Yes — fetchDecision() checks jobStatus for failed/normalization_failed before rendering the decision card with links. Failed jobs show error message only, no workspace/report links.
+
+## PUBLIC_SAFETY_VERIFIED
+Yes — No S3 paths, filesystem paths, exception traces, bucket names, model coefficients, or intercept in workspace or control room HTML. Safety banner preserved.
+
+## TESTS ADDED
+32 tests in tests/test_bremen_workspace_process_technical_tabs.py:
+- 12 tab behavior tests (distinct content, event cache, re-render, friendly labels)
+- 6 safety tests (no S3/filesystem/traces/buckets/coefficients, banner)
+- 7 control room workspace link tests (link present, label, target, rel, failed gating)
+- 2 workspace-with-job-id tests
+- 5 existing structure tests
+
+## VALIDATION RESULTS
+- python -m compileall src tests: PASS
+- python -m pytest tests/test_bremen_workspace_process_technical_tabs.py: 32 passed
+- python -m pytest tests/test_bremen_fastapi_public_demo_surface_smoke.py: 75 passed
+- python -m pytest tests/test_bremen_no_server_spawning_tests.py: 96 passed
+- python -m pytest (full suite): 3426 passed, 11 skipped, 0 failed
+
+## BLOCKERS
+None
