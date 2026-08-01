@@ -1,0 +1,46 @@
+# PR0112 — Auth Activation Readiness and Safe Deployment Checks — Implementation Report
+
+## STATUS
+COMPLETE
+
+## HEAD
+(to be filled from git rev-parse --verify HEAD)
+
+## BRANCH
+0112-auth-activation-readiness
+
+## FILES CHANGED
+- tests/test_bremen_auth_activation_readiness.py (NEW — 38 tests)
+- scripts/check_auth_activation_readiness.py (NEW — 13-check readiness guard)
+
+## AUTH_ACTIVATION_READINESS_ADDED
+Yes — 38 focused tests covering all 7 required areas plus 2 bonus areas (TTL config, enforcement scope).
+
+## AUTH_DISABLED_DEFAULT_PRESERVED
+Yes — read_auth_config({}) returns enabled=False. Tests verify empty env, explicit false, and only-enabled-true all result in disabled auth.
+
+## FAIL_CLOSED_CONFIG_VERIFIED
+Yes — Missing JWT secret, short JWT secret, missing username, JWT secret equals password hash, plaintext password hash, SHA-256 hash, empty hash — all result in enabled=False with validation_error.
+
+## TEST_TOKEN_FLOW_VERIFIED
+Yes — authenticate_credentials with valid test-only argon2id hash issues TokenPair. Token decodes back to valid claims. Wrong password/username returns None.
+
+## PROTECTED_ROUTE_ACCESS_VERIFIED
+Yes — Valid token grants access to /demo/api/jobs, /demo/api/h5/containers, /demo/workspace, /demo/report/{id}, /demo/api/reports/{id}/external, /demo/workspace/{id}.
+
+## PUBLIC_ROUTES_STILL_PUBLIC
+Yes — /demo, /demo/login, /demo/control-room, /demo/api-docs, /demo/model-guide, /demo/model-playground, /model/version, /health, /demo/api/models all accessible without token when auth enabled. Token/refresh endpoints accessible without existing token.
+
+## NO_SECRET_EXPOSURE
+Yes — Validation errors never contain password hashes, JWT secrets, or passwords. 401 responses contain only safe fields. No tracebacks in auth error responses.
+
+## VALIDATION_RESULTS
+- python -m compileall src tests scripts: PASS
+- python -m pytest tests/test_bremen_auth_activation_readiness.py: 38 passed
+- python -m pytest tests/test_bremen_fastapi_auth_enforcement.py: 25 passed
+- python -m pytest tests/test_bremen_no_server_spawning_tests.py: 99 passed
+- python -m pytest (full suite): 3539 passed, 11 skipped, 0 failed
+- python scripts/check_auth_activation_readiness.py: ALL CHECKS PASSED
+
+## BLOCKERS
+None
