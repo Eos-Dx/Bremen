@@ -208,6 +208,7 @@ var currentJobId = null;
 var eventSource = null;
 var autoScroll = true;
 var processMode = 'process'; // process | technical
+var eventCache = []; // cached events for re-render on mode switch
 
 function init() {
   loadJobList();
@@ -251,6 +252,7 @@ function statusClass(s) {
 function selectJob(jobId) {
   currentJobId = jobId;
   if (eventSource) { eventSource.close(); }
+  eventCache = []; // reset cache on job switch
   document.getElementById('main-content').innerHTML = '<p class="empty">Loading...</p>';
   document.getElementById('events-stream').innerHTML = '';
 
@@ -371,7 +373,7 @@ function processLabel(ev) {
   return labels[ev.event_type] || ev.event_type;
 }
 
-function addProcessEvent(ev) {
+function renderProcessEvent(ev) {
   var panel = document.getElementById('events-stream');
   var cls = 'event-row';
   if (ev.status === 'completed') cls += ' completed';
@@ -391,6 +393,12 @@ function addProcessEvent(ev) {
   panel.appendChild(div);
 
   if (autoScroll) { panel.scrollTop = panel.scrollHeight; }
+}
+
+function addProcessEvent(ev) {
+  // Cache event for re-render on mode switch
+  eventCache.push(ev);
+  renderProcessEvent(ev);
 }
 
 function addProcessRow(evType, label, status) {
@@ -422,6 +430,12 @@ function switchMode(mode) {
     'tab' + (mode === 'process' ? ' active' : '');
   document.getElementById('mode-technical').className =
     'tab' + (mode === 'technical' ? ' active' : '');
+  // Re-render all cached events with the new mode
+  var panel = document.getElementById('events-stream');
+  panel.innerHTML = '';
+  for (var i = 0; i < eventCache.length; i++) {
+    renderProcessEvent(eventCache[i]);
+  }
 }
 
 init();
@@ -1182,6 +1196,16 @@ _SHOWCASE_JS = r"""
     var mt = document.getElementById('mode-technical');
     if (mp) mp.className = 'tab' + (mode === 'process' ? ' active' : '');
     if (mt) mt.className = 'tab' + (mode === 'technical' ? ' active' : '');
+    // Re-render all cached events with the new mode
+    var panel = document.getElementById('events-stream');
+    if (panel) {
+      panel.innerHTML = '';
+      Object.keys(eventCache).forEach(function(wid) {
+        eventCache[wid].forEach(function(evt) {
+          addShowcaseProcessEvent(evt);
+        });
+      });
+    }
   };
 
   // Start showcase mode

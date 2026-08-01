@@ -909,7 +909,10 @@ function fetchDecision(jobId){
       }else{
         html+='<div style="font-size:var(--fs-13);color:var(--text-secondary);margin-bottom:var(--sp-4)">Score '+(prob===0?'0.000':(prob<0.001?'<0.001':prob.toFixed(3)))+' \u00B7 '+(thresh!==null&&thresh!==undefined&&isFinite(thresh)?'Threshold '+(thresh===0?'0.000':(thresh<0.001?'<0.001':thresh.toFixed(3))):'Threshold —')+'</div>';
       }
+      html+='<div style="display:flex;gap:8px;align-items:center">';
       html+='<a class="cr-report-link" href="'+baseUrl+'/demo/report/'+jobId+'" target="_blank" rel="noopener">Open report</a>';
+      html+=' <a class="cr-report-link" href="'+baseUrl+'/demo/workspace/'+jobId+'" target="_blank" rel="noopener">Open workspace</a>';
+      html+='</div>';
       html+='<hr style="border:none;border-top:1px solid var(--border);margin:var(--sp-12) 0">';
       html+='<div style="font-size:var(--fs-11);color:var(--text-secondary)">'+code+' \u00B7 '+policy+' <span class="cr-badge pending">Certification: pending</span> <span class="cr-badge not_configured" style="margin-left:4px">Technical demo only</span></div>';
       card.innerHTML=html;
