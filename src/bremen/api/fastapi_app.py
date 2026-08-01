@@ -510,6 +510,189 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
 
     # ------------------------------------------------------------------
+    # GET /demo/login — login page (PR0107 parity)
+    # ------------------------------------------------------------------
+    @app.get("/demo/login")
+    async def demo_login_page(request: Request) -> HTMLResponse:
+        """Render the Bremen login page.
+
+        Mirrors ``_handle_login_route()`` from server.py.
+        """
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.login_ui import build_login_page  # noqa: PLC0415
+        from bremen.api.server import _get_auth_config as _gac  # noqa: PLC0415
+
+        config = _gac()
+        auth_enabled = config.enabled and not config.validation_error
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+        host_header = request.headers.get("host", "localhost")
+        forwarded_proto = request.headers.get("X-Forwarded-Proto", "http")
+        base_url = f"{forwarded_proto}://{host_header}"
+        html = build_login_page(base_url=base_url, auth_enabled=auth_enabled)
+        return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
+
+    # ------------------------------------------------------------------
+    # POST /demo/api/auth/token — authenticate and issue tokens (PR0107)
+    # ------------------------------------------------------------------
+    @app.post("/demo/api/auth/token")
+    async def demo_auth_token_route(request: Request) -> JSONResponse:
+        """Authenticate and issue tokens.
+
+        Mirrors ``_handle_auth_token()`` from server.py.
+        """
+        from bremen.api.server import (  # noqa: PLC0415
+            _get_auth_config as _gac,
+            _AUTH_ERROR_SHAPE, _AUTH_DISABLED_SHAPE,
+        )
+        from bremen.auth import (  # noqa: PLC0415
+            authenticate_credentials,
+        )
+
+        config = _gac()
+        if not config.enabled or config.validation_error:
+            return JSONResponse(
+                content=__import__("json").loads(_AUTH_DISABLED_SHAPE),
+                status_code=503,
+            )
+
+        try:
+            body_bytes = await request.body()
+            if not body_bytes:
+                return JSONResponse(
+                    content=__import__("json").loads(_AUTH_ERROR_SHAPE),
+                    status_code=401,
+                )
+            body_dict = __import__("json").loads(body_bytes)
+        except Exception:
+            return JSONResponse(
+                content=__import__("json").loads(_AUTH_ERROR_SHAPE),
+                status_code=401,
+            )
+
+        username = body_dict.get("username", "")
+        password = body_dict.get("password", "")
+        if not isinstance(username, str) or not isinstance(password, str):
+            return JSONResponse(
+                content=__import__("json").loads(_AUTH_ERROR_SHAPE),
+                status_code=401,
+            )
+
+        result = authenticate_credentials(config, username, password)
+        if result is None:
+            return JSONResponse(
+                content=__import__("json").loads(_AUTH_ERROR_SHAPE),
+                status_code=401,
+            )
+
+        return JSONResponse(content={
+            "access_token": result.access_token,
+            "refresh_token": result.refresh_token,
+            "token_type": result.token_type,
+            "expires_in": result.expires_in,
+            "technical_demo_only": True,
+        })
+
+    # ------------------------------------------------------------------
+    # POST /demo/api/auth/refresh — refresh access token (PR0107)
+    # ------------------------------------------------------------------
+    @app.post("/demo/api/auth/refresh")
+    async def demo_auth_refresh_route(request: Request) -> JSONResponse:
+        """Refresh access token.
+
+        Mirrors ``_handle_auth_refresh()`` from server.py.
+        """
+        from bremen.api.server import (  # noqa: PLC0415
+            _get_auth_config as _gac,
+            _AUTH_ERROR_SHAPE, _AUTH_DISABLED_SHAPE,
+        )
+        from bremen.auth import (  # noqa: PLC0415
+            decode_refresh_token, create_access_token,
+            create_refresh_token, AuthError,
+        )
+
+        config = _gac()
+        if not config.enabled or config.validation_error:
+            return JSONResponse(
+                content=__import__("json").loads(_AUTH_DISABLED_SHAPE),
+                status_code=503,
+            )
+
+        try:
+            body_bytes = await request.body()
+            if not body_bytes:
+                return JSONResponse(
+                    content=__import__("json").loads(_AUTH_ERROR_SHAPE),
+                    status_code=401,
+                )
+            body_dict = __import__("json").loads(body_bytes)
+        except Exception:
+            return JSONResponse(
+                content=__import__("json").loads(_AUTH_ERROR_SHAPE),
+                status_code=401,
+            )
+
+        refresh_token = body_dict.get("refresh_token", "")
+        if not isinstance(refresh_token, str) or not refresh_token:
+            return JSONResponse(
+                content=__import__("json").loads(_AUTH_ERROR_SHAPE),
+                status_code=401,
+            )
+
+        try:
+            claims = decode_refresh_token(config, refresh_token)
+        except AuthError:
+            return JSONResponse(
+                content=__import__("json").loads(_AUTH_ERROR_SHAPE),
+                status_code=401,
+            )
+
+        new_access = create_access_token(config, claims.sub)
+        new_refresh = create_refresh_token(config, claims.sub)
+
+        return JSONResponse(content={
+            "access_token": new_access,
+            "refresh_token": new_refresh,
+            "token_type": "Bearer",
+            "expires_in": config.access_ttl_seconds,
+            "technical_demo_only": True,
+        })
+
+    # ------------------------------------------------------------------
+    # GET /demo/workspace — multi-workflow workspace (PR0107 parity)
+    # ------------------------------------------------------------------
+    @app.get("/demo/workspace")
+    async def demo_workspace_page(request: Request) -> HTMLResponse:
+        """Render the Bremen Workspace page.
+
+        Mirrors ``_handle_workspace_route()`` from server.py.
+        """
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.workspace_ui import build_workspace_page  # noqa: PLC0415
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+        host_header = request.headers.get("host", "localhost")
+        forwarded_proto = request.headers.get("X-Forwarded-Proto", "http")
+        base_url = f"{forwarded_proto}://{host_header}"
+        html = build_workspace_page(base_url=base_url, request_id=request_id, job_id=None)
+        return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
+
+    @app.get("/demo/workspace/{job_id}")
+    async def demo_workspace_job_page(job_id: str, request: Request) -> HTMLResponse:
+        """Render the Bremen Workspace page for a specific job.
+
+        Mirrors ``_handle_workspace_route()`` from server.py.
+        """
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.workspace_ui import build_workspace_page  # noqa: PLC0415
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+        host_header = request.headers.get("host", "localhost")
+        forwarded_proto = request.headers.get("X-Forwarded-Proto", "http")
+        base_url = f"{forwarded_proto}://{host_header}"
+        html = build_workspace_page(base_url=base_url, request_id=request_id, job_id=job_id)
+        return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
+
+    # ------------------------------------------------------------------
     # Phase 4: Event streaming routes
     # ------------------------------------------------------------------
 

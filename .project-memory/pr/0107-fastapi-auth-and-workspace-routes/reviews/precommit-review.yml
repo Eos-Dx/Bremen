@@ -1,0 +1,44 @@
+status: valid
+head: 86cd275259dece713a05300fcea90d66f4f32f4b
+branch: 0107-fastapi-auth-and-workspace-routes
+base_branch: dev
+pr_target: main
+blockers: []
+warnings:
+  - "on_event('startup') is deprecated in favor of lifespan event handlers. Non-blocking — existing tests pass."
+changed_files:
+  - src/bremen/api/fastapi_app.py (modified)
+  - tests/test_bremen_fastapi_auth_workspace_routes.py (added)
+working_tree_state: dirty (1 modified, 1 added, 1 untracked directory)
+summary: "PR0107 adds FastAPI parity for auth and workspace routes: GET /demo/login, POST /demo/api/auth/token, POST /demo/api/auth/refresh, GET /demo/workspace, and GET /demo/workspace/{job_id}. All routes reuse existing business logic from server.py/auth.py/login_ui.py/workspace_ui.py. Auth failure shapes (503 disabled, 401 bad creds) match legacy contract. All 3372 tests pass."
+
+login_route_added: true
+auth_token_route_added: true
+auth_refresh_route_added: true
+workspace_route_added: true
+auth_failure_shapes_preserved: true
+x_request_id_preserved: true
+public_demo_behavior_preserved: true
+forbidden_files_unchanged: true
+fastapi_default_preserved: true
+legacy_fallback_preserved: true
+serve_fastapi_preserved: true
+fastapi_factory_target_preserved: true
+dockerfile_unchanged: true
+auth_unchanged: true
+model_training_unchanged: true
+no_clinical_claims: true
+zero_server_policy_preserved: true
+guard_test:
+  file: tests/test_bremen_no_server_spawning_tests.py
+  result: 94 passed, 0 skipped, 0 failed
+auth_workspace_routes_tests: 27 passed
+public_demo_surface_smoke_tests: 75 passed
+full_suite_mandatory: true
+full_suite_result: 3372 passed, 11 skipped, 0 failed
+coverage_result: "84% total (no fail-under threshold configured)"
+project_memory_format: valid
+implementation_report:
+  path: .project-memory/pr/0107-fastapi-auth-and-workspace-routes/implementation-report.txt
+  matches_diff: true
+commit_readiness: ready

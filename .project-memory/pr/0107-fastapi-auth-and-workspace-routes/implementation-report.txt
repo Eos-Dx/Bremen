@@ -1,0 +1,57 @@
+# PR0107 — FastAPI Auth and Workspace Routes — Implementation Report
+
+## STATUS
+COMPLETE
+
+## HEAD
+86cd275259dece713a05300fcea90d66f4f32f4b
+
+## BRANCH
+0107-fastapi-auth-and-workspace-routes
+
+## FILES CHANGED
+- src/bremen/api/fastapi_app.py (183 lines added — 5 new routes)
+- tests/test_bremen_fastapi_auth_workspace_routes.py (NEW — 27 tests)
+
+## LOGIN ROUTE ADDED
+Yes — GET /demo/login at line 515 in fastapi_app.py
+Mirrors _handle_login_route() from server.py exactly.
+Reuses build_login_page and _get_auth_config.
+Returns 200 HTML with X-Request-ID.
+
+## AUTH TOKEN ROUTE ADDED
+Yes — POST /demo/api/auth/token at line 537
+Mirrors _handle_auth_token() from server.py exactly.
+Reuses _get_auth_config, _AUTH_ERROR_SHAPE, _AUTH_DISABLED_SHAPE, authenticate_credentials.
+Returns 503 when auth disabled/config-invalid, 401 for bad/missing creds, 200 for valid.
+
+## AUTH REFRESH ROUTE ADDED
+Yes — POST /demo/api/auth/refresh at line 598
+Mirrors _handle_auth_refresh() from server.py exactly.
+Reuses _get_auth_config, _AUTH_ERROR_SHAPE, _AUTH_DISABLED_SHAPE, decode_refresh_token,
+create_access_token, create_refresh_token, AuthError.
+Returns 503 when auth disabled/config-invalid, 401 for bad/missing token, 200 for valid.
+
+## WORKSPACE ROUTE ADDED
+Yes — GET /demo/workspace at line 663, GET /demo/workspace/{job_id} at line 679
+Mirrors _handle_workspace_route() from server.py exactly.
+Reuses build_workspace_page.
+Returns 200 HTML with X-Request-ID.
+
+## TESTS ADDED
+27 tests in tests/test_bremen_fastapi_auth_workspace_routes.py:
+- 4 tests for GET /demo/login (200, HTML, request ID)
+- 5 tests for POST /demo/api/auth/token (503 disabled, body shape, empty body, bad creds, missing user)
+- 5 tests for POST /demo/api/auth/refresh (503 disabled, body shape, bad token, empty body, missing token)
+- 5 tests for GET /demo/workspace (200, HTML, request ID, content)
+- 3 tests for GET /demo/workspace/{job_id} (200, HTML, request ID)
+- 5 tests for existing route preservation
+
+## VALIDATION RESULTS
+- python -m compileall src tests: PASS
+- python -m pytest tests/test_bremen_fastapi_auth_workspace_routes.py: 27 passed
+- python -m pytest tests/test_bremen_no_server_spawning_tests.py: 94 passed
+- python -m pytest (full suite): 3372 passed, 11 skipped, 0 failed
+
+## BLOCKERS
+None
