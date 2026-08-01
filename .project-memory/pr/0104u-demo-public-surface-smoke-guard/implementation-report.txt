@@ -1,0 +1,76 @@
+# PR0104U — Public Demo Surface Smoke Guard — Implementation Report
+
+## STATUS
+COMPLETE
+
+## HEAD
+44e91da PR0104T — Add demo model playground page (#168)
+
+## BRANCH
+0104u-demo-public-surface-smoke-guard
+
+## FILES CHANGED
+- tests/test_bremen_fastapi_public_demo_surface_smoke.py (NEW — 75 tests)
+
+## PUBLIC_SURFACE_GUARD_ADDED
+Yes — 8 route smoke tests covering:
+- GET /demo -> 200 HTML
+- GET /demo/control-room -> 200 HTML
+- GET /demo/api-docs -> 200 HTML
+- GET /demo/model-guide -> 200 HTML
+- GET /demo/model-playground -> 200 HTML
+- GET /model/version -> 200 JSON
+- GET /demo/api/models -> 200 JSON
+- GET /demo/api/h5/containers -> 200 JSON
+
+## NAV_GUARD_ADDED
+Yes — 6 nav link assertions:
+- /demo -> /demo/control-room (static href or JS navigation)
+- /demo -> /demo/model-guide
+- /demo -> /demo/model-playground
+- /demo/control-room -> /demo/model-guide
+- /demo/control-room -> /demo/model-playground
+- /demo/model-guide -> /demo/model-playground
+
+## JOB_REPORT_ROUTE_GUARD_ADDED
+Yes — 15 job/report route smoke tests covering:
+- POST /demo/api/jobs -> 400 for invalid requests (4 tests)
+- GET /demo/api/jobs -> 200 with jobs list (4 tests)
+- GET /demo/api/jobs/{job_id} -> 200 for existing, 404 for unknown (3 tests)
+- GET /demo/api/jobs/{job_id}/events -> 200/404
+- GET /demo/api/jobs/{job_id}/reports -> 200
+- GET /demo/api/jobs/{job_id}/reports/{workflow_id} -> 200
+- GET /demo/report/{job_id} -> 200 HTML
+- GET /demo/api/reports/{job_id}/external -> 200
+- GET /demo/api/reports/{job_id}/internal -> 200
+
+## PUBLIC_SAFETY_GUARD_ADDED
+Yes — 28 safety assertions:
+- Unknown job returns safe 404 (4 tests)
+- Failed/no-report job does not expose report data (2 tests)
+- No raw S3 paths in HTML pages (5 parametrized)
+- No filesystem paths in HTML pages (5 parametrized)
+- No exception traces in HTML pages (5 parametrized)
+- No raw S3 paths in JSON endpoints (4 parametrized)
+- No filesystem paths in JSON endpoints (4 parametrized)
+- No exception traces in JSON endpoints (4 parametrized)
+- No raw model internals in /model/version (1 test)
+- No bucket names in /demo/api/models (1 test)
+
+## NO_SERVER_GUARD_PASSED
+Yes — the no_server_spawning_tests.py guard auto-detected the new file
+and passed (AST-based scan confirms no socket, http.server, socketserver,
+urlopen, serve_forever, or _find_free_port patterns). The test file also
+has 4 self-checking structural assertions.
+
+## FASTAPI_DEFAULT_PRESERVED
+Yes — no changes to src/bremen/api/fastapi_app.py or any other source file.
+
+## FULL_SUITE_RESULT
+3344 passed, 11 skipped, 0 failed
+
+## COVERAGE_RESULT
+N/A (not in PLAN.txt scope)
+
+## BLOCKERS
+None

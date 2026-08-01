@@ -1,0 +1,44 @@
+status: valid
+head: 44e91daf374479272a1f3ab000ca464685f5d644
+branch: 0104u-demo-public-surface-smoke-guard
+base_branch: dev
+pr_target: main
+blockers: []
+warnings:
+  - "on_event('startup') is deprecated in favor of lifespan event handlers. Non-blocking — existing tests pass."
+changed_files:
+  - tests/test_bremen_fastapi_public_demo_surface_smoke.py (added)
+  - agents/coder.yml (modified — added token_key config reference)
+  - agents/plan-review.yml (modified — added token_key config reference)
+  - agents/precommit-review.yml (modified — added token_key config reference)
+working_tree_state: dirty (3 modified, 1 added, 1 untracked directory)
+summary: "PR0104U adds a public demo surface smoke guard (75 tests) covering all public demo routes, nav links, job/report routes, negative safety cases, and public safety assertions. No production source changed. All 3344 tests pass."
+
+public_surface_guard_added: true
+nav_guard_added: true
+job_report_route_guard_added: true
+public_safety_guard_added: true
+no_server_guard_passed: true
+fastapi_default_preserved: true
+legacy_fallback_preserved: true
+serve_fastapi_preserved: true
+fastapi_factory_target_preserved: true
+dockerfile_unchanged: true
+auth_unchanged: true
+model_training_unchanged: true
+no_clinical_claims: true
+zero_server_policy_preserved: true
+guard_test:
+  file: tests/test_bremen_no_server_spawning_tests.py
+  result: 93 passed, 0 skipped, 0 failed
+public_demo_surface_smoke_tests: 75 passed
+model_playground_page_tests: 33 passed
+report_data_routes_tests: 20 passed
+full_suite_mandatory: true
+full_suite_result: 3344 passed, 11 skipped, 0 failed
+coverage_result: "84% total (no fail-under threshold configured)"
+project_memory_format: valid
+implementation_report:
+  path: .project-memory/pr/0104u-demo-public-surface-smoke-guard/implementation-report.txt
+  matches_diff: true
+commit_readiness: ready
