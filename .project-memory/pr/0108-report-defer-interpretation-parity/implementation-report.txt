@@ -1,0 +1,49 @@
+# PR0108 — Report Decision Interpretation Parity — Implementation Report
+
+## STATUS
+COMPLETE
+
+## HEAD
+68f0d0ed749be39b3a9dfebc4612fe0281e3101b
+
+## BRANCH
+0108-report-defer-interpretation-parity
+
+## FILES CHANGED
+- src/bremen/report_ui.py (JS section 6 — Decision Interpretation cards fixed)
+- tests/test_bremen_report_defer_interpretation_parity.py (NEW — 20 tests)
+
+## DEFER_INTERPRETATION_FIXED
+Yes — For MRI_REVIEW_DEFER / score below threshold:
+- Left card "MRI REVIEW DEFER" is highlighted as THIS RESULT
+- Left card text: "Score below threshold. MRI continuation may be deferred, subject to clinician review."
+- Right card "CONTINUE MRI" is not highlighted
+- Right card text: "Score at or above threshold. MRI continuation is flagged for clinician review."
+
+## CONTINUE_INTERPRETATION_PRESERVED
+Yes — For CONTINUE_MRI / score >= threshold:
+- Right card "CONTINUE MRI" is highlighted as THIS RESULT
+- Left card "MRI REVIEW DEFER" is not highlighted
+- Both cards keep their correct fixed meanings
+
+## REPORT_API_UNCHANGED
+Yes — No changes to report data payloads, FastAPI routes, job/report APIs, or model code.
+Only the JS rendering logic in report_ui.py was fixed.
+
+## TESTS ADDED
+20 tests in tests/test_bremen_report_defer_interpretation_parity.py:
+- 9 JS source-level assertions (isDefer/isContinue variables, THIS RESULT titles, fixed card text)
+- 3 sample data rendering assertions (decision code embedded, section present)
+- 5 safety assertions (no S3 paths, no filesystem paths, no traces, no checksums, no coefficients)
+- 3 existing structure assertions (title, tabs, assessment hero)
+
+## VALIDATION RESULTS
+- python -m compileall src tests: PASS
+- python -m pytest tests/test_bremen_report_defer_interpretation_parity.py: 20 passed
+- python -m pytest tests/test_bremen_fastapi_report_html_route.py: 18 passed
+- python -m pytest tests/test_bremen_fastapi_report_data_routes.py: 20 passed
+- python -m pytest tests/test_bremen_no_server_spawning_tests.py: 95 passed
+- python -m pytest (full suite): 3393 passed, 11 skipped, 0 failed
+
+## BLOCKERS
+None
