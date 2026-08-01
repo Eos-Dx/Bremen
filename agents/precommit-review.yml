@@ -9,6 +9,7 @@ models:
   precommit_review_model:
     provider: openai
     model: deepseek-chat
+    token_key: DEEPSEEK_API_KEY
     base_url: https://api.deepseek.com
     max_tokens: 30000
     temperature: 0
