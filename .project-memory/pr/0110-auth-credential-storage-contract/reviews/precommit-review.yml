@@ -1,0 +1,43 @@
+status: valid
+head: 8c9993e316932e7f1ff950c9178c80d10ad08ffe
+branch: 0110-auth-credential-storage-contract
+base_branch: dev
+pr_target: main
+blockers: []
+warnings: []
+changed_files:
+  - tests/test_bremen_auth_credential_storage_contract.py (added)
+working_tree_state: dirty (1 added, 1 untracked directory)
+summary: "PR0110 adds a test-only auth credential storage contract guard (47 tests). No source files changed. Verifies credentials are loaded only from env, passwords stored as argon2id/bcrypt hashes (plaintext/SHA/MD5 rejected), auth disabled by default, JWT secret never exposed, and auth routes preserved. All 3474 tests pass."
+
+current_credential_storage_summary: "Credentials loaded only from env via read_auth_config(); passwords stored as argon2id/bcrypt hashes; JWT secret from BREMEN_AUTH_JWT_SECRET env; auth disabled by default; access TTL 60-86400s (default 900); refresh TTL 3600-2592000s (default 604800); config never raises"
+password_hash_storage_verified: true
+plaintext_passwords_not_introduced: true
+auth_disabled_by_default_verified: true
+token_secret_not_exposed: true
+auth_routes_preserved: true
+global_auth_not_enforced: true
+no_real_secrets_found: true
+no_server_guard_passed: true
+fastapi_default_preserved: true
+legacy_fallback_preserved: true
+serve_fastapi_preserved: true
+fastapi_factory_target_preserved: true
+dockerfile_unchanged: true
+requirements_unchanged: true
+no_new_dependencies: true
+model_h5_report_workspace_unchanged: true
+no_clinical_claims: true
+zero_server_policy_preserved: true
+guard_test:
+  file: tests/test_bremen_no_server_spawning_tests.py
+  result: 97 passed, 0 skipped, 0 failed
+auth_credential_storage_contract_tests: 47 passed
+full_suite_mandatory: true
+full_suite_result: 3474 passed, 11 skipped, 0 failed
+coverage_result: "84% total (no fail-under threshold configured)"
+project_memory_format: valid
+implementation_report:
+  path: .project-memory/pr/0110-auth-credential-storage-contract/implementation-report.txt
+  matches_diff: true
+commit_readiness: ready
