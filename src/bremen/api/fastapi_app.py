@@ -46,6 +46,50 @@ from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 
 
+# ------------------------------------------------------------------
+# Auth enforcement dependency (PR0111)
+# ------------------------------------------------------------------
+
+_AUTH_ERROR_SHAPE: dict = {
+    "error": "Authentication failed",
+    "token_type": "Bearer",
+    "technical_demo_only": True,
+}
+
+
+def _check_auth_gate(request: Request) -> JSONResponse | None:
+    """Check auth gate for a request.
+
+    Returns None if request is allowed, or a JSONResponse 401 if rejected.
+    When auth is disabled or has validation_error, all requests pass.
+    When auth is enabled, a valid Bearer access token is required.
+    """
+    from bremen.api.server import _get_auth_config as _gac  # noqa: PLC0415
+
+    config = _gac()
+    if not config.enabled or config.validation_error:
+        return None  # auth not active — allow
+
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.strip().startswith("Bearer "):
+        return JSONResponse(content=_AUTH_ERROR_SHAPE, status_code=401)
+
+    from bremen.auth import (  # noqa: PLC0415
+        decode_access_token, AuthError,
+    )
+
+    token = auth_header.split(None, 1)[1].strip() if len(auth_header.split(None, 1)) == 2 else ""
+    if not token:
+        return JSONResponse(content=_AUTH_ERROR_SHAPE, status_code=401)
+
+    try:
+        decode_access_token(config, token)
+    except AuthError:
+        return JSONResponse(content=_AUTH_ERROR_SHAPE, status_code=401)
+
+    return None  # token valid — allow
+
+
 def create_fastapi_app(version: str | None = None) -> FastAPI:
     """Create and return a FastAPI application with Phase 1 + Phase 2 routes.
 
@@ -161,6 +205,9 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         Reuses :func:`bremen.api.server._build_containers_response`
         for business logic (shared with the http.server handler).
         """
+        gate = _check_auth_gate(request)
+        if gate is not None:
+            return gate
         import uuid as _uuid  # noqa: PLC0415
         from bremen.api.server import (  # noqa: PLC0415
             _build_containers_response as _build_containers,
@@ -183,6 +230,9 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         Reuses :func:`bremen.api.server._handle_h5_upload_bytes`
         for validation and S3 upload logic.
         """
+        gate = _check_auth_gate(request)
+        if gate is not None:
+            return gate
         import uuid as _uuid  # noqa: PLC0415
         from bremen.api.server import (  # noqa: PLC0415
             _handle_h5_upload_bytes as _upload_bytes,
@@ -206,6 +256,9 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         and :func:`bremen.api.job_api_handler.resolve_source` for
         business logic.
         """
+        gate = _check_auth_gate(request)
+        if gate is not None:
+            return gate
         from bremen.api.fastapi_contracts import JobCreateRequest  # noqa: PLC0415
 
         # Parse JSON body
@@ -483,6 +536,9 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
     @app.get("/demo/report/{job_id}")
     async def demo_report_page(job_id: str, request: Request) -> HTMLResponse:
         """Render the Bremen Report page for a specific job."""
+        gate = _check_auth_gate(request)
+        if gate is not None:
+            return gate
         import uuid as _uuid  # noqa: PLC0415
         from bremen.report_ui import build_report_page  # noqa: PLC0415
 
@@ -666,6 +722,9 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
 
         Mirrors ``_handle_workspace_route()`` from server.py.
         """
+        gate = _check_auth_gate(request)
+        if gate is not None:
+            return gate
         import uuid as _uuid  # noqa: PLC0415
         from bremen.workspace_ui import build_workspace_page  # noqa: PLC0415
 
@@ -682,6 +741,9 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
 
         Mirrors ``_handle_workspace_route()`` from server.py.
         """
+        gate = _check_auth_gate(request)
+        if gate is not None:
+            return gate
         import uuid as _uuid  # noqa: PLC0415
         from bremen.workspace_ui import build_workspace_page  # noqa: PLC0415
 
@@ -717,6 +779,9 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         Mirrors ``handle_jobs_list()`` from job_api_handler.
         Supports optional query parameters: model_id, workflow_id.
         """
+        gate = _check_auth_gate(request)
+        if gate is not None:
+            return gate
         import uuid as _uuid  # noqa: PLC0415
         from bremen.api.job_api_handler import (  # noqa: PLC0415
             list_analysis_jobs, _event_store,
@@ -747,6 +812,9 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
 
         Mirrors ``handle_job_get()`` from job_api_handler.
         """
+        gate = _check_auth_gate(request)
+        if gate is not None:
+            return gate
         import uuid as _uuid  # noqa: PLC0415
         from bremen.api.job_api_handler import (  # noqa: PLC0415
             _jobs, _jobs_lock, _event_store,
@@ -796,6 +864,9 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
 
         Mirrors ``handle_job_reports()`` from job_api_handler.
         """
+        gate = _check_auth_gate(request)
+        if gate is not None:
+            return gate
         import uuid as _uuid  # noqa: PLC0415
         from bremen.api.job_api_handler import get_job_reports  # noqa: PLC0415
 
@@ -813,6 +884,9 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
 
         Mirrors ``handle_job_report()`` from job_api_handler.
         """
+        gate = _check_auth_gate(request)
+        if gate is not None:
+            return gate
         import uuid as _uuid  # noqa: PLC0415
         from bremen.api.job_api_handler import get_job_report  # noqa: PLC0415
 
@@ -834,6 +908,9 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
 
         Mirrors ``handle_external_report()`` from job_api_handler.
         """
+        gate = _check_auth_gate(request)
+        if gate is not None:
+            return gate
         import uuid as _uuid  # noqa: PLC0415
         from bremen.api.job_api_handler import (  # noqa: PLC0415
             _jobs, _jobs_lock, _get_report_provider,
@@ -880,6 +957,9 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
 
         Mirrors ``handle_internal_report()`` from job_api_handler.
         """
+        gate = _check_auth_gate(request)
+        if gate is not None:
+            return gate
         import uuid as _uuid  # noqa: PLC0415
         from bremen.api.job_api_handler import (  # noqa: PLC0415
             _jobs, _jobs_lock, _get_report_provider,
@@ -932,6 +1012,9 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
 
         Mirrors ``handle_job_events()`` from job_api_handler.
         """
+        gate = _check_auth_gate(request)
+        if gate is not None:
+            return gate
         import uuid as _uuid  # noqa: PLC0415
         from bremen.api.job_api_handler import (  # noqa: PLC0415
             _event_store, get_job_events,
@@ -975,6 +1058,9 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         Uses a dedicated ThreadPoolExecutor for blocking
         ``wait_for_events()`` calls.
         """
+        gate = _check_auth_gate(request)
+        if gate is not None:
+            return gate
         import asyncio  # noqa: PLC0415
         import time as _time  # noqa: PLC0415
         import uuid as _uuid  # noqa: PLC0415

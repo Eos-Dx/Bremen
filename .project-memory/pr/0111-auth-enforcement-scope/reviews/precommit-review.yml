@@ -1,0 +1,46 @@
+status: valid
+head: 97d4ba15227aceb80fb0436ca710b826d908cd8d
+branch: 0111-auth-enforcement-scope
+base_branch: dev
+pr_target: main
+blockers: []
+warnings:
+  - "on_event('startup') is deprecated in favor of lifespan event handlers. Non-blocking — existing tests pass."
+changed_files:
+  - src/bremen/api/fastapi_app.py (modified)
+  - tests/test_bremen_fastapi_auth_enforcement.py (added)
+working_tree_state: dirty (1 modified, 1 added, 1 untracked directory)
+summary: "PR0111 adds an auth enforcement gate (_check_auth_gate) applied to 14 protected patient-related routes. When auth is disabled (default), all routes behave as before. When auth is enabled, protected routes require a valid Bearer access token and return a safe 401 shape. Public pages and auth token/refresh routes remain public. All 3500 tests pass."
+
+auth_disabled_behavior_preserved: true
+protected_routes_require_auth_when_enabled: true
+public_routes_remain_public: true
+token_refresh_routes_remain_public: true
+safe_401_shape_verified: true
+no_secret_exposure: true
+global_auth_not_enforced: true
+no_real_secrets_found: true
+no_server_guard_passed: true
+fastapi_default_preserved: true
+legacy_fallback_preserved: true
+serve_fastapi_preserved: true
+fastapi_factory_target_preserved: true
+dockerfile_unchanged: true
+requirements_unchanged: true
+no_new_dependencies: true
+model_h5_report_workspace_unchanged: true
+no_clinical_claims: true
+zero_server_policy_preserved: true
+guard_test:
+  file: tests/test_bremen_no_server_spawning_tests.py
+  result: 98 passed, 0 skipped, 0 failed
+auth_enforcement_tests: 25 passed
+public_demo_surface_smoke_tests: 75 passed
+full_suite_mandatory: true
+full_suite_result: 3500 passed, 11 skipped, 0 failed
+coverage_result: "84% total (no fail-under threshold configured)"
+project_memory_format: valid
+implementation_report:
+  path: .project-memory/pr/0111-auth-enforcement-scope/implementation-report.txt
+  matches_diff: true
+commit_readiness: ready
