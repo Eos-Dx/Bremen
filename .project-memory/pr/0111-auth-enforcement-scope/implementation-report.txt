@@ -1,0 +1,68 @@
+# PR0111 — Auth Enforcement Scope for Patient-Related Demo APIs — Implementation Report
+
+## STATUS
+COMPLETE
+
+## HEAD
+97d4ba15227aceb80fb0436ca710b826d908cd8d
+
+## BRANCH
+0111-auth-enforcement-scope
+
+## FILES CHANGED
+- src/bremen/api/fastapi_app.py (_check_auth_gate dependency + applied to 14 protected routes)
+- tests/test_bremen_fastapi_auth_enforcement.py (NEW — 25 tests)
+
+## AUTH_DISABLED_BEHAVIOR_PRESERVED
+Yes — When auth is disabled (default), _check_auth_gate returns None for all requests. All protected routes behave exactly as before with no token required.
+
+## PROTECTED_ROUTES_REQUIRE_AUTH_WHEN_ENABLED
+Yes — When auth is enabled, the following routes require valid Bearer access token:
+- GET /demo/api/h5/containers
+- POST /demo/api/h5/containers
+- POST /demo/api/jobs
+- GET /demo/api/jobs
+- GET /demo/api/jobs/{job_id}
+- GET /demo/api/jobs/{job_id}/events
+- GET /demo/api/jobs/{job_id}/events/stream
+- GET /demo/api/jobs/{job_id}/reports
+- GET /demo/api/jobs/{job_id}/reports/{workflow_id}
+- GET /demo/report/{job_id}
+- GET /demo/api/reports/{job_id}/external
+- GET /demo/api/reports/{job_id}/internal
+- GET /demo/workspace
+- GET /demo/workspace/{job_id}
+
+## PUBLIC_ROUTES_REMAIN_PUBLIC
+Yes — Public pages never require auth even when enabled:
+- GET /demo, /demo/login, /demo/control-room, /demo/api-docs
+- GET /demo/model-guide, /demo/model-playground
+- GET /model/version, /health, /demo/api/models
+
+## TOKEN_REFRESH_ROUTES_REMAIN_PUBLIC
+Yes — POST /demo/api/auth/token and POST /demo/api/auth/refresh are never gated.
+
+## SAFE_401_SHAPE_VERIFIED
+Yes — 401 responses contain only: {"error": "Authentication failed", "token_type": "Bearer", "technical_demo_only": true}. No password hashes, signing secrets, config values, stack traces, or internal paths exposed.
+
+## NO_SECRET_EXPOSURE
+Yes — Auth gate only reads config, validates token, and returns generic error. No secrets, hashes, or internals leak in any response path.
+
+## TESTS_ADDED
+25 tests in tests/test_bremen_fastapi_auth_enforcement.py:
+- 2 tests: auth disabled → protected routes still work (no 401/503)
+- 5 tests: auth enabled + missing/invalid token → safe 401
+- 7 tests: auth enabled + valid token → representative routes work
+- 3 tests: public pages always reachable without auth
+- 3 tests: no global auth enforcement
+- 5 tests: safe 401 shape consistency
+
+## VALIDATION_RESULTS
+- python -m compileall src tests: PASS
+- python -m pytest tests/test_bremen_fastapi_auth_enforcement.py: 25 passed
+- python -m pytest tests/test_bremen_fastapi_public_demo_surface_smoke.py: 75 passed
+- python -m pytest tests/test_bremen_no_server_spawning_tests.py: 98 passed
+- python -m pytest (full suite): 3500 passed, 11 skipped, 0 failed
+
+## BLOCKERS
+None
