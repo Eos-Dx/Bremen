@@ -191,6 +191,48 @@ class TestPipelineStageMapping:
         assert "BREMEN_STAGE_ORDER" not in page
 
 
+class TestControlRoomAuthFetchParity:
+    """Protected Control Room data loads use the auth-aware wrapper."""
+
+    def _function_body(self, page: str, function_name: str) -> str:
+        fn_start = page.find(f"function {function_name}")
+        assert fn_start >= 0
+        fn_end = page.find("function ", fn_start + 10)
+        return page[fn_start:fn_end if fn_end > 0 else len(page)]
+
+    def test_container_catalog_uses_auth_fetch(self):
+        page = build_control_room_page()
+        fn_body = self._function_body(page, "loadContainerCatalog")
+
+        assert "_authFetch(baseUrl+'/demo/api/h5/containers')" in fn_body
+
+    def test_job_history_uses_auth_fetch(self):
+        page = build_control_room_page()
+        fn_body = self._function_body(page, "loadJobHistory")
+
+        assert "var url = baseUrl+'/demo/api/jobs';" in fn_body
+        assert "_authFetch(url)" in fn_body
+
+    def test_initial_job_events_uses_auth_fetch(self):
+        page = build_control_room_page()
+        fn_body = self._function_body(page, "fetchInitialEvents")
+
+        assert "_authFetch(baseUrl+'/demo/api/jobs/'+jobId+'/events')" in fn_body
+
+    def test_job_decision_uses_auth_fetch(self):
+        page = build_control_room_page()
+        fn_body = self._function_body(page, "fetchDecision")
+
+        assert "_authFetch(baseUrl+'/demo/api/jobs/'+jobId)" in fn_body
+
+    def test_public_routes_remain_plain_fetch(self):
+        page = build_control_room_page()
+
+        assert "fetch(baseUrl+'/demo/api/models')" in page
+        assert "fetch(baseUrl+'/health')" in page
+        assert "fetch(baseUrl+'/model/version')" in page
+
+
 class TestAccessibility:
     """Control Room meets accessibility requirements."""
 

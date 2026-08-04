@@ -1,0 +1,61 @@
+status: valid
+head: c89a460b1e14be1644e3bb3cfbe9d9815360eaf5
+branch: 0113-control-room-authfetch-parity
+base_branch: dev
+pr_target: main
+blockers: []
+warnings: []
+changed_files:
+  - src/bremen/control_room_ui.py (modified)
+  - tests/test_bremen_control_room.py (modified)
+working_tree_state: dirty (2 modified, uncommitted, staging empty)
+summary: "PR0113 converts four protected Control Room data-loading calls to use _authFetch(): loadContainerCatalog (h5/containers), loadJobHistory (jobs), fetchInitialEvents (jobs/{id}/events), fetchDecision (jobs/{id}). Public routes (models, health, model/version) remain plain fetch(). _authFetch implementation, SSE/EventSource, openJob/navigation, and backend auth are untouched. All 3544 tests pass."
+
+authfetch_replacement_review:
+  loadContainerCatalog: "_authFetch(baseUrl+'/demo/api/h5/containers')" (line 285)
+  loadJobHistory: "_authFetch(url)" (line 628)
+  fetchInitialEvents: "_authFetch(baseUrl+'/demo/api/jobs/'+jobId+'/events')" (line 737)
+  fetchDecision: "_authFetch(baseUrl+'/demo/api/jobs/'+jobId)" (line 871)
+  count: 4
+  unrelated_fetch_changed: false
+  promise_chains_changed: false
+  surrounding_behavior_changed: false
+
+public_route_review:
+  fetch_models: "fetch(baseUrl+'/demo/api/models')" (line 430)
+  fetch_health: "fetch(baseUrl+'/health')" (line 579)
+  fetch_model_version: "fetch(baseUrl+'/model/version')" (line 580)
+  count: 3
+  remain_plain_fetch: true
+
+sse_eventsource_review: untouched
+openjob_navigation_review: untouched
+authfetch_implementation_review: untouched
+backend_auth_review: untouched
+
+test_review:
+  file: tests/test_bremen_control_room.py
+  class: TestControlRoomAuthFetchParity
+  tests: 5
+  covers_four_replacements: true
+  covers_public_routes_plain_fetch: true
+  style_matches_existing: true
+
+security_review:
+  no_hardcoded_credentials: true
+  no_leaked_tokens: true
+  no_auth_secret_changes: true
+  no_unsafe_dom_changes: true
+  no_broadening_unauthenticated_routes: true
+
+validation:
+  compileall: passed
+  focused_tests: 523 passed
+  full_suite: 3544 passed, 11 skipped, 0 failed
+  git_diff_check: clean
+
+regression_results:
+  control_room_tests: 523 passed
+  full_suite: 3544 passed, 11 skipped, 0 failed
+
+commit_readiness: ready
