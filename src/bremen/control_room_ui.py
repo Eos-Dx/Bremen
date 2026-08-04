@@ -282,7 +282,7 @@ function init(){
 function loadContainerCatalog(){
   var list=document.getElementById('cr-container-list');
   var status=document.getElementById('cr-catalog-status');
-  fetch(baseUrl+'/demo/api/h5/containers')
+  _authFetch(baseUrl+'/demo/api/h5/containers')
     .then(function(r){return r.json()})
     .then(function(data){
       if(data.storage==='not_configured'){
@@ -625,7 +625,7 @@ function loadJobHistory(){
   if(selectedModelId) params.append('model_id', selectedModelId);
   var qs = params.toString();
   if(qs) url += '?' + qs;
-  fetch(url)
+  _authFetch(url)
     .then(function(r){return r.json()})
     .then(function(data){
       var jobs=data.jobs||[];
@@ -734,7 +734,7 @@ function openJob(jobId){
 }
 
 function fetchInitialEvents(jobId){
-  fetch(baseUrl+'/demo/api/jobs/'+jobId+'/events')
+  _authFetch(baseUrl+'/demo/api/jobs/'+jobId+'/events')
     .then(function(r){return r.json()})
     .then(function(data){
       if(data.events){data.events.forEach(function(ev){processEvent(ev)})}
@@ -868,7 +868,7 @@ function setConnectionState(state){
 }
 
 function fetchDecision(jobId){
-  fetch(baseUrl+'/demo/api/jobs/'+jobId)
+  _authFetch(baseUrl+'/demo/api/jobs/'+jobId)
     .then(function(r){return r.json()})
     .then(function(job){
       // Failed jobs must not render decision/report
