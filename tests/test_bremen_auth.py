@@ -19,6 +19,8 @@ from bremen.auth import (
     create_refresh_token,
     decode_access_token,
     decode_refresh_token,
+    create_stream_ticket,
+    decode_stream_ticket,
     authenticate_credentials,
     parse_bearer_header,
     authenticate_request,
@@ -28,6 +30,7 @@ from bremen.auth import (
     TokenInvalidError,
     TokenPair,
     TokenClaims,
+    TicketClaims,
 )
 
 
@@ -534,3 +537,124 @@ class TestSafetyInvariants:
         time.sleep(1.1)
         with pytest.raises(TokenExpiredError, match="expired"):
             decode_access_token(cfg, token)
+
+
+# ===========================================================================
+# Stream ticket tests (PR0114)
+# ===========================================================================
+
+
+class TestStreamTicket:
+    """Stream ticket creation and decoding."""
+
+    def test_create_and_decode_stream_ticket(self):
+        """Valid ticket decodes with job_id and purpose."""
+        cfg = _make_config()
+        token = create_stream_ticket(cfg, "testuser", "job-abc", "stream")
+        claims = decode_stream_ticket(cfg, token, "job-abc", "stream")
+        assert claims.sub == "testuser"
+        assert claims.job_id == "job-abc"
+        assert claims.purpose == "stream"
+        assert claims.token_type == "stream_ticket"
+        assert claims.jti  # non-empty UUID
+        assert claims.expires_at > claims.issued_at
+
+    def test_ticket_job_id_binding(self):
+        """Ticket for job A rejected on job B."""
+        cfg = _make_config()
+        token = create_stream_ticket(cfg, "testuser", "job-a", "stream")
+        with pytest.raises(TokenInvalidError):
+            decode_stream_ticket(cfg, token, "job-b", "stream")
+
+    def test_ticket_purpose_binding_stream_on_report(self):
+        """Stream ticket rejected on report route."""
+        cfg = _make_config()
+        token = create_stream_ticket(cfg, "testuser", "job-abc", "stream")
+        with pytest.raises(TokenInvalidError):
+            decode_stream_ticket(cfg, token, "job-abc", "report")
+
+    def test_ticket_purpose_binding_report_on_stream(self):
+        """Report ticket rejected on stream route."""
+        cfg = _make_config()
+        token = create_stream_ticket(cfg, "testuser", "job-abc", "report")
+        with pytest.raises(TokenInvalidError):
+            decode_stream_ticket(cfg, token, "job-abc", "stream")
+
+    def test_expired_ticket_rejected(self):
+        """Expired ticket (>60s) rejected."""
+        cfg = _make_config(access_ttl=999)
+        # Create ticket with 1-second TTL by mocking
+        import bremen.auth as auth_mod
+        old_ttl = auth_mod._STREAM_TICKET_TTL
+        try:
+            auth_mod._STREAM_TICKET_TTL = 1
+            token = create_stream_ticket(cfg, "testuser", "job-abc", "stream")
+        finally:
+            auth_mod._STREAM_TICKET_TTL = old_ttl
+        time.sleep(1.1)
+        with pytest.raises(TokenExpiredError):
+            decode_stream_ticket(cfg, token, "job-abc", "stream")
+
+    def test_access_token_rejected_as_stream_ticket(self):
+        """Access token rejected where stream_ticket expected."""
+        cfg = _make_config()
+        token = create_access_token(cfg, "testuser")
+        with pytest.raises(TokenInvalidError):
+            decode_stream_ticket(cfg, token, "any-job", "stream")
+
+    def test_refresh_token_rejected_as_stream_ticket(self):
+        """Refresh token rejected where stream_ticket expected."""
+        cfg = _make_config()
+        token = create_refresh_token(cfg, "testuser")
+        with pytest.raises(TokenInvalidError):
+            decode_stream_ticket(cfg, token, "any-job", "stream")
+
+    def test_stream_ticket_rejected_as_access_token(self):
+        """Stream ticket rejected where access token expected."""
+        cfg = _make_config()
+        token = create_stream_ticket(cfg, "testuser", "job-abc", "stream")
+        with pytest.raises(TokenInvalidError):
+            decode_access_token(cfg, token)
+
+    def test_stream_ticket_rejected_as_refresh_token(self):
+        """Stream ticket rejected where refresh token expected."""
+        cfg = _make_config()
+        token = create_stream_ticket(cfg, "testuser", "job-abc", "stream")
+        with pytest.raises(TokenInvalidError):
+            decode_refresh_token(cfg, token)
+
+    def test_ticket_issuer_in_claims_when_configured(self):
+        """iss claim present in ticket when issuer configured."""
+        cfg = _make_config(jwt_issuer="my-issuer")
+        token = create_stream_ticket(cfg, "testuser", "job-abc", "stream")
+        claims = decode_stream_ticket(cfg, token, "job-abc", "stream")
+        assert claims.iss == "my-issuer"
+
+    def test_ticket_issuer_rejected_when_wrong(self):
+        """Ticket with wrong issuer rejected."""
+        cfg = _make_config(jwt_issuer="correct-issuer")
+        token = create_stream_ticket(cfg, "testuser", "job-abc", "stream")
+        wrong_cfg = _make_config(jwt_issuer="wrong-issuer")
+        with pytest.raises(TokenInvalidError):
+            decode_stream_ticket(wrong_cfg, token, "job-abc", "stream")
+
+    def test_ticket_no_secret_in_error(self):
+        """Ticket error messages do not contain secrets."""
+        cfg = _make_config()
+        token = create_stream_ticket(cfg, "testuser", "job-abc", "stream")
+        try:
+            decode_stream_ticket(cfg, "garbage", "job-abc", "stream")
+        except AuthError as e:
+            assert token not in str(e)
+            assert cfg.jwt_secret not in str(e)
+            assert "job-abc" not in str(e)
+
+    def test_ticket_claims_is_frozen_dataclass(self):
+        """TicketClaims is a frozen dataclass."""
+        cfg = _make_config()
+        token = create_stream_ticket(cfg, "testuser", "job-abc", "report")
+        claims = decode_stream_ticket(cfg, token, "job-abc", "report")
+        assert isinstance(claims, TicketClaims)
+        # Frozen dataclass - cannot set attributes
+        with pytest.raises(AttributeError):
+            claims.purpose = "stream"

@@ -1,0 +1,151 @@
+# Plan Review — PR0114 SSE and report-page ticket auth
+# Reviewed: 2026-08-04T23:47:59Z
+# Agent: plan-review
+
+verdict: approved
+blockers: []
+warnings:
+  - |
+    tests/test_bremen_fastapi_app.py does not exist in the repository
+    (verified: ls tests/ shows test_bremen_fastapi_auth_enforcement.py,
+    test_bremen_fastapi_demo_routes.py, test_bremen_fastapi_phase*.py,
+    but no test_bremen_fastapi_app.py). The PLAN.md VALIDATION PLAN and
+    implementation step 5 reference this file. The command
+    'python -m pytest -q tests/test_bremen_fastapi_app.py -v' will fail
+    with pytest exit code 4 (file not found). Coder must either create
+    tests/test_bremen_fastapi_app.py or map the planned ticket tests onto
+    the existing test_bremen_fastapi_auth_enforcement.py (currently 25
+    tests, matching the plan's regression claim).
+  - |
+    TokenClaims (src/bremen/auth.py) has no job_id or purpose fields, and
+    _decode_token() returns TokenClaims. decode_stream_ticket() must
+    therefore either extend TokenClaims, decode the payload separately to
+    read the job_id/purpose claims, or return a new ticket-claims type.
+    The plan does not specify how job_id/purpose survive the _decode_token
+    round-trip; coder must resolve this without weakening type isolation.
+  - |
+    The fall-through rule (step 2c: invalid/expired Bearer access token
+    falls through to ticket check) means a request with an expired access
+    token plus a valid ticket passes. This is intentional and additive
+    (documented in PLAN.md SSE fallback step 2c), but reviewers should
+    confirm the coder preserves the exact ordering: valid Bearer first,
+    ticket second, 401 otherwise.
+  - |
+    The ticket JWT (token_type=stream_ticket) is signed with the same
+    HS256 secret as access/refresh tokens and appears in URL query
+    strings (?auth_ticket=...). Replay risk is bounded by the 60s TTL,
+    job_id binding, purpose binding, and token_type isolation, and is
+    documented in the plan's single-use decision. Acceptable for the
+    demo scope.
+checks:
+  token_type_isolation:
+    status: pass
+    detail: "PLAN.md NEW TOKEN TYPE SPECIFICATION defines token_type='stream_ticket',
+      distinct from 'access' and 'refresh'. Verified: src/bremen/auth.py _decode_token()
+      validates payload token_type against expected_type parameter; access and refresh
+      paths never pass 'stream_ticket'."
+  cross_use_rejected:
+    status: pass
+    detail: "PLAN.md 'How ticket type isolation is enforced' and manual test cases 6, 7, 8
+      (access token in auth_ticket param rejected, refresh token in auth_ticket param
+      rejected, stream_ticket on non-SSE/report protected route rejected)."
+  job_id_binding:
+    status: pass
+    detail: "PLAN.md ticket claims include job_id; SSE/report gate validates
+      claims.job_id == path parameter {job_id}. Manual test cases 2 (cross-job 401)."
+  purpose_binding:
+    status: pass
+    detail: "PLAN.md purpose claim ('stream' | 'report') with rejection matrix:
+      stream ticket on report route 401, report ticket on SSE route 401 (test cases 3, 4)."
+  ttl_shorter_than_access:
+    status: pass
+    detail: "TTL = 60 seconds vs access token 900 seconds (15x shorter). Explicit statement:
+      '60 seconds is 15x shorter than the 900-second access token TTL.'"
+  ttl_justified:
+    status: pass
+    detail: "Justification: minted immediately before use (<2s round-trip), margin for slow
+      networks/preload/EventSource reconnect, SSE stream has 300s deadline, falls within
+      required 30-120s range."
+  no_access_refresh_in_url:
+    status: pass
+    detail: "PLAN.md 'Access/refresh token URL safety': access/refresh tokens stored in
+      sessionStorage, transmitted only via Authorization header through _authFetch(), never
+      in URLs. Only auth_ticket (stream_ticket JWT) appears in query strings."
+  single_use_vs_reusable:
+    status: pass
+    detail: "Explicitly resolved: short-lived reusable within 60s TTL, with rationale
+      (EventSource reconnect fragility, report page reload, minimal risk given job_id/purpose/
+      TTL bounds, no in-memory tracking complexity)."
+  protected_routes_unchanged:
+    status: pass
+    detail: "PLAN.md: _check_auth_gate unchanged; only 2 routes (SSE stream + report page)
+      gain additive ticket fallback. Non-goals: 'No changes to non-SSE/report protected
+      routes'. Manual test case 12: other protected routes still 401 without auth.
+      Verified: fastapi_app.py _check_auth_gate used by all other protected routes."
+  auth_gate_extended_not_weakened:
+    status: pass
+    detail: "PLAN.md SSE fallback step 2 preserves existing _check_auth_gate behavior:
+      valid Bearer first, ticket second, 401 otherwise. 'Step 2 is the existing
+      _check_auth_gate behavior. It is not weakened.'"
+  ticket_minting_requires_access_token:
+    status: pass
+    detail: "PLAN.md TICKET-MINTING ENDPOINT: POST /demo/api/jobs/{job_id}/auth/ticket
+      requires valid Bearer access token verified through existing _check_auth_gate.
+      Same gate as all other protected routes."
+  evidence_route_out_of_scope:
+    status: pass
+    detail: "PLAN.md EVIDENCE-ROUTE SCOPE CONFIRMATION: '/demo/api/evidence is explicitly
+      out of scope for PR0114... No changes to its auth behavior are planned or permitted.'
+      Non-goals: 'No fix for /demo/api/evidence'."
+  client_flow_authfetch_mint:
+    status: pass
+    detail: "_authFetchTicket() uses _authFetch() (verified in control_room_ui.py line 208)
+      which attaches Bearer and handles refresh-redirect. connectSSE() (line 744) and
+      openJob() (line 732) line numbers match PLAN.md exactly."
+  connect_sse_mint_failure_handling:
+    status: pass
+    detail: "PLAN.md connectSSE() new flow: .catch() sets connection state 'disconnected'
+      and state 'failed'; _authFetch internally redirects to login on expired session."
+  open_job_mint_failure_handling:
+    status: pass
+    detail: "PLAN.md openJob() new flow: .catch() calls _redirectToLogin() on mint failure."
+  sse_ticket_fallback_additive:
+    status: pass
+    detail: "Ticket path reached only when no Authorization header or invalid access token;
+      valid Bearer access token path unchanged (manual test case 9: access token via
+      Authorization header on SSE route -> 200 existing path)."
+  report_ticket_fallback_additive:
+    status: pass
+    detail: "Same _check_auth_gate_with_ticket(request, job_id, 'report') pattern; Bearer
+      path preserved first."
+validation:
+  plan_includes_compileall: pass
+  plan_includes_auth_tests: pass
+  plan_includes_fastapi_app_tests:
+    status: warning
+    detail: "PLAN.md includes 'python -m pytest -q tests/test_bremen_fastapi_app.py -v'
+      but tests/test_bremen_fastapi_app.py does not exist in the repository. Command would
+      fail with pytest exit code 4. Coder must create the file or reconcile the name."
+  plan_includes_control_room_tests: pass
+  plan_includes_full_suite: pass
+  manual_wrong_job_id_rejected: pass
+    detail: "Manual test case 2: ticket for job A used on job B SSE route -> 401"
+  manual_expired_ticket_rejected: pass
+    detail: "Manual test case 5: expired ticket (>60s) on SSE route -> 401"
+  manual_access_token_rejected_where_ticket_expected: pass
+    detail: "Manual test case 6: access token in auth_ticket param -> 401 (token_type mismatch)"
+  manual_refresh_token_rejected_where_ticket_expected: pass
+    detail: "Manual test case 7: refresh token in auth_ticket param -> 401 (token_type mismatch)"
+  manual_ticket_rejected_where_access_expected: pass
+    detail: "Manual test case 8: stream_ticket on non-SSE/report protected route -> 401"
+  manual_no_long_lived_token_in_url: pass
+    detail: "PLAN.md 'Access/refresh token URL safety' + manual test cases 6/7 confirm only
+      stream_ticket JWT may appear in URLs, never access/refresh."
+  manual_auth_disabled_passthrough: pass
+    detail: "Manual test cases 13, 14: auth disabled -> SSE/report without ticket 200"
+commit_readiness:
+  ready_for_commit: true
+  ready_for_implementation: true
+  notes: "Planning PR is safe to commit. Implementation must resolve the
+    tests/test_bremen_fastapi_app.py naming discrepancy and the TokenClaims
+    job_id/purpose claim extraction detail before or during coding."

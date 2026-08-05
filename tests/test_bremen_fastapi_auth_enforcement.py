@@ -18,6 +18,7 @@ No real server, socket, localhost HTTP, uvicorn launch.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -42,7 +43,12 @@ def _reset_auth_after_test():
     """Ensure auth config singleton is reset after every test."""
     yield
     from bremen.api.server import _reset_auth_config  # noqa: PLC0415
+    from bremen.api.job_api_handler import _jobs, _jobs_lock  # noqa: PLC0415
+    from bremen.api.job_api_handler import _event_store  # noqa: PLC0415
     _reset_auth_config()
+    with _jobs_lock:
+        _jobs.clear()
+    _event_store.reset_for_tests()
 
 
 def _make_app(auth_enabled: bool = False):
@@ -96,6 +102,24 @@ def _auth_headers(token: str = "") -> dict:
     if token:
         return {"Authorization": f"Bearer {token}"}
     return {}
+
+
+def _make_stream_ticket(job_id: str = "test-job-123", purpose: str = "stream"):
+    """Generate a valid stream ticket for testing."""
+    from bremen.auth import create_stream_ticket  # noqa: PLC0415
+    from bremen.config import AuthConfig  # noqa: PLC0415
+
+    cfg = AuthConfig(
+        enabled=True,
+        username=_FAKE_USERNAME,
+        password_hash=_FAKE_HASH,
+        jwt_secret=_FAKE_JWT_SECRET,
+        jwt_issuer="test-enforcement-issuer",
+        jwt_audience="test-enforcement-audience",
+        access_ttl_seconds=900,
+        refresh_ttl_seconds=604800,
+    )
+    return create_stream_ticket(cfg, _FAKE_USERNAME, job_id, purpose)
 
 
 # ---------------------------------------------------------------------------
@@ -463,3 +487,317 @@ class TestSafe401Shape:
         assert _FAKE_HASH not in text
         assert _FAKE_JWT_SECRET not in text
         assert _FAKE_PASSWORD not in text
+
+
+# ===========================================================================
+# 7. Ticket minting endpoint
+# ===========================================================================
+
+
+class TestTicketMintingEndpoint:
+    """POST /demo/api/jobs/{job_id}/auth/ticket endpoint."""
+
+    def _inject_job(self, client, job_id: str = "test-job") -> None:
+        """Inject a test job so the mint endpoint can find it."""
+        from bremen.api.job_api_handler import _jobs, _jobs_lock  # noqa: PLC0415
+        from bremen.api.job_api_handler import _event_store  # noqa: PLC0415
+        from bremen.api.job_models import AnalysisJob  # noqa: PLC0415
+        import time as _time
+
+        now = datetime.now(timezone.utc).isoformat()
+        job = AnalysisJob(
+            job_id=job_id,
+            request_id="test",
+            created_at=now,
+            overall_status="running",
+            requested_workflows=("bremen",),
+        )
+        with _jobs_lock:
+            _jobs[job_id] = job
+        # Also emit a minimal event so _event_store knows about the job
+        from bremen.api.event_schema import JobEvent  # noqa: PLC0415
+        _event_store.append(job_id, JobEvent(
+            job_id=job_id,
+            request_id="test",
+            sequence=1,
+            event_type="test",
+            status="started",
+        ))
+
+    def test_mint_endpoint_requires_bearer(self):
+        """Mint endpoint requires valid Bearer access token."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        self._inject_job(client, "test-job")
+        resp = client.post(
+            "/demo/api/jobs/test-job/auth/ticket",
+            json={"purpose": "stream"},
+        )
+        assert resp.status_code == 401
+
+    def test_mint_endpoint_rejects_ticket_auth(self):
+        """Mint endpoint rejects ticket (not access token) as auth."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        self._inject_job(client, "test-job")
+        ticket = _make_stream_ticket("test-job", "stream")
+        resp = client.post(
+            "/demo/api/jobs/test-job/auth/ticket",
+            json={"purpose": "stream"},
+            headers={"Authorization": f"Bearer {ticket}"},
+        )
+        assert resp.status_code == 401
+
+    def test_mint_endpoint_valid_token(self):
+        """Mint endpoint returns 201 with valid access token."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        self._inject_job(client, "test-job")
+        token = _make_token()
+        resp = client.post(
+            "/demo/api/jobs/test-job/auth/ticket",
+            json={"purpose": "stream"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert "ticket" in body
+        assert body["expires_in"] == 60
+        assert body["token_type"] == "stream_ticket"
+        assert body["job_id"] == "test-job"
+        assert body["purpose"] == "stream"
+        assert body["technical_demo_only"] is True
+
+    def test_mint_endpoint_report_purpose(self):
+        """Mint endpoint works for report purpose."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        self._inject_job(client, "test-job")
+        token = _make_token()
+        resp = client.post(
+            "/demo/api/jobs/test-job/auth/ticket",
+            json={"purpose": "report"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["purpose"] == "report"
+
+    def test_mint_endpoint_invalid_purpose_400(self):
+        """Mint endpoint rejects invalid purpose."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        self._inject_job(client, "test-job")
+        token = _make_token()
+        resp = client.post(
+            "/demo/api/jobs/test-job/auth/ticket",
+            json={"purpose": "invalid"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 400
+
+    def test_mint_endpoint_missing_purpose_400(self):
+        """Mint endpoint rejects missing purpose."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        self._inject_job(client, "test-job")
+        token = _make_token()
+        resp = client.post(
+            "/demo/api/jobs/test-job/auth/ticket",
+            json={},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 400
+
+    def test_mint_endpoint_auth_disabled_allows_through(self):
+        """Mint endpoint allows through when auth disabled (same as _check_auth_gate)."""
+        app = _make_app(auth_enabled=False)
+        client = TestClient(app, raise_server_exceptions=False)
+        # Auth disabled → gate returns None → endpoint proceeds to decode_access_token
+        # which will fail because config has no secret → 500 (server error)
+        resp = client.post(
+            "/demo/api/jobs/test-job/auth/ticket",
+            json={"purpose": "stream"},
+        )
+        # When auth is disabled, the gate passes, but decode_access_token
+        # will fail because the config is not set up for token creation.
+        # The key assertion: NOT 401 (auth gate allows through)
+        assert resp.status_code != 401
+
+    def test_mint_endpoint_job_not_found_404(self):
+        """Mint endpoint returns 404 when job does not exist."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        token = _make_token()
+        resp = client.post(
+            "/demo/api/jobs/nonexistent-job/auth/ticket",
+            json={"purpose": "stream"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+
+
+# ===========================================================================
+# 8. SSE route ticket fallback
+# ===========================================================================
+
+
+class TestSSERouteTicketFallback:
+    """GET /demo/api/jobs/{job_id}/events/stream ticket fallback."""
+
+    def test_stream_route_accepts_valid_bearer(self):
+        """Stream route accepts valid Bearer token."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        token = _make_token()
+        resp = client.get(
+            "/demo/api/jobs/test-job/events/stream",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        # Should not be 401 — may be 200 or other non-auth error
+        assert resp.status_code != 401
+
+    def test_stream_route_accepts_valid_stream_ticket(self):
+        """Stream route accepts valid stream ticket via query param."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        ticket = _make_stream_ticket("test-job", "stream")
+        resp = client.get(
+            "/demo/api/jobs/test-job/events/stream",
+            params={"auth_ticket": ticket},
+        )
+        assert resp.status_code != 401
+
+    def test_stream_route_rejects_report_ticket(self):
+        """Stream route rejects report-purpose ticket."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        ticket = _make_stream_ticket("test-job", "report")
+        resp = client.get(
+            "/demo/api/jobs/test-job/events/stream",
+            params={"auth_ticket": ticket},
+        )
+        assert resp.status_code == 401
+
+    def test_stream_route_rejects_wrong_job_ticket(self):
+        """Stream route rejects ticket for different job."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        ticket = _make_stream_ticket("other-job", "stream")
+        resp = client.get(
+            "/demo/api/jobs/test-job/events/stream",
+            params={"auth_ticket": ticket},
+        )
+        assert resp.status_code == 401
+
+    def test_stream_route_rejects_no_auth(self):
+        """Stream route rejects request with no auth."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.get("/demo/api/jobs/test-job/events/stream")
+        assert resp.status_code == 401
+
+    def test_stream_route_accepts_ticket_when_auth_disabled(self):
+        """Stream route allows access when auth disabled."""
+        app = _make_app(auth_enabled=False)
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.get("/demo/api/jobs/test-job/events/stream")
+        assert resp.status_code != 401
+
+
+# ===========================================================================
+# 9. Report route ticket fallback
+# ===========================================================================
+
+
+class TestReportRouteTicketFallback:
+    """GET /demo/report/{job_id} ticket fallback."""
+
+    def test_report_route_accepts_valid_bearer(self):
+        """Report route accepts valid Bearer token."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        token = _make_token()
+        resp = client.get(
+            "/demo/report/test-job-123",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code != 401
+
+    def test_report_route_accepts_valid_report_ticket(self):
+        """Report route accepts valid report ticket via query param."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        ticket = _make_stream_ticket("test-job-123", "report")
+        resp = client.get(
+            "/demo/report/test-job-123",
+            params={"auth_ticket": ticket},
+        )
+        assert resp.status_code != 401
+
+    def test_report_route_rejects_stream_ticket(self):
+        """Report route rejects stream-purpose ticket."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        ticket = _make_stream_ticket("test-job-123", "stream")
+        resp = client.get(
+            "/demo/report/test-job-123",
+            params={"auth_ticket": ticket},
+        )
+        assert resp.status_code == 401
+
+    def test_report_route_rejects_wrong_job_ticket(self):
+        """Report route rejects ticket for different job."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        ticket = _make_stream_ticket("other-job", "report")
+        resp = client.get(
+            "/demo/report/test-job-123",
+            params={"auth_ticket": ticket},
+        )
+        assert resp.status_code == 401
+
+    def test_report_route_rejects_no_auth(self):
+        """Report route rejects request with no auth."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.get("/demo/report/test-job-123")
+        assert resp.status_code == 401
+
+    def test_report_route_accepts_ticket_when_auth_disabled(self):
+        """Report route allows access when auth disabled."""
+        app = _make_app(auth_enabled=False)
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.get("/demo/report/test-job-123")
+        assert resp.status_code != 401
+
+
+# ===========================================================================
+# 10. Other protected routes do NOT accept tickets
+# ===========================================================================
+
+
+class TestOtherRoutesRejectTicket:
+    """Non-SSE/report protected routes do not accept auth_ticket."""
+
+    def test_jobs_list_rejects_ticket(self):
+        """GET /demo/api/jobs does not accept stream_ticket in URL."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        ticket = _make_stream_ticket("any-job", "stream")
+        resp = client.get(
+            "/demo/api/jobs",
+            params={"auth_ticket": ticket},
+        )
+        assert resp.status_code == 401
+
+    def test_h5_containers_rejects_ticket(self):
+        """GET /demo/api/h5/containers does not accept ticket."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        ticket = _make_stream_ticket("any-job", "stream")
+        resp = client.get(
+            "/demo/api/h5/containers",
+            params={"auth_ticket": ticket},
+        )
+        assert resp.status_code == 401
