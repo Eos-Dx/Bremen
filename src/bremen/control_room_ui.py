@@ -205,6 +205,9 @@ function _getRefreshToken(){var s=_getSessionStorage();return s?s.getItem('breme
 function _setTokens(data){var s=_getSessionStorage();if(!s)return;s.setItem('bremen_access_token',data.access_token);s.setItem('bremen_refresh_token',data.refresh_token);s.setItem('bremen_token_expires',String(Date.now()+data.expires_in*1000))}
 function _clearTokens(){var s=_getSessionStorage();if(!s)return;s.removeItem('bremen_access_token');s.removeItem('bremen_refresh_token');s.removeItem('bremen_token_expires')}
 function _redirectToLogin(){try{if(typeof window!=='undefined'&&window.location){window.location.href='/demo/login'}}catch(e){}}
+function _authFetchTicket(jobId,purpose){
+  return _authFetch(baseUrl+'/demo/api/jobs/'+jobId+'/auth/ticket',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({purpose:purpose})}).then(function(r){return r.json().then(function(data){if(!r.ok||!data.ticket){throw new Error('ticket_mint_failed')}return data.ticket})});
+}
 function _authFetch(url,opts){
   opts=opts||{};
   var headers=opts.headers||{};
@@ -730,7 +733,9 @@ function deleteReport(jobId,workflowId){
 }
 
 function openJob(jobId){
-  window.location.href=baseUrl+'/demo/report/'+jobId;
+  _authFetchTicket(jobId,'report').then(function(ticket){
+    window.location.href=baseUrl+'/demo/report/'+jobId+'?auth_ticket='+encodeURIComponent(ticket);
+  }).catch(function(){_redirectToLogin()});
 }
 
 function fetchInitialEvents(jobId){
@@ -743,36 +748,41 @@ function fetchInitialEvents(jobId){
 
 function connectSSE(jobId){
   if(eventSource){eventSource.close()}
-  eventSource=new EventSource(baseUrl+'/demo/api/jobs/'+jobId+'/events/stream');
-  setConnectionState('connecting');
-  eventSource.addEventListener('job_event',function(e){
-    try{var ev=JSON.parse(e.data);setState('running');processEvent(ev)}catch(ex){}
+  _authFetchTicket(jobId,'stream').then(function(ticket){
+    eventSource=new EventSource(baseUrl+'/demo/api/jobs/'+jobId+'/events/stream?auth_ticket='+encodeURIComponent(ticket));
+    setConnectionState('connecting');
+    eventSource.addEventListener('job_event',function(e){
+      try{var ev=JSON.parse(e.data);setState('running');processEvent(ev)}catch(ex){}
+    });
+    eventSource.addEventListener('stream_complete',function(){
+      setConnectionState('live');
+      isSubmitting=false;
+      updateReadiness();
+      if(hasSeenFailure){
+        setState('failed');
+        collapseEventPanel('failed');
+        // Show failed message in decision card
+        var card=document.getElementById('cr-decision-card');
+        if(card){card.innerHTML='<div style="font-size:var(--fs-14);color:var(--status-error);padding:var(--sp-8) 0">Analysis failed. No report was generated.</div>';card.className='cr-decision-card';card.classList.remove('hidden')}
+      }else{
+        markPipelineComplete();
+        fetchDecision(jobId);
+        setState('completed');
+        collapseEventPanel('completed');
+      }
+      if(eventSource){eventSource.close();eventSource=null}
+      loadJobHistory();
+    });
+    eventSource.onopen=function(){setConnectionState('live');setState('running')};
+    eventSource.onerror=function(){
+      if(eventSource&&eventSource.readyState===EventSource.CLOSED){
+        setConnectionState('disconnected');setState('failed');collapseEventPanel('failed');
+      }else{setConnectionState('reconnecting');setState('reconnecting')}
+    };
+  }).catch(function(){
+    setConnectionState('disconnected');
+    setState('failed');
   });
-  eventSource.addEventListener('stream_complete',function(){
-    setConnectionState('live');
-    isSubmitting=false;
-    updateReadiness();
-    if(hasSeenFailure){
-      setState('failed');
-      collapseEventPanel('failed');
-      // Show failed message in decision card
-      var card=document.getElementById('cr-decision-card');
-      if(card){card.innerHTML='<div style="font-size:var(--fs-14);color:var(--status-error);padding:var(--sp-8) 0">Analysis failed. No report was generated.</div>';card.className='cr-decision-card';card.classList.remove('hidden')}
-    }else{
-      markPipelineComplete();
-      fetchDecision(jobId);
-      setState('completed');
-      collapseEventPanel('completed');
-    }
-    if(eventSource){eventSource.close();eventSource=null}
-    loadJobHistory();
-  });
-  eventSource.onopen=function(){setConnectionState('live');setState('running')};
-  eventSource.onerror=function(){
-    if(eventSource&&eventSource.readyState===EventSource.CLOSED){
-      setConnectionState('disconnected');setState('failed');collapseEventPanel('failed');
-    }else{setConnectionState('reconnecting');setState('reconnecting')}
-  };
 }
 
 function processEvent(ev){

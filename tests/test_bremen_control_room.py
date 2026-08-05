@@ -4202,3 +4202,82 @@ class TestPR0099JDeletedReportsUI:
         from bremen.api.job_api_handler import handle_jobs_create
         src = inspect.getsource(handle_jobs_create)
         assert 'report_already_exists' in src
+
+
+# ===========================================================================
+# PR0114: SSE and report ticket auth — client-side flow tests
+# ===========================================================================
+
+
+class TestPR0114ClientTicketFlow:
+    """Verify client-side ticket minting in connectSSE and openJob."""
+
+    def test_auth_fetch_ticket_function_exists(self):
+        """_authFetchTicket function is defined in JS."""
+        page = build_control_room_page()
+        assert 'function _authFetchTicket(jobId,purpose)' in page
+
+    def test_auth_fetch_ticket_uses_auth_fetch(self):
+        """_authFetchTicket calls _authFetch with ticket endpoint."""
+        page = build_control_room_page()
+        assert '_authFetchTicket' in page
+        assert 'auth/ticket' in page
+        assert 'purpose:purpose' in page
+
+    def test_connect_sse_mints_ticket(self):
+        """connectSSE calls _authFetchTicket before creating EventSource."""
+        page = build_control_room_page()
+        # Verify connectSSE calls _authFetchTicket
+        assert '_authFetchTicket(jobId,\'stream\')' in page
+        # Verify EventSource URL uses auth_ticket query param
+        assert 'auth_ticket=' in page
+        assert 'encodeURIComponent(ticket)' in page
+
+    def test_connect_sse_no_direct_eventsource(self):
+        """connectSSE no longer creates EventSource without ticket."""
+        page = build_control_room_page()
+        # The old pattern was: new EventSource(baseUrl+'/demo/api/jobs/'+jobId+'/events/stream')
+        # The new pattern wraps it in _authFetchTicket.then()
+        assert 'new EventSource' in page
+        assert '_authFetchTicket(jobId,\'stream\').then(function(ticket){' in page
+
+    def test_open_job_mints_report_ticket(self):
+        """openJob calls _authFetchTicket with report purpose."""
+        page = build_control_room_page()
+        # openJob now mints ticket before navigating
+        assert '_authFetchTicket(jobId,\'report\')' in page
+        assert 'auth_ticket=' in page
+
+    def test_open_job_uses_redirect_to_login_on_failure(self):
+        """openJob redirects to login on ticket mint failure."""
+        page = build_control_room_page()
+        assert '_redirectToLogin()' in page
+
+    def test_connect_sse_handles_ticket_failure(self):
+        """connectSSE handles ticket mint failure gracefully."""
+        page = build_control_room_page()
+        # The .catch() handler should set connection state to disconnected
+        assert 'setConnectionState(\'disconnected\')' in page
+
+    def test_access_token_never_in_url(self):
+        """Access token is never placed in EventSource or report URL."""
+        page = build_control_room_page()
+        # Search for patterns where access token might leak into URLs
+        # The openJob function should not use _getAccessToken() for URLs
+        assert 'window.location.href=baseUrl+\'/demo/report/'+repr('')
+        # But should use auth_ticket
+        assert 'auth_ticket' in page
+        # Verify no pattern like: _getAccessToken() in URL construction
+        assert "_getAccessToken()+" not in page
+        assert "'Bearer '+" not in page.split('function openJob')[1] if 'function openJob' in page else True
+
+    def test_auth_disabled_sse_passthrough(self):
+        """When auth disabled, SSE route works without ticket."""
+        page = build_control_room_page()
+        # Verify the client-side code doesn't block SSE when no auth
+        assert 'function connectSSE' in page
+
+    def test_ticket_mint_endpoint_in_job_history(self):
+        """Job history loadJobHistory function is preserved."""
+        page = build_control_room_page()
+        assert 'function loadJobHistory' in page

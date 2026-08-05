@@ -76,6 +76,20 @@ class TokenClaims:
     aud: str | None = None
 
 
+@dataclass(frozen=True)
+class TicketClaims:
+    """Decoded ticket JWT claims (distinct from TokenClaims)."""
+
+    sub: str
+    issued_at: float
+    expires_at: float
+    token_type: str  # always "stream_ticket"
+    jti: str
+    job_id: str
+    purpose: str  # "stream" or "report"
+    iss: str | None = None
+
+
 # ---------------------------------------------------------------------------
 # Password verification
 # ---------------------------------------------------------------------------
@@ -212,6 +226,97 @@ def _decode_token(config: AuthConfig, token: str, expected_type: str) -> TokenCl
         jti=payload["jti"],
         iss=payload.get("iss"),
         aud=payload.get("aud"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Stream/report ticket tokens (PR0114)
+# ---------------------------------------------------------------------------
+
+_STREAM_TICKET_TTL = 60  # seconds
+_STREAM_TICKET_TYPE = "stream_ticket"
+_VALID_PURPOSES = frozenset({"stream", "report"})
+
+
+def create_stream_ticket(
+    config: AuthConfig,
+    username: str,
+    job_id: str,
+    purpose: str,
+) -> str:
+    """Create a short-lived, job-bound ticket for SSE/report-page auth.
+
+    The ticket is a distinct JWT token type (stream_ticket) that cannot
+    be used as an access or refresh token.
+    """
+    now = time.time()
+    claims: dict = {
+        "sub": username,
+        "iat": now,
+        "exp": now + _STREAM_TICKET_TTL,
+        "token_type": _STREAM_TICKET_TYPE,
+        "jti": str(uuid.uuid4()),
+        "job_id": job_id,
+        "purpose": purpose,
+    }
+    if config.jwt_issuer:
+        claims["iss"] = config.jwt_issuer
+    return jwt.encode(claims, config.jwt_secret, algorithm="HS256")
+
+
+def decode_stream_ticket(
+    config: AuthConfig,
+    token: str,
+    expected_job_id: str,
+    expected_purpose: str,
+) -> TicketClaims:
+    """Decode and validate a stream/report ticket.
+
+    Validates:
+    - Signature matches config.jwt_secret
+    - Algorithm is HS256
+    - token_type == "stream_ticket"
+    - exp is not expired
+    - job_id matches expected_job_id
+    - purpose matches expected_purpose
+    """
+    if expected_purpose not in _VALID_PURPOSES:
+        raise TokenInvalidError("Invalid token")
+
+    try:
+        kwargs: dict = {
+            "algorithms": ["HS256"],
+            "options": {"require": ["sub", "iat", "exp", "token_type", "jti", "job_id", "purpose"]},
+        }
+        if config.jwt_issuer:
+            kwargs["issuer"] = config.jwt_issuer
+        payload = jwt.decode(token, config.jwt_secret, **kwargs)
+    except jwt.ExpiredSignatureError:
+        raise TokenExpiredError("Token has expired") from None
+    except jwt.InvalidTokenError as exc:
+        raise TokenInvalidError("Invalid token") from exc
+
+    # Validate token_type
+    if payload.get("token_type") != _STREAM_TICKET_TYPE:
+        raise TokenInvalidError("Invalid token")
+
+    # Validate job_id binding
+    if payload.get("job_id") != expected_job_id:
+        raise TokenInvalidError("Invalid token")
+
+    # Validate purpose binding
+    if payload.get("purpose") != expected_purpose:
+        raise TokenInvalidError("Invalid token")
+
+    return TicketClaims(
+        sub=payload["sub"],
+        issued_at=float(payload["iat"]),
+        expires_at=float(payload["exp"]),
+        token_type=payload["token_type"],
+        jti=payload["jti"],
+        job_id=payload["job_id"],
+        purpose=payload["purpose"],
+        iss=payload.get("iss"),
     )
 
 

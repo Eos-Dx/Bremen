@@ -90,6 +90,57 @@ def _check_auth_gate(request: Request) -> JSONResponse | None:
     return None  # token valid — allow
 
 
+def _check_auth_gate_with_ticket(
+    request: Request,
+    job_id: str,
+    purpose: str,
+) -> JSONResponse | None:
+    """Check auth gate with ticket fallback for SSE/report routes.
+
+    Gate ordering:
+    1. If auth disabled → allow (unchanged)
+    2. If Authorization header present:
+       a. Try Bearer access token
+       b. If valid → allow
+       c. If invalid → fall through to step 3
+    3. If query parameter ``auth_ticket`` present:
+       a. Decode as stream_ticket
+       b. Validate job_id and purpose
+       c. If valid → allow; if invalid → 401
+    4. Otherwise → 401
+    """
+    from bremen.api.server import _get_auth_config as _gac  # noqa: PLC0415
+
+    config = _gac()
+    if not config.enabled or config.validation_error:
+        return None  # auth not active — allow
+
+    # Step 2: Try Bearer access token
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.strip().startswith("Bearer "):
+        token = auth_header.split(None, 1)[1].strip() if len(auth_header.split(None, 1)) == 2 else ""
+        if token:
+            try:
+                from bremen.auth import decode_access_token  # noqa: PLC0415
+                decode_access_token(config, token)
+                return None  # valid Bearer — allow
+            except Exception:  # noqa: BLE001
+                pass  # invalid Bearer — fall through to ticket check
+
+    # Step 3: Try auth_ticket query parameter
+    ticket = request.query_params.get("auth_ticket", "")
+    if ticket:
+        try:
+            from bremen.auth import decode_stream_ticket  # noqa: PLC0415
+            decode_stream_ticket(config, ticket, job_id, purpose)
+            return None  # valid ticket — allow
+        except Exception:  # noqa: BLE001
+            return JSONResponse(content=_AUTH_ERROR_SHAPE, status_code=401)
+
+    # Step 4: No valid auth
+    return JSONResponse(content=_AUTH_ERROR_SHAPE, status_code=401)
+
+
 def create_fastapi_app(version: str | None = None) -> FastAPI:
     """Create and return a FastAPI application with Phase 1 + Phase 2 routes.
 
@@ -536,7 +587,7 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
     @app.get("/demo/report/{job_id}")
     async def demo_report_page(job_id: str, request: Request) -> HTMLResponse:
         """Render the Bremen Report page for a specific job."""
-        gate = _check_auth_gate(request)
+        gate = _check_auth_gate_with_ticket(request, job_id, "report")
         if gate is not None:
             return gate
         import uuid as _uuid  # noqa: PLC0415
@@ -1048,6 +1099,71 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
             "technical_demo_only": True,
         })
 
+    @app.post("/demo/api/jobs/{job_id}/auth/ticket")
+    async def demo_auth_ticket_route(
+        job_id: str, request: Request,
+    ) -> JSONResponse:
+        """Mint a short-lived ticket for SSE or report-page navigation.
+
+        Requires a valid Bearer access token via _check_auth_gate.
+        The ticket is a distinct JWT type (stream_ticket) bound to
+        a specific job_id and purpose.
+        """
+        gate = _check_auth_gate(request)
+        if gate is not None:
+            return gate
+
+        from bremen.api.server import _get_auth_config as _gac  # noqa: PLC0415
+
+        config = _gac()
+
+        # Parse purpose from request body
+        try:
+            body_bytes = await request.body()
+            body_dict = __import__("json").loads(body_bytes) if body_bytes else {}
+        except Exception:  # noqa: BLE001
+            body_dict = {}
+
+        purpose = body_dict.get("purpose", "")
+        if purpose not in ("stream", "report"):
+            return JSONResponse(
+                content={"error": "Invalid ticket purpose"},
+                status_code=400,
+            )
+
+        # Verify job exists
+        from bremen.api.job_api_handler import _jobs, _jobs_lock, _event_store  # noqa: PLC0415
+
+        with _jobs_lock:
+            job = _jobs.get(job_id)
+        if job is None and not _event_store.has_job(job_id):
+            return JSONResponse(
+                content={"error": "Job not found", "job_id": job_id},
+                status_code=404,
+            )
+
+        # Extract username from access token claims
+        auth_header = request.headers.get("Authorization")
+        token = ""
+        if auth_header and auth_header.strip().startswith("Bearer "):
+            token = auth_header.split(None, 1)[1].strip()
+
+        from bremen.auth import decode_access_token  # noqa: PLC0415
+        claims = decode_access_token(config, token)
+
+        # Mint ticket
+        from bremen.auth import create_stream_ticket  # noqa: PLC0415
+        ticket = create_stream_ticket(config, claims.sub, job_id, purpose)
+
+        return JSONResponse(content={
+            "ticket": ticket,
+            "expires_in": 60,
+            "token_type": "stream_ticket",
+            "job_id": job_id,
+            "purpose": purpose,
+            "technical_demo_only": True,
+        }, status_code=201)
+
     @app.get("/demo/api/jobs/{job_id}/events/stream")
     async def job_events_stream_route(
         job_id: str, request: Request,
@@ -1058,7 +1174,7 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         Uses a dedicated ThreadPoolExecutor for blocking
         ``wait_for_events()`` calls.
         """
-        gate = _check_auth_gate(request)
+        gate = _check_auth_gate_with_ticket(request, job_id, "stream")
         if gate is not None:
             return gate
         import asyncio  # noqa: PLC0415
