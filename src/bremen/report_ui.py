@@ -846,6 +846,40 @@ var isSample='__IS_SAMPLE__'==='1';
 var sampleData=null;
 var activeTab='external';
 
+// Auth helpers (PR0116) — same canonical browser auth contract as Control Room.
+function _getSessionStorage(){try{if(typeof window!=='undefined'&&window.sessionStorage){return window.sessionStorage}if(typeof globalThis!=='undefined'&&globalThis.sessionStorage){return globalThis.sessionStorage}}catch(e){}return null}
+function _getAccessToken(){var s=_getSessionStorage();return s?s.getItem('bremen_access_token'):null}
+function _getRefreshToken(){var s=_getSessionStorage();return s?s.getItem('bremen_refresh_token'):null}
+function _setTokens(data){var s=_getSessionStorage();if(!s)return;s.setItem('bremen_access_token',data.access_token);s.setItem('bremen_refresh_token',data.refresh_token);s.setItem('bremen_token_expires',String(Date.now()+data.expires_in*1000))}
+function _clearTokens(){var s=_getSessionStorage();if(!s)return;s.removeItem('bremen_access_token');s.removeItem('bremen_refresh_token');s.removeItem('bremen_token_expires')}
+function _redirectToLogin(){try{if(typeof window!=='undefined'&&window.location){window.location.href='/demo/login'}}catch(e){}}
+function _authFetch(url,opts){
+  opts=opts||{};
+  var headers=opts.headers||{};
+  var token=_getAccessToken();
+  if(token){headers['Authorization']='Bearer '+token}
+  opts.headers=headers;
+  return fetch(url,opts).then(function(r){
+    if(r.status!==401)return r;
+    // Try refresh
+    var rt=_getRefreshToken();
+    if(!rt){_clearTokens();_redirectToLogin();return r}
+    return fetch(baseUrl+'/demo/api/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refresh_token:rt})})
+      .then(function(rr){return rr.json().then(function(data){return {status:rr.status,data:data}})})
+      .then(function(result){
+        if(result.status===200&&result.data.access_token){
+          _setTokens(result.data);
+          headers['Authorization']='Bearer '+result.data.access_token;
+          opts.headers=headers;
+          return fetch(url,opts)
+        }else{
+          _clearTokens();_redirectToLogin();return r
+        }
+      })
+      .catch(function(){_clearTokens();_redirectToLogin();return r})
+  })
+}
+
 function init(){
   if(isSample){
     try{
@@ -865,11 +899,18 @@ function init(){
 
 function loadReport(jid){
   var content=document.getElementById('report-content');
+  // If no stored session tokens exist (e.g. a copied report-ticket URL opened in
+  // a fresh browser context), do not spam protected endpoints with bare requests.
+  // Degrade gracefully with a clear login-required message.
+  if(!_getAccessToken()&&!_getRefreshToken()){
+    content.innerHTML='<div class="report-error"><div class="report-error-title">Login required to refresh live report details</div><div class="report-error-text">This report was opened with a short-lived ticket but no active session. Sign in to refresh live report details.</div></div>';
+    return;
+  }
   Promise.all([
-    fetch(baseUrl+'/demo/api/jobs/'+jid).then(function(r){return r.json()}),
-    fetch(baseUrl+'/demo/api/jobs/'+jid+'/reports/bremen').then(function(r){return r.json()}),
-    fetch(baseUrl+'/demo/api/reports/'+jid+'/external').then(function(r){return r.json()}),
-    fetch(baseUrl+'/demo/api/reports/'+jid+'/internal').then(function(r){return r.json()})
+    _authFetch(baseUrl+'/demo/api/jobs/'+jid).then(function(r){return r.json()}),
+    _authFetch(baseUrl+'/demo/api/jobs/'+jid+'/reports/bremen').then(function(r){return r.json()}),
+    _authFetch(baseUrl+'/demo/api/reports/'+jid+'/external').then(function(r){return r.json()}),
+    _authFetch(baseUrl+'/demo/api/reports/'+jid+'/internal').then(function(r){return r.json()})
   ]).then(function(results){
     renderAll(results[0],results[1],results[2],results[3]);
   }).catch(function(){
