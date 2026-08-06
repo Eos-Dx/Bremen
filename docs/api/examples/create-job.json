@@ -1,0 +1,6 @@
+{
+  "workflow_id": "bremen",
+  "source_id": "<SOURCE_ID>",
+  "patient_display_name": "Nova_378",
+  "model_id": "bremen-mri-triage-logreg-v0-1"
+}

@@ -302,6 +302,19 @@ Open:
 http://127.0.0.1:5000
 ```
 
+## API Documentation
+
+Swagger-style API reference for the current Bremen technical demo API:
+
+- [docs/API.md](docs/API.md) — overview and endpoint table
+- [docs/api/auth.md](docs/api/auth.md) — token issuance and refresh
+- [docs/api/models-and-containers.md](docs/api/models-and-containers.md) — model catalog and H5 listing
+- [docs/api/jobs.md](docs/api/jobs.md) — create and query analysis jobs
+- [docs/api/events-and-sse.md](docs/api/events-and-sse.md) — event log and streaming
+- [docs/api/reports.md](docs/api/reports.md) — report JSON and HTML pages
+- [docs/api/errors-and-troubleshooting.md](docs/api/errors-and-troubleshooting.md) — common issues
+- [docs/api/examples/smoke-production.sh](docs/api/examples/smoke-production.sh) — runnable smoke script
+
 ## Development Roadmap
 
 See [ROADMAP.md](ROADMAP.md) (repository root) for the authoritative Bremen development roadmap. This file replaces the prior `docs/roadmap.md` as the single source of truth for planned PR sequencing.
