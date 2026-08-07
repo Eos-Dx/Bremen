@@ -43,7 +43,7 @@ Safety
 from __future__ import annotations
 
 from fastapi import FastAPI, File, Request, UploadFile
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 
 
 # ------------------------------------------------------------------
@@ -139,6 +139,32 @@ def _check_auth_gate_with_ticket(
 
     # Step 4: No valid auth
     return JSONResponse(content=_AUTH_ERROR_SHAPE, status_code=401)
+
+
+def _browser_auth_redirect(
+    gate: JSONResponse | None,
+    next_path: str,
+) -> RedirectResponse | None:
+    """Convert a JSON auth gate failure into a login redirect for browser routes.
+
+    Browser document navigation cannot attach Authorization headers, so
+    browser-navigation HTML routes must not return raw JSON Bearer errors as
+    the page body. When the gate rejects a request, redirect to the login page
+    with a ``next`` parameter so the user can return after authenticating.
+
+    Returns None when the gate allowed the request, or a RedirectResponse to
+    ``/demo/login?next=<next_path>`` when the gate rejected it.
+    """
+    if gate is None:
+        return None
+    # next_path is always constructed from controlled values (fixed paths and
+    # UUID job IDs), which are URL-safe. Encode any remaining unsafe characters
+    # manually to avoid importing urllib (prohibited in this module).
+    safe_path = next_path.replace("%", "%25").replace(" ", "%20")
+    return RedirectResponse(
+        url=f"/demo/login?next={safe_path}",
+        status_code=302,
+    )
 
 
 def create_fastapi_app(version: str | None = None) -> FastAPI:
@@ -586,10 +612,17 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
     # ------------------------------------------------------------------
     @app.get("/demo/report/{job_id}")
     async def demo_report_page(job_id: str, request: Request) -> HTMLResponse:
-        """Render the Bremen Report page for a specific job."""
+        """Render the Bremen Report page for a specific job.
+
+        This is a job-bound browser-navigation HTML route. It accepts a valid
+        Bearer access token or a short-lived job-bound report ticket via the
+        ``auth_ticket`` query parameter. When neither is present it redirects to
+        login instead of returning a raw JSON Bearer error as the page body.
+        """
         gate = _check_auth_gate_with_ticket(request, job_id, "report")
-        if gate is not None:
-            return gate
+        redirect = _browser_auth_redirect(gate, f"/demo/report/{job_id}")
+        if redirect is not None:
+            return redirect
         import uuid as _uuid  # noqa: PLC0415
         from bremen.report_ui import build_report_page  # noqa: PLC0415
 
@@ -772,10 +805,16 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         """Render the Bremen Workspace page.
 
         Mirrors ``_handle_workspace_route()`` from server.py.
+
+        This route has no job_id, so the job-bound ticket design does not map
+        to it. It remains Bearer-gated for authenticated callers; when auth is
+        missing it redirects to login instead of returning a raw JSON Bearer
+        error as the browser page body.
         """
         gate = _check_auth_gate(request)
-        if gate is not None:
-            return gate
+        redirect = _browser_auth_redirect(gate, "/demo/workspace")
+        if redirect is not None:
+            return redirect
         import uuid as _uuid  # noqa: PLC0415
         from bremen.workspace_ui import build_workspace_page  # noqa: PLC0415
 
@@ -791,10 +830,16 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         """Render the Bremen Workspace page for a specific job.
 
         Mirrors ``_handle_workspace_route()`` from server.py.
+
+        This is a job-bound browser-navigation HTML route. It accepts a valid
+        Bearer access token or a short-lived job-bound workspace ticket via the
+        ``auth_ticket`` query parameter. When neither is present it redirects to
+        login instead of returning a raw JSON Bearer error as the page body.
         """
-        gate = _check_auth_gate(request)
-        if gate is not None:
-            return gate
+        gate = _check_auth_gate_with_ticket(request, job_id, "workspace")
+        redirect = _browser_auth_redirect(gate, f"/demo/workspace/{job_id}")
+        if redirect is not None:
+            return redirect
         import uuid as _uuid  # noqa: PLC0415
         from bremen.workspace_ui import build_workspace_page  # noqa: PLC0415
 

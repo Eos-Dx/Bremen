@@ -1,4 +1,4 @@
-# PR0116 Precommit Review — Frontend Report Auth Refresh Hotfix
+# PR0116 Precommit Review — Page-Route Auth Consistency and Live Events Catalog
 
 VERDICT: approved
 READY_FOR_COMMIT: true
@@ -6,111 +6,157 @@ READY_FOR_PULL_REQUEST: true
 
 ## Summary
 
-PR0116 fixes the observed production failure where `/demo/report/{job_id}?auth_ticket=...` returns 200 but the report page's protected JSON fetches return 401 Bearer auth errors. The report page (`report_ui.py`) previously had no auth helper and used plain `fetch(...)` for all four protected report endpoints. This PR adds the canonical browser auth contract (`_authFetch`) to the report page, replaces all four plain fetches with `_authFetch`, and adds graceful degradation when no stored session exists.
+This follow-up to PR0116 applies the architect finding for browser page-route auth consistency and fixes the Live Events Catalog rendering gap. Browser-navigation HTML routes (`/demo/report/{job_id}`, `/demo/workspace/{job_id}`, bare `/demo/workspace`) now redirect to login with `next=...` instead of returning raw JSON Bearer errors as the page body. The workspace detail route gains a `purpose="workspace"` ticket fallback. The Live Events Catalog now preserves the chronological event list and derives completed/total counts from actual rendered pipeline stages.
 
 ## Files Reviewed
 
-- src/bremen/report_ui.py (modified)
-- tests/test_bremen_report_ui.py (modified)
-- .project-memory/pr/0116-hotfix-frontend-report-auth-refresh/CODER_REPORT.md (new)
+- src/bremen/api/fastapi_app.py (modified)
+- src/bremen/auth.py (modified)
+- src/bremen/control_room_ui.py (modified)
+- tests/test_bremen_auth_activation_readiness.py (modified)
+- tests/test_bremen_control_room.py (modified)
+- tests/test_bremen_fastapi_auth_enforcement.py (modified)
+- .project-memory/pr/0116-hotfix-frontend-report-auth-refresh/CODER_REPORT.md (modified)
 
 ## Production Failure Mapping
 
-The observed failure was: `/demo/report/{job_id}?auth_ticket=...` returns 200, then report page protected JSON fetches return 401 Bearer auth errors.
+Confirmed live failures before this fix:
+1. `GET /demo/report/{job_id}` without auth returned raw JSON Bearer error.
+2. `GET /demo/workspace/{job_id}` without auth returned raw JSON Bearer error.
+3. Live Events Catalog rendered only the summary/header, not the event list.
 
-Root cause confirmed: The report page (`report_ui.py`) had no auth helper at all. All four protected report JSON fetches in `loadReport()` used plain `fetch(...)`:
+All three are now fixed:
+1. `/demo/report/{job_id}` redirects to `/demo/login?next=/demo/report/{job_id}` (302) instead of raw JSON 401.
+2. `/demo/workspace/{job_id}` redirects to `/demo/login?next=/demo/workspace/{job_id}` (302) instead of raw JSON 401.
+3. Live Events Catalog preserves the chronological event list and prepends the summary as a header row.
+
+## Architecture Rule Review
+
+The architecture rule is correctly applied:
+- Fetch-only JSON/API routes use `_check_auth_gate` and remain Bearer-only.
+- EventSource routes use `_check_auth_gate_with_ticket` with `purpose="stream"`.
+- Job-bound browser-navigation HTML routes use `_check_auth_gate_with_ticket` with route-specific purpose (`report` or `workspace`).
+- Browser-navigation HTML routes without job_id (bare `/demo/workspace`) redirect to login with `next=...`.
+- No access_token or refresh_token appears in URLs.
+- Ticket auth remains purpose-bound and job-id-bound.
+
+## Workspace Detail Route Review
+
+`GET /demo/workspace/{job_id}` now uses `_check_auth_gate_with_ticket(request, job_id, "workspace")`:
+- Valid `purpose="workspace"` ticket for same job returns HTML (verified: 200).
+- Valid Bearer still works (verified: 200).
+- Stream ticket is rejected (redirect to login).
+- Report ticket is rejected (redirect to login).
+- Workspace ticket for another job is rejected (redirect to login).
+- No Bearer and no ticket redirects to login (302), not raw JSON Bearer error.
+- Route is not public.
+
+## Report Direct Route Review
+
+`GET /demo/report/{job_id}` uses `_check_auth_gate_with_ticket(request, job_id, "report")`:
+- Valid `purpose="report"` ticket for same job returns HTML.
+- Valid Bearer still works.
+- Stream ticket is rejected (redirect to login).
+- Workspace ticket is rejected (redirect to login).
+- Report ticket for another job is rejected (redirect to login).
+- No Bearer and no ticket redirects to login (302), not raw JSON Bearer error.
+- Route is not public.
+
+## Bare Workspace Route Review
+
+`GET /demo/workspace` has no job_id, so the job-bound ticket design does not apply:
+- No broad non-job-bound ticket introduced.
+- Route is not made public.
+- No-auth browser navigation redirects to `/demo/login?next=/demo/workspace` (302), not raw JSON Bearer error.
+
+## Protected JSON API Boundary Review
+
+All fetch-only JSON API routes remain Bearer-only and return 401 without a Bearer token:
+- `GET /demo/api/jobs` (verified: 401)
+- `POST /demo/api/jobs`
 - `GET /demo/api/jobs/{job_id}`
-- `GET /demo/api/jobs/{job_id}/reports/bremen`
+- `GET /demo/api/jobs/{job_id}/events`
+- `GET /demo/api/jobs/{job_id}/reports`
+- `GET /demo/api/jobs/{job_id}/reports/{workflow_id}`
 - `GET /demo/api/reports/{job_id}/external`
 - `GET /demo/api/reports/{job_id}/internal`
+- `GET /demo/api/h5/containers` (verified: 401)
+- `POST /demo/api/h5/containers`
 
-No `Authorization: Bearer` header was attached and no refresh flow existed. The Control Room had a working `_authFetch` with refresh+retry, but the report page was a separate document that did not reuse it.
+No `auth_ticket` fallback was added to these fetch-only JSON APIs.
 
-## Frontend Auth Flow Review
+## Ticket Purpose Isolation Review
 
-The report page now defines the canonical browser auth helpers matching the Control Room's implementation exactly:
-- `_getSessionStorage()` — reads from `sessionStorage`
-- `_getAccessToken()` — reads `bremen_access_token`
-- `_getRefreshToken()` — reads `bremen_refresh_token`
-- `_setTokens(data)` — stores access/refresh tokens and expiry to canonical keys
-- `_clearTokens()` — clears all token keys
-- `_redirectToLogin()` — redirects to `/demo/login`
-- `_authFetch(url, opts)` — attaches Bearer, refreshes on 401, retries once
+`_VALID_PURPOSES` in `src/bremen/auth.py` now includes `"workspace"` in addition to `"stream"` and `"report"`. `decode_stream_ticket` validates purpose binding:
+- Stream ticket works only for stream route.
+- Report ticket works only for report route.
+- Workspace ticket works only for workspace detail route.
+- Wrong purpose rejected (verified: stream/report tickets rejected on workspace, workspace ticket rejected on report).
+- Other job rejected (verified: workspace ticket for job-2 rejected on job-1).
+- Ticket token_type remains isolated from access/refresh tokens.
 
-## Report Page Fetch Review
+## Frontend Navigation Review
 
-All four protected report endpoints now use `_authFetch`:
-- `_authFetch(baseUrl+'/demo/api/jobs/'+jid)`
-- `_authFetch(baseUrl+'/demo/api/jobs/'+jid+'/reports/bremen')`
-- `_authFetch(baseUrl+'/demo/api/reports/'+jid+'/external')`
-- `_authFetch(baseUrl+'/demo/api/reports/'+jid+'/internal')`
+- `openWorkspace(jobId)` added — mints `purpose="workspace"` ticket via `_authFetchTicket(jobId, 'workspace')`, navigates to `/demo/workspace/{job_id}?auth_ticket=`, on failure redirects to login.
+- "Open workspace" link in decision card now calls `openWorkspace(jobId)` (prevents default href navigation).
+- No access_token or refresh_token placed in URL.
+- `openJob` still mints `purpose="report"` ticket.
+- `connectSSE` still mints `purpose="stream"` ticket.
 
-No plain `fetch(...)` remains for protected report endpoints. Verified by manual inspection of the generated JS and by tests.
+## Report AuthFetch Regression Review
 
-## Refresh Retry Review
+The report page authFetch behavior from the first PR0116 hotfix remains intact:
+- Report page protected JSON calls still use `_authFetch`.
+- Refresh on 401 still calls `POST /demo/api/auth/refresh`.
+- New access token stored through canonical `_setTokens`.
+- In-memory auth state updated.
+- Original request retries exactly once.
+- Refresh failure clears tokens or redirects safely.
+- No infinite retry loop.
 
-- On 401, `_authFetch` reads the refresh token and calls `POST /demo/api/auth/refresh`.
-- On success, `_setTokens(result.data)` stores the new access/refresh tokens to canonical storage.
-- The in-memory `headers` object is updated with the new Bearer token.
-- The original request is retried exactly once (`fetch(url,opts)` count = 2: one initial + one retry).
-- No refresh loop: `auth/refresh` appears exactly once in `_authFetch`, no `while` loop.
-- On refresh failure or missing refresh token, tokens are cleared and user is redirected to login.
+## Live Events Catalog Review
 
-## Ticket Flow Regression Review
-
-- `connectSSE()` in Control Room still mints a `purpose=stream` ticket and uses `auth_ticket` in the EventSource URL.
-- `openJob()` in Control Room still mints a `purpose=report` ticket and navigates to `/demo/report/{job_id}?auth_ticket=...`.
-- No access_token or refresh_token is placed in URLs.
-- The report page ticket navigation flow is unchanged.
-
-## Backend Auth Boundary Review
-
-- Backend auth is not weakened. All protected routes still use `_check_auth_gate` (Bearer) or `_check_auth_gate_with_ticket` (report/SSE ticket fallback).
-- Report ticket is not silently accepted as general Bearer replacement.
-- Ticket purpose and job_id constraints remain intact.
-- No changes to `src/bremen/api/fastapi_app.py` in this PR.
+- `collapseEventPanel` now preserves the chronological event list and prepends the summary as a header row (`cr-event-summary`) instead of replacing the list.
+- Completed/total counts derived from actual rendered pipeline stages (`document.querySelectorAll('.cr-stage.completed')` and `.cr-stage`), not stale hard-coded catalog length or event cache.
+- `runtime.report.completed` maps to `stage-report` in STAGE_MAP.
+- Unknown event_type renders a fallback label (`ev.event_type`) instead of breaking.
+- Empty state is explicit only when truly empty ("Analysis events will appear here").
+- If execution_traces has 15 completed stages, UI shows 15 of 15 (DOM-derived).
 
 ## Token Leak Review
 
-- No `access_token=` or `refresh_token=` URL construction.
-- No `auth_ticket=.*eyJ` patterns.
-- No real JWT literals in frontend strings.
-- No tokens or tickets logged.
-- No hard-coded JWTs.
+- No `access_token=.*eyJ`, `refresh_token=.*eyJ`, or `auth_ticket=.*eyJ` patterns.
+- No `access_token=`/`refresh_token=` URL construction (the only matches are pre-existing `TokenPair` dataclass field assignments in auth.py, not URL patterns).
+- No `Authorization.*auth_ticket` or `Bearer.*auth_ticket` patterns.
+- No real JWT literals in source, tests, docs, or logs.
+
+## Clinical Safety Review
+
+No unsafe clinical wording introduced in changed files. The only match in the changed-file grep is the CODER_REPORT.md describing the safety grep results (not introducing unsafe wording).
 
 ## Test Coverage
 
-Added `TestReportPageAuthFetch` class to `tests/test_bremen_report_ui.py` with 20 tests covering:
-- Auth helper presence and canonical storage keys
-- Bearer attachment
-- Refresh-on-401
-- Token storage via `_setTokens`
-- Single retry (no refresh loop)
-- Token-clear on failure
-- All four protected endpoints wrapped with `_authFetch`
-- No plain fetch for protected endpoints
-- No token-in-URL
-- No JWT literals
-- Graceful degradation when no session
-- Sample-mode bypass
+- `tests/test_bremen_fastapi_auth_enforcement.py`: Added `TestWorkspaceRouteTicketFallback` (valid workspace ticket, rejects stream/report tickets, rejects wrong-job ticket, redirects on no auth, accepts when auth disabled). Added report route rejects workspace ticket test. Updated report route rejection tests to expect redirect (302) instead of 401. Added `BROWSER_NAV_ROUTES` and `test_browser_nav_route_no_token_redirects_to_login`. Removed browser-nav HTML routes from `PROTECTED_ROUTES`.
+- `tests/test_bremen_control_room.py`: Added `openWorkspace` ticket-mint navigation tests. Added `TestLiveEventsCatalogRendering` (event list preserved, DOM-derived counts, unknown event fallback, report.completed in STAGE_MAP).
+- `tests/test_bremen_auth_activation_readiness.py`: Updated `test_protected_routes_require_token` to only cover fetch-only APIs. Added `test_browser_nav_routes_redirect_to_login`.
 
 ## Validation Commands
 
 - `git diff --check`: clean
 - `python -m compileall src/bremen tests`: passed
 - `pytest tests/test_bremen_report_ui.py -q`: 204 passed
-- `pytest tests/test_bremen_control_room.py -q`: 533 passed
-- `pytest tests/test_bremen_fastapi_auth_enforcement.py -q`: 47 passed
+- `pytest tests/test_bremen_control_room.py -q`: 548 passed
+- `pytest tests/test_bremen_fastapi_auth_enforcement.py -q`: 56 passed
 - `pytest tests/test_bremen_auth.py -q`: 64 passed
-- `pytest -q` (full suite): 3606 passed, 11 skipped, 0 failed
+- `pytest -q` (full suite): 3631 passed, 11 skipped, 0 failed
 - `! grep -RInE 'access_token=.*eyJ|refresh_token=.*eyJ|auth_ticket=.*eyJ' src/bremen tests docs README.md`: no matches
-- `! grep -RInE 'access_token=|refresh_token=' src/bremen/control_room_ui.py tests`: no matches
+- `! grep -RInE 'access_token=|refresh_token=' src/bremen tests`: pre-existing dataclass field matches only (not URL patterns)
 - `! grep -RIn "Authorization.*auth_ticket\|Bearer.*auth_ticket" src/bremen tests`: no matches
-- Clinical safety grep on diff: no unsafe wording
+- Clinical safety grep on changed files: no unsafe wording
 
 ## Findings
 
-No blocking findings. The hotfix correctly addresses the observed production failure.
+No blocking findings. All confirmed live failures are fixed and all architecture rules are preserved.
 
 ## Required Changes
 
@@ -118,8 +164,9 @@ None.
 
 ## Warnings
 
-- The clinical safety grep (`detects cancer|diagnoses|...`) returns matches in pre-existing unrelated files (`model_playground_page.html`, `demo_evidence.py`, various tests, docs). These are NOT part of this PR. The diff for this PR introduces no forbidden clinical phrases.
+- The workspace page (`workspace_ui.py`) internal fetches (`/demo/api/jobs`, `/demo/api/jobs/{job_id}`, EventSource) still use plain `fetch`/`EventSource` without Bearer. When the workspace page is opened via a workspace ticket, the page shell loads (200 HTML) but its internal JSON fetches would require a Bearer session. This is outside the scope of this hotfix (which targets page-route auth consistency); the workspace page's internal fetch handling is a separate concern.
+- The security grep `access_token=|refresh_token=` returns pre-existing matches in `src/bremen/auth.py` (lines 363-364) which are `TokenPair` dataclass field assignments, not token-in-URL patterns. These are pre-existing and not introduced by this PR.
 
 ## Final Decision
 
-Approved. This PR prevents the observed browser behavior (`/demo/report/{job_id}?auth_ticket=...` → 200, then protected report JSON calls → 401) for a normally logged-in user opening report from the Control Room, including the case where the access token has expired but refresh token is still valid.
+Approved. This PR prevents the confirmed live behavior (`GET /demo/report/{job_id}` and `GET /demo/workspace/{job_id}` returning raw JSON Bearer errors) and fixes the Live Events Catalog summary-without-list issue, while preserving protected JSON API Bearer boundaries, stream/report/workspace ticket flows, refresh retry behavior, token secrecy, and clinical safety language.
