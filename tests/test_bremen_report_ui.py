@@ -1783,7 +1783,8 @@ class TestReportPageAuthFetch:
     """Report page protected fetches use the auth-aware wrapper (PR0116)."""
 
     def _function_body(self, page: str, function_name: str) -> str:
-        fn_start = page.find(f"function {function_name}")
+        # Match the exact function name (not a prefix like _authFetchTicket).
+        fn_start = page.find(f"function {function_name}(")
         assert fn_start >= 0
         fn_end = page.find("function ", fn_start + 10)
         return page[fn_start:fn_end if fn_end > 0 else len(page)]
@@ -1898,3 +1899,85 @@ class TestReportPageAuthFetch:
         # Sample mode renders directly from embedded data.
         assert 'id="sample-data-json"' in page
         assert "renderAll(sampleData.job,sampleData.report)" in page
+
+
+# ---------------------------------------------------------------------------
+# PR0116-D — Direct report URL bootstrap shell
+# ---------------------------------------------------------------------------
+
+
+class TestReportBootstrapShell:
+    """Bare /demo/report/{job_id} returns a safe bootstrap shell (PR0116-D)."""
+
+    def test_bootstrap_shell_has_marker(self):
+        """Bootstrap shell contains the data-report-bootstrap marker."""
+        from bremen.report_ui import build_report_bootstrap_page
+        html = build_report_bootstrap_page(base_url="http://testserver", job_id="test-job")
+        assert "data-report-bootstrap" in html
+
+    def test_bootstrap_shell_includes_job_id(self):
+        """Bootstrap shell includes the job_id."""
+        from bremen.report_ui import build_report_bootstrap_page
+        html = build_report_bootstrap_page(base_url="http://testserver", job_id="test-job-123")
+        assert "test-job-123" in html
+
+    def test_bootstrap_shell_no_protected_data(self):
+        """Bootstrap shell contains no protected report details."""
+        from bremen.report_ui import build_report_bootstrap_page
+        html = build_report_bootstrap_page(base_url="http://testserver", job_id="test-job")
+        assert "report-document" not in html
+        assert "assessment-hero" not in html
+        assert "p_mri_needed" not in html
+        assert "decision_code" not in html
+
+    def test_bootstrap_shell_mints_report_ticket(self):
+        """Bootstrap JS calls _authFetchTicket(jobId, 'report')."""
+        from bremen.report_ui import build_report_bootstrap_page
+        html = build_report_bootstrap_page(base_url="http://testserver", job_id="test-job")
+        assert "_authFetchTicket(jobId,'report')" in html
+
+    def test_bootstrap_shell_navigates_to_ticketed_url(self):
+        """Bootstrap JS navigates to /demo/report/{job_id}?auth_ticket=..."""
+        from bremen.report_ui import build_report_bootstrap_page
+        html = build_report_bootstrap_page(base_url="http://testserver", job_id="test-job")
+        assert "window.location.replace" in html
+        assert "'/demo/report/'+jobId+'?auth_ticket='" in html
+        assert "encodeURIComponent(ticket)" in html
+
+    def test_bootstrap_shell_no_tokens_in_url(self):
+        """Bootstrap JS does not construct URLs with access_token or refresh_token."""
+        from bremen.report_ui import build_report_bootstrap_page
+        html = build_report_bootstrap_page(base_url="http://testserver", job_id="test-job")
+        at_key = "access" + "_token="
+        rt_key = "refresh" + "_token="
+        assert at_key not in html
+        assert rt_key not in html
+
+    def test_bootstrap_shell_login_fallback(self):
+        """Bootstrap shell includes login fallback with next=/demo/report/{job_id}."""
+        from bremen.report_ui import build_report_bootstrap_page
+        html = build_report_bootstrap_page(base_url="http://testserver", job_id="test-job")
+        assert "/demo/login?next=" in html
+        assert "encodeURIComponent('/demo/report/'+jobId)" in html
+
+    def test_bootstrap_shell_no_infinite_loop(self):
+        """Bootstrap shell uses location.replace (no infinite loop)."""
+        from bremen.report_ui import build_report_bootstrap_page
+        html = build_report_bootstrap_page(base_url="http://testserver", job_id="test-job")
+        # Uses location.replace, not a plain reload of the bare URL.
+        assert "window.location.replace" in html
+        assert "window.location.href=baseUrl+'/demo/report/'+jobId" not in html
+
+    def test_bootstrap_shell_uses_canonical_storage(self):
+        """Bootstrap shell reads canonical browser auth storage."""
+        from bremen.report_ui import build_report_bootstrap_page
+        html = build_report_bootstrap_page(base_url="http://testserver", job_id="test-job")
+        assert "bremen_access_token" in html
+        assert "bremen_refresh_token" in html
+
+    def test_bootstrap_shell_login_required_state(self):
+        """Bootstrap shell shows login-required state when no session exists."""
+        from bremen.report_ui import build_report_bootstrap_page
+        html = build_report_bootstrap_page(base_url="http://testserver", job_id="test-job")
+        assert "Login required to open this report" in html
+        assert "_getAccessToken()&&!_getRefreshToken()" in html

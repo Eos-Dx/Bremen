@@ -853,6 +853,9 @@ function _getRefreshToken(){var s=_getSessionStorage();return s?s.getItem('breme
 function _setTokens(data){var s=_getSessionStorage();if(!s)return;s.setItem('bremen_access_token',data.access_token);s.setItem('bremen_refresh_token',data.refresh_token);s.setItem('bremen_token_expires',String(Date.now()+data.expires_in*1000))}
 function _clearTokens(){var s=_getSessionStorage();if(!s)return;s.removeItem('bremen_access_token');s.removeItem('bremen_refresh_token');s.removeItem('bremen_token_expires')}
 function _redirectToLogin(){try{if(typeof window!=='undefined'&&window.location){window.location.href='/demo/login'}}catch(e){}}
+function _authFetchTicket(jobId,purpose){
+  return _authFetch(baseUrl+'/demo/api/jobs/'+jobId+'/auth/ticket',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({purpose:purpose})}).then(function(r){return r.json().then(function(data){if(!r.ok||!data.ticket){throw new Error('ticket_mint_failed')}return data.ticket})});
+}
 function _authFetch(url,opts){
   opts=opts||{};
   var headers=opts.headers||{};
@@ -1408,6 +1411,131 @@ def build_report_page(
   </div>
 </div>
 {sample_json}
+{js}
+</body>
+</html>"""
+
+
+_BOOTSTRAP_JS = r"""
+<script>
+(function(){
+var baseUrl='__BASE_URL__';
+var jobId='__JOB_ID__';
+
+// Canonical browser auth helpers (same contract as Control Room / report page).
+function _getSessionStorage(){try{if(typeof window!=='undefined'&&window.sessionStorage){return window.sessionStorage}if(typeof globalThis!=='undefined'&&globalThis.sessionStorage){return globalThis.sessionStorage}}catch(e){}return null}
+function _getAccessToken(){var s=_getSessionStorage();return s?s.getItem('bremen_access_token'):null}
+function _getRefreshToken(){var s=_getSessionStorage();return s?s.getItem('bremen_refresh_token'):null}
+function _setTokens(data){var s=_getSessionStorage();if(!s)return;s.setItem('bremen_access_token',data.access_token);s.setItem('bremen_refresh_token',data.refresh_token);s.setItem('bremen_token_expires',String(Date.now()+data.expires_in*1000))}
+function _clearTokens(){var s=_getSessionStorage();if(!s)return;s.removeItem('bremen_access_token');s.removeItem('bremen_refresh_token');s.removeItem('bremen_token_expires')}
+function _redirectToLogin(){try{if(typeof window!=='undefined'&&window.location){window.location.href='/demo/login?next='+encodeURIComponent('/demo/report/'+jobId)}}catch(e){}}
+function _authFetch(url,opts){
+  opts=opts||{};
+  var headers=opts.headers||{};
+  var token=_getAccessToken();
+  if(token){headers['Authorization']='Bearer '+token}
+  opts.headers=headers;
+  return fetch(url,opts).then(function(r){
+    if(r.status!==401)return r;
+    var rt=_getRefreshToken();
+    if(!rt){_clearTokens();_redirectToLogin();return r}
+    return fetch(baseUrl+'/demo/api/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refresh_token:rt})})
+      .then(function(rr){return rr.json().then(function(data){return {status:rr.status,data:data}})})
+      .then(function(result){
+        if(result.status===200&&result.data.access_token){
+          _setTokens(result.data);
+          headers['Authorization']='Bearer '+result.data.access_token;
+          opts.headers=headers;
+          return fetch(url,opts)
+        }else{
+          _clearTokens();_redirectToLogin();return r
+        }
+      })
+      .catch(function(){_clearTokens();_redirectToLogin();return r})
+  })
+}
+function _authFetchTicket(jobId,purpose){
+  return _authFetch(baseUrl+'/demo/api/jobs/'+jobId+'/auth/ticket',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({purpose:purpose})}).then(function(r){return r.json().then(function(data){if(!r.ok||!data.ticket){throw new Error('ticket_mint_failed')}return data.ticket})});
+}
+
+function bootstrapReportTicket(){
+  // If no stored session tokens exist, show login-required state without
+  // spamming protected endpoints.
+  if(!_getAccessToken()&&!_getRefreshToken()){
+    var el=document.getElementById('report-bootstrap-status');
+    if(el){el.textContent='Login required to open this report.';el.className='report-bootstrap-status login-required'}
+    var link=document.getElementById('report-bootstrap-login');
+    if(link){link.href='/demo/login?next='+encodeURIComponent('/demo/report/'+jobId);link.style.display='inline-block'}
+    return;
+  }
+  _authFetchTicket(jobId,'report').then(function(ticket){
+    // Navigate to the canonical ticketed report URL. Use location.replace so
+    // the bootstrap shell is not left in history (no infinite loop).
+    window.location.replace(baseUrl+'/demo/report/'+jobId+'?auth_ticket='+encodeURIComponent(ticket));
+  }).catch(function(){
+    _redirectToLogin();
+  });
+}
+
+window.bootstrapReportTicket=bootstrapReportTicket;
+
+// Auto-run on load.
+bootstrapReportTicket();
+})();
+</script>
+"""
+
+
+def build_report_bootstrap_page(
+    base_url: str = "http://localhost:8000",
+    job_id: str = "",
+) -> str:
+    """Build a safe bootstrap shell for the bare /demo/report/{job_id} route.
+
+    This shell contains no protected patient/report/model/result details. It
+    embeds the job_id and JS that reads the canonical browser auth storage,
+    mints a ``purpose="report"`` ticket, and navigates to the canonical
+    ticketed report URL. If no stored session exists, it shows a login-required
+    state with a link to ``/demo/login?next=/demo/report/{job_id}``.
+
+    Parameters
+    ----------
+    base_url : Base URL of the service.
+    job_id : The job ID to display the report for.
+
+    Returns
+    -------
+    A complete HTML5 bootstrap document as a string.
+    """
+    js = _BOOTSTRAP_JS.replace("__BASE_URL__", base_url)
+    js = js.replace("__JOB_ID__", job_id)
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bremen Report — MRI Triage Decision Support</title>
+<style>
+body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#F7F8F8;color:#16202A;line-height:1.5;margin:0}}
+.report-bootstrap{{max-width:640px;margin:64px auto;padding:32px;background:#FFFFFF;border:1px solid #E3E7E6;border-radius:10px;text-align:center}}
+.report-bootstrap h1{{font-size:22px;font-weight:600;margin:0 0 12px 0}}
+.report-bootstrap p{{font-size:14px;color:#5B6570;margin:0 0 16px 0}}
+.report-bootstrap-status{{font-size:14px;color:#5B6570;margin:0 0 16px 0}}
+.report-bootstrap-status.login-required{{color:#C1483D}}
+.report-bootstrap-login{{display:none;padding:10px 20px;background:#1F6F6B;color:#FFFFFF;border:none;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none}}
+.report-bootstrap-login:hover{{opacity:0.9}}
+.report-bootstrap-meta{{font-size:11px;color:#9AA3A8;margin-top:24px}}
+</style>
+</head>
+<body>
+<div class="report-bootstrap" data-report-bootstrap="1">
+  <h1>Bremen Report</h1>
+  <p>Preparing your report. This may take a moment.</p>
+  <div class="report-bootstrap-status" id="report-bootstrap-status">Loading...</div>
+  <a class="report-bootstrap-login" id="report-bootstrap-login" href="#">Sign in to open report</a>
+  <div class="report-bootstrap-meta">Technical demo only &middot; Not a diagnosis &middot; Does not replace clinician judgment</div>
+</div>
 {js}
 </body>
 </html>"""

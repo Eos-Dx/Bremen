@@ -141,9 +141,15 @@ PROTECTED_ROUTES = [
 # as the page body; when auth is missing they redirect to /demo/login?next=...
 # instead of returning 401. They remain protected (not public).
 BROWSER_NAV_ROUTES = [
-    ("/demo/report/nonexistent", "/demo/report/nonexistent"),
     ("/demo/workspace", "/demo/workspace"),
     ("/demo/workspace/nonexistent", "/demo/workspace/nonexistent"),
+]
+
+# Bare /demo/report/{job_id} returns a safe bootstrap shell (200 HTML) that
+# mints a report ticket client-side, not a redirect. It must not expose
+# protected report data or return a raw JSON Bearer error.
+REPORT_BOOTSTRAP_ROUTES = [
+    "/demo/report/nonexistent",
 ]
 
 PUBLIC_ROUTES = [
@@ -225,6 +231,23 @@ class TestAuthEnabledMissingToken:
             )
             # Must not return raw JSON Bearer error as the page body.
             assert "Authentication failed" not in resp.text
+
+    def test_report_bootstrap_route_no_token_returns_shell(self):
+        """Bare /demo/report/{job_id} returns a safe bootstrap shell (200 HTML)."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        for path in REPORT_BOOTSTRAP_ROUTES:
+            resp = client.get(path)
+            assert resp.status_code == 200, (
+                f"{path} should return 200 bootstrap shell, got {resp.status_code}"
+            )
+            assert "text/html" in resp.headers.get("content-type", ""), (
+                f"{path} should return HTML, got {resp.headers.get('content-type')}"
+            )
+            # Must not return raw JSON Bearer error as the page body.
+            assert "Authentication failed" not in resp.text
+            # Must contain the bootstrap marker.
+            assert "data-report-bootstrap" in resp.text
 
     def test_401_shape_is_safe(self):
         """401 response contains only safe fields."""
@@ -827,12 +850,13 @@ class TestReportRouteTicketFallback:
         assert "Authentication failed" not in resp.text
 
     def test_report_route_rejects_no_auth(self):
-        """Report route redirects to login when no auth present."""
+        """Bare report route returns a safe bootstrap shell (200 HTML), not raw JSON."""
         app = _make_app(auth_enabled=True)
-        client = TestClient(app, raise_server_exceptions=False, follow_redirects=False)
+        client = TestClient(app, raise_server_exceptions=False)
         resp = client.get("/demo/report/test-job-123")
-        assert resp.status_code == 302
-        assert resp.headers.get("location", "").startswith("/demo/login?next=")
+        assert resp.status_code == 200
+        assert "text/html" in resp.headers.get("content-type", "")
+        assert "data-report-bootstrap" in resp.text
         assert "Authentication failed" not in resp.text
 
     def test_report_route_accepts_ticket_when_auth_disabled(self):
