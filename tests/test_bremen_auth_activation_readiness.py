@@ -667,6 +667,17 @@ class TestEnforcementScopePreserved:
             )
             assert "Authentication failed" not in resp.text
 
+    def test_report_bootstrap_route_returns_shell(self):
+        """Bare /demo/report/{job_id} returns a safe bootstrap shell (200 HTML)."""
+        _inject_auth_config()
+        app = create_fastapi_app()
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.get("/demo/report/test")
+        assert resp.status_code == 200
+        assert "text/html" in resp.headers.get("content-type", "")
+        assert "data-report-bootstrap" in resp.text
+        assert "Authentication failed" not in resp.text
+
     def test_public_routes_no_token_needed(self):
         """Public routes do not require token when auth enabled."""
         _inject_auth_config()

@@ -1,3 +1,4 @@
+# PR0116 Precommit Review — Page-Route Auth Consistency, Live Events Catalog, Workspace Ticket/Security Redaction, and Direct Report URL Bootstrap
 # PR0116 Precommit Review — Page-Route Auth Consistency, Live Events Catalog, and Workspace Ticket/Security Redaction
 # PR0116 Precommit Review — Page-Route Auth Consistency and Live Events Catalog
 
@@ -7,6 +8,7 @@ READY_FOR_PULL_REQUEST: true
 
 ## Summary
 
+This PR0116 hotfix series applies the architect finding for browser page-route auth consistency, fixes the Live Events Catalog rendering gap, and (round C) fixes workspace ticket issuance, workspace internal auth, and sensitive ticket/token log redaction. Round D fixes the final direct report URL gap: bare `GET /demo/report/{job_id}` now returns a safe HTML bootstrap shell (200) that mints a `purpose="report"` ticket client-side and navigates to the canonical ticketed URL. Browser-navigation HTML routes (`/demo/report/{job_id}`, `/demo/workspace/{job_id}`, bare `/demo/workspace`) no longer return raw JSON Bearer errors as the page body. The workspace detail route gains a `purpose="workspace"` ticket fallback. The Live Events Catalog now preserves the chronological event list and derives completed/total counts from actual rendered pipeline stages. Round C adds workspace ticket issuance (`purpose="workspace"` → 201), workspace page internal `_authFetch`/stream-ticket handling, and redaction of `auth_ticket`/`access_token`/`refresh_token`/`token`/`ticket` query params from application/access logs.
 This PR0116 hotfix series applies the architect finding for browser page-route auth consistency, fixes the Live Events Catalog rendering gap, and (round C) fixes workspace ticket issuance, workspace internal auth, and sensitive ticket/token log redaction. Browser-navigation HTML routes (`/demo/report/{job_id}`, `/demo/workspace/{job_id}`, bare `/demo/workspace`) now redirect to login with `next=...` instead of returning raw JSON Bearer errors as the page body. The workspace detail route gains a `purpose="workspace"` ticket fallback. The Live Events Catalog now preserves the chronological event list and derives completed/total counts from actual rendered pipeline stages. Round C adds workspace ticket issuance (`purpose="workspace"` → 201), workspace page internal `_authFetch`/stream-ticket handling, and redaction of `auth_ticket`/`access_token`/`refresh_token`/`token`/`ticket` query params from application/access logs.
 This follow-up to PR0116 applies the architect finding for browser page-route auth consistency and fixes the Live Events Catalog rendering gap. Browser-navigation HTML routes (`/demo/report/{job_id}`, `/demo/workspace/{job_id}`, bare `/demo/workspace`) now redirect to login with `next=...` instead of returning raw JSON Bearer errors as the page body. The workspace detail route gains a `purpose="workspace"` ticket fallback. The Live Events Catalog now preserves the chronological event list and derives completed/total counts from actual rendered pipeline stages.
 
@@ -19,11 +21,16 @@ This follow-up to PR0116 applies the architect finding for browser page-route au
 - src/bremen/api/server.py (modified — round C legacy log redaction)
 - src/bremen/logging_config.py (modified — round C redaction helper/filter)
 - src/bremen/workspace_ui.py (modified — round C workspace internal auth)
+- src/bremen/report_ui.py (modified — round D bootstrap shell + _authFetchTicket)
 - tests/test_bremen_auth_activation_readiness.py (modified)
 - tests/test_bremen_control_room.py (modified)
 - tests/test_bremen_fastapi_auth_enforcement.py (modified)
 - tests/test_bremen_workspace_ui.py (modified — round C)
 - tests/test_bremen_access_logging.py (new — round C)
+- tests/test_bremen_report_ui.py (modified — round D)
+- .project-memory/pr/0116-hotfix-frontend-report-auth-refresh/CODER_REPORT.md (modified)
+- .project-memory/pr/0116-hotfix-frontend-report-auth-refresh/rounds/C-workspace-ticket-security/CODER_REPORT.md (new)
+- .project-memory/pr/0116-hotfix-frontend-report-auth-refresh/rounds/D-report-direct-url-bootstrap/CODER_REPORT.md (new)
 - .project-memory/pr/0116-hotfix-frontend-report-auth-refresh/CODER_REPORT.md (modified)
 - .project-memory/pr/0116-hotfix-frontend-report-auth-refresh/rounds/C-workspace-ticket-security/CODER_REPORT.md (new)
 - tests/test_bremen_auth_activation_readiness.py (modified)
@@ -157,6 +164,19 @@ No unsafe clinical wording introduced in changed files. The only match in the ch
 
 - `git diff --check`: clean
 - `python -m compileall src/bremen tests`: passed
+- `pytest tests/test_bremen_report_ui.py -q`: 214 passed
+- `pytest tests/test_bremen_control_room.py -q`: 548 passed
+- `pytest tests/test_bremen_fastapi_auth_enforcement.py -q`: 59 passed
+- `pytest tests/test_bremen_auth.py -q`: 64 passed
+- `pytest tests/test_bremen_workspace_ui.py -q`: 34 passed
+- `pytest tests/test_bremen_access_logging.py -q`: 15 passed
+- `pytest -q` (full suite): 3675 passed, 11 skipped, 0 failed
+- `! grep -RInE 'access_token=.*eyJ|refresh_token=.*eyJ|auth_ticket=.*eyJ' src/bremen tests docs README.md`: no matches
+- `! grep -RInE 'access_token=|refresh_token=' src/bremen tests`: pre-existing dataclass field matches only (not URL patterns)
+- `! grep -RIn "Authorization.*auth_ticket\|Bearer.*auth_ticket" src/bremen tests`: no matches
+- `! grep -RInE 'auth_ticket=eyJ|access_token=eyJ|refresh_token=eyJ' src/bremen tests docs README.md`: no matches
+- `! grep -RInE 'Authorization: Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' src/bremen tests docs README.md`: no matches
+- `! grep -RIn "BREMEN_AUTH_JWT_SECRET=.*" src/bremen tests docs README.md`: no matches
 - `pytest tests/test_bremen_report_ui.py -q`: 204 passed
 - `pytest tests/test_bremen_control_room.py -q`: 548 passed
 - `pytest tests/test_bremen_fastapi_auth_enforcement.py -q`: 58 passed
@@ -195,5 +215,6 @@ None.
 
 ## Final Decision
 
+Approved. This PR prevents the confirmed live behavior (`GET /demo/report/{job_id}` and `GET /demo/workspace/{job_id}` returning raw JSON Bearer errors), fixes the Live Events Catalog summary-without-list issue, (round C) fixes workspace ticket issuance, workspace internal auth, and sensitive ticket/token log redaction, and (round D) fixes the direct report URL bootstrap (bare report URL returns a safe shell that mints a report ticket and navigates to the ticketed URL), while preserving protected JSON API Bearer boundaries, stream/report/workspace ticket flows, refresh retry behavior, token secrecy, and clinical safety language.
 Approved. This PR prevents the confirmed live behavior (`GET /demo/report/{job_id}` and `GET /demo/workspace/{job_id}` returning raw JSON Bearer errors), fixes the Live Events Catalog summary-without-list issue, and (round C) fixes workspace ticket issuance, workspace internal auth, and sensitive ticket/token log redaction, while preserving protected JSON API Bearer boundaries, stream/report/workspace ticket flows, refresh retry behavior, token secrecy, and clinical safety language.
 Approved. This PR prevents the confirmed live behavior (`GET /demo/report/{job_id}` and `GET /demo/workspace/{job_id}` returning raw JSON Bearer errors) and fixes the Live Events Catalog summary-without-list issue, while preserving protected JSON API Bearer boundaries, stream/report/workspace ticket flows, refresh retry behavior, token secrecy, and clinical safety language.

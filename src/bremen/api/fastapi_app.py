@@ -616,6 +616,33 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
 
         This is a job-bound browser-navigation HTML route. It accepts a valid
         Bearer access token or a short-lived job-bound report ticket via the
+        ``auth_ticket`` query parameter.
+
+        - With a valid Bearer or valid report ticket: returns the full report.
+        - With an invalid ticket (wrong purpose/job): redirects to login.
+        - With no Bearer and no auth_ticket: returns a safe bootstrap shell
+          (200 HTML) that mints a report ticket client-side and navigates to
+          the canonical ticketed URL. No protected report data is exposed.
+        """
+        has_ticket = bool(request.query_params.get("auth_ticket", ""))
+        gate = _check_auth_gate_with_ticket(request, job_id, "report")
+        if gate is not None:
+            if has_ticket:
+                # Invalid ticket present → wrong ticket must not work.
+                redirect = _browser_auth_redirect(gate, f"/demo/report/{job_id}")
+                if redirect is not None:
+                    return redirect
+            else:
+                # No Bearer and no ticket → safe bootstrap shell.
+                import uuid as _uuid  # noqa: PLC0415
+                from bremen.report_ui import build_report_bootstrap_page  # noqa: PLC0415
+
+                request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+                host_header = request.headers.get("host", "localhost")
+                forwarded_proto = request.headers.get("X-Forwarded-Proto", "http")
+                base_url = f"{forwarded_proto}://{host_header}"
+                html = build_report_bootstrap_page(base_url=base_url, job_id=job_id)
+                return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
         ``auth_ticket`` query parameter. When neither is present it redirects to
         login instead of returning a raw JSON Bearer error as the page body.
         """
