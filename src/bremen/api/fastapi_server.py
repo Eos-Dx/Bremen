@@ -79,8 +79,11 @@ def run_fastapi_server(
     print(f"ASGI mode (uvicorn) — factory: {_FACTORY_TARGET}")
     print("Dev/smoke mode only. Not for production use.")
 
-    # Suppress access-log noise for /health probes
+    # Suppress access-log noise for /health probes and redact sensitive query
+    # params (auth_ticket, access_token, refresh_token, token, ticket) from
+    # uvicorn access log records. Redaction is logging/output only.
     import logging as _logging  # noqa: PLC0415
+    from ..logging_config import SensitiveQueryRedactionFilter  # noqa: PLC0415
 
     class _HealthAccessFilter(_logging.Filter):
         """Drop uvicorn access log lines for GET /health."""
@@ -94,6 +97,7 @@ def run_fastapi_server(
     for _logger_name in ("uvicorn.access", "uvicorn"):
         _logger = _logging.getLogger(_logger_name)
         _logger.addFilter(_HealthAccessFilter())
+        _logger.addFilter(SensitiveQueryRedactionFilter())
 
     try:
         uvicorn.run(

@@ -210,6 +210,43 @@ var autoScroll = true;
 var processMode = 'process'; // process | technical
 var eventCache = []; // cached events for re-render on mode switch
 
+// Auth helpers (PR0116-C) — same canonical browser auth contract as Control Room.
+function _getSessionStorage(){try{if(typeof window!=='undefined'&&window.sessionStorage){return window.sessionStorage}if(typeof globalThis!=='undefined'&&globalThis.sessionStorage){return globalThis.sessionStorage}}catch(e){}return null}
+function _getAccessToken(){var s=_getSessionStorage();return s?s.getItem('bremen_access_token'):null}
+function _getRefreshToken(){var s=_getSessionStorage();return s?s.getItem('bremen_refresh_token'):null}
+function _setTokens(data){var s=_getSessionStorage();if(!s)return;s.setItem('bremen_access_token',data.access_token);s.setItem('bremen_refresh_token',data.refresh_token);s.setItem('bremen_token_expires',String(Date.now()+data.expires_in*1000))}
+function _clearTokens(){var s=_getSessionStorage();if(!s)return;s.removeItem('bremen_access_token');s.removeItem('bremen_refresh_token');s.removeItem('bremen_token_expires')}
+function _redirectToLogin(){try{if(typeof window!=='undefined'&&window.location){window.location.href='/demo/login'}}catch(e){}}
+function _authFetchTicket(jobId,purpose){
+  return _authFetch(baseUrl+'/demo/api/jobs/'+jobId+'/auth/ticket',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({purpose:purpose})}).then(function(r){return r.json().then(function(data){if(!r.ok||!data.ticket){throw new Error('ticket_mint_failed')}return data.ticket})});
+}
+function _authFetch(url,opts){
+  opts=opts||{};
+  var headers=opts.headers||{};
+  var token=_getAccessToken();
+  if(token){headers['Authorization']='Bearer '+token}
+  opts.headers=headers;
+  return fetch(url,opts).then(function(r){
+    if(r.status!==401)return r;
+    // Try refresh
+    var rt=_getRefreshToken();
+    if(!rt){_clearTokens();_redirectToLogin();return r}
+    return fetch(baseUrl+'/demo/api/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refresh_token:rt})})
+      .then(function(rr){return rr.json().then(function(data){return {status:rr.status,data:data}})})
+      .then(function(result){
+        if(result.status===200&&result.data.access_token){
+          _setTokens(result.data);
+          headers['Authorization']='Bearer '+result.data.access_token;
+          opts.headers=headers;
+          return fetch(url,opts)
+        }else{
+          _clearTokens();_redirectToLogin();return r
+        }
+      })
+      .catch(function(){_clearTokens();_redirectToLogin();return r})
+  })
+}
+
 function init() {
   loadJobList();
   var jobId = '__JOB_ID__';
@@ -217,7 +254,7 @@ function init() {
 }
 
 function loadJobList() {
-  fetch(baseUrl + '/demo/api/jobs')
+  _authFetch(baseUrl + '/demo/api/jobs')
     .then(r => r.json())
     .then(d => {
       var html = '<h3>Jobs</h3>';
@@ -256,7 +293,7 @@ function selectJob(jobId) {
   document.getElementById('main-content').innerHTML = '<p class="empty">Loading...</p>';
   document.getElementById('events-stream').innerHTML = '';
 
-  fetch(baseUrl + '/demo/api/jobs/' + jobId)
+  _authFetch(baseUrl + '/demo/api/jobs/' + jobId)
     .then(r => r.json())
     .then(d => renderJob(d))
     .catch(function() {
@@ -338,20 +375,24 @@ function renderJob(job) {
 
 function connectSSE(jobId) {
   if (eventSource) { eventSource.close(); }
-  eventSource = new EventSource(baseUrl + '/demo/api/jobs/' + jobId + '/events/stream');
+  _authFetchTicket(jobId, 'stream').then(function(ticket) {
+    eventSource = new EventSource(baseUrl + '/demo/api/jobs/' + jobId + '/events/stream?auth_ticket=' + encodeURIComponent(ticket));
 
-  eventSource.addEventListener('job_event', function(e) {
-    var event = JSON.parse(e.data);
-    addProcessEvent(event);
+    eventSource.addEventListener('job_event', function(e) {
+      var event = JSON.parse(e.data);
+      addProcessEvent(event);
+    });
+
+    eventSource.addEventListener('stream_complete', function(e) {
+      addProcessRow('stream_complete', 'Stream complete', 'completed');
+    });
+
+    eventSource.onerror = function() {
+      addProcessRow('disconnected', 'Disconnected — reconnecting...', 'warn');
+    };
+  }).catch(function() {
+    addProcessRow('disconnected', 'Authentication required — reconnecting...', 'warn');
   });
-
-  eventSource.addEventListener('stream_complete', function(e) {
-    addProcessRow('stream_complete', 'Stream complete', 'completed');
-  });
-
-  eventSource.onerror = function() {
-    addProcessRow('disconnected', 'Disconnected — reconnecting...', 'warn');
-  };
 }
 
 function processLabel(ev) {
@@ -541,7 +582,7 @@ _SHOWCASE_JS = r"""
     var root = document.getElementById('showcase-root');
     if (root) root.innerHTML = '<p class="empty">Loading job data...</p>';
 
-    fetch(baseUrl + '/demo/api/jobs/' + jobId)
+    _authFetch(baseUrl + '/demo/api/jobs/' + jobId)
       .then(function(r) { return r.json(); })
       .then(function(d) { renderShowcase(d); })
       .catch(function() {
@@ -554,30 +595,34 @@ _SHOWCASE_JS = r"""
   // ===== SSE for showcase =====
   function connectShowcaseSSE(jobId) {
     if (eventSource) { eventSource.close(); }
-    eventSource = new EventSource(baseUrl + '/demo/api/jobs/' + jobId + '/events/stream');
+    _authFetchTicket(jobId, 'stream').then(function(ticket) {
+      eventSource = new EventSource(baseUrl + '/demo/api/jobs/' + jobId + '/events/stream?auth_ticket=' + encodeURIComponent(ticket));
 
-    eventSource.addEventListener('job_event', function(e) {
-      var evt = JSON.parse(e.data);
-      var wid = evt.workflow_id || 'bremen';
-      if (!eventCache[wid]) eventCache[wid] = [];
-      var seen = eventCache[wid].some(function(x) {
-        return x.sequence === evt.sequence || x.event_id === evt.event_id;
+      eventSource.addEventListener('job_event', function(e) {
+        var evt = JSON.parse(e.data);
+        var wid = evt.workflow_id || 'bremen';
+        if (!eventCache[wid]) eventCache[wid] = [];
+        var seen = eventCache[wid].some(function(x) {
+          return x.sequence === evt.sequence || x.event_id === evt.event_id;
+        });
+        if (!seen) {
+          eventCache[wid].push(evt);
+        }
+        addShowcaseProcessEvent(evt);
+        updateShowcaseLive(jobId);
       });
-      if (!seen) {
-        eventCache[wid].push(evt);
-      }
-      addShowcaseProcessEvent(evt);
-      updateShowcaseLive(jobId);
-    });
 
-    eventSource.addEventListener('stream_complete', function() {
-      streamComplete = true;
-      addShowcaseProcessRow('Stream complete', 'completed');
-    });
+      eventSource.addEventListener('stream_complete', function() {
+        streamComplete = true;
+        addShowcaseProcessRow('Stream complete', 'completed');
+      });
 
-    eventSource.onerror = function() {
-      addShowcaseProcessRow('Disconnected - reconnecting...', 'warn');
-    };
+      eventSource.onerror = function() {
+        addShowcaseProcessRow('Disconnected - reconnecting...', 'warn');
+      };
+    }).catch(function() {
+      addShowcaseProcessRow('Authentication required - reconnecting...', 'warn');
+    });
   }
 
   function addShowcaseProcessEvent(evt) {
@@ -1152,7 +1197,7 @@ _SHOWCASE_JS = r"""
 
   // ===== Live update =====
   function updateShowcaseLive(jobId) {
-    fetch(baseUrl + '/demo/api/jobs/' + jobId)
+    _authFetch(baseUrl + '/demo/api/jobs/' + jobId)
       .then(function(r) { return r.json(); })
       .then(function(d) { renderShowcase(d); })
       .catch(function() {});

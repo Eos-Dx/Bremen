@@ -23,6 +23,7 @@ import re
 import pytest
 
 from bremen.api.job_api_handler import reset_for_tests, list_analysis_jobs, _event_store
+from bremen.workspace_ui import build_workspace_page
 
 
 # ---------------------------------------------------------------------------
@@ -203,3 +204,107 @@ class TestWorkspacePrivacy:
     def test_technical_demo_only_present(self, server_info):
         html, _ = server_info
         assert "Technical demo only" in html
+
+
+# ---------------------------------------------------------------------------
+# PR0116-C — Workspace internal auth handling
+# ---------------------------------------------------------------------------
+
+
+class TestWorkspaceInternalAuth:
+    """Workspace page protected JSON calls use the auth-aware wrapper (PR0116-C)."""
+
+    def _function_body(self, page: str, function_name: str) -> str:
+        # Match the exact function name (not a prefix like _authFetchTicket).
+        fn_start = page.find(f"function {function_name}(")
+        assert fn_start >= 0
+        fn_end = page.find("function ", fn_start + 10)
+        return page[fn_start:fn_end if fn_end > 0 else len(page)]
+
+    def test_auth_fetch_helper_defined(self):
+        """Workspace page defines the canonical _authFetch helper."""
+        html = build_workspace_page(base_url="http://testserver")
+        assert "function _authFetch(url,opts)" in html
+
+    def test_auth_fetch_reads_canonical_storage(self):
+        """_authFetch reads access token from canonical sessionStorage key."""
+        html = build_workspace_page(base_url="http://testserver")
+        assert "bremen_access_token" in html
+        assert "bremen_refresh_token" in html
+
+    def test_auth_fetch_refreshes_on_401(self):
+        """_authFetch calls refresh endpoint on 401."""
+        html = build_workspace_page(base_url="http://testserver")
+        assert "'/demo/api/auth/refresh'" in html
+        assert "refresh_token:rt" in html
+
+    def test_auth_fetch_stores_new_token(self):
+        """_authFetch stores the refreshed access token via _setTokens."""
+        html = build_workspace_page(base_url="http://testserver")
+        assert "_setTokens(result.data)" in html
+
+    def test_auth_fetch_retries_once(self):
+        """_authFetch retries the original request exactly once."""
+        html = build_workspace_page(base_url="http://testserver")
+        fn_body = self._function_body(html, "_authFetch")
+        assert fn_body.count("fetch(url,opts)") == 2
+
+    def test_auth_fetch_no_refresh_loop(self):
+        """_authFetch does not loop on refresh; only one retry per request."""
+        html = build_workspace_page(base_url="http://testserver")
+        fn_body = self._function_body(html, "_authFetch")
+        assert fn_body.count("auth/refresh") == 1
+        assert fn_body.count("fetch(url,opts)") == 2
+
+    def test_load_job_list_uses_auth_fetch(self):
+        """loadJobList uses _authFetch for GET /demo/api/jobs."""
+        html = build_workspace_page(base_url="http://testserver")
+        fn_body = self._function_body(html, "loadJobList")
+        assert "_authFetch(baseUrl + '/demo/api/jobs')" in fn_body
+        assert "fetch(baseUrl + '/demo/api/jobs')" not in fn_body
+
+    def test_select_job_uses_auth_fetch(self):
+        """selectJob uses _authFetch for GET /demo/api/jobs/{job_id}."""
+        html = build_workspace_page(base_url="http://testserver")
+        fn_body = self._function_body(html, "selectJob")
+        assert "_authFetch(baseUrl + '/demo/api/jobs/' + jobId)" in fn_body
+        assert "fetch(baseUrl + '/demo/api/jobs/' + jobId)" not in fn_body
+
+    def test_connect_sse_mints_stream_ticket(self):
+        """connectSSE mints a stream ticket before opening EventSource."""
+        html = build_workspace_page(base_url="http://testserver")
+        fn_body = self._function_body(html, "connectSSE")
+        assert "_authFetchTicket(jobId, 'stream')" in fn_body
+        assert "auth_ticket=" in fn_body
+        assert "encodeURIComponent(ticket)" in fn_body
+
+    def test_connect_sse_no_tokens_in_url(self):
+        """connectSSE does not put access_token or refresh_token in EventSource URL."""
+        html = build_workspace_page(base_url="http://testserver")
+        fn_body = self._function_body(html, "connectSSE")
+        assert "access_token" not in fn_body
+        assert "refresh_token" not in fn_body
+        assert "auth_ticket=" in fn_body
+
+    def test_showcase_select_job_uses_auth_fetch(self):
+        """Showcase selectJob uses _authFetch for protected job fetch."""
+        html = build_workspace_page(base_url="http://testserver")
+        assert "_authFetch(baseUrl + '/demo/api/jobs/' + jobId)" in html
+
+    def test_showcase_sse_mints_stream_ticket(self):
+        """Showcase connectShowcaseSSE mints a stream ticket."""
+        html = build_workspace_page(base_url="http://testserver")
+        assert "_authFetchTicket(jobId, 'stream')" in html
+        assert "auth_ticket=" in html
+
+    def test_showcase_live_update_uses_auth_fetch(self):
+        """Showcase updateShowcaseLive uses _authFetch."""
+        html = build_workspace_page(base_url="http://testserver")
+        assert "_authFetch(baseUrl + '/demo/api/jobs/' + jobId)" in html
+
+    def test_no_plain_fetch_for_protected_jobs(self):
+        """No plain fetch for protected /demo/api/jobs endpoints."""
+        html = build_workspace_page(base_url="http://testserver")
+        # The only plain fetch calls should be inside _authFetch itself.
+        assert "fetch(baseUrl + '/demo/api/jobs')" not in html
+        assert "fetch(baseUrl + '/demo/api/jobs/' + jobId)" not in html
