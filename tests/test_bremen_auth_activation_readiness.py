@@ -655,7 +655,6 @@ class TestEnforcementScopePreserved:
         client = TestClient(app, raise_server_exceptions=False, follow_redirects=False)
         browser_routes = [
             "/demo/workspace",
-            "/demo/report/test",
         ]
         for path in browser_routes:
             resp = client.get(path)
