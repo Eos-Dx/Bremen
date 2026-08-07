@@ -150,9 +150,6 @@ BROWSER_NAV_ROUTES = [
 # protected report data or return a raw JSON Bearer error.
 REPORT_BOOTSTRAP_ROUTES = [
     "/demo/report/nonexistent",
-    ("/demo/report/nonexistent", "/demo/report/nonexistent"),
-    ("/demo/workspace", "/demo/workspace"),
-    ("/demo/workspace/nonexistent", "/demo/workspace/nonexistent"),
 ]
 
 PUBLIC_ROUTES = [
@@ -854,15 +851,12 @@ class TestReportRouteTicketFallback:
 
     def test_report_route_rejects_no_auth(self):
         """Bare report route returns a safe bootstrap shell (200 HTML), not raw JSON."""
-        """Report route redirects to login when no auth present."""
         app = _make_app(auth_enabled=True)
-        client = TestClient(app, raise_server_exceptions=False, follow_redirects=False)
+        client = TestClient(app, raise_server_exceptions=False)
         resp = client.get("/demo/report/test-job-123")
         assert resp.status_code == 200
         assert "text/html" in resp.headers.get("content-type", "")
         assert "data-report-bootstrap" in resp.text
-        assert resp.status_code == 302
-        assert resp.headers.get("location", "").startswith("/demo/login?next=")
         assert "Authentication failed" not in resp.text
 
     def test_report_route_accepts_ticket_when_auth_disabled(self):

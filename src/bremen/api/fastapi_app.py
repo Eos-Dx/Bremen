@@ -643,13 +643,6 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
                 base_url = f"{forwarded_proto}://{host_header}"
                 html = build_report_bootstrap_page(base_url=base_url, job_id=job_id)
                 return HTMLResponse(content=html, headers={"X-Request-ID": request_id})
-        ``auth_ticket`` query parameter. When neither is present it redirects to
-        login instead of returning a raw JSON Bearer error as the page body.
-        """
-        gate = _check_auth_gate_with_ticket(request, job_id, "report")
-        redirect = _browser_auth_redirect(gate, f"/demo/report/{job_id}")
-        if redirect is not None:
-            return redirect
         import uuid as _uuid  # noqa: PLC0415
         from bremen.report_ui import build_report_page  # noqa: PLC0415
 
