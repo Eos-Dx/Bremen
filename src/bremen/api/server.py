@@ -234,6 +234,11 @@ def _make_handler(
             if route_path == "/health" and 200 <= status_int < 300:
                 return
 
+            # Redact sensitive query params (auth_ticket, access_token, etc.)
+            # from the logged path to avoid credential-in-log risk.
+            from ..logging_config import redact_sensitive_query_params  # noqa: PLC0415
+            safe_path = redact_sensitive_query_params(path)
+
             extra_parts = []
             job_id = getattr(self, "_job_id", None)
             error = getattr(self, "_error", None)
@@ -248,7 +253,7 @@ def _make_handler(
                 {
                     "request_id": getattr(self, "_request_id", "?"),
                     "method": getattr(self, "command", "?"),
-                    "path": path,
+                    "path": safe_path,
                     "status": status,
                     "extra": extra_str,
                 },

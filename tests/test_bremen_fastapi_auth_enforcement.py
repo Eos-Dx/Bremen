@@ -604,6 +604,26 @@ class TestTicketMintingEndpoint:
         body = resp.json()
         assert body["purpose"] == "report"
 
+    def test_mint_endpoint_workspace_purpose(self):
+        """Mint endpoint accepts purpose=workspace with valid Bearer (PR0116-C)."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        self._inject_job(client, "test-job")
+        token = _make_token()
+        resp = client.post(
+            "/demo/api/jobs/test-job/auth/ticket",
+            json={"purpose": "workspace"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["token_type"] == "stream_ticket"
+        assert body["purpose"] == "workspace"
+        assert body["job_id"] == "test-job"
+        assert body["expires_in"] == 60
+        assert len(body["ticket"]) > 0
+        assert body["technical_demo_only"] is True
+
     def test_mint_endpoint_invalid_purpose_400(self):
         """Mint endpoint rejects invalid purpose."""
         app = _make_app(auth_enabled=True)
@@ -694,6 +714,17 @@ class TestSSERouteTicketFallback:
         app = _make_app(auth_enabled=True)
         client = TestClient(app, raise_server_exceptions=False)
         ticket = _make_stream_ticket("test-job", "report")
+        resp = client.get(
+            "/demo/api/jobs/test-job/events/stream",
+            params={"auth_ticket": ticket},
+        )
+        assert resp.status_code == 401
+
+    def test_stream_route_rejects_workspace_ticket(self):
+        """Stream route rejects workspace-purpose ticket (PR0116-C)."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        ticket = _make_stream_ticket("test-job", "workspace")
         resp = client.get(
             "/demo/api/jobs/test-job/events/stream",
             params={"auth_ticket": ticket},

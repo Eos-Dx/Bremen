@@ -1170,7 +1170,7 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
             body_dict = {}
 
         purpose = body_dict.get("purpose", "")
-        if purpose not in ("stream", "report"):
+        if purpose not in ("stream", "report", "workspace"):
             return JSONResponse(
                 content={"error": "Invalid ticket purpose"},
                 status_code=400,
