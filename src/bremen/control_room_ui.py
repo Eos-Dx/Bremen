@@ -738,6 +738,12 @@ function openJob(jobId){
   }).catch(function(){_redirectToLogin()});
 }
 
+function openWorkspace(jobId){
+  _authFetchTicket(jobId,'workspace').then(function(ticket){
+    window.location.href=baseUrl+'/demo/workspace/'+jobId+'?auth_ticket='+encodeURIComponent(ticket);
+  }).catch(function(){_redirectToLogin()});
+}
+
 function fetchInitialEvents(jobId){
   _authFetch(baseUrl+'/demo/api/jobs/'+jobId+'/events')
     .then(function(r){return r.json()})
@@ -921,7 +927,7 @@ function fetchDecision(jobId){
       }
       html+='<div style="display:flex;gap:8px;align-items:center">';
       html+='<a class="cr-report-link" href="'+baseUrl+'/demo/report/'+jobId+'" target="_blank" rel="noopener">Open report</a>';
-      html+=' <a class="cr-report-link" href="'+baseUrl+'/demo/workspace/'+jobId+'" target="_blank" rel="noopener">Open workspace</a>';
+      html+=' <a class="cr-report-link" href="'+baseUrl+'/demo/workspace/'+jobId+'" target="_blank" rel="noopener" onclick="event.preventDefault();openWorkspace(\''+jobId+'\')">Open workspace</a>';
       html+='</div>';
       html+='<hr style="border:none;border-top:1px solid var(--border);margin:var(--sp-12) 0">';
       html+='<div style="font-size:var(--fs-11);color:var(--text-secondary)">'+code+' \u00B7 '+policy+' <span class="cr-badge pending">Certification: pending</span> <span class="cr-badge not_configured" style="margin-left:4px">Technical demo only</span></div>';
@@ -961,13 +967,24 @@ function collapseEventPanel(outcome){
   if(!panel)return;
   var now=new Date();
   var ts=now.toISOString().substring(11,19);
-  var completedCount=eventCache.filter(function(e){return e.status==='completed'}).length;
-  var pipelineTotal=Object.keys(STAGE_MAP).length;
+  // Derive completed/total counts from the actual rendered pipeline stages,
+  // not from a stale hard-coded catalog length or the event cache. This keeps
+  // the count accurate when execution_traces has all stages completed.
+  var completedCount=document.querySelectorAll('.cr-stage.completed').length;
+  var pipelineTotal=document.querySelectorAll('.cr-stage').length;
+  if(pipelineTotal===0){pipelineTotal=Object.keys(STAGE_MAP).length}
+  // Preserve the chronological event list; prepend the summary as a header row
+  // instead of replacing the list with only the summary.
+  var summary=document.createElement('div');
+  summary.className='cr-event-summary';
   if(outcome==='completed'){
-    panel.innerHTML='<div style="padding:var(--sp-8) var(--sp-12);font-size:var(--fs-13);color:var(--status-available)">Analysis complete \u00B7 '+completedCount+' of '+pipelineTotal+' pipeline stages completed \u00B7 '+ts+'</div>';
+    summary.style.cssText='padding:var(--sp-8) var(--sp-12);font-size:var(--fs-13);color:var(--status-available);border-bottom:1px solid var(--border)';
+    summary.textContent='Analysis complete \u00B7 '+completedCount+' of '+pipelineTotal+' pipeline stages completed \u00B7 '+ts;
   }else{
-    panel.innerHTML='<div style="padding:var(--sp-8) var(--sp-12);font-size:var(--fs-13);color:var(--status-error)">Analysis stopped \u00B7 '+ts+'</div>';
+    summary.style.cssText='padding:var(--sp-8) var(--sp-12);font-size:var(--fs-13);color:var(--status-error);border-bottom:1px solid var(--border)';
+    summary.textContent='Analysis stopped \u00B7 '+ts;
   }
+  panel.insertBefore(summary,panel.firstChild);
   if(actions){actions.style.display='none'}
 }
 
@@ -998,6 +1015,7 @@ window.updateReadiness=updateReadiness;
 window.startAnalysis=startAnalysis;
 window.loadJobHistory=loadJobHistory;
 window.openJob=openJob;
+window.openWorkspace=openWorkspace;
 window.toggleAutoScroll=toggleAutoScroll;
 window.filterEvents=filterEvents;
 window.deleteReport=deleteReport;

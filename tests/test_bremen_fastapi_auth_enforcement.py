@@ -133,11 +133,17 @@ PROTECTED_ROUTES = [
     ("GET", "/demo/api/jobs/nonexistent/events"),
     ("GET", "/demo/api/jobs/nonexistent/reports"),
     ("GET", "/demo/api/jobs/nonexistent/reports/bremen"),
-    ("GET", "/demo/report/nonexistent"),
     ("GET", "/demo/api/reports/nonexistent/external"),
     ("GET", "/demo/api/reports/nonexistent/internal"),
-    ("GET", "/demo/workspace"),
-    ("GET", "/demo/workspace/nonexistent"),
+]
+
+# Browser-navigation HTML routes. These must NOT return raw JSON Bearer errors
+# as the page body; when auth is missing they redirect to /demo/login?next=...
+# instead of returning 401. They remain protected (not public).
+BROWSER_NAV_ROUTES = [
+    ("/demo/report/nonexistent", "/demo/report/nonexistent"),
+    ("/demo/workspace", "/demo/workspace"),
+    ("/demo/workspace/nonexistent", "/demo/workspace/nonexistent"),
 ]
 
 PUBLIC_ROUTES = [
@@ -196,7 +202,7 @@ class TestAuthEnabledMissingToken:
     """When auth is enabled, missing token → safe 401."""
 
     def test_protected_route_no_token_401(self):
-        """Protected routes return 401 without Authorization header."""
+        """Protected fetch-only API routes return 401 without Authorization header."""
         app = _make_app(auth_enabled=True)
         client = TestClient(app, raise_server_exceptions=False)
         for method, path in PROTECTED_ROUTES:
@@ -204,6 +210,21 @@ class TestAuthEnabledMissingToken:
             assert resp.status_code == 401, (
                 f"{method} {path} should return 401 without token"
             )
+
+    def test_browser_nav_route_no_token_redirects_to_login(self):
+        """Browser-navigation HTML routes redirect to login instead of raw JSON 401."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False, follow_redirects=False)
+        for path, next_path in BROWSER_NAV_ROUTES:
+            resp = client.get(path)
+            assert resp.status_code == 302, (
+                f"{path} should redirect to login without token, got {resp.status_code}"
+            )
+            assert resp.headers.get("location", "").startswith("/demo/login?next="), (
+                f"{path} should redirect to /demo/login?next=..., got {resp.headers.get('location')}"
+            )
+            # Must not return raw JSON Bearer error as the page body.
+            assert "Authentication failed" not in resp.text
 
     def test_401_shape_is_safe(self):
         """401 response contains only safe fields."""
@@ -736,39 +757,146 @@ class TestReportRouteTicketFallback:
         assert resp.status_code != 401
 
     def test_report_route_rejects_stream_ticket(self):
-        """Report route rejects stream-purpose ticket."""
+        """Report route rejects stream-purpose ticket (redirects to login)."""
         app = _make_app(auth_enabled=True)
-        client = TestClient(app, raise_server_exceptions=False)
+        client = TestClient(app, raise_server_exceptions=False, follow_redirects=False)
         ticket = _make_stream_ticket("test-job-123", "stream")
         resp = client.get(
             "/demo/report/test-job-123",
             params={"auth_ticket": ticket},
         )
-        assert resp.status_code == 401
+        assert resp.status_code == 302
+        assert resp.headers.get("location", "").startswith("/demo/login?next=")
+        assert "Authentication failed" not in resp.text
 
     def test_report_route_rejects_wrong_job_ticket(self):
-        """Report route rejects ticket for different job."""
+        """Report route rejects ticket for different job (redirects to login)."""
         app = _make_app(auth_enabled=True)
-        client = TestClient(app, raise_server_exceptions=False)
+        client = TestClient(app, raise_server_exceptions=False, follow_redirects=False)
         ticket = _make_stream_ticket("other-job", "report")
         resp = client.get(
             "/demo/report/test-job-123",
             params={"auth_ticket": ticket},
         )
-        assert resp.status_code == 401
+        assert resp.status_code == 302
+        assert resp.headers.get("location", "").startswith("/demo/login?next=")
+        assert "Authentication failed" not in resp.text
+
+    def test_report_route_rejects_workspace_ticket(self):
+        """Report route rejects workspace-purpose ticket (redirects to login)."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False, follow_redirects=False)
+        ticket = _make_stream_ticket("test-job-123", "workspace")
+        resp = client.get(
+            "/demo/report/test-job-123",
+            params={"auth_ticket": ticket},
+        )
+        assert resp.status_code == 302
+        assert resp.headers.get("location", "").startswith("/demo/login?next=")
+        assert "Authentication failed" not in resp.text
 
     def test_report_route_rejects_no_auth(self):
-        """Report route rejects request with no auth."""
+        """Report route redirects to login when no auth present."""
         app = _make_app(auth_enabled=True)
-        client = TestClient(app, raise_server_exceptions=False)
+        client = TestClient(app, raise_server_exceptions=False, follow_redirects=False)
         resp = client.get("/demo/report/test-job-123")
-        assert resp.status_code == 401
+        assert resp.status_code == 302
+        assert resp.headers.get("location", "").startswith("/demo/login?next=")
+        assert "Authentication failed" not in resp.text
 
     def test_report_route_accepts_ticket_when_auth_disabled(self):
         """Report route allows access when auth disabled."""
         app = _make_app(auth_enabled=False)
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.get("/demo/report/test-job-123")
+        assert resp.status_code != 401
+
+
+# ===========================================================================
+# 9b. Workspace route ticket fallback (PR0116 follow-up)
+# ===========================================================================
+
+
+class TestWorkspaceRouteTicketFallback:
+    """GET /demo/workspace/{job_id} ticket fallback."""
+
+    def test_workspace_route_accepts_valid_bearer(self):
+        """Workspace route accepts valid Bearer token."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        token = _make_token()
+        resp = client.get(
+            "/demo/workspace/test-job-123",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert "text/html" in resp.headers.get("content-type", "")
+
+    def test_workspace_route_accepts_valid_workspace_ticket(self):
+        """Workspace route accepts valid workspace ticket via query param."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        ticket = _make_stream_ticket("test-job-123", "workspace")
+        resp = client.get(
+            "/demo/workspace/test-job-123",
+            params={"auth_ticket": ticket},
+        )
+        assert resp.status_code == 200
+        assert "text/html" in resp.headers.get("content-type", "")
+
+    def test_workspace_route_rejects_stream_ticket(self):
+        """Workspace route rejects stream-purpose ticket (redirects to login)."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False, follow_redirects=False)
+        ticket = _make_stream_ticket("test-job-123", "stream")
+        resp = client.get(
+            "/demo/workspace/test-job-123",
+            params={"auth_ticket": ticket},
+        )
+        assert resp.status_code == 302
+        assert resp.headers.get("location", "").startswith("/demo/login?next=")
+        assert "Authentication failed" not in resp.text
+
+    def test_workspace_route_rejects_report_ticket(self):
+        """Workspace route rejects report-purpose ticket (redirects to login)."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False, follow_redirects=False)
+        ticket = _make_stream_ticket("test-job-123", "report")
+        resp = client.get(
+            "/demo/workspace/test-job-123",
+            params={"auth_ticket": ticket},
+        )
+        assert resp.status_code == 302
+        assert resp.headers.get("location", "").startswith("/demo/login?next=")
+        assert "Authentication failed" not in resp.text
+
+    def test_workspace_route_rejects_wrong_job_ticket(self):
+        """Workspace route rejects ticket for different job (redirects to login)."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False, follow_redirects=False)
+        ticket = _make_stream_ticket("other-job", "workspace")
+        resp = client.get(
+            "/demo/workspace/test-job-123",
+            params={"auth_ticket": ticket},
+        )
+        assert resp.status_code == 302
+        assert resp.headers.get("location", "").startswith("/demo/login?next=")
+        assert "Authentication failed" not in resp.text
+
+    def test_workspace_route_rejects_no_auth(self):
+        """Workspace route redirects to login when no auth present."""
+        app = _make_app(auth_enabled=True)
+        client = TestClient(app, raise_server_exceptions=False, follow_redirects=False)
+        resp = client.get("/demo/workspace/test-job-123")
+        assert resp.status_code == 302
+        assert resp.headers.get("location", "").startswith("/demo/login?next=")
+        assert "Authentication failed" not in resp.text
+
+    def test_workspace_route_accepts_ticket_when_auth_disabled(self):
+        """Workspace route allows access when auth disabled."""
+        app = _make_app(auth_enabled=False)
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.get("/demo/workspace/test-job-123")
         assert resp.status_code != 401
 
 

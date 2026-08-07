@@ -235,7 +235,7 @@ def _decode_token(config: AuthConfig, token: str, expected_type: str) -> TokenCl
 
 _STREAM_TICKET_TTL = 60  # seconds
 _STREAM_TICKET_TYPE = "stream_ticket"
-_VALID_PURPOSES = frozenset({"stream", "report"})
+_VALID_PURPOSES = frozenset({"stream", "report", "workspace"})
 
 
 def create_stream_ticket(

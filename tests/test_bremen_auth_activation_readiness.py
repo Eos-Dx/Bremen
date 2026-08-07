@@ -634,21 +634,38 @@ class TestEnforcementScopePreserved:
     """Auth enforcement scope from PR0111 is unchanged."""
 
     def test_protected_routes_require_token(self):
-        """Protected routes require valid token when auth enabled."""
+        """Protected fetch-only API routes require valid token when auth enabled."""
         _inject_auth_config()
         app = create_fastapi_app()
         client = TestClient(app, raise_server_exceptions=False)
         protected = [
             "/demo/api/jobs",
             "/demo/api/h5/containers",
-            "/demo/workspace",
-            "/demo/report/test",
         ]
         for path in protected:
             resp = client.get(path)
             assert resp.status_code == 401, (
                 f"{path} should require auth"
             )
+
+    def test_browser_nav_routes_redirect_to_login(self):
+        """Browser-navigation HTML routes redirect to login instead of raw JSON 401."""
+        _inject_auth_config()
+        app = create_fastapi_app()
+        client = TestClient(app, raise_server_exceptions=False, follow_redirects=False)
+        browser_routes = [
+            "/demo/workspace",
+            "/demo/report/test",
+        ]
+        for path in browser_routes:
+            resp = client.get(path)
+            assert resp.status_code == 302, (
+                f"{path} should redirect to login without token, got {resp.status_code}"
+            )
+            assert resp.headers.get("location", "").startswith("/demo/login?next="), (
+                f"{path} should redirect to /demo/login?next=..., got {resp.headers.get('location')}"
+            )
+            assert "Authentication failed" not in resp.text
 
     def test_public_routes_no_token_needed(self):
         """Public routes do not require token when auth enabled."""

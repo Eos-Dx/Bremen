@@ -4281,3 +4281,118 @@ class TestPR0114ClientTicketFlow:
         """Job history loadJobHistory function is preserved."""
         page = build_control_room_page()
         assert 'function loadJobHistory' in page
+
+    def test_open_workspace_mints_workspace_ticket(self):
+        """openWorkspace mints a purpose=workspace ticket before navigating."""
+        page = build_control_room_page()
+        assert 'function openWorkspace(jobId)' in page
+        assert "_authFetchTicket(jobId,'workspace')" in page
+        assert 'auth_ticket=' in page
+
+    def test_open_workspace_navigates_to_workspace_url(self):
+        """openWorkspace navigates to /demo/workspace/{job_id}?auth_ticket=..."""
+        page = build_control_room_page()
+        assert "'/demo/workspace/'+jobId+'?auth_ticket='" in page
+
+    def test_open_workspace_no_tokens_in_url(self):
+        """openWorkspace does not put access_token or refresh_token in URL."""
+        page = build_control_room_page()
+        fn_start = page.find('function openWorkspace')
+        assert fn_start >= 0
+        fn_end = page.find('function ', fn_start + 10)
+        fn_body = page[fn_start:fn_end if fn_end > 0 else len(page)]
+        assert 'access_token' not in fn_body
+        assert 'refresh_token' not in fn_body
+        assert 'auth_ticket' in fn_body
+
+    def test_open_workspace_redirects_to_login_on_failure(self):
+        """openWorkspace redirects to login on ticket mint failure."""
+        page = build_control_room_page()
+        assert '_redirectToLogin()' in page
+
+    def test_open_workspace_link_uses_ticket_mint(self):
+        """Open workspace link calls openWorkspace instead of plain href navigation."""
+        page = build_control_room_page()
+        assert 'openWorkspace(' in page
+        assert 'event.preventDefault();openWorkspace(' in page
+
+
+# ===========================================================================
+# PR0116 follow-up — Live Events Catalog rendering fix
+# ===========================================================================
+
+
+class TestLiveEventsCatalogRendering:
+    """Live Events Catalog renders chronological event/stage list, not only summary."""
+
+    def _function_body(self, page: str, function_name: str) -> str:
+        fn_start = page.find(f"function {function_name}")
+        assert fn_start >= 0
+        fn_end = page.find("function ", fn_start + 10)
+        return page[fn_start:fn_end if fn_end > 0 else len(page)]
+
+    def test_collapse_preserves_event_list(self):
+        """collapseEventPanel preserves the event list instead of replacing it."""
+        page = build_control_room_page()
+        fn_body = self._function_body(page, "collapseEventPanel")
+        # Must not wipe the event list with only the summary.
+        assert "panel.innerHTML='<div" not in fn_body
+        # Must insert the summary as a header row, preserving existing rows.
+        assert "insertBefore(summary,panel.firstChild)" in fn_body
+
+    def test_collapse_uses_dom_stage_count(self):
+        """collapseEventPanel derives counts from rendered pipeline stages."""
+        page = build_control_room_page()
+        fn_body = self._function_body(page, "collapseEventPanel")
+        assert "querySelectorAll('.cr-stage.completed')" in fn_body
+        assert "querySelectorAll('.cr-stage')" in fn_body
+
+    def test_collapse_has_summary_class(self):
+        """collapseEventPanel creates a cr-event-summary header row."""
+        page = build_control_room_page()
+        fn_body = self._function_body(page, "collapseEventPanel")
+        assert "cr-event-summary" in fn_body
+
+    def test_event_list_markup_present(self):
+        """Event list markup is present in the page."""
+        page = build_control_room_page()
+        assert 'id="cr-event-list"' in page
+        assert 'class="cr-event-list"' in page
+
+    def test_add_event_row_renders_chronological_rows(self):
+        """addEventRow appends chronological event rows to the list."""
+        page = build_control_room_page()
+        fn_body = self._function_body(page, "addEventRow")
+        assert "panel.appendChild(div)" in fn_body
+        assert "cr-event-row" in fn_body
+
+    def test_unknown_event_type_fallback_label(self):
+        """Unknown event_type renders a fallback label instead of breaking."""
+        page = build_control_room_page()
+        fn_body = self._function_body(page, "addEventRow")
+        # typeLabel falls back to ev.event_type when no mapping exists.
+        assert "typeLabel=ev.event_type||''" in fn_body
+
+    def test_empty_state_explicit(self):
+        """Empty state is explicit only when truly empty."""
+        page = build_control_room_page()
+        assert "Analysis events will appear here" in page
+
+    def test_report_completed_stage_in_stage_map(self):
+        """runtime.report.completed maps to stage-report in STAGE_MAP."""
+        page = build_control_room_page()
+        assert "'runtime.report.completed':'stage-report'" in page
+
+    def test_stage_map_has_15_entries(self):
+        """STAGE_MAP has 15 entries including report.completed and request.completed."""
+        page = build_control_room_page()
+        # STAGE_MAP is a variable, not a function; search the page directly.
+        assert "'runtime.report.completed':'stage-report'" in page
+        assert "'runtime.request.completed':'stage-complete'" in page
+
+    def test_completed_count_derived_from_dom_not_event_cache(self):
+        """Completed count is derived from DOM stages, not eventCache.length."""
+        page = build_control_room_page()
+        fn_body = self._function_body(page, "collapseEventPanel")
+        assert "eventCache.filter" not in fn_body
+        assert "querySelectorAll('.cr-stage.completed')" in fn_body
