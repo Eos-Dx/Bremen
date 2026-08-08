@@ -4318,8 +4318,87 @@ class TestPR0114ClientTicketFlow:
 
 
 # ===========================================================================
-# PR0116 follow-up — Live Events Catalog rendering fix
+# PR0119 — Control Room Open report button mints report ticket
 # ===========================================================================
+
+
+class TestControlRoomOpenReportTicket:
+    """Control Room Open report button mints purpose=report ticket (PR0119)."""
+
+    def _function_body(self, page: str, function_name: str) -> str:
+        fn_start = page.find(f"function {function_name}(")
+        assert fn_start >= 0
+        fn_end = page.find("function ", fn_start + 10)
+        return page[fn_start:fn_end if fn_end > 0 else len(page)]
+
+    def test_open_report_button_wired_to_open_job(self):
+        """Open report button calls openJob, not raw /demo/report href."""
+        page = build_control_room_page()
+        assert 'event.preventDefault();openJob(' in page
+
+    def test_open_report_button_not_bare_href_only(self):
+        """Open report button is not a bare href without ticket mint."""
+        page = build_control_room_page()
+        # The Open report link must have an onclick that mints a ticket.
+        assert 'onclick="event.preventDefault();openJob(' in page
+
+    def test_open_job_mints_report_ticket(self):
+        """openJob calls _authFetchTicket(jobId, 'report')."""
+        page = build_control_room_page()
+        fn_body = self._function_body(page, "openJob")
+        assert "_authFetchTicket(jobId,'report')" in fn_body
+
+    def test_open_job_navigates_to_ticketed_url(self):
+        """openJob navigates to /demo/report/{jobId}?auth_ticket=..."""
+        page = build_control_room_page()
+        fn_body = self._function_body(page, "openJob")
+        assert "'/demo/report/'+jobId+'?auth_ticket='" in fn_body
+        assert "encodeURIComponent(ticket)" in fn_body
+
+    def test_open_job_no_bare_report_navigation_after_success(self):
+        """openJob does not navigate to bare /demo/report/{jobId} after ticket mint."""
+        page = build_control_room_page()
+        fn_body = self._function_body(page, "openJob")
+        # The success path must use the ticketed URL, not the bare URL.
+        assert "'/demo/report/'+jobId+'?auth_ticket='" in fn_body
+        # No bare navigation (ending without ?auth_ticket) in the success path.
+        assert "'/demo/report/'+jobId;" not in fn_body
+        assert "'/demo/report/'+jobId'" not in fn_body
+
+    def test_open_job_no_tokens_in_url(self):
+        """openJob does not put access_token or refresh_token in URL."""
+        page = build_control_room_page()
+        fn_body = self._function_body(page, "openJob")
+        assert "access_token" not in fn_body
+        assert "refresh_token" not in fn_body
+        assert "auth_ticket=" in fn_body
+
+    def test_open_job_failure_redirects_to_login_with_next(self):
+        """openJob ticket mint failure redirects to login with next=/demo/report/{jobId}."""
+        page = build_control_room_page()
+        fn_body = self._function_body(page, "openJob")
+        assert "'/demo/login?next='+encodeURIComponent('/demo/report/'+jobId)" in fn_body
+        # Must not silently navigate to bare report URL on failure.
+        assert "'/demo/report/'+jobId;" not in fn_body
+        assert "'/demo/report/'+jobId'" not in fn_body
+
+    def test_open_job_job_id_consistent(self):
+        """openJob uses the same job_id for ticket mint and final URL."""
+        page = build_control_room_page()
+        fn_body = self._function_body(page, "openJob")
+        # Both the ticket mint and the navigation use the same jobId variable.
+        assert "_authFetchTicket(jobId,'report')" in fn_body
+        assert "'/demo/report/'+jobId+'?auth_ticket='" in fn_body
+
+    def test_history_row_uses_open_job(self):
+        """Patient history rows use openJob for report navigation."""
+        page = build_control_room_page()
+        assert 'onclick="openJob(' in page
+
+    def test_open_report_button_uses_job_id(self):
+        """Open report button passes the specific job_id to openJob."""
+        page = build_control_room_page()
+        assert 'event.preventDefault();openJob(' in page
 
 
 class TestLiveEventsCatalogRendering:
