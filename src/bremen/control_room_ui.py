@@ -735,7 +735,11 @@ function deleteReport(jobId,workflowId){
 function openJob(jobId){
   _authFetchTicket(jobId,'report').then(function(ticket){
     window.location.href=baseUrl+'/demo/report/'+jobId+'?auth_ticket='+encodeURIComponent(ticket);
-  }).catch(function(){_redirectToLogin()});
+  }).catch(function(){
+    // Do not silently fall back to the bare report URL. Redirect to login with
+    // next so the user can return to the report after authenticating.
+    try{if(typeof window!=='undefined'&&window.location){window.location.href='/demo/login?next='+encodeURIComponent('/demo/report/'+jobId)}}catch(e){}
+  });
 }
 
 function openWorkspace(jobId){
@@ -926,7 +930,7 @@ function fetchDecision(jobId){
         html+='<div style="font-size:var(--fs-13);color:var(--text-secondary);margin-bottom:var(--sp-4)">Score '+(prob===0?'0.000':(prob<0.001?'<0.001':prob.toFixed(3)))+' \u00B7 '+(thresh!==null&&thresh!==undefined&&isFinite(thresh)?'Threshold '+(thresh===0?'0.000':(thresh<0.001?'<0.001':thresh.toFixed(3))):'Threshold —')+'</div>';
       }
       html+='<div style="display:flex;gap:8px;align-items:center">';
-      html+='<a class="cr-report-link" href="'+baseUrl+'/demo/report/'+jobId+'" target="_blank" rel="noopener">Open report</a>';
+      html+='<a class="cr-report-link" href="'+baseUrl+'/demo/report/'+jobId+'" target="_blank" rel="noopener" onclick="event.preventDefault();openJob(\''+jobId+'\')">Open report</a>';
       html+=' <a class="cr-report-link" href="'+baseUrl+'/demo/workspace/'+jobId+'" target="_blank" rel="noopener" onclick="event.preventDefault();openWorkspace(\''+jobId+'\')">Open workspace</a>';
       html+='</div>';
       html+='<hr style="border:none;border-top:1px solid var(--border);margin:var(--sp-12) 0">';
