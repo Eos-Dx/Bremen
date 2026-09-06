@@ -1,0 +1,171 @@
+ARAMINA INTEGRATION ROADMAP
+
+Status:
+Must start now.
+
+Purpose:
+Prepare Bremen Platform to support Aramina as a separate model family and workflow without breaking existing Bremen execution.
+
+WHY ARAMINA MATTERS NOW
+
+The platform can no longer assume that all models run through workflow_id=bremen.
+
+Aramina should be treated as a separate workflow/model family.
+
+This affects:
+
+- model catalog;
+- SDK model selection;
+- workflow routing;
+- job creation;
+- requirements endpoint behavior;
+- report retrieval;
+- audit/provenance storage.
+
+CORE RULE
+
+The client selects model_id.
+
+The SDK/backend gets workflow_id from the selected model catalog row.
+
+Bremen records model_version after execution as audit/provenance.
+
+Do not make workflow_id a permanent global constant.
+
+IDENTIFIER CONTRACT
+
+model_id:
+The external selection key.
+
+workflow_id:
+The runtime routing key.
+
+model_version:
+The concrete artifact/build that ran.
+
+Rule:
+
+model_id is what the client selects.
+workflow_id is where the runner routes execution.
+model_version is what was actually built and executed, and must be stored for audit trail when returned.
+
+PHASE A: SDK/catalog readiness
+
+Goal:
+Prepare current integration code for multiple workflows.
+
+Required behavior:
+
+- call GET /demo/api/models;
+- select model row by model_id;
+- use model["workflow_id"] for POST /demo/api/jobs;
+- use model["model_id"] for POST /demo/api/jobs;
+- do not send model_version;
+- store model_version only when returned by Bremen result/report.
+
+Correct pattern:
+
+model = get_model(model_id)
+workflow_id = model["workflow_id"]
+
+Wrong pattern:
+
+workflow_id = settings.MODEL_RUNNER_WORKFLOW_ID
+
+Fallback is allowed only when model row has no workflow_id.
+
+PHASE B: Aramina catalog skeleton
+
+Goal:
+Expose Aramina in catalog only when status is honest.
+
+Allowed initial catalog row:
+
+{
+  "model_id": "aramina-placeholder",
+  "display_name": "Aramina",
+  "workflow_id": "aramina",
+  "model_version": null,
+  "feature_schema_version": null,
+  "technical_ready": false,
+  "scientifically_certified": false,
+  "technical_demo_only": true,
+  "availability": "unavailable"
+}
+
+Do not mark availability=available until workflow routing and runner path exist.
+
+PHASE C: Aramina workflow routing skeleton
+
+Goal:
+Make workflow_id=aramina explicit.
+
+If runner is not ready, return explicit failure.
+
+Expected failure shape:
+
+{
+  "overall_status": "failed",
+  "workflow_id": "aramina",
+  "error_code": "WORKFLOW_NOT_IMPLEMENTED",
+  "technical_demo_only": true
+}
+
+Do not silently route Aramina jobs to Bremen.
+
+Do not return fake successful inference.
+
+PHASE D: Aramina requirements stubs
+
+The same two requirements endpoints should support Aramina model IDs:
+
+GET  /demo/api/models/{model_id}/requirements
+POST /demo/api/models/{model_id}/requirements/validate
+
+Until Aramina runner declares requirements, return:
+
+requirements_available=false
+status=requirements_not_declared
+
+and:
+
+validation_available=false
+validation.status=not_available
+
+PHASE E: Aramina real requirements
+
+When Aramina runner/preprocessing exists, it may declare a different container contract from Bremen.
+
+Examples of allowed differences:
+
+- different H5 layout;
+- different required measurements;
+- different metadata requirements;
+- different feature schema;
+- different output schema.
+
+Do not reuse Bremen requirements if Aramina requires a different container type.
+
+PHASE F: Aramina E2E
+
+Add an Aramina E2E once runner is available:
+
+1. Authenticate.
+2. List models.
+3. Select Aramina model_id.
+4. Resolve workflow_id=aramina from model catalog.
+5. Upload Aramina-compatible H5.
+6. Validate against Aramina requirements.
+7. Submit job.
+8. Read events.
+9. Read JSON report.
+
+ACCEPTANCE CRITERIA
+
+- Existing Bremen E2E still passes.
+- SDK no longer hardcodes workflow_id=bremen.
+- Aramina model row can exist without claiming readiness.
+- Aramina workflow cannot accidentally run through Bremen.
+- Aramina requirements endpoints return honest no-op until real provider exists.
+- No clinical claims are introduced.
+- model_version remains audit/provenance only.
