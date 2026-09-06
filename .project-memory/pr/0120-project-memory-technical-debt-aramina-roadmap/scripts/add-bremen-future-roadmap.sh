@@ -1,0 +1,196 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mkdir -p .project-memory/roadmap
+
+cat > .project-memory/roadmap/BREMEN_FUTURE_ROADMAP.txt <<'TXT'
+BREMEN FUTURE ROADMAP
+
+Status:
+Forward roadmap for Bremen API, model requirements, S3/H5 execution, and Aramina integration.
+
+ROADMAP PRIORITIES
+
+Priority 1:
+Start Aramina integration.
+
+Priority 2:
+Add two model requirements endpoints as no-op stubs.
+
+Priority 3:
+Clean SDK/backend routing so workflow_id comes from selected model row.
+
+Priority 4:
+Add stable H5 container identity later.
+
+Priority 5:
+Implement real model-specific container requirements provider.
+
+R-0120: Requirements endpoint stubs and Aramina routing preparation
+
+Add:
+
+GET  /demo/api/models/{model_id}/requirements
+POST /demo/api/models/{model_id}/requirements/validate
+
+Initial behavior:
+No-op / not available.
+
+Do not open H5.
+
+Do not run inference.
+
+Do not create reports.
+
+Do not invent required H5 fields.
+
+Return explicit status explaining that model-specific requirements are not declared yet.
+
+Required GET response behavior:
+
+schema_version=bremen.model_requirements.v1
+technical_demo_only=true
+requirements_available=false
+status=requirements_not_declared
+required_container_contract=null
+required_fields=[]
+optional_fields=[]
+
+Required POST response behavior:
+
+schema_version=bremen.model_requirements_validation.v1
+technical_demo_only=true
+validation_available=false
+validation.status=not_available
+ready_to_run=null
+requirements_checked=false
+inference_job_created=false
+report_created=false
+
+R-0121: SDK model-row routing
+
+SDK/backend must resolve selected model row from:
+
+GET /demo/api/models
+
+Then use:
+
+model["model_id"]
+model["workflow_id"]
+
+Do not hardcode workflow_id=bremen as the main routing rule.
+
+MODEL_RUNNER_WORKFLOW_ID may remain only as fallback.
+
+R-0122: Aramina catalog skeleton
+
+Add Aramina as a separate model family only when the catalog can honestly represent it.
+
+Initial allowed state:
+
+availability=unavailable
+technical_ready=false
+scientifically_certified=false
+technical_demo_only=true
+workflow_id=aramina
+
+Do not claim Aramina is ready until runner routing exists.
+
+R-0123: Aramina runner skeleton
+
+Add explicit workflow routing support for:
+
+workflow_id=aramina
+
+If not implemented, fail explicitly with:
+
+WORKFLOW_NOT_IMPLEMENTED
+
+Do not silently route Aramina into Bremen.
+
+R-0124: Stable H5 container identity
+
+Current external flow requires catalog filtering and fresh source_id.
+
+Future flow should expose stable container_id.
+
+Future ideal job request:
+
+{
+  "container_id": "h5c_...",
+  "workflow_id": "bremen",
+  "model_id": "bremen-mri-triage-logreg-v0-1"
+}
+
+R-0125: Real requirements provider
+
+Implement runner-level provider:
+
+runner.describe_container_requirements()
+runner.validate_container_requirements(...)
+
+The provider must derive requirements from the actual runner/preprocessing path.
+
+It must not be copied from frontend text or invented API examples.
+
+R-0126: Real requirements validation
+
+Implement validation that can:
+
+- resolve catalog-backed H5;
+- open H5;
+- detect layout;
+- verify required measurements;
+- preview feature preparation;
+- return missing_required_fields;
+- return invalid_fields;
+- avoid inference;
+- avoid report creation.
+
+EXPECTED FUTURE INTEGRATION FLOW
+
+1. Authenticate.
+
+POST /demo/api/auth/token
+
+2. List models.
+
+GET /demo/api/models
+
+3. Select model_id.
+
+4. Read model requirements.
+
+GET /demo/api/models/{model_id}/requirements
+
+5. Upload H5 to S3.
+
+6. Validate H5 against selected model.
+
+POST /demo/api/models/{model_id}/requirements/validate
+
+7. Submit job only when validation is available and ready_to_run=true.
+
+POST /demo/api/jobs
+
+8. Read job/events/reports.
+
+GET /demo/api/jobs/{job_id}
+GET /demo/api/jobs/{job_id}/events
+GET /demo/api/reports/{job_id}/external
+GET /demo/api/jobs/{job_id}/reports/{workflow_id}
+
+NON-GOALS
+
+Do not implement real requirements extraction in the first stub PR.
+
+Do not implement stable container registration in the same PR unless explicitly scoped.
+
+Do not expose non-deployed endpoints as production SDK calls.
+
+Do not make clinical claims.
+
+Do not require clients to send model_version.
+TXT
+
+echo "Wrote .project-memory/roadmap/BREMEN_FUTURE_ROADMAP.txt"
