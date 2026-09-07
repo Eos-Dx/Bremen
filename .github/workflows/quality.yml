@@ -52,7 +52,7 @@ jobs:
             "git+https://github.com/Eos-Dx/XRD-preprocessing.git"
 
           python -m pip install \
-            "git+https://github.com/Eos-Dx/container.git@feat/v0_3-eoscan-session-container"
+            "git+https://github.com/Eos-Dx/container.git@v0.3.0"
 
           python -m pip install ".[dev]"
 
