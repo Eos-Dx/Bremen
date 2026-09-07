@@ -1,0 +1,103 @@
+ARAMINA CONTAINER V0.3 EXAMPLE CONFIG
+
+STATUS
+
+Draft for Alexey / container owner review.
+
+This is not a runtime contract yet.
+
+PURPOSE
+
+Provide a concrete container-v0.3-shaped example for Aramina dual-sample / target-breast workflow discussion.
+
+PROBLEM
+
+A single session-level sample_type is not enough when one container includes measurement sets from more than one breast/side/purpose.
+
+Aramina needs to know which measurement set is the clinician-selected target sample and which measurement set is contralateral / comparison / optional symmetry input.
+
+RECOMMENDED DIRECTION
+
+Keep session-level sample_type as a coarse container-level label.
+
+Add a per-measurement-set field for side/purpose.
+
+Draft field name:
+
+measurement_set_role
+
+Possible values:
+
+target_breast
+contralateral_breast
+left_breast
+right_breast
+unknown
+
+The exact name and enum must be confirmed by the container owner.
+
+EXAMPLE
+
+{
+  "container_schema_version": "container.v0.3",
+  "session": {
+    "patient_name": "DEMO_PATIENT",
+    "sample_name": "DEMO_SESSION_001",
+    "sample_type": "breast_tissue_session"
+  },
+  "measurement_sets": [
+    {
+      "measurement_set_id": "set_001",
+      "measurement_set_role": "target_breast",
+      "side": "left",
+      "distance_mm": 100,
+      "voltage_kv": 40,
+      "measurement_count": 2
+    },
+    {
+      "measurement_set_id": "set_002",
+      "measurement_set_role": "contralateral_breast",
+      "side": "right",
+      "distance_mm": 100,
+      "voltage_kv": 40,
+      "measurement_count": 2
+    }
+  ],
+  "model_input_intent": {
+    "workflow_id": "aramina",
+    "unit": "target_breast_case",
+    "target_measurement_set_id": "set_001",
+    "contralateral_measurement_set_id": "set_002",
+    "age_available": true
+  }
+}
+
+VALIDATION INTENT
+
+For Aramina pre-submit validation, Bremen needs to check:
+
+1. container can be opened;
+2. at least one target measurement set exists;
+3. target measurement set has valid XRD measurements;
+4. optional contralateral measurement set is available if symmetry refinement is requested;
+5. age is available or explicitly unavailable;
+6. per-set role/side metadata is unambiguous.
+
+QUESTIONS FOR ALEXEY / CONTAINER OWNER
+
+1. Should the per-set field be named measurement_set_role, sample_role, tissue_role, acquisition_role, or something else?
+2. Should side be separate from role?
+3. Are target_breast and contralateral_breast enough, or do we need left/right as mandatory values?
+4. Should session-level sample_type remain advisory only for multi-sample containers?
+5. Where exactly should this field live in container-v0.3?
+6. Should model_input_intent live in the container, upload metadata, or only Bremen-side request metadata?
+
+NON-GOALS
+
+This draft does not make Aramina runnable.
+
+This draft does not change Bremen runtime behavior.
+
+This draft does not change PR0122 endpoints.
+
+This draft does not make clinical, diagnostic, CE, FDA, or regulatory claims.
