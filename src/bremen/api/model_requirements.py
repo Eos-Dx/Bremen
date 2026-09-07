@@ -1,0 +1,129 @@
+"""Model-specific container requirements API helpers.
+
+PR0122 implements the public API shape only.
+
+The current runner/model stack does not yet declare raw H5/container
+requirement fields, so these helpers intentionally return honest
+not-available/no-op contracts.
+
+No H5 is opened here.
+No inference job is created here.
+No report is created here.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+
+class ModelRequirementsNotFoundError(Exception):
+    """Requested model_id does not exist in the current catalog."""
+
+
+def find_model_catalog_row(
+    model_id: str,
+    *,
+    catalog: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Return a safe public catalog row for model_id.
+
+    Searches both available models and display-only unavailable models.
+    This lets the requirements API support future unavailable Aramina
+    catalog rows without treating them as executable.
+    """
+    if catalog is None:
+        from bremen.api.model_catalog import build_model_catalog  # noqa: PLC0415
+
+        catalog = build_model_catalog()
+
+    for key in ("models", "unavailable_models"):
+        rows = catalog.get(key, [])
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if isinstance(row, dict) and row.get("model_id") == model_id:
+                return dict(row)
+
+    return None
+
+
+def build_model_requirements_response(
+    model_id: str,
+    *,
+    catalog: dict[str, Any] | None = None,
+    request_id: str | None = None,
+) -> dict[str, Any]:
+    """Build the current no-op model requirements response."""
+    row = find_model_catalog_row(model_id, catalog=catalog)
+    if row is None:
+        raise ModelRequirementsNotFoundError(model_id)
+
+    response: dict[str, Any] = {
+        "schema_version": "bremen.model_requirements.v1",
+        "technical_demo_only": True,
+        "model_id": model_id,
+        "workflow_id": row.get("workflow_id"),
+        "model_version": row.get("model_version"),
+        "feature_schema_version": row.get("feature_schema_version"),
+        "requirements_available": False,
+        "status": "requirements_not_declared",
+        "required_container_contract": None,
+        "required_fields": [],
+        "optional_fields": [],
+        "notes": [
+            "This endpoint is reserved for model-specific H5/container requirements.",
+            "The current runner does not yet declare raw H5 requirement fields.",
+            "No container is opened.",
+            "No inference job is created.",
+            "No report is generated.",
+        ],
+    }
+    if request_id:
+        response["request_id"] = request_id
+    return response
+
+
+def build_model_requirements_validation_response(
+    model_id: str,
+    request_payload: dict[str, Any],
+    *,
+    catalog: dict[str, Any] | None = None,
+    request_id: str | None = None,
+) -> dict[str, Any]:
+    """Build the current no-op model requirements validation response."""
+    row = find_model_catalog_row(model_id, catalog=catalog)
+    if row is None:
+        raise ModelRequirementsNotFoundError(model_id)
+
+    response: dict[str, Any] = {
+        "schema_version": "bremen.model_requirements_validation.v1",
+        "technical_demo_only": True,
+        "model_id": model_id,
+        "workflow_id": row.get("workflow_id"),
+        "model_version": row.get("model_version"),
+        "feature_schema_version": row.get("feature_schema_version"),
+        "container_id": request_payload.get("container_id"),
+        "source_id": request_payload.get("source_id"),
+        "upload_id": request_payload.get("upload_id"),
+        "h5_path_supplied": bool(request_payload.get("h5_path")),
+        "validation_available": False,
+        "validation": {
+            "status": "not_available",
+            "ready_to_run": None,
+            "requirements_checked": False,
+            "inference_job_created": False,
+            "report_created": False,
+        },
+        "missing_required_fields": [],
+        "invalid_fields": [],
+        "next_step": {
+            "can_submit_job": None,
+            "reason": (
+                "Model-specific requirements validation is not implemented yet. "
+                "Use POST /demo/api/jobs for the current production execution path."
+            ),
+        },
+    }
+    if request_id:
+        response["request_id"] = request_id
+    return response

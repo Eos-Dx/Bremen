@@ -1,0 +1,329 @@
+PRECOMMIT REVIEW — PR0122
+=========================
+Branch: 0122-model-requirements-stubs-aramina-routing
+Commit: c8b4af326a85133e5a9d1f1359f13e25e8e0f491
+Reviewed: 2026-09-07T08:51:59Z
+Reviewer: precommit-review agent
+
+VERDICT: READY FOR COMMIT (with warnings)
+
+SUMMARY
+-------
+PR0122 implements two authenticated model requirements no-op endpoints
+and Aramina routing preparation. Both endpoints exist, are Bearer-
+protected, resolve known models from the catalog, return safe 404 for
+unknown models, and return honest no-op/not-available contracts. No H5
+is opened, no inference is run, no jobs are created, and no reports are
+generated. workflow_id is treated as model-row routing metadata (not
+hardcoded). No Aramina catalog row was added (future scope).
+
+No blockers found. Two non-blocking warnings noted.
+
+FILES REVIEWED
+--------------
+Modified:
+  src/bremen/api/fastapi_app.py          (119 lines added — two new routes)
+  src/bremen/api/fastapi_contracts.py    (19 lines changed — new Pydantic model)
+
+Created:
+  src/bremen/api/model_requirements.py   (framework-independent helpers)
+  tests/test_bremen_model_requirements_api.py (15 tests)
+
+All changed and new files read and reviewed. No files omitted.
+
+UNTRACKED (not in diff, review-only artifact):
+  .project-memory/pr/0122-model-requirements-stubs-aramina-routing/CODER_REPORT.txt
+  .project-memory/pr/0122-model-requirements-stubs-aramina-routing/scripts/
+
+ENDPOINT CONTRACT REVIEW
+-------------------------
+Q1: Are exactly the intended PR0122 endpoints implemented?
+A: YES
+  - GET  /demo/api/models/{model_id}/requirements        [CONFIRMED in fastapi_app.py line ~277]
+  - POST /demo/api/models/{model_id}/requirements/validate [CONFIRMED in fastapi_app.py line ~330]
+  - Both registered via @app.get/@app.post decorators.
+  - No extra endpoints added. No existing endpoints removed.
+
+Q3: Unknown model_id returns safe HTTP 404 JSON?
+A: YES
+  Response shape:
+    { "error": "Model not found", "model_id": "<input>", "request_id": "<id>", "technical_demo_only": true }
+  No internals leaked. Confirmed by test_get_model_requirements_unknown_model_returns_404
+  and test_post_model_requirements_validate_unknown_model_returns_404.
+
+Q4: GET requirements returns honest no-op contract?
+A: YES — CONFIRMED
+  Response contains:
+    schema_version = "bremen.model_requirements.v1"
+    technical_demo_only = true
+    requirements_available = false
+    status = "requirements_not_declared"
+    required_container_contract = null
+    required_fields = []
+    optional_fields = []
+    notes = [5 items explaining no-op is intentional]
+  Confirmed by test_get_model_requirements_known_model_returns_honest_noop.
+
+Q5: POST validate returns honest no-op contract?
+A: YES — CONFIRMED
+  Response contains:
+    schema_version = "bremen.model_requirements_validation.v1"
+    technical_demo_only = true
+    validation_available = false
+    validation.status = "not_available"
+    validation.ready_to_run = null
+    validation.requirements_checked = false
+    validation.inference_job_created = false
+    validation.report_created = false
+    missing_required_fields = []
+    invalid_fields = []
+    next_step.reason directs to POST /demo/api/jobs
+  Confirmed by test_post_model_requirements_validate_known_model_returns_noop.
+
+AUTH BOUNDARY REVIEW
+---------------------
+Q2: Are both endpoints protected by Bearer auth?
+A: YES — CONFIRMED
+  Both routes call _check_auth_gate(request) as the first action.
+  _check_auth_gate requires Bearer access token only.
+  No auth_ticket fallback. No stream/report/workspace ticket acceptance.
+  Confirmed by test_get_model_requirements_requires_bearer_auth (401 without auth)
+  and test_post_model_requirements_validate_requires_bearer_auth (401 without auth).
+
+NO-OP SAFETY REVIEW
+---------------------
+Q6: Confirm validate does NOT open H5, resolve S3, run preprocessing,
+    run inference, create job, or create report?
+A: YES — CONFIRMED
+  - validate endpoint parses JSON, builds response dict, returns it.
+  - No import of h5py, no S3 client, no preprocessing, no inference.
+  - Confirmed by test_post_model_requirements_validate_does_not_create_job
+    (job store unchanged before/after).
+  - Confirmed by test_post_model_requirements_validate_does_not_create_report
+    (inference_job_created=false, report_created=false).
+
+Q7: Confirm no raw H5 filesystem path is echoed?
+A: WARNING
+  When h5_path is provided in the POST validate request body, the response
+  echoes the raw value: "h5_path": "/data/patient/Nova_376.h5"
+  Verified by code inspection of build_model_requirements_validation_response():
+    "h5_path": request_payload.get("h5_path")
+  The recommended safe pattern is "h5_path_supplied": true/false.
+  This is a non-blocking WARNING because:
+    - The endpoint is Bearer-authenticated (caller already knows the path).
+    - The endpoint is a no-op (path is not used/processed).
+    - No third party can access without authentication.
+  Recommendation: Change to h5_path_supplied: true/false in a follow-up.
+
+  Additionally, when h5_path is NOT provided, the response includes
+  "h5_path": null (JSON null). This is unnecessary noise in the response
+  and should be omitted or replaced with h5_path_supplied: false.
+
+MODEL CATALOG / WORKFLOW ROUTING REVIEW
+-----------------------------------------
+Q8: Confirm model metadata comes from safe catalog row only?
+A: YES — CONFIRMED
+  GET response exposes ONLY:
+    model_id, workflow_id, model_version, feature_schema_version
+  All sourced from row.get() on the public catalog row.
+  NOT exposed: _checksum, _package, S3 bucket/key, filesystem path,
+  raw exception, token, password, secret.
+  Confirmed by test_get_requirements_response_no_private_internals
+  and test_post_validate_response_no_private_internals.
+
+Q9: Confirm workflow_id is treated as model-row routing metadata?
+A: YES — CONFIRMED
+  - build_model_requirements_response uses row.get("workflow_id")
+  - build_model_requirements_validation_response uses row.get("workflow_id")
+  - Response workflow_id comes from catalog, NOT from request body.
+  - Confirmed by test_workflow_id_from_model_catalog_row:
+    POST validate with {"workflow_id": "something-else"} still returns
+    workflow_id="bremen" (from catalog row, not request).
+  - find_model_catalog_row searches both "models" and "unavailable_models".
+
+Q10: Confirm model_version is provenance only?
+A: YES — CONFIRMED
+  - model_version is returned in GET/POST responses from catalog row.
+  - Not required in request body.
+  - Not used as routing key.
+
+ARAMINA READINESS REVIEW
+-------------------------
+Q11: Confirm Aramina is not falsely marked available?
+A: YES — CONFIRMED
+  - No Aramina catalog row was added in this PR (future scope).
+  - find_model_catalog_row searches "unavailable_models" key, which
+    supports future unavailable Aramina rows without treating them as
+    executable.
+  - No false availability claims exist.
+
+SECURITY REVIEW
+---------------
+Q12: Confirm existing POST /demo/api/jobs remains unchanged?
+A: YES — CONFIRMED
+  - git diff shows 0 lines changed within the demo_jobs_create_route function.
+  - test_existing_post_jobs_unchanged passes (returns MISSING_SOURCE as before).
+  - No weakening of existing job creation logic.
+
+Additional security checks:
+  - No raw access tokens logged                    [PASS]
+  - No raw refresh tokens logged                   [PASS]
+  - No long-lived tokens in URLs                   [PASS]
+  - No auth_ticket support on requirements endpoints [PASS]
+  - No private model package internals exposed     [PASS]
+  - No raw S3 bucket/key exposed                   [PASS]
+  - No filesystem paths exposed                    [PASS] (except h5_path echo — see WARNING)
+  - No stack traces exposed                        [PASS]
+  - No clinical claims introduced                  [PASS]
+  - No diagnosis/replacement language              [PASS]
+  - No CE/FDA/regulatory status claims             [PASS]
+  - No secrets/tokens/patient data                 [PASS]
+  - No Docker/registry/push operations             [PASS] (no Dockerfile changes)
+
+TEST REVIEW
+-----------
+Q13: Confirm tests cover all required scenarios?
+A: YES — 15 tests covering all required scenarios.
+
+  AUTH GATE:
+    [x] test_get_model_requirements_requires_bearer_auth
+    [x] test_post_model_requirements_validate_requires_bearer_auth
+
+  KNOWN MODEL:
+    [x] test_get_model_requirements_known_model_returns_honest_noop
+    [x] test_post_model_requirements_validate_known_model_returns_noop
+
+  UNKNOWN MODEL:
+    [x] test_get_model_requirements_unknown_model_returns_404
+    [x] test_post_model_requirements_validate_unknown_model_returns_404
+
+  NO-OP SAFETY:
+    [x] test_post_model_requirements_validate_does_not_create_job
+    [x] test_post_model_requirements_validate_does_not_create_report
+
+  ERROR HANDLING:
+    [x] test_post_model_requirements_validate_invalid_json_returns_400
+    [x] test_post_model_requirements_validate_empty_body_returns_200
+
+  SECURITY:
+    [x] test_get_requirements_response_no_private_internals
+    [x] test_post_validate_response_no_private_internals
+
+  ROUTING:
+    [x] test_workflow_id_from_model_catalog_row
+
+  EXISTENCE:
+    [x] test_requirements_endpoints_exist_and_not_404
+
+  REGRESSION:
+    [x] test_existing_post_jobs_unchanged
+
+  NOTE: Minor test quality concern — _enable_auth(), _auth_headers(),
+  and _make_app_no_auth() helper functions are defined but unused
+  (dead code). Non-blocking.
+
+VALIDATION RESULTS
+------------------
+  python -m compileall src tests                           = PASS (no errors)
+  python -m pytest tests/test_bremen_model_requirements_api.py -v = 15 passed
+  python -m pytest tests/test_bremen_auth.py -v            = 64 passed
+  python -m pytest tests/test_bremen_api_skeleton.py -v    = 51 passed
+  python -m pytest tests/test_bremen_control_room.py -v    = 558 passed
+  python -m pytest (full suite)                            = 3701 passed, 11 skipped, 0 failed
+  git diff --check                                         = clean (no whitespace errors)
+
+REGRESSION RESULTS
+------------------
+  Full suite: 3701 passed, 11 skipped, 0 failed
+  Net new tests: +15 (from test_bremen_model_requirements_api.py)
+  No existing tests broken or weakened.
+
+ISSUES FOUND
+------------
+  BLOCKERS: 0
+
+  WARNINGS: 2
+
+  WARNING-1: h5_path echoed raw in POST validate response
+    Location: src/bremen/api/model_requirements.py line ~117
+    Detail: "h5_path": request_payload.get("h5_path") echoes the raw
+      filesystem path when provided. Should use h5_path_supplied: true/false
+      pattern. Also, h5_path: null appears when not provided.
+    Risk: Low (endpoint is auth-gated, caller already knows the path).
+    Fix: Replace with h5_path_supplied: bool in a follow-up PR.
+
+  WARNING-2: Dead helper functions in test file
+    Location: tests/test_bremen_model_requirements_api.py lines ~47-57
+    Detail: _enable_auth(), _auth_headers(), and _make_app_no_auth()
+      are defined but never called in any test.
+    Risk: None (code quality only).
+    Fix: Remove unused helpers in a follow-up.
+
+REQUIRED FIXES
+--------------
+  None. All warnings are non-blocking.
+
+WARNINGS
+--------
+  1. h5_path echoed raw — should be h5_path_supplied: true/false (follow-up).
+  2. Unused test helpers _enable_auth, _auth_headers, _make_app_no_auth (follow-up).
+  3. FastAPI on_event("startup") deprecation warning remains (existing code, out of scope).
+  4. Starlette TestClient httpx deprecation warning remains (existing code, out of scope).
+
+PLAN COMPLIANCE
+---------------
+  [x] Two requirements endpoints exist and no longer return 404
+  [x] Both endpoints are Bearer-protected
+  [x] Both endpoints return honest no-op/not-available contracts
+  [x] Unknown model_id returns 404
+  [x] No inference job is created by validation
+  [x] No report is created by validation
+  [x] Existing Bremen job execution still passes tests
+  [x] workflow_id is treated as model-row routing metadata
+  [x] Aramina integration path is prepared without false readiness claims
+  [x] No secrets, tokens, patient data, or clinical/regulatory claims added
+  [x] Implementation stays within PLAN.txt scope (2 modified, 2 created)
+  [x] No generated artifacts, secrets, patient data, or uncontrolled joblib
+
+  Plan compliance: FULL
+
+DIFF COMPLETENESS CHECK
+------------------------
+  Modified files: 2 (fastapi_app.py, fastapi_contracts.py)
+  Created files: 2 (model_requirements.py, test_bremen_model_requirements_api.py)
+  All changed files read and reviewed. No files outside PLAN scope.
+  git diff --stat: 2 files changed, 137 insertions, 1 deletion
+
+EVIDENCE COMPLETENESS CHECK
+-----------------------------
+  compileall output:          CAPTURED (PASS)
+  15 new tests:               CAPTURED (15 passed)
+  auth tests:                 CAPTURED (64 passed)
+  api skeleton tests:         CAPTURED (51 passed)
+  control room tests:         CAPTURED (558 passed)
+  full suite:                 CAPTURED (3701 passed, 0 failed)
+  git diff --check:           CAPTURED (clean)
+  h5_path echo behavior:      CAPTURED (confirmed raw echo)
+  model catalog structure:    CAPTURED (empty in test env, safe)
+
+BOUNDARY CONFIRMATIONS
+-----------------------
+  [x] No Dockerfile changes
+  [x] No CI/pipeline changes
+  [x] No secrets or credentials added
+  [x] No patient-identifiable data
+  [x] No clinical/diagnostic claims
+  [x] No local machine paths in API contracts
+  [x] No registry push/login commands
+  [x] No joblib files created or modified
+  [x] No H5 files added
+  [x] technical_demo_only=true on all responses
+
+FINAL DECISION
+--------------
+  VERDICT: READY FOR COMMIT
+
+  0 blockers. 2 non-blocking warnings. All validations pass.
+  All 15 new tests pass. Full suite 3701 passed, 0 failed.
+  Implementation matches PLAN.txt. No scope drift detected.
+  No security concerns beyond h5_path echo (low risk, follow-up recommended).

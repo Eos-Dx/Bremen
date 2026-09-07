@@ -273,6 +273,125 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         return JSONResponse(content=catalog)
 
     # ------------------------------------------------------------------
+    # GET /demo/api/models/{model_id}/requirements — no-op model requirements
+    # ------------------------------------------------------------------
+    @app.get("/demo/api/models/{model_id}/requirements")
+    async def demo_model_requirements_route(
+        model_id: str,
+        request: Request,
+    ) -> JSONResponse:
+        """Return model-specific container requirements.
+
+        PR0122 exposes the API shape as an honest no-op contract.
+        The current runner does not yet declare raw H5 requirement fields.
+        """
+        gate = _check_auth_gate(request)
+        if gate is not None:
+            return gate
+
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.api.model_requirements import (  # noqa: PLC0415
+            ModelRequirementsNotFoundError,
+            build_model_requirements_response,
+        )
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+
+        try:
+            data = build_model_requirements_response(
+                model_id,
+                request_id=request_id,
+            )
+        except ModelRequirementsNotFoundError:
+            return JSONResponse(
+                content={
+                    "error": "Model not found",
+                    "model_id": model_id,
+                    "request_id": request_id,
+                    "technical_demo_only": True,
+                },
+                status_code=404,
+            )
+
+        return JSONResponse(content=data, status_code=200)
+
+    # ------------------------------------------------------------------
+    # POST /demo/api/models/{model_id}/requirements/validate — no-op validate
+    # ------------------------------------------------------------------
+    @app.post("/demo/api/models/{model_id}/requirements/validate")
+    async def demo_model_requirements_validate_route(
+        model_id: str,
+        request: Request,
+    ) -> JSONResponse:
+        """Return no-op validation result for model requirements.
+
+        This endpoint intentionally does not open H5, run inference, create
+        jobs, or generate reports until the runner declares real requirements.
+        """
+        gate = _check_auth_gate(request)
+        if gate is not None:
+            return gate
+
+        import uuid as _uuid  # noqa: PLC0415
+        from bremen.api.fastapi_contracts import (  # noqa: PLC0415
+            ModelRequirementsValidateRequest,
+        )
+        from bremen.api.model_requirements import (  # noqa: PLC0415
+            ModelRequirementsNotFoundError,
+            build_model_requirements_validation_response,
+        )
+
+        request_id = request.headers.get("X-Request-ID") or str(_uuid.uuid4())
+
+        try:
+            body_bytes = await request.body()
+            body_dict = __import__("json").loads(body_bytes) if body_bytes else {}
+            if not isinstance(body_dict, dict):
+                raise ValueError("JSON body must be an object")
+        except Exception:
+            return JSONResponse(
+                content={
+                    "error": "Invalid JSON body",
+                    "request_id": request_id,
+                    "technical_demo_only": True,
+                },
+                status_code=400,
+            )
+
+        try:
+            req = ModelRequirementsValidateRequest(**body_dict)
+        except Exception as exc:
+            return JSONResponse(
+                content={
+                    "error": f"Invalid request: {exc}",
+                    "request_id": request_id,
+                    "technical_demo_only": True,
+                },
+                status_code=400,
+            )
+
+        payload = req.model_dump(exclude_none=True)
+
+        try:
+            data = build_model_requirements_validation_response(
+                model_id,
+                payload,
+                request_id=request_id,
+            )
+        except ModelRequirementsNotFoundError:
+            return JSONResponse(
+                content={
+                    "error": "Model not found",
+                    "model_id": model_id,
+                    "request_id": request_id,
+                    "technical_demo_only": True,
+                },
+                status_code=404,
+            )
+
+        return JSONResponse(content=data, status_code=200)
+
+    # ------------------------------------------------------------------
     # GET /demo/api/h5/containers — H5 container listing (Phase 2)
     # ------------------------------------------------------------------
     @app.get("/demo/api/h5/containers")
