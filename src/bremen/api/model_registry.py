@@ -41,6 +41,9 @@ class RegistryModelEntry:
     technical_ready: bool
     _package: dict[str, Any] = field(repr=False, compare=False)
     _checksum: str = field(repr=False, compare=False, default="")
+    _container_requirements: dict[str, Any] | None = field(
+        repr=False, compare=False, default=None
+    )
     scientifically_certified: bool = False
     technical_demo_only: bool = True
     availability: str = "available"
@@ -65,6 +68,12 @@ class RegistryModelEntry:
     def to_dict(self) -> dict[str, Any]:
         """Alias for to_safe_dict for backward compatibility."""
         return self.to_safe_dict()
+
+    def get_container_requirements(self) -> dict[str, Any] | None:
+        """Return a copy of private container requirements metadata, if present."""
+        if not isinstance(self._container_requirements, dict):
+            return None
+        return dict(self._container_requirements)
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +179,13 @@ class ModelRegistry:
             return None
         return entry._checksum
 
+    def get_container_requirements(self, model_id: str) -> dict[str, Any] | None:
+        """Return a copy of private container requirements metadata, if present."""
+        entry = self.get_entry(model_id)
+        if entry is None:
+            return None
+        return entry.get_container_requirements()
+
 
 # ---------------------------------------------------------------------------
 # Registry singleton — stored on bremen package for reload safety
@@ -219,6 +235,11 @@ def get_model_package(model_id: str) -> dict[str, Any] | None:
 def get_model_checksum(model_id: str) -> str | None:
     """Get the checksum for a specific model_id."""
     return get_registry().get_checksum(model_id)
+
+
+def get_model_container_requirements(model_id: str) -> dict[str, Any] | None:
+    """Get private container requirements metadata for a specific model_id."""
+    return get_registry().get_container_requirements(model_id)
 
 
 def reset_for_tests() -> None:

@@ -39,6 +39,55 @@ _log = logging.getLogger(__name__)
 
 MAX_CANDIDATES = 50
 MAX_MANIFEST_BYTES = 65536
+MAX_CONTAINER_REQUIREMENTS_BYTES = 65536
+
+_CONTAINER_REQUIREMENTS_FILENAME = "container_requirements.json"
+_CONTAINER_REQUIREMENTS_SCHEMA_VERSION = "bremen.container_requirements.v1"
+
+_CONTAINER_REQUIREMENTS_ALLOWED_TOP_LEVEL = frozenset({
+    "schema_version",
+    "requirements_id",
+    "model_family",
+    "workflow_id",
+    "artifact_model_id",
+    "input_container",
+    "required_container_contract",
+    "required_fields",
+    "optional_fields",
+    "required_measurements",
+    "required_metadata",
+    "optional_metadata",
+    "feature_contract",
+    "validation_behavior",
+    "technical_demo_only",
+    "clinical_stage",
+    "notes",
+})
+
+_CONTAINER_REQUIREMENTS_FORBIDDEN_FIELD_NAMES = frozenset({
+    "bucket",
+    "key",
+    "s3_uri",
+    "uri",
+    "path",
+    "h5_path",
+    "local_path",
+    "filesystem_path",
+    "model_checksum",
+    "artifact_sha256",
+    "checksum",
+    "password",
+    "secret",
+    "token",
+    "authorization",
+})
+
+_CONTAINER_REQUIREMENTS_FORBIDDEN_VALUE_MARKERS = (
+    "s3://",
+    "/tmp/",
+    "/Users/",
+    "\\Users\\",
+)
 
 # Required discovery-specific fields (NOT added to _REQUIRED_MANIFEST_FIELDS)
 _DISCOVERY_REQUIRED_FIELDS = frozenset({
@@ -78,8 +127,10 @@ class PackageDirectoryInfo:
 
     name: str  # Directory name (never exposed publicly)
     manifest_key: str | None = None  # S3 key of manifest.json, if any
+    container_requirements_key: str | None = None  # S3 key of optional requirements file
     joblib_keys: list[str] = field(default_factory=list)  # S3 keys of .joblib artifacts
     has_manifest: bool = False
+    has_container_requirements: bool = False
     has_joblib: bool = False
 
 
@@ -191,6 +242,11 @@ def _discover_package_directories(
                 info.manifest_key = key
                 info.has_manifest = True
 
+            # Check for optional container_requirements.json
+            if filename == _CONTAINER_REQUIREMENTS_FILENAME and len(parts) == 2:
+                info.container_requirements_key = key
+                info.has_container_requirements = True
+
             # Check for .joblib objects
             if filename.lower().endswith(".joblib") and len(parts) == 2:
                 info.joblib_keys.append(key)
@@ -275,6 +331,69 @@ def _validate_manifest_body(body_bytes: bytes) -> dict[str, Any]:
         raise ValueError(f"Base manifest validation failed: {type(exc).__name__}") from exc
 
     return data
+
+
+def _validate_safe_container_requirements_value(value: Any) -> None:
+    """Reject obviously private path/secret-like content from public requirements."""
+    if isinstance(value, dict):
+        for key, child in value.items():
+            key_text = str(key).lower()
+            if key_text in _CONTAINER_REQUIREMENTS_FORBIDDEN_FIELD_NAMES:
+                raise ValueError("Container requirements contain a forbidden field name")
+            if any(marker in key_text for marker in ("password", "secret", "token")):
+                raise ValueError("Container requirements contain a forbidden secret field")
+            _validate_safe_container_requirements_value(child)
+        return
+
+    if isinstance(value, list):
+        for child in value:
+            _validate_safe_container_requirements_value(child)
+        return
+
+    if isinstance(value, str):
+        for marker in _CONTAINER_REQUIREMENTS_FORBIDDEN_VALUE_MARKERS:
+            if marker in value:
+                raise ValueError("Container requirements contain a private path or URI")
+
+
+def _validate_container_requirements_body(body_bytes: bytes) -> dict[str, Any]:
+    """Parse and validate optional container_requirements.json.
+
+    This file is machine-readable integration metadata. It is optional.
+
+    Invalid requirements metadata is ignored by discovery rather than making
+    an otherwise executable model unavailable.
+    """
+    if len(body_bytes) > MAX_CONTAINER_REQUIREMENTS_BYTES:
+        raise ValueError(
+            "Container requirements exceed maximum size of "
+            f"{MAX_CONTAINER_REQUIREMENTS_BYTES} bytes"
+        )
+
+    try:
+        data = json.loads(body_bytes.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise ValueError(
+            f"Invalid container requirements JSON: {type(exc).__name__}"
+        ) from exc
+
+    if not isinstance(data, dict):
+        raise ValueError("Container requirements must be a JSON object")
+
+    schema_version = data.get("schema_version")
+    if schema_version != _CONTAINER_REQUIREMENTS_SCHEMA_VERSION:
+        raise ValueError(
+            "Unsupported container requirements schema_version: "
+            f"{schema_version!r}"
+        )
+
+    unknown = set(data) - _CONTAINER_REQUIREMENTS_ALLOWED_TOP_LEVEL
+    if unknown:
+        raise ValueError("Container requirements contain unsupported fields")
+
+    _validate_safe_container_requirements_value(data)
+
+    return dict(data)
 
 
 def _validate_discovery_fields(data: dict[str, Any]) -> dict[str, Any]:
@@ -597,6 +716,7 @@ def discover_models(
     # ---- Phase 1: Manifest validation per directory ----
     # phase1_data: dict mapping directory name to parsed manifest data (or None)
     phase1_data: dict[str, dict[str, Any] | None] = {}
+    container_requirements_data: dict[str, dict[str, Any] | None] = {}
     unregistered_dirs: list[PackageDirectoryInfo] = []
 
     for pkg_dir in pkg_dirs:
@@ -607,6 +727,7 @@ def discover_models(
                 result.rejected_count += 1
             # No manifest and no .joblib — not a candidate (shouldn't happen)
             phase1_data[pkg_dir.name] = None
+            container_requirements_data[pkg_dir.name] = None
             continue
 
         # Attempt manifest download and validation
@@ -622,6 +743,7 @@ def discover_models(
             if pkg_dir.has_joblib:
                 unregistered_dirs.append(pkg_dir)
             phase1_data[pkg_dir.name] = None
+            container_requirements_data[pkg_dir.name] = None
             continue
 
         try:
@@ -640,6 +762,25 @@ def discover_models(
             data = _validate_discovery_fields(data)
 
             phase1_data[pkg_dir.name] = data
+            container_requirements_data[pkg_dir.name] = None
+
+            if pkg_dir.container_requirements_key is not None:
+                try:
+                    response = _s3_client.get_object(
+                        Bucket=bucket,
+                        Key=pkg_dir.container_requirements_key,
+                    )
+                    requirements_body = response["Body"].read()
+                    container_requirements_data[pkg_dir.name] = (
+                        _validate_container_requirements_body(requirements_body)
+                    )
+                except Exception:
+                    _log.warning(
+                        "bremen.catalog.container_requirements.ignored\t"
+                        "reason_category=container_requirements_validation_failed\t"
+                        "model_id=%s",
+                        str(data.get("model_id", "unknown")),
+                    )
         except Exception:
             _log.warning(
                 "bremen.catalog.candidate.rejected\t"
@@ -799,6 +940,7 @@ def discover_models(
                 availability="available",
                 _package=package,
                 _checksum=expected_checksum,
+                _container_requirements=container_requirements_data.get(dname),
             )
 
             entries.append(entry)

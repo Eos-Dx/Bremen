@@ -1,0 +1,129 @@
+PR0124 PRECOMMIT REVIEW — FINAL
+
+Branch: 0124-manifest-backed-model-requirements
+Commit: 031c073504ddffc44f0f3b6f6726ece9b2790fc5
+Reviewed: 2026-09-07T23:23:26Z
+
+Verdict: READY FOR COMMIT
+
+SUMMARY
+-------
+PR0124 reads optional container_requirements.json next to the model
+package during S3 model discovery, stores valid requirements privately
+on RegistryModelEntry, and makes GET /requirements return
+requirements_available=true only when valid requirements exist.
+POST /requirements/validate remains a no-op.
+Invalid requirements are silently ignored — the model remains available.
+
+FILES CHANGED
+-------------
+  src/bremen/api/model_registry.py            +21 lines
+  src/bremen/api/model_requirements.py       +111 lines / -1 line
+  src/bremen/api/s3_model_discovery.py       +142 lines
+  tests/test_bremen_model_requirements_api.py +101 lines
+  tests/test_s3_model_discovery.py            +75 lines
+  Total: 5 files changed, 449 insertions, 1 deletion
+
+IMPLEMENTATION VERIFICATION
+----------------------------
+
+1. RegistryModelEntry._container_requirements
+   Status: CONFIRMED
+   - Private field: repr=False, compare=False, default=None
+   - get_container_requirements() returns a defensive copy (dict())
+   - to_safe_dict() does NOT expose _container_requirements
+
+2. ModelRegistry.get_container_requirements(model_id)
+   Status: CONFIRMED
+   - Returns entry.get_container_requirements() or None
+   - Module-level helper: get_model_container_requirements(model_id)
+
+3. S3 discovery of container_requirements.json
+   Status: CONFIRMED
+   - Detected when filename matches and len(parts)==2 (same package dir)
+   - Downloaded and validated after manifest validation succeeds
+   - Invalid requirements logged as warning, model stays available
+   - Validation checks: schema_version, allowed top-level fields,
+     forbidden field names (bucket, key, s3_uri, path, checksum, etc.),
+     forbidden value markers (s3://, /tmp/, /Users/)
+
+4. GET /demo/api/models/{model_id}/requirements
+   Status: CONFIRMED
+   - With manifest: requirements_available=True, status=requirements_declared
+   - Without manifest: requirements_available=False, status=requirements_not_declared (PR0122 no-op)
+   - response contains container_requirements dict when declared
+
+5. POST /demo/api/models/{model_id}/requirements/validate
+   Status: CONFIRMED — remains no-op
+   - validation_available=False always
+   - inference_job_created=False always
+   - report_created=False always
+   - requirements_available and requirements_status reflect manifest presence
+   - h5_path not echoed (uses h5_path_supplied bool)
+
+6. /api/models catalog isolation
+   Status: CONFIRMED
+   - build_model_catalog() does NOT include container_requirements
+   - Programmatic verification: catalog text has no "container_requirements",
+     no "/tmp/", no checksums, no "_package", no "portable_logreg"
+
+SECURITY REVIEW
+---------------
+  [PASS] No S3 bucket/key exposed in any response
+  [PASS] No filesystem path exposed in any response
+  [PASS] No checksum exposed in any response
+  [PASS] No _package contents exposed
+  [PASS] No portable_logreg internals exposed
+  [PASS] No tokens/passwords/secrets in requirements or responses
+  [PASS] Forbidden field names blocked: bucket, key, s3_uri, uri, path,
+         h5_path, local_path, filesystem_path, model_checksum, checksum,
+         password, secret, token, authorization
+  [PASS] Forbidden value markers blocked: s3://, /tmp/, /Users/
+  [PASS] h5_path not echoed in validate response
+  [PASS] POST validate does not open H5
+  [PASS] POST validate does not create job
+  [PASS] POST validate does not run inference
+  [PASS] POST validate does not create report
+  [PASS] /api/models does not expose container_requirements
+  [PASS] No clinical/diagnostic claims introduced
+  [PASS] technical_demo_only=True on all responses
+
+ARAMINA SAFETY
+--------------
+  [PASS] No Aramina catalog row added
+  [PASS] workflow_id=aramina was not enabled as executable
+  [PASS] No Aramina routing through Bremen
+  [PASS] find_model_catalog_row still searches unavailable_models only
+         for display (not execution)
+
+TEST RESULTS
+------------
+
+Focused tests (105 passed, 0 failed):
+  pytest -q tests/test_bremen_model_requirements_api.py tests/test_s3_model_discovery.py
+  105 passed, 37 warnings in 1.78s
+
+Regression tests (68 passed, 0 failed):
+  pytest -q tests/test_bremen_model_catalog.py tests/test_model_registry.py tests/test_catalog_api_multi_model.py
+  68 passed in 0.93s
+
+Compilation:
+  python -m compileall -q src tests — no errors
+
+Whitespace:
+  git diff --check — clean
+
+WARNINGS
+--------
+  1. Starlette TestClient httpx deprecation — existing code, out of scope
+  2. FastAPI on_event("startup") deprecation — existing code, out of scope
+
+REQUIRED FIXES
+--------------
+  None
+
+COMMIT COMMANDS
+---------------
+git add src/bremen/api/model_requirements.py src/bremen/api/model_registry.py src/bremen/api/s3_model_discovery.py tests/test_bremen_model_requirements_api.py tests/test_s3_model_discovery.py .project-memory/pr/0124-manifest-backed-model-requirements/reviews/precommit-review.txt
+git diff --cached --check
+git commit -m "feat(api): read optional model container requirements manifest"

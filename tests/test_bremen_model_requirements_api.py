@@ -619,3 +619,104 @@ def test_post_model_requirements_validate_does_not_echo_h5_path(monkeypatch):
     assert "h5_path" not in data
     assert data["h5_path_supplied"] is True
     assert "/tmp/private/Nova_376.h5" not in str(data)
+
+
+# ---------------------------------------------------------------------------
+# Manifest-backed requirements
+# ---------------------------------------------------------------------------
+
+
+def _install_test_registry_with_container_requirements() -> None:
+    reset_model_registry_for_tests()
+    entry = RegistryModelEntry(
+        model_id="bremen-mri-triage-logreg-v0-1",
+        display_name="Bremen Current",
+        workflow_id="bremen",
+        model_version="bremen_mri_triage_logreg_v0_1",
+        artifact_type="portable_logreg",
+        feature_schema_version="v0.1",
+        decision_policy_id="bremen_mri_triage_policy",
+        decision_policy_version="v0.1",
+        technical_ready=True,
+        scientifically_certified=False,
+        technical_demo_only=True,
+        availability="available",
+        _package={"portable_logreg": {"feature_schema_version": "v0.1"}},
+        _checksum="test-checksum",
+        _container_requirements={
+            "schema_version": "bremen.container_requirements.v1",
+            "requirements_id": "bremen-test-container.v0.1",
+            "model_family": "bremen",
+            "workflow_id": "bremen",
+            "input_container": {
+                "format": "hdf5",
+                "accepted_extensions": [".h5", ".hdf5"],
+                "container_contract_id": "bremen-xrd-session-container.v0.1",
+            },
+            "required_metadata": ["patient_id_or_case_id"],
+            "optional_metadata": ["age"],
+            "validation_behavior": {
+                "preflight_only": True,
+                "must_not_create_job": True,
+                "must_not_run_inference": True,
+                "must_not_create_report": True,
+            },
+            "technical_demo_only": True,
+        },
+    )
+    initialize_registry(
+        ModelRegistry(
+            entries=(entry,),
+            catalog_status="available",
+            candidate_count=1,
+            available_count=1,
+            rejected_count=0,
+            unavailable_count=0,
+        )
+    )
+
+
+def test_get_model_requirements_with_manifest_returns_declared(monkeypatch):
+    _enable_auth(monkeypatch)
+    _install_test_registry_with_container_requirements()
+
+    response = TestClient(create_fastapi_app()).get(
+        "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements",
+        headers=_auth_headers(),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["requirements_available"] is True
+    assert data["status"] == "requirements_declared"
+    assert data["required_container_contract"]["format"] == "hdf5"
+    assert data["required_fields"] == ["patient_id_or_case_id"]
+    assert data["optional_fields"] == ["age"]
+    assert data["container_requirements"]["requirements_id"] == (
+        "bremen-test-container.v0.1"
+    )
+    assert "s3://" not in str(data)
+    assert "/tmp/" not in str(data)
+    assert "test-checksum" not in str(data)
+
+
+def test_post_validate_with_manifest_still_noop(monkeypatch):
+    _enable_auth(monkeypatch)
+    _install_test_registry_with_container_requirements()
+
+    response = TestClient(create_fastapi_app()).post(
+        "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
+        headers=_auth_headers(),
+        json={"container_id": "Nova_376.h5", "source_id": "fresh-source-id"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["requirements_available"] is True
+    assert data["requirements_status"] == "requirements_declared"
+    assert data["validation_available"] is False
+    assert data["validation"]["status"] == "not_available"
+    assert data["validation"]["requirements_checked"] is False
+    assert data["validation"]["inference_job_created"] is False
+    assert data["validation"]["report_created"] is False
+    assert data["next_step"]["can_submit_job"] is None
