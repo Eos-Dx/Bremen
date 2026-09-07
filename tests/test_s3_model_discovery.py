@@ -1647,3 +1647,78 @@ class TestPR0088ManifestThresholdFallback:
         assert "s3://" not in log_text
         assert checksum not in log_text
         assert "manifest.json" not in log_text
+
+
+# ---------------------------------------------------------------------------
+# Optional container_requirements.json discovery
+# ---------------------------------------------------------------------------
+
+
+def test_discover_models_stores_optional_container_requirements_json():
+    package = _make_synthetic_package()
+    checksum = hashlib.sha256(package).hexdigest()
+    requirements = {
+        "schema_version": "bremen.container_requirements.v1",
+        "requirements_id": "bremen-test-container.v0.1",
+        "model_family": "bremen",
+        "workflow_id": "bremen",
+        "input_container": {
+            "format": "hdf5",
+            "accepted_extensions": [".h5", ".hdf5"],
+            "container_contract_id": "bremen-xrd-session-container.v0.1",
+        },
+        "required_metadata": ["patient_id_or_case_id"],
+        "optional_metadata": ["age"],
+        "validation_behavior": {
+            "preflight_only": True,
+            "must_not_create_job": True,
+            "must_not_run_inference": True,
+            "must_not_create_report": True,
+        },
+        "technical_demo_only": True,
+    }
+
+    files = {
+        "catalog/pkg/manifest.json": _make_manifest(model_checksum=checksum),
+        "catalog/pkg/model.joblib": package,
+        "catalog/pkg/container_requirements.json": json.dumps(requirements).encode(
+            "utf-8"
+        ),
+    }
+
+    with tempfile.TemporaryDirectory() as td:
+        result = discover_models(
+            "s3://bucket/catalog/",
+            staging_dir=td,
+            _s3_client=_make_s3_client(files),
+        )
+
+    assert result.available_count == 1
+    stored = result.entries[0].get_container_requirements()
+    assert stored is not None
+    assert stored["schema_version"] == "bremen.container_requirements.v1"
+    assert stored["requirements_id"] == "bremen-test-container.v0.1"
+    assert stored["input_container"]["format"] == "hdf5"
+
+
+def test_discover_models_ignores_invalid_container_requirements_json():
+    package = _make_synthetic_package()
+    checksum = hashlib.sha256(package).hexdigest()
+
+    files = {
+        "catalog/pkg/manifest.json": _make_manifest(model_checksum=checksum),
+        "catalog/pkg/model.joblib": package,
+        "catalog/pkg/container_requirements.json": json.dumps({
+            "schema_version": "wrong.version",
+        }).encode("utf-8"),
+    }
+
+    with tempfile.TemporaryDirectory() as td:
+        result = discover_models(
+            "s3://bucket/catalog/",
+            staging_dir=td,
+            _s3_client=_make_s3_client(files),
+        )
+
+    assert result.available_count == 1
+    assert result.entries[0].get_container_requirements() is None
