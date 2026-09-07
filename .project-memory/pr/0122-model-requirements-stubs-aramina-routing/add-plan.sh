@@ -1,0 +1,219 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PR_DIR=".project-memory/pr/0122-model-requirements-stubs-aramina-routing"
+mkdir -p "$PR_DIR"
+
+cat > "$PR_DIR/PLAN.txt" <<'TXT'
+PR0122 MODEL REQUIREMENTS STUBS AND ARAMINA ROUTING PREPARATION
+
+STATUS
+
+Implementation plan.
+
+GOAL
+
+Add the first production-visible API shape for model-specific container requirements without pretending that real H5 requirements are already known.
+
+Also begin Aramina preparation by removing the assumption that every model routes through workflow_id=bremen.
+
+SCOPE
+
+Add two authenticated API endpoints:
+
+GET  /demo/api/models/{model_id}/requirements
+POST /demo/api/models/{model_id}/requirements/validate
+
+Initial behavior must be honest no-op / not available.
+
+The endpoints must exist, be protected, resolve known models, return 404 for unknown models, and clearly state that model-specific requirements are not declared yet.
+
+CURRENT REASON FOR NO-OP
+
+The current model artifact can expose model/provenance metadata such as model_id, model_version, feature_schema_version, threshold, feature count, and output schema.
+
+It cannot honestly declare raw H5 requirement fields by itself.
+
+Raw H5 requirements belong to the full runtime path:
+
+model_id
+-> workflow runner
+-> preprocessing bridge
+-> H5 normalization
+-> feature preparation
+-> feature validation
+
+Until this provider exists, do not invent required_fields.
+
+GET REQUIREMENTS RESPONSE
+
+For known model_id, return HTTP 200 with:
+
+schema_version=bremen.model_requirements.v1
+technical_demo_only=true
+model_id=<requested model_id>
+workflow_id=<workflow_id from model catalog row>
+model_version=<model_version if available>
+feature_schema_version=<feature_schema_version if available>
+requirements_available=false
+status=requirements_not_declared
+required_container_contract=null
+required_fields=[]
+optional_fields=[]
+
+The response must include a clear note that:
+
+- model-specific H5/container requirements are reserved for future implementation;
+- current runner does not yet declare raw H5 requirement fields;
+- no container is opened;
+- no inference job is created;
+- no report is generated.
+
+POST VALIDATE RESPONSE
+
+For known model_id, accept current catalog-style request:
+
+{
+  "container_id": "example.h5",
+  "source_id": "fresh-source-id-from-catalog",
+  "workflow_id": "bremen"
+}
+
+Return HTTP 200 with:
+
+schema_version=bremen.model_requirements_validation.v1
+technical_demo_only=true
+model_id=<requested model_id>
+container_id=<request.container_id>
+source_id=<request.source_id>
+validation_available=false
+validation.status=not_available
+validation.ready_to_run=null
+validation.requirements_checked=false
+validation.inference_job_created=false
+validation.report_created=false
+missing_required_fields=[]
+invalid_fields=[]
+
+The response must say that real validation is not implemented yet and current production execution remains POST /demo/api/jobs.
+
+AUTH BOUNDARY
+
+Both endpoints are protected JSON API endpoints.
+
+Bearer access token is required.
+
+Do not add auth_ticket fallback.
+
+Do not accept stream/report/workspace tickets.
+
+Do not change access/refresh token behavior.
+
+UNKNOWN MODEL
+
+Unknown model_id must return 404.
+
+The error shape must be safe and must not leak internals.
+
+ARAMINA PREPARATION
+
+Start preparing for Aramina as a separate model family/workflow.
+
+Do not assume workflow_id=bremen globally.
+
+When creating jobs or validating model metadata, take workflow_id from the selected model catalog row.
+
+Aramina can later use:
+
+workflow_id=aramina
+
+Do not route Aramina to Bremen by accident.
+
+If Aramina catalog skeleton is added in this PR, it must be honest:
+
+technical_ready=false
+scientifically_certified=false
+technical_demo_only=true
+availability=unavailable
+workflow_id=aramina
+
+NON-GOALS
+
+Do not implement real H5 requirement extraction.
+
+Do not open H5 in the validate endpoint.
+
+Do not run inference from validate.
+
+Do not create reports from validate.
+
+Do not implement stable container_id.
+
+Do not implement Aramina runner execution.
+
+Do not mark Aramina available unless runner execution exists.
+
+Do not make clinical claims.
+
+Do not modify production deployment config.
+
+TESTS
+
+Add or update tests for:
+
+- GET requirements requires auth;
+- POST validate requires auth;
+- known model GET requirements returns 200 no-op;
+- unknown model GET requirements returns 404;
+- known model POST validate returns 200 no-op;
+- unknown model POST validate returns 404;
+- validate does not create job;
+- validate does not create report;
+- protected JSON APIs remain Bearer-only;
+- existing POST /demo/api/jobs remains unchanged;
+- model catalog workflow_id is used as routing metadata;
+- Aramina placeholder, if added, is unavailable and not runnable.
+
+VALIDATION COMMANDS
+
+Run:
+
+python -m compileall src tests
+python -m pytest -q tests/test_bremen_auth.py -v
+python -m pytest -q tests/test_bremen_fastapi_app.py -v
+python -m pytest -q tests/test_bremen_control_room.py -v
+python -m pytest -q
+
+Run repository checks:
+
+git diff --check
+git status --short
+git diff --name-only
+git diff --stat
+git diff --summary
+git diff --raw
+
+DONE CRITERIA
+
+Two requirements endpoints exist and no longer return 404.
+
+Both endpoints are Bearer-protected.
+
+Both endpoints return honest no-op/not-available contracts.
+
+Unknown model_id returns 404.
+
+No inference job is created by validation.
+
+No report is created by validation.
+
+Existing Bremen job execution still passes tests.
+
+workflow_id is treated as model-row routing metadata.
+
+Aramina integration path is explicitly prepared without false readiness claims.
+
+No secrets, tokens, patient-identifiable data, or clinical/regulatory claims are added.
+TXT
+
+echo "Wrote $PR_DIR/PLAN.txt"
