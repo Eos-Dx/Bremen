@@ -1,0 +1,281 @@
+PR0123 ARAMINA MODEL REQUIREMENTS MANIFEST PLAN
+
+STATUS
+
+Planning only.
+
+This PR must not change runtime behavior.
+
+PURPOSE
+
+Prepare Bremen Platform for Aramina integration while keeping PR0122 model requirements endpoints unchanged.
+
+PR0122 delivered the API shape:
+
+GET  /demo/api/models/{model_id}/requirements
+POST /demo/api/models/{model_id}/requirements/validate
+
+Those endpoints currently return honest no-op/not-available contracts.
+
+PR0123 defines how those endpoints should become real later.
+
+CORE DECISION
+
+Model/container requirements should not be inferred from model.joblib.
+
+Requirements should be read from a separate file located next to the model artifact.
+
+Proposed file:
+
+container_requirements.json
+
+Proposed package layout:
+
+models/<model_id>/
+  manifest.json
+  model.joblib
+  model_description.yaml
+  container_requirements.json
+
+RATIONALE
+
+model.joblib is the executable model artifact.
+
+model_description.yaml is human/model provenance metadata.
+
+container_requirements.json is the machine-readable integration contract.
+
+This separates:
+
+- model execution artifact;
+- model identity/provenance;
+- container/input contract;
+- evaluation records.
+
+ARAMINA SOURCE OBSERVATION
+
+Eos-Dx/Aramina currently tracks model artifact directories under:
+
+models/
+
+Observed product/candidate artifacts:
+
+aramina_target_breast_risk_0_2_12-beta_9bb911189af6
+aramina_target_breast_risk_0_2_13-beta_f5e4a04cad11
+
+The Aramina README states that each model directory is self-contained and includes:
+
+model.joblib
+model_description.yaml
+evaluation.yaml
+evaluation_metrics.csv
+evaluation_predictions.csv
+preprocessing_config.yaml
+prediction_preprocessing_config.yaml
+training_config.yaml
+preprocess_and_train_config.yaml
+
+0.2.12-beta remains the frozen product artifact/default in prediction examples.
+
+0.2.13-beta is a separately retrained candidate.
+
+BREMEN CURRENT LIMITATION
+
+Bremen S3 model discovery currently expects Bremen-style packages.
+
+Current discovery is oriented around:
+
+manifest.json
+model.joblib
+workflow_id
+artifact_type
+feature_schema_version
+
+Current allowed workflow_id set only includes:
+
+bremen
+
+Therefore Aramina must not be marked available until Bremen explicitly supports workflow_id=aramina and has an Aramina runner path.
+
+Do not silently route Aramina jobs into Bremen.
+
+PROPOSED CONTAINER_REQUIREMENTS.JSON
+
+Initial schema:
+
+{
+  "schema_version": "bremen.container_requirements.v1",
+  "requirements_id": "aramina-target-breast-risk-container.v0.1",
+  "model_family": "aramina",
+  "workflow_id": "aramina",
+  "artifact_model_id": "aramina_target_breast_risk_0_2_12-beta_9bb911189af6",
+  "input_container": {
+    "format": "hdf5",
+    "accepted_extensions": [".h5", ".hdf5"],
+    "container_contract_id": "aramina-xrd-session-container.v0.1"
+  },
+  "required_measurements": {
+    "unit": "target_breast_case",
+    "minimum_target_measurements": 1,
+    "minimum_contralateral_measurements": 0,
+    "symmetry_refinement_requires_measurements_per_breast": 2
+  },
+  "required_metadata": [
+    "patient_id_or_case_id",
+    "target_breast_or_side"
+  ],
+  "optional_metadata": [
+    "age"
+  ],
+  "feature_contract": {
+    "feature_schema_id": "aramina_target_breast_risk.v0.2",
+    "final_model_feature_columns": [
+      "profile_p_cancer_logit_average",
+      "age",
+      "age_available",
+      "sk_wasserstein_distance_full_q2",
+      "sk_weightedrms1",
+      "sk_weightedrms2",
+      "sk_mean_peak_value_abs_delta",
+      "symmetry_available"
+    ],
+    "reliability_fields": [
+      "profile_p_cancer_n_measurements",
+      "target_measurements",
+      "contralateral_measurements",
+      "symmetry_available"
+    ]
+  },
+  "validation_behavior": {
+    "preflight_only": true,
+    "must_not_create_job": true,
+    "must_not_run_inference": true,
+    "must_not_create_report": true
+  },
+  "technical_demo_only": true,
+  "clinical_stage": "research draft"
+}
+
+NOTES ON REQUIRED FIELDS
+
+Do not blindly finalize required_metadata from the draft above.
+
+The authoritative Aramina required metadata must be confirmed from:
+
+prediction_preprocessing_config.yaml
+preprocessing_config.yaml
+model_description.yaml
+runtime prediction code
+
+The first real implementation may return requirements_available=true only when container_requirements.json exists and passes schema validation.
+
+BREMEN INTEGRATION PLAN
+
+Phase 1: no behavior change
+
+Keep PR0122 endpoints as deployed:
+
+requirements_available=false
+validation_available=false
+
+Phase 2: read requirements manifest
+
+Extend model package discovery to detect optional:
+
+container_requirements.json
+
+Do not require it for existing Bremen models.
+
+Store a safe parsed requirements summary in RegistryModelEntry or a separate registry lookup.
+
+Do not expose S3 bucket/key or filesystem path.
+
+Phase 3: return requirements
+
+GET /demo/api/models/{model_id}/requirements returns:
+
+requirements_available=true
+status=requirements_declared
+required_container_contract=<from container_requirements.json>
+required_fields=<from container_requirements.json>
+optional_fields=<from container_requirements.json>
+
+Only for models with valid container_requirements.json.
+
+Models without it continue returning:
+
+requirements_available=false
+status=requirements_not_declared
+
+Phase 4: validate selected container
+
+POST /demo/api/models/{model_id}/requirements/validate performs pre-submit checks.
+
+It may inspect catalog metadata and eventually open/read the container.
+
+It must still not:
+
+- create a job;
+- run inference;
+- create a report.
+
+Phase 5: Aramina catalog preparation
+
+Allow workflow_id=aramina in discovery only after:
+
+- Aramina manifest.json exists;
+- container_requirements.json exists;
+- runner routing can reject unimplemented workflow safely;
+- no accidental Bremen execution path exists.
+
+Before the runner exists, Aramina must be display-only/unavailable:
+
+technical_ready=false
+scientifically_certified=false
+technical_demo_only=true
+availability=unavailable
+workflow_id=aramina
+
+Phase 6: Aramina runner
+
+Only after packaging and requirements are stable:
+
+- implement Aramina workflow runner;
+- route workflow_id=aramina to Aramina runner;
+- add Aramina report contract;
+- add Aramina E2E smoke;
+- keep clinical/research wording safe.
+
+NON-GOALS
+
+Do not change PR0122 endpoint behavior in this PR.
+
+Do not implement real validation.
+
+Do not open H5.
+
+Do not run Aramina inference.
+
+Do not add Aramina as available.
+
+Do not route Aramina to Bremen.
+
+Do not infer requirements from joblib.
+
+Do not expose S3 bucket/key.
+
+Do not expose filesystem paths.
+
+Do not add clinical, diagnostic, CE, FDA, or regulatory claims.
+
+DONE CRITERIA
+
+This planning PR is done when it records:
+
+- container_requirements.json as the proposed requirements source;
+- Aramina current model artifact layout;
+- Bremen current discovery limitations;
+- safe phased integration plan;
+- no-op PR0122 preservation;
+- no false Aramina availability;
+- no clinical/regulatory claims.
