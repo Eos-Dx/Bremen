@@ -1,0 +1,130 @@
+# PR0127 Precommit Review — Requirements Dry-Run Smoke and Response Polish
+
+Branch: 0127-requirements-dry-run-smoke-and-response-polish
+PR Goal: Record PR0126 production smoke evidence and polish the validate response.
+Scope: Small — 2 source files, 1 smoke artifact, 1 review artifact.
+
+## Summary
+
+PR0127 records PR0126 production smoke evidence and polishes the validate
+response wording and stage output. No validation semantics changed.
+No manifest contract changed. No side effects introduced.
+
+## Files Changed
+
+1. `src/bremen/api/model_requirements.py` (+19/-15)
+   - Polished failure reason: both `safe_reason` values now read
+     "Selected container failed read-only pipeline dry run." (single clean sentence)
+   - Previous duplication: "Dry run failed before a report could be generated.
+     Pipeline dry run failed." → eliminated.
+   - Stage 1 renamed: "container_resolution" → "model_resolution" (model entry lookup)
+   - New Stage 3: "container_resolution" appended after source resolution
+   - Added `checked_stages` field to response (always a list, never null)
+   - No-manifest path: `checked_stages = []` (empty list, not null)
+   - Request-payload failure: `checked_stages = ["request_payload"]`
+   - Dry-run path: `checked_stages = ["request_payload"] + dry_result.checked_stages`
+   - KeyError → input_preparation mapping added to `_safe_failure_stage`
+   - `traceback` import on line 17 is unused (dead code, cosmetic only, non-blocking)
+
+2. `tests/test_bremen_model_requirements_api.py` (+250/-1)
+   - Updated existing tests to assert `checked_stages` is a non-null list
+   - Updated `test_dry_run_with_fake_source_fails_at_container_resolution`:
+     asserts clean single-sentence reason, no duplication of "failed"
+   - Added 7 new tests:
+     - `test_failed_dry_run_reason_not_duplicated`
+     - `test_checked_stages_not_null_on_pass`
+     - `test_checked_stages_not_null_on_failure`
+     - `test_checked_stages_empty_when_no_manifest`
+     - `test_nova_103_like_failure_maps_to_input_preparation`
+     - `test_validate_does_not_create_inference_artifacts`
+     - `test_no_raw_paths_or_checksum_in_dry_run_response`
+
+3. `.project-memory/pr/0127-requirements-dry-run-smoke-and-response-polish/PRODUCTION_SMOKE.txt`
+   - Nova_376.h5 PASS evidence with full response shape
+   - Nova_103_.h5 FAIL (input_preparation) evidence with full response shape
+   - Invariants confirmed section
+
+## Production Smoke Evidence Recorded
+
+- [x] Nova_376.h5: validation.status=passed, failure_stage=null, can_submit_job=true
+- [x] Nova_103_.h5: validation.status=failed, failure_stage=input_preparation, can_submit_job=false
+- [x] Both containers: dry_run_mode=model_pipeline, read_only=true
+- [x] No persistent job state, reports, or event store entries created
+
+## Validation Results
+
+```
+compileall -q src tests                              ✓ (no errors)
+pytest tests/test_bremen_model_requirements_api.py   35 passed (1.89s)
+pytest tests/test_bremen_model_catalog.py            14 passed
+pytest tests/test_model_registry.py                  36 passed
+pytest tests/test_catalog_api_multi_model.py         18 passed
+git diff --check                                     ✓ (clean)
+```
+
+Total: 35 + 68 = 103 tests passed, 0 failures.
+
+## Behavior Review
+
+- [x] Valid dry run still passes (test_dry_run_with_valid_source_passes)
+- [x] Nova_103-like failure still fails at input_preparation (test_nova_103_like_failure_maps_to_input_preparation)
+- [x] Fake source_id still fails at container_resolution (test_dry_run_with_fake_source_fails_at_container_resolution)
+- [x] Missing request fields still fail before dry run (test_post_validate_with_manifest_required_missing_returns_failed)
+- [x] No manifest still preserves old no-op behavior (test_post_validate_without_manifest_still_noop)
+- [x] Dry-run failure reason is a clean single sentence — no duplication (test_failed_dry_run_reason_not_duplicated)
+- [x] checked_stages is never null — always a list (3 dedicated tests confirm this)
+- [x] checked_stages contains correct stage sequence for pass, failure, and no-manifest cases
+
+## Response Polish Review
+
+| Issue | Before PR0127 | After PR0127 |
+|-------|---------------|--------------|
+| checked_stages on pass | null | ["request_payload", "model_resolution", "container_resolution", "normalization", "workflow_resolution", "input_preparation", "model_execution"] |
+| checked_stages on failure | null | ["request_payload", "model_resolution", ... up to failure point] |
+| checked_stages no-manifest | null | [] (empty list) |
+| failure reason | "Dry run failed before a report could be generated. Pipeline dry run failed." | "Selected container failed read-only pipeline dry run." |
+| failure reason period | possible double period (..) | single period |
+
+## Manifest Contract Review
+
+- [x] `required_fields` not changed
+- [x] `request_requirements.required_fields` not changed
+- [x] No redesign of container_requirements.json
+- [x] PR goal explicitly limited to polish + smoke evidence
+
+## Security Review
+
+- [x] No raw h5_path echo (h5_path_supplied boolean only)
+- [x] No S3 bucket/key exposure
+- [x] No filesystem path exposure in responses
+- [x] No checksum exposure
+- [x] No _package exposure
+- [x] No portable_logreg internals exposure
+- [x] No traceback exposure
+- [x] No token/password/secret exposure
+
+## Side-Effect Review
+
+- [x] No persistent job created
+- [x] No report created
+- [x] No workspace created
+- [x] No ticket minted
+- [x] No S3 writes
+- [x] No mutation of H5 source
+- [x] No persisted score/decision/report output from validate
+
+## Aramina Constraints
+
+- [x] workflow_id=aramina was not enabled
+- [x] Aramina was not routed through Bremen
+- [x] Aramina was not made runnable
+
+## Notes
+
+- `import traceback` (line 17) is unused dead code. Cosmetic, non-blocking.
+  Can be cleaned up in a follow-up if desired.
+- Comment indentation on line 396 (`# --- Stage 5: ---`) is at 4-space while
+  surrounding code is at 8-space. Cosmetic only — Python ignores comment
+  indentation. Does not affect runtime behavior.
+
+## Verdict: READY FOR COMMIT
