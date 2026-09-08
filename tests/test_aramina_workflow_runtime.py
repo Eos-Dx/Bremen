@@ -39,13 +39,17 @@ class TestAraminaWorkflowProvider:
         p = AraminaWorkflowProvider(model_id="test-aramina")
         assert p.workflow_id == "aramina"
 
-    def test_readiness_not_configured(self):
+    def test_readiness_manifest_backed_not_configured(self):
+        """Manifest-backed Aramina is model_ready even without provider_url."""
         p = AraminaWorkflowProvider(model_id="test-aramina")
         r = p.readiness()
         assert r.configured is False
-        assert r.model_ready is False
+        # Manifest-gated: model_ready=True so orchestrator passes
+        # through to execute() which handles the missing-URL failure.
+        assert r.model_ready is True
 
     def test_readiness_configured(self):
+        """With provider_url, readiness is configured and model_ready."""
         p = AraminaWorkflowProvider(
             model_id="test-aramina",
             provider_url="http://localhost:8080",
@@ -428,3 +432,117 @@ class TestAraminaRequirements:
         assert resp["workflow_id"] == "bremen"
         assert "patient_id_or_case_id" in resp["required_fields"]
         assert "age" in resp["optional_fields"]
+
+
+# ---------------------------------------------------------------------------
+# PR0132 — Provider-boundary failure tests
+# ---------------------------------------------------------------------------
+
+
+class TestAraminaProviderBoundary:
+    """Missing provider_url should fail inside Aramina provider boundary,
+    not at the generic orchestrator readiness gate.
+    """
+
+    def test_missing_provider_url_produces_provider_unavailable(self):
+        """Missing BREMEN_ARAMINA_PROVIDER_URL yields safe provider-boundary failure."""
+        p = AraminaWorkflowProvider(model_id="test-aramina")
+        result = p.execute(MagicMock())
+        assert result.status == "failed"
+        assert result.error is not None
+        # Must reference provider unavailability, not model-not-ready
+        assert "not configured" in result.error.lower()
+        assert "model" not in result.error.lower()
+
+    def test_missing_provider_url_does_not_leak_internals(self):
+        """Safe failure must not expose paths, S3, tokens, or traceback."""
+        p = AraminaWorkflowProvider(model_id="test-aramina")
+        result = p.execute(MagicMock())
+        text = str(result)
+        assert "/Users/" not in text
+        assert "s3://" not in text
+        assert "password" not in text.lower()
+        assert "secret" not in text.lower()
+        assert "traceback" not in text.lower()
+        assert "checksum" not in text.lower()
+
+    def test_manifest_backed_readiness_passes_orchestrator_gate(self):
+        """Orchestrator readiness check should NOT block manifest-backed Aramina."""
+        from bremen.api.model_registry import (
+            RegistryModelEntry, ModelRegistry, initialize_registry,
+            reset_for_tests,
+        )
+        try:
+            entry = RegistryModelEntry(
+                model_id="aramina-manifest-test",
+                display_name="Aramina Manifest Test",
+                workflow_id="aramina",
+                model_version="1.0",
+                artifact_type="aramina.joblib.model_package",
+                feature_schema_version="v0.1",
+                decision_policy_id="",
+                decision_policy_version="",
+                technical_ready=True,
+                scientifically_certified=False,
+                technical_demo_only=True,
+                availability="available",
+                _package={},
+                _checksum="abc123",
+            )
+            reg = ModelRegistry(
+                entries=(entry,),
+                catalog_status="available",
+                available_count=1,
+            )
+            initialize_registry(reg)
+
+            from bremen.api.workflow_orchestrator import get_provider_for_model
+            provider = get_provider_for_model("aramina-manifest-test")
+            readiness = provider.readiness()
+            # Manifest-backed: model_ready=True even without provider_url
+            assert readiness.model_ready is True
+            assert readiness.configured is False  # No provider URL yet
+        finally:
+            reset_for_tests()
+
+    def test_bremen_readiness_unchanged(self):
+        """Bremen workflow readiness behavior is unchanged by PR0132."""
+        from bremen.api.model_registry import (
+            RegistryModelEntry, ModelRegistry, initialize_registry,
+            reset_for_tests,
+        )
+        from bremen.api.workflow_bremen import BremenProvider
+        try:
+            entry = RegistryModelEntry(
+                model_id="bremen-readiness-test",
+                display_name="Bremen Readiness Test",
+                workflow_id="bremen",
+                model_version="1.0",
+                artifact_type="portable_logreg",
+                feature_schema_version="v0.1",
+                decision_policy_id="test",
+                decision_policy_version="1.0",
+                technical_ready=True,
+                scientifically_certified=False,
+                technical_demo_only=True,
+                availability="available",
+                _package={"portable_logreg": {"coef": [0.1]*15, "intercept": 0.0, "threshold": 0.5}},
+                _checksum="abc123",
+            )
+            reg = ModelRegistry(
+                entries=(entry,),
+                catalog_status="available",
+                available_count=1,
+            )
+            initialize_registry(reg)
+
+            from bremen.api.workflow_orchestrator import get_provider_for_model
+            provider = get_provider_for_model("bremen-readiness-test")
+            assert isinstance(provider, BremenProvider)
+            readiness = provider.readiness()
+            # Bremen: model_ready depends on actual model package
+            # With empty package, model_ready should be False (unchanged)
+            assert readiness.model_ready is False
+            assert readiness.configured is True
+        finally:
+            reset_for_tests()

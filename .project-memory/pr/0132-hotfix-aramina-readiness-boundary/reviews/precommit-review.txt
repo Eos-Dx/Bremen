@@ -1,0 +1,105 @@
+# PR0132 Precommit Review — Hotfix Aramina Readiness Boundary
+
+Branch: 0132-hotfix-aramina-readiness-boundary
+PR Goal: Fix Aramina runtime readiness semantics so a manifest-backed Aramina model is considered model-ready, while missing BREMEN_ARAMINA_PROVIDER_URL is reported as a provider-boundary runtime failure instead of generic workflow_unavailable/model_not_ready.
+
+## Production Evidence Addressed
+
+After PR0130/PR0131 deploy, Aramina jobs returned 201 Created but events showed `reason: "workflow_unavailable", model_ready: false` and status "Workflow unavailable — model not ready". Root cause: `AraminaWorkflowProvider.readiness()` returned `model_ready=False` when `BREMEN_ARAMINA_PROVIDER_URL` was missing, causing the generic orchestrator readiness gate to block execution before `execute()` could return the intended safe provider-boundary failure.
+
+Fix: Aramina readiness now always returns `model_ready=True` (manifest-backed). Missing provider URL is handled inside `execute()` as a safe provider-boundary failure.
+
+## Files Changed
+
+- `src/bremen/api/workflow_aramina.py` (+6/-3) — `readiness()` now returns `model_ready=True` regardless of `provider_url`
+- `tests/test_aramina_workflow_runtime.py` (+122/-3) — Updated existing readiness test; added 4 new provider-boundary tests
+
+## Test Commands and Pass Summaries
+
+```
+python -m compileall -q src tests                             → pass (no errors)
+pytest -q tests/test_aramina_workflow_runtime.py              → 30 passed (1.50s)
+pytest -q tests/test_aramina_provider_contract.py             → 30 passed (1.51s)
+pytest -q tests/test_bremen_model_requirements_api.py         → 35 passed (1.84s)
+pytest -q tests/test_bremen_model_catalog.py + tests/test_model_registry.py + tests/test_catalog_api_multi_model.py → 68 passed (1.51s)
+pytest -q (full suite)                                        → 3806 passed, 11 skipped, 0 failures (40.68s)
+git diff --check                                              → clean
+```
+
+## Aramina Model Readiness Review
+
+- [x] `AraminaWorkflowProvider.readiness()` now returns `model_ready=True` always
+- [x] `model_ready` does NOT depend on `BREMEN_ARAMINA_PROVIDER_URL`
+- [x] `configured` still reflects `bool(provider_url)` — missing URL is not hidden
+- [x] `scientifically_certified=False` unchanged
+- [x] `technical_demo_only=True` unchanged
+- [x] Verified by `test_readiness_manifest_backed_not_configured`: `configured=False, model_ready=True`
+- [x] Verified by `test_manifest_backed_readiness_passes_orchestrator_gate`: `model_ready=True` with no provider_url
+
+## Provider URL Boundary Review
+
+- [x] Missing `BREMEN_ARAMINA_PROVIDER_URL` does NOT produce `workflow_unavailable`
+- [x] Missing `BREMEN_ARAMINA_PROVIDER_URL` does NOT produce `model_ready=false`
+- [x] Missing provider URL produces safe provider-boundary failure inside `execute()`:
+  - `status="failed"`
+  - `error="Aramina provider service is not configured"`
+- [x] Verified by `test_missing_provider_url_produces_provider_unavailable`
+- [x] Verified by `test_missing_provider_url_does_not_leak_internals`
+
+## Event/Status Behavior Review
+
+- [x] Orchestrator readiness gate passes Aramina (model_ready=True)
+- [x] Events flow: request.accepted → normalization → workflow.resolved → workflow.started → provider boundary failure
+- [x] No misleading "model not ready" messages
+- [x] Provider-boundary failure is explicit and safe
+
+## Catalog Behavior Review
+
+- [x] Aramina remains manifest-gated
+- [x] Valid Aramina manifests still produce available catalog entries
+- [x] No manifest means no executable Aramina model
+- [x] Public catalog still does not expose model_checksum
+
+## Routing Review
+
+- [x] Aramina does not route through Bremen provider
+- [x] `get_provider_for_model` returns `AraminaWorkflowProvider` for `workflow_id="aramina"`
+- [x] `get_provider_for_model` returns `BremenProvider` for `workflow_id="bremen"`
+- [x] Unknown `workflow_id` still raises ValueError
+- [x] Verified by existing tests + new `test_bremen_readiness_unchanged`
+
+## Bremen Regression Review
+
+- [x] Bremen readiness behavior unchanged (`model_ready` depends on actual model package)
+- [x] `BremenProvider.readiness()` returns `model_ready=True` only when configured + model valid
+- [x] Orchestrator generic readiness gate unchanged
+- [x] Full suite: 3806 passed, 11 skipped, 0 failures
+
+## Security Review
+
+- [x] No raw h5_path exposed
+- [x] No filesystem path exposed
+- [x] No S3 bucket/key exposed
+- [x] No model_checksum exposed
+- [x] No auth token/ticket exposed
+- [x] No password/secret exposed
+- [x] No traceback/raw exception text exposed
+- [x] No `_package` internals exposed
+- [x] No model.joblib vendored or loaded during discovery
+- [x] Safe failure message: "Aramina provider service is not configured"
+
+## Product Safety Review
+
+- [x] No clinical, diagnostic, CE, FDA, or regulatory claims added
+- [x] `clinical_stage="research draft"` is factual metadata only
+
+## Explicit Invariants
+
+- [x] **Aramina model readiness is manifest-gated** — `model_ready=True` always for manifest-backed instances
+- [x] **Provider URL absence is runtime provider-boundary failure, not model-not-ready** — handled inside `execute()`
+- [x] **Bremen readiness behavior is unchanged** — `model_ready` depends on actual model package
+- [x] **Aramina remains dedicated and does not route through Bremen provider**
+- [x] **No model.joblib is vendored or loaded during discovery**
+- [x] **No clinical/regulatory claims were added**
+
+## Verdict: READY FOR COMMIT

@@ -129,10 +129,14 @@ class AraminaWorkflowProvider(WorkflowProvider):
 
     def readiness(self) -> WorkflowReadiness:
         configured = bool(self._provider_url)
+        # Manifest-backed Aramina instances are model_ready even without
+        # a provider URL.  The missing-URL case is handled inside
+        # execute() as a safe provider-boundary failure, not a generic
+        # workflow_unavailable gate.
         return WorkflowReadiness(
             workflow_id=self.workflow_id,
             configured=configured,
-            model_ready=configured,
+            model_ready=True,
             scientifically_certified=False,
         )
 
