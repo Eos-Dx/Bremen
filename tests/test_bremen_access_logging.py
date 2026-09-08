@@ -129,6 +129,18 @@ class TestSensitiveQueryRedactionFilter:
             exc_info=None,
         )
 
+    def _make_access_record(self, msg: str) -> logging.LogRecord:
+        """Create a uvicorn.access-style record with 5-tuple args."""
+        return logging.LogRecord(
+            name="uvicorn.access",
+            level=logging.INFO,
+            pathname=__file__,
+            lineno=1,
+            msg=msg,
+            args=("127.0.0.1", 12345, msg, 200, 128),
+            exc_info=None,
+        )
+
     def test_filter_redacts_auth_ticket(self):
         """Filter redacts auth_ticket from log record message."""
         record = self._make_record(
@@ -163,6 +175,64 @@ class TestSensitiveQueryRedactionFilter:
         record = self._make_record("GET /health HTTP/1.1")
         filt = SensitiveQueryRedactionFilter()
         assert filt.filter(record) is True
+
+    def test_uvicorn_access_record_preserves_args_length(self):
+        """uvicorn.access record with 5-tuple args keeps length 5 after redaction."""
+        request_line = f"GET /demo/report/x?auth_ticket={_FAKE_JWT} HTTP/1.1"
+        record = self._make_access_record(request_line)
+        assert len(record.args) == 5
+        filt = SensitiveQueryRedactionFilter()
+        filt.filter(record)
+        # args must still be a 5-tuple
+        assert isinstance(record.args, tuple)
+        assert len(record.args) == 5
+
+    def test_uvicorn_access_redacts_query_in_request_line(self):
+        """Auth ticket value is redacted in the request_line element of args."""
+        request_line = f"GET /demo/report/x?auth_ticket={_FAKE_JWT} HTTP/1.1"
+        record = self._make_access_record(request_line)
+        filt = SensitiveQueryRedactionFilter()
+        filt.filter(record)
+        # args[2] is the request line in uvicorn access format
+        assert _FAKE_JWT not in record.args[2]
+        assert "auth_ticket=<redacted>" in record.args[2]
+
+    def test_uvicorn_access_status_and_size_preserved(self):
+        """Status code and response size in args are preserved."""
+        request_line = f"GET /demo/report/x?auth_ticket={_FAKE_JWT} HTTP/1.1"
+        record = self._make_access_record(request_line)
+        filt = SensitiveQueryRedactionFilter()
+        filt.filter(record)
+        assert record.args[3] == 200
+        assert record.args[4] == 128
+        assert record.args[2] == "GET /demo/report/x?auth_ticket=<redacted> HTTP/1.1"
+
+    def test_uvicorn_access_no_sensitive_params_preserves_args(self):
+        """uvicorn.access record with no sensitive params keeps args unchanged."""
+        request_line = "GET /demo/api/jobs?workflow_id=bremen HTTP/1.1"
+        record = self._make_access_record(request_line)
+        filt = SensitiveQueryRedactionFilter()
+        filt.filter(record)
+        assert record.args == ("127.0.0.1", 12345, request_line, 200, 128)
+
+    def test_uvicorn_access_all_sensitive_keys_redacted(self):
+        """All sensitive query keys are redacted in uvicorn.access args."""
+        request_line = (
+            f"GET /demo/report/x?{_AT_KEY}{_FAKE_JWT}"
+            f"&{_RT_KEY}{_FAKE_JWT2}"
+            f"&token={_FAKE_JWT3}"
+            f" HTTP/1.1"
+        )
+        record = self._make_access_record(request_line)
+        filt = SensitiveQueryRedactionFilter()
+        filt.filter(record)
+        redacted_line = record.args[2]
+        assert _FAKE_JWT not in redacted_line
+        assert _FAKE_JWT2 not in redacted_line
+        assert _FAKE_JWT3 not in redacted_line
+        assert f"{_AT_KEY}{_REDACTED}" in redacted_line
+        assert f"{_RT_KEY}{_REDACTED}" in redacted_line
+        assert f"token={_REDACTED}" in redacted_line
 
 
 # ---------------------------------------------------------------------------

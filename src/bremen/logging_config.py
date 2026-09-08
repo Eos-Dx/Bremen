@@ -59,14 +59,35 @@ class SensitiveQueryRedactionFilter(logging.Filter):
     """Logging filter that redacts sensitive query params from log records.
 
     Attach to ``uvicorn.access`` (or any access logger) so that raw short-lived
-    JWT tickets and tokens never appear in access logs. Redaction is
+    JWT tickets and tokens never appear in access logs.  Redaction is
     logging/output only; request handling is not mutated.
     """
 
     def filter(self, record: logging.LogRecord) -> bool:
+        # Handle uvicorn.access records FIRST — before calling getMessage().
+        # uvicorn's AccessFormatter reads record.args[2] directly for the
+        # request line.  We must redact args[2] in-place and preserve the
+        # 5-tuple arity so AccessFormatter does not raise ValueError.
+        if (
+            isinstance(record.args, tuple)
+            and len(record.args) == 5
+            and isinstance(record.args[2], str)
+        ):
+            redacted_line = redact_sensitive_query_params(record.args[2])
+            if redacted_line != record.args[2]:
+                record.args = (
+                    record.args[0],
+                    record.args[1],
+                    redacted_line,
+                    record.args[3],
+                    record.args[4],
+                )
+            return True
+
+        # Non-uvicorn records: use existing redaction behavior.
         try:
             msg = record.getMessage()
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE040
             return True
         if isinstance(msg, str):
             redacted = redact_sensitive_query_params(msg)
