@@ -3,7 +3,8 @@
 Created exactly once during startup bootstrap. After initialization,
 the registry and its entries are immutable. Request handlers receive
 read-only access. No request performs S3 listing, manifest download,
-artifact staging, checksum verification, or deserialization.
+artifact staging or checksum verification. Deferred artifacts are loaded only
+by their private execution path, never by public catalog serialization.
 
 PR0085 — Startup S3 Model Discovery and Per-Job Model Selection.
 """
@@ -41,6 +42,8 @@ class RegistryModelEntry:
     technical_ready: bool
     _package: dict[str, Any] = field(repr=False, compare=False)
     _checksum: str = field(repr=False, compare=False, default="")
+    _artifact_path: str = field(repr=False, compare=False, default="")
+    _clinical_stage: str = field(repr=False, compare=False, default="")
     _container_requirements: dict[str, Any] | None = field(
         repr=False, compare=False, default=None
     )

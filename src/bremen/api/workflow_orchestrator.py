@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import os
 import time as _time
 import uuid
 from datetime import datetime, timezone
@@ -67,13 +66,11 @@ def get_provider_for_model(model_id: str) -> Any:
         raise ValueError(f"Model '{model_id}' not found in registry")
 
     # Aramina manifest-gated routing
-    if entry.workflow_id == "aramina":
+    if (entry.workflow_id == "aramina"
+            and entry.artifact_type == "aramina.joblib.model_package"):
         from .workflow_aramina import AraminaWorkflowProvider  # noqa: PLC0415
-        provider_url = os.environ.get("BREMEN_ARAMINA_PROVIDER_URL", "")
         return AraminaWorkflowProvider(
-            model_id=entry.model_id,
-            model_version=entry.model_version,
-            provider_url=provider_url or None,
+            entry=entry,
         )
 
     # Bremen routing (existing path)
@@ -174,6 +171,7 @@ def run_workflow_request(
     event_store: Any = None,  # BoundedEventStore | None
     model_id: str | None = None,
     job_id: str | None = None,
+    aramina_request: Any = None,
 ) -> MultiWorkflowResult:
     """Normalize an H5 container once, then execute the requested workflow.
 
@@ -362,10 +360,15 @@ def run_workflow_request(
             )
 
         # Execute — pass context if provider accepts it
-        try:
-            wf_result = provider.execute(canonical, context)
-        except TypeError:
-            wf_result = provider.execute(canonical)
+        if workflow_id == "aramina":
+            wf_result = provider.execute(
+                canonical, context, aramina_request=aramina_request, h5_path=h5_path,
+            )
+        else:
+            try:
+                wf_result = provider.execute(canonical, context)
+            except TypeError:
+                wf_result = provider.execute(canonical)
     except Exception as exc:
         _log.exception(
             "runtime.workflow.failed\t"
@@ -394,9 +397,15 @@ def run_workflow_request(
               details={"reason": "workflow_configuration_required"})
         overall_status = "workflow_configuration_required"
     else:
+        failure_details = None
+        if workflow_id == "aramina":
+            from .workflow_aramina import _SAFE_FAILURES
+            reason = (wf_result.error if wf_result.error in _SAFE_FAILURES
+                      else "ARAMINA_EXECUTION_FAILED")
+            failure_details = {"reason": reason}
         _emit(event_store, job_id, request_id,
               EventType.WORKFLOW_FAILED, "workflow", "failed",
-              workflow_id=workflow_id)
+              workflow_id=workflow_id, details=failure_details)
         overall_status = "failed"
 
     _log.info(
@@ -426,6 +435,22 @@ def run_workflow_request(
 # ---------------------------------------------------------------------------
 # Internal: H5 normalization
 # ---------------------------------------------------------------------------
+
+
+def _validate_aramina_source(
+    h5_path: str, canonical: CanonicalXRDCase, patient_id: str,
+) -> None:
+    """Ensure local model input belongs to the staged, normalized patient case."""
+    from .preflight import resolve_patient_metadata
+
+    with open(h5_path, "rb") as source:
+        checksum = hashlib.file_digest(source, "sha256").hexdigest()
+    if checksum != canonical.source_checksum:
+        raise ValueError("Input integrity mismatch")
+    with h5py.File(h5_path, "r") as source:
+        patient = resolve_patient_metadata(source)
+    if patient.patient_identifier != patient_id:
+        raise ValueError("Input patient mismatch")
 
 
 def _normalize_h5(
