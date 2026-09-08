@@ -1,7 +1,7 @@
-"""Aramis workflow provider scaffold.
+"""Aramina workflow provider scaffold.
 
 Separate first-class provider.  No cross-imports from Bremen.
-Implementation depends on authoritative Aramis artifacts.
+Implementation depends on authoritative Aramina artifacts.
 
 PR0075 — multi-workflow runtime foundation.
 """
@@ -23,12 +23,12 @@ from .workflow_provider import (
 _log = _getLogger(__name__)
 
 
-class AramisWorkflowError(Exception):
-    """Base exception for Aramis workflow errors."""
+class AraminaWorkflowError(Exception):
+    """Base exception for Aramina workflow errors."""
 
 
-class WorkflowUnavailableError(AramisWorkflowError):
-    """Aramis workflow is not available (missing artifacts or runtime)."""
+class WorkflowUnavailableError(AraminaWorkflowError):
+    """Aramina workflow is not available (missing artifacts or runtime)."""
 
 
 # ---------------------------------------------------------------------------
@@ -36,19 +36,19 @@ class WorkflowUnavailableError(AramisWorkflowError):
 # ---------------------------------------------------------------------------
 
 
-class AramisProvider(WorkflowProvider):
-    """Aramis workflow provider.
+class AraminaProvider(WorkflowProvider):
+    """Aramina workflow provider.
 
     Currently scaffolded — returns ``workflow_unavailable`` until
-    authoritative Aramis artifacts (model, config, runtime) are
-    provided.  Does NOT reverse-engineer Aramis features or
+    authoritative Aramina artifacts (model, config, runtime) are
+    provided.  Does NOT reverse-engineer Aramina features or
     inference.
 
     Integration mode: to be determined (Option A: in-process,
     Option B: subprocess, Option C: service client).
     """
 
-    workflow_id: str = "aramis"
+    workflow_id: str = "aramina"
 
     def __init__(self) -> None:
         self._enabled = False
@@ -64,19 +64,19 @@ class AramisProvider(WorkflowProvider):
     def validate_compatibility(self, canonical: Any) -> CompatibilityResult:
         return CompatibilityResult(
             compatible=True,
-            reason="aramis_not_active",
+            reason="aramina_not_active",
         )
 
     def build_features(self, canonical: Any) -> WorkflowFeatureVector:
         raise WorkflowUnavailableError(
-            "Aramis workflow is not available"
+            "Aramina workflow is not available"
         )
 
     def run_inference(self, features: WorkflowFeatureVector) -> WorkflowResult:
         return WorkflowResult(
             workflow_id=self.workflow_id,
             status="failed",
-            error="Aramis workflow unavailable — missing authoritative artifacts",
+            error="Aramina workflow unavailable — missing authoritative artifacts",
         )
 
     def execute(self, canonical: Any) -> WorkflowResult:

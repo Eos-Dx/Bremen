@@ -11,17 +11,17 @@ run_xrd() {
   (cd "${TARGET_ROOT}/XRD-preprocessing" && conda run -n "${ENV_NAME}" pytest -q)
 }
 
-run_aramis() {
-  echo "Testing Aramis"
-  (cd "${TARGET_ROOT}/Aramis" && conda run -n "${ENV_NAME}" python -m ruff check .)
-  (cd "${TARGET_ROOT}/Aramis" && conda run -n "${ENV_NAME}" pytest -q)
-  (cd "${TARGET_ROOT}/Aramis" && conda run -n "${ENV_NAME}" python -m marimo check examples/aramis_dataframe_one_to_one_v0_1.py)
-  (cd "${TARGET_ROOT}/Aramis" && conda run -n "${ENV_NAME}" python -m marimo check examples/aramis_dataframe_one_to_many_v0_1.py)
+run_aramina() {
+  echo "Testing Aramina"
+  (cd "${TARGET_ROOT}/Aramina" && conda run -n "${ENV_NAME}" python -m ruff check .)
+  (cd "${TARGET_ROOT}/Aramina" && conda run -n "${ENV_NAME}" pytest -q)
+  (cd "${TARGET_ROOT}/Aramina" && conda run -n "${ENV_NAME}" python -m marimo check examples/aramina_dataframe_one_to_one_v0_1.py)
+  (cd "${TARGET_ROOT}/Aramina" && conda run -n "${ENV_NAME}" python -m marimo check examples/aramina_dataframe_one_to_many_v0_1.py)
 }
 
 case "${SCOPE}" in
   xrd) run_xrd ;;
-  aramis) run_aramis ;;
-  all) run_xrd; run_aramis ;;
-  *) echo "Usage: $0 [target_root] [all|xrd|aramis]" >&2; exit 2 ;;
+  aramina) run_aramina ;;
+  all) run_xrd; run_aramina ;;
+  *) echo "Usage: $0 [target_root] [all|xrd|aramina]" >&2; exit 2 ;;
 esac

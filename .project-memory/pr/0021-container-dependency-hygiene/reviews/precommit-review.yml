@@ -6,7 +6,7 @@ BLOCKERS
 
 WARNINGS
 - `requirements.txt` still references the approved private GitHub feature-branch pin for `container` (`feat/v0_3-eoscan-session-container`), which is acceptable for this PR because G-DEP-1 remains OPEN.
-- The repository still contains an existing H5 fixture at `./tests/data/aramis_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR.
+- The repository still contains an existing H5 fixture at `./tests/data/aramina_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR.
 
 VALIDATION
 - `git rev-parse --verify HEAD` ✅ `1407da39e3ab12d9ea78568d452918edb3b9f759` on branch `0021-container-dependency-hygiene`
@@ -29,7 +29,7 @@ VALIDATION
 - `python -m bremen --help` ✅ help output shown
 - `git diff --name-only -- src docs/api_contract.md docs/architecture.md docs/adr/0001-bremen-product-identity.md docs/adr/0002-twin-product-document-separation.md docs/adr/0003-bremen-microservice-api-architecture.md docs/adr/0004-bremen-configuration-management-strategy.md docs/adr/0006-multi-target-deployment-and-iac.md README.md docs/roadmap.md docs/machine_learning_concept.md docs/repository_cleanup.md .github Dockerfile .dockerignore pyproject.toml sonar-project.properties environment.yml Makefile config examples tests/data agents` ✅ no output
 - `git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|npy|npz)$" || true` ✅ no output
-- `find . -path "./.git" -prune -o -path "./venv" -prune -o -path "./.venv" -prune -o -type f \( -name "*.h5" -o -name "*.hdf5" -o -name "*.joblib" -o -name "*.pkl" -o -name "*.npy" -o -name "*.npz" \) -print` ✅ existing fixture found at `./tests/data/aramis_real_h5_subset_20260128_5_patients.h5`
+- `find . -path "./.git" -prune -o -path "./venv" -prune -o -path "./.venv" -prune -o -type f \( -name "*.h5" -o -name "*.hdf5" -o -name "*.joblib" -o -name "*.pkl" -o -name "*.npy" -o -name "*.npz" \) -print` ✅ existing fixture found at `./tests/data/aramina_real_h5_subset_20260128_5_patients.h5`
 - `find . -name ".DS_Store" -print` ✅ no output
 - `date -u +%Y-%m-%dT%H:%M:%SZ` ✅ `2026-07-03T16:21:27Z`
 
@@ -98,7 +98,7 @@ COMMIT READINESS
   - tests/test_bremen_dependency_hygiene.py
   - .project-memory/pr/0021-container-dependency-hygiene/reviews/precommit-review.yml
 - files to exclude:
-  - ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5 (existing fixture, not modified)
+  - ./tests/data/aramina_real_h5_subset_20260128_5_patients.h5 (existing fixture, not modified)
 
 BOUNDARY CONFIRMATIONS
 - no implementation files edited by reviewer

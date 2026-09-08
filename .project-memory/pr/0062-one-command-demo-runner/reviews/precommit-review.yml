@@ -40,8 +40,8 @@ python -m bremen --help: exit 0 (lists demo-run, demo-smoke, serve)
 python -m bremen serve --help: exit 0
 python -m bremen demo-smoke --help: exit 0
 python -m bremen demo-run --help: exit 0 (shows --base-url, --timeout, --skip-prediction)
-grep Aramis/M2Q/BENIGN in demo_run.py: Zero matches (required — clean)
-grep Aramis/M2Q/BENIGN in all evidence files: Only in prohibition patterns and test assertions in demo_evidence.py / test_bremen_demo_evidence.py (safe)
+grep Aramina/M2Q/BENIGN in demo_run.py: Zero matches (required — clean)
+grep Aramina/M2Q/BENIGN in all evidence files: Only in prohibition patterns and test assertions in demo_evidence.py / test_bremen_demo_evidence.py (safe)
 grep diagnosis/replace in demo_run.py: Only safety header comment (safe — "No clinical diagnosis or replacement claims.")
 grep diagnosis/replace in all evidence files: Only disclaimer negation, prohibition patterns, test assertions (safe)
 grep joblib.load/pickle/import pickle in all evidence files: Only test assertions verifying they DON'T appear (safe — no actual deserialization)
@@ -114,7 +114,7 @@ PRODUCT-OWNER DEMO CHECK
 pass — Demo-run output is meaningful for showing Bremen workflow without manual setup: single command starts service, runs smoke checks, produces evidence bundle, prints JSON + human-readable summary. Completes the demo trilogy (PR0060 smoke + PR0061 evidence + PR0062 one-command).
 
 BREMEN POSITIONING CHECK
-pass — demo_run.py contains zero Aramis strings (verified by grep). Bremen remains independent with own clinical question and evidence bundle. Aramis only appears in prohibition patterns and test assertions in demo_evidence.py/test files (safe).
+pass — demo_run.py contains zero Aramina strings (verified by grep). Bremen remains independent with own clinical question and evidence bundle. Aramina only appears in prohibition patterns and test assertions in demo_evidence.py/test files (safe).
 
 OUTPUT CONTRACT CHECK
 pass — No clinical diagnosis, validated clinical recommendation, MRI replacement, biopsy replacement, radiologist replacement, clinician replacement, patient-specific claim, or clinical performance claim. Output includes technical_demo_only: true at top level and in evidence bundle.
@@ -138,12 +138,12 @@ pass — All safety boundaries confirmed:
 - No AWS/S3 SDK or network clients (grep: only test assertions; stdlib urllib to localhost only)
 - No Matador resolver implementation
 - No real patient demo data (synthetic values only)
-- No Aramis dependency (zero Aramis strings in demo_run.py)
+- No Aramina dependency (zero Aramina strings in demo_run.py)
 - No clinical/replacement claims (only safety header comment)
 - technical_demo_only: true in every output
 
 VALIDATION CHECK
-pass — All required validation commands were run and passed. 37 demo-run tests pass. All existing tests continue to pass unchanged (1109 passed, 11 skipped). No failures to classify. Forbidden-pattern greps all produce safe results. demo_run.py has zero Aramis matches (required). Clinical/replacement strings only appear in safety header comments and prohibition contexts.
+pass — All required validation commands were run and passed. 37 demo-run tests pass. All existing tests continue to pass unchanged (1109 passed, 11 skipped). No failures to classify. Forbidden-pattern greps all produce safe results. demo_run.py has zero Aramina matches (required). Clinical/replacement strings only appear in safety header comments and prohibition contexts.
 
 IMPLEMENTATION REPORT CHECK
 pass — IMPLEMENTATION_REPORT.md exists and summarizes:
@@ -189,7 +189,7 @@ BOUNDARY CONFIRMATIONS
 - no unsafe model loading: yes (reuses existing _load_synthetic_model())
 - no H5 mutation: yes (no .h5/.hdf5/h5py in demo_run.py)
 - no real patient data: yes (synthetic values only)
-- no Aramis dependency: yes (zero Aramis strings in demo_run.py)
+- no Aramina dependency: yes (zero Aramina strings in demo_run.py)
 - no clinical diagnosis/replacement claims: yes (safety header only)
 - Bremen safety identity preserved: yes (all safety invariants hold)
 - implementation report present: yes (IMPLEMENTATION_REPORT.md exists)

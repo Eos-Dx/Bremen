@@ -241,7 +241,7 @@ Cover these scenarios:
 
 13. **No H5/HDF5 references** — Grep for `.h5`, `.hdf5`, `h5py`. Must return nothing.
 
-14. **No Aramis identity** — Grep for `Aramis`, `aramis`. Must return nothing.
+14. **No Aramina identity** — Grep for `Aramina`, `aramina`. Must return nothing.
 
 ### What tests must NOT do
 
@@ -266,7 +266,7 @@ Cover these scenarios:
 - No H5/HDF5 reads.
 - No model artifacts committed to the repository.
 - No clinical or reporting behavior.
-- No Aramis active architecture.
+- No Aramina active architecture.
 
 ## Validation checklist
 
@@ -297,8 +297,8 @@ grep -R -I -n -E "joblib|pickle|load\(" src/bremen/model_package.py tests/test_b
 # 12) No H5/HDF5 references
 grep -R -I -n -E "\.h5|\.hdf5|h5py" src/bremen/model_package.py tests/test_bremen_model_package.py 2>/dev/null || true
 
-# 13) No Aramis identity
-grep -R -I -n -E "Aramis|aramis" src/bremen/model_package.py tests/test_bremen_model_package.py 2>/dev/null || true
+# 13) No Aramina identity
+grep -R -I -n -E "Aramina|aramina" src/bremen/model_package.py tests/test_bremen_model_package.py 2>/dev/null || true
 
 # 14) No forbidden file changes
 git diff --name-only -- ROADMAP.md docs docs/adr docs/api_contract.md .github Dockerfile .dockerignore requirements.txt pyproject.toml sonar-project.properties environment.yml Makefile config examples tests/data agents
@@ -352,7 +352,7 @@ Block if:
 - Plan includes inference, training, or model deserialization.
 - Plan changes CI/Docker/IaC files.
 - Plan changes ROADMAP.md, docs/, or README.md.
-- Plan makes Aramis active architecture.
+- Plan makes Aramina active architecture.
 - Any file outside the two allowed implementation files is changed (unless __init__.py change is strongly justified and pre-approved).
 
 ## Decisions summary
@@ -383,7 +383,7 @@ Block if:
 - No network/S3/AWS calls.
 
 ### Testing summary
-14 test scenarios covering: valid package, missing manifest, invalid JSON, missing fields, missing artifact, checksum mismatch, path traversal, summary output, manifest reading, checksum computation, import safety, no joblib/pickle/H5/Aramis references.
+14 test scenarios covering: valid package, missing manifest, invalid JSON, missing fields, missing artifact, checksum mismatch, path traversal, summary output, manifest reading, checksum computation, import safety, no joblib/pickle/H5/Aramina references.
 
 ### Validation summary
 16 checks: git state, compileall, model package tests, existing tests (config loading, identity, full suite), CLI help, security grep checks, forbidden path check, model artifact scan, .DS_Store.

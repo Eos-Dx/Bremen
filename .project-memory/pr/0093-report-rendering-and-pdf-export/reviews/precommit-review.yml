@@ -40,6 +40,6 @@ validation:
   unsafe_exposure_grep: "No unsafe public exposure in report page. model_checksum access is truncated to 8 chars."
   pdf_dependency_grep: "No server-side PDF dependencies found in source"
   print_behavior_grep: "window.print, @media print, Print / Save PDF all present in source and tested"
-scope_control: "Only report_ui.py (frontend HTML/CSS/JS), api_contract.md (documentation), test_bremen_report_ui.py (tests), sample-data.json (frozen fixture), implementation-report.md. No changes to symmetry_signals.py, decision_support.py, report_bremen.py, server.py, requirements.txt, pyproject.toml, Dockerfile, control_room_ui.py, start_page_ui.py. No React/frontend framework. No Aramis. No backend changes."
+scope_control: "Only report_ui.py (frontend HTML/CSS/JS), api_contract.md (documentation), test_bremen_report_ui.py (tests), sample-data.json (frozen fixture), implementation-report.md. No changes to symmetry_signals.py, decision_support.py, report_bremen.py, server.py, requirements.txt, pyproject.toml, Dockerfile, control_room_ui.py, start_page_ui.py. No React/frontend framework. No Aramina. No backend changes."
 implementation_report: "Accurate. Files changed match actual diff (5 files). Validation results match (71 report tests, 61 demo tests, 104 server tests, 2125 full suite). Safety claims verified by grep. Design token claims verified. No inaccuracies found."
 commit_readiness: true

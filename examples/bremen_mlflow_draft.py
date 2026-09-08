@@ -1,4 +1,4 @@
-"""Marimo draft for Aramis MLflow lineage."""
+"""Marimo draft for Aramina MLflow lineage."""
 
 import marimo
 

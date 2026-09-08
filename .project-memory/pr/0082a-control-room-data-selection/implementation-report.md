@@ -70,7 +70,7 @@ Server-side:
 Frontend:
 - Catalog template filters by `workflow_id`: skips containers where `c.workflow_id && c.workflow_id!=='bremen'`
 - Only Bremen-compatible containers are displayed and selectable
-- No Aramis runtime or scientific behavior changes
+- No Aramina runtime or scientific behavior changes
 
 ### Tests Added (18 new behavioral tests)
 
@@ -429,7 +429,7 @@ Single `updateReadiness()` function checks:
 
 Server-side: container response includes `workflow_id` field.
 Frontend: catalog template filters by `workflow_id`, skips non-Bremen containers.
-No Aramis runtime or scientific behavior changes.
+No Aramina runtime or scientific behavior changes.
 
 ### Tests Added (18 new behavioral tests)
 
@@ -516,7 +516,7 @@ Two new test files replace the source-grep assertions:
 | 10 | Missing selection becomes stale, guidance message shown |
 | 11 | No-model state disables Analyze button |
 | 12 | Multiple-model state renders `<select>`, explicit selection works |
-| 13 | Aramis/incompatible containers excluded from catalog (workflow_id filter) |
+| 13 | Aramina/incompatible containers excluded from catalog (workflow_id filter) |
 | 14 | State transitions follow correct sequence |
 | 15 | Payload never contains both `source_id` and `upload_id` |
 
@@ -524,7 +524,7 @@ Two new test files replace the source-grep assertions:
 
 Server-side: Container response includes `workflow_id` field.
 Frontend: Catalog template filters by `workflow_id`, skips containers where
-`c.workflow_id && c.workflow_id !== 'bremen'`. Aramis and unknown workflow
+`c.workflow_id && c.workflow_id !== 'bremen'`. Aramina and unknown workflow
 containers are excluded from rendering and cannot be selected or submitted.
 Test 13 verifies this behavior with a mixed-workflow catalog response.
 

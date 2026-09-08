@@ -16,9 +16,9 @@ output: AGENTS.md |  8 ++++++--
 README.md  |  8 ++++++--
 pyproject.toml | 4 ++--
 ---
-command: find .project-memory/pr/0003-full-aramis-to-bremen-alignment -maxdepth 5 -type f | sort
+command: find .project-memory/pr/0003-full-aramina-to-bremen-alignment -maxdepth 5 -type f | sort
 exit_code: 0
-output: .project-memory/pr/0003-full-aramis-to-bremen-alignment/PLAN.md
+output: .project-memory/pr/0003-full-aramina-to-bremen-alignment/PLAN.md
 ---
 command: find src -maxdepth 5 -type f | sort
 exit_code: 0
@@ -52,7 +52,7 @@ tests/__pycache__/test_bremen_preprocessing_one_to_one.cpython-310-pytest-9.0.2.
 tests/__pycache__/test_bremen_preprocessing_one_to_one.cpython-310.pyc
 tests/__pycache__/test_bremen_real_h5_subset_reader.cpython-310-pytest-9.0.2.pyc
 tests/__pycache__/test_bremen_real_h5_subset_reader.cpython-310.pyc
-tests/data/aramis_real_h5_subset_20260128_5_patients.h5
+tests/data/aramina_real_h5_subset_20260128_5_patients.h5
 tests/data/README.md
 tests/synthetic_bremen_h5.py
 tests/test_bremen_import_identity.py
@@ -65,8 +65,8 @@ tests/test_bremen_real_h5_subset_reader.py
 ---
 command: find config -maxdepth 5 -type f | sort
 exit_code: 0
-output: config/aramis_preprocessing_v0_1_config.json
-config/aramis_product_versioning.json
+output: config/aramina_preprocessing_v0_1_config.json
+config/aramina_product_versioning.json
 config/human1_diagnoses_metadata_h5_audit.json
 config/human1_diagnoses_metadata_h5_mismatches.csv
 config/human1_diagnoses_metadata.json
@@ -80,13 +80,13 @@ config/README.md
 ---
 command: find examples -maxdepth 5 -type f | sort
 exit_code: 0
-output: examples/aramis_dataframe_one_to_many_v0_1.py
-examples/aramis_dataframe_one_to_one_v0_1.py
-examples/aramis_final_experimental_model_v0_1.py
-examples/aramis_mlflow_draft.py
-examples/aramis_one_to_many_logistic_baseline_v0_1.py
-examples/aramis_one_to_many_product_model_v0_1.py
-examples/aramis_product_notebook_helpers.py
+output: examples/aramina_dataframe_one_to_many_v0_1.py
+examples/aramina_dataframe_one_to_one_v0_1.py
+examples/aramina_final_experimental_model_v0_1.py
+examples/aramina_mlflow_draft.py
+examples/aramina_one_to_many_logistic_baseline_v0_1.py
+examples/aramina_one_to_many_product_model_v0_1.py
+examples/aramina_product_notebook_helpers.py
 examples/preprocess_all.sh
 examples/preprocess_one_to_many_biopsy_minimal.sh
 examples/preprocess_one_to_many_biopsy.sh
@@ -106,7 +106,7 @@ docs/mlflow.md
 docs/product_development_rules.md
 docs/repository_cleanup.md
 ---
-command: test -d src/bremen; echo $?; test ! -d src/aramis; echo $?; test -f tests/test_bremen_import_identity.py; echo $?
+command: test -d src/bremen; echo $?; test ! -d src/aramina; echo $?; test -f tests/test_bremen_import_identity.py; echo $?
 exit_code: 0
 output: 0
 1
@@ -134,7 +134,7 @@ output: <no output>
 ---
 command: find . -type f ( -name "*.h5" -o -name "*.hdf5" ) -print
 exit_code: 0
-output: tests/data/aramis_real_h5_subset_20260128_5_patients.h5
+output: tests/data/aramina_real_h5_subset_20260128_5_patients.h5
 ---
 command: date -u +%Y-%m-%dT%H:%M:%SZ
 exit_code: 0

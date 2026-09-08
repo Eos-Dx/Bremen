@@ -348,13 +348,13 @@ def _get_report_provider(workflow_id: str) -> ReportProvider | None:
 def _register_default_providers() -> None:
     """Register built-in report providers."""
     from .report_bremen import BremenReportProvider  # noqa: PLC0415
-    from .report_aramis import AramisReportProvider  # noqa: PLC0415
+    from .report_aramina import AraminaReportProvider  # noqa: PLC0415
 
     with _providers_lock:
         if "bremen" not in _report_providers:
             _report_providers["bremen"] = BremenReportProvider()
-        if "aramis" not in _report_providers:
-            _report_providers["aramis"] = AramisReportProvider()
+        if "aramina" not in _report_providers:
+            _report_providers["aramina"] = AraminaReportProvider()
 
 
 def _utc_now() -> str:

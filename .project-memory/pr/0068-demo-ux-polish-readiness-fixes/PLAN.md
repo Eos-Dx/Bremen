@@ -70,7 +70,7 @@ This PR polishes the existing PR0067 H5 container workflow. No new features, no 
 - `tfstate`, `.terraform`
 - `config/training/**`, `src/bremen/training/**`
 - `docs/**`, `ROADMAP.md`
-- Aramis artifacts, model descriptions, feature schemas as dependency
+- Aramina artifacts, model descriptions, feature schemas as dependency
 
 ## Exact implementation scope
 
@@ -258,7 +258,7 @@ def _handle_demo_route(handler):
 - No real patient data.
 - `technical_demo_only` preserved.
 - No clinical diagnosis/replacement claims.
-- No Aramis references.
+- No Aramina references.
 - No external assets/CDN.
 
 ## Validation checklist
@@ -312,8 +312,8 @@ grep -R -I -n "https://\|http://.*cdn\|unpkg\|jsdelivr\|googleapis\|fontawesome"
   src/bremen/demo_ui.py tests/test_bremen_demo_ui.py || true
 # Expected: no output
 
-# No Aramis dependency or product labels
-grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" \
+# No Aramina dependency or product labels
+grep -R -I -n "Aramina\|aramina\|M2Q\|BENIGN vs CANCER" \
   src/bremen tests/test_bremen_demo_ui.py tests/test_bremen_api_server.py || true
 # Expected: no output
 
@@ -458,7 +458,7 @@ Block if:
 - confirm: no unsafe model loading planned: yes
 - confirm: no H5 mutation planned: yes
 - confirm: no committed H5/patient data planned: yes
-- confirm: no Aramis dependency planned: yes
+- confirm: no Aramina dependency planned: yes
 - confirm: no clinical diagnosis/replacement claims planned: yes
 - confirm: implementation assigned to Agent: coder / Mode: implementation: yes
 - confirm: no git mutation commands run: yes

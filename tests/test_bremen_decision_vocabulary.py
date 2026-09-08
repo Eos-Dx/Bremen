@@ -6,7 +6,7 @@ Covers:
 - Legacy alias compatibility
 - No contradictory fields
 - API output, events, reports, workspace projection
-- Bremen/Aramis separation
+- Bremen/Aramina separation
 - Privacy allowlists
 - No diagnostic wording
 - No numerical inference change
@@ -263,12 +263,12 @@ class TestNoDiagnosticWording:
         assert "cancer" not in NEGATIVE_DISPLAY_NAME.lower()
 
 
-class TestBremenAramisSeparation:
+class TestBremenAraminaSeparation:
     def test_bremen_decision_is_bremen_workflow_only(self):
         decision = build_decision(score=0.85, threshold=0.5)
         assert decision.decision_policy_id == "bremen_mri_continuation_threshold"
-        assert "aramis" not in decision.decision_policy_id.lower()
+        assert "aramina" not in decision.decision_policy_id.lower()
 
-    def test_no_aramis_decision_code_in_bremen(self):
+    def test_no_aramina_decision_code_in_bremen(self):
         decision = build_decision(score=0.3, threshold=0.5)
         assert decision.decision_code not in ("MRI_RECOMMENDED", "MRI_RULE_OUT")

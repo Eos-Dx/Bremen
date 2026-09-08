@@ -46,23 +46,23 @@ def _():
     CLINICAL_TRIALS_DIR = (
         Path.home() / "dev" / "eos_play" / "jupyter_notebooks" / "Clinical_trials"
     )
-    DATA_DIR = CLINICAL_TRIALS_DIR / "data" / "product-aramis-data"
+    DATA_DIR = CLINICAL_TRIALS_DIR / "data" / "product-aramina-data"
     DEFAULT_ARCHIVE_PATH = DATA_DIR / "combined_archive.h5"
-    DEFAULT_AGBH_CONFIG_PATH = REPO_ROOT / "config" / "aramis_preprocessing_v0_1_config.json"
-    DEFAULT_ARAMIS_PREPROCESSING_CONFIG_PATH = (
+    DEFAULT_AGBH_CONFIG_PATH = REPO_ROOT / "config" / "aramina_preprocessing_v0_1_config.json"
+    DEFAULT_ARAMINA_PREPROCESSING_CONFIG_PATH = (
         REPO_ROOT
         / "config"
         / "preprocessing"
-        / "aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml"
+        / "aramina_one_to_many_benign_cancer_preprocessing_v0_1.yaml"
     )
     DEFAULT_OUTPUT_JOBLIB_PATH = (
-        PRODUCT_DIR / "outputs" / "aramis_one_to_many_benign_cancer_dataframe.joblib"
+        PRODUCT_DIR / "outputs" / "aramina_one_to_many_benign_cancer_dataframe.joblib"
     )
     return (
         AzimuthalIntegration,
         ConstantQRangeTransformer,
         DEFAULT_AGBH_CONFIG_PATH,
-        DEFAULT_ARAMIS_PREPROCESSING_CONFIG_PATH,
+        DEFAULT_ARAMINA_PREPROCESSING_CONFIG_PATH,
         DEFAULT_ARCHIVE_PATH,
         DEFAULT_OUTPUT_JOBLIB_PATH,
         DropColumnsTransformer,
@@ -90,7 +90,7 @@ def _(mo):
     mo.md(
         "\n".join(
             [
-                "# Aramis DataFrame One-To-Many v0.1",
+                "# Aramina DataFrame One-To-Many v0.1",
                 "",
                 "Research draft preprocessing notebook.",
                 "",
@@ -106,7 +106,7 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(
     DEFAULT_AGBH_CONFIG_PATH,
-    DEFAULT_ARAMIS_PREPROCESSING_CONFIG_PATH,
+    DEFAULT_ARAMINA_PREPROCESSING_CONFIG_PATH,
     Path,
     helpers,
     mo,
@@ -117,22 +117,22 @@ def _(
         or _cli_args.get("agbh_config_path")
         or DEFAULT_AGBH_CONFIG_PATH
     )
-    _aramis_preprocessing_default = Path(
-        _cli_args.get("aramis-preprocessing-config-path")
-        or _cli_args.get("aramis_preprocessing_config_path")
-        or DEFAULT_ARAMIS_PREPROCESSING_CONFIG_PATH
+    _aramina_preprocessing_default = Path(
+        _cli_args.get("aramina-preprocessing-config-path")
+        or _cli_args.get("aramina_preprocessing_config_path")
+        or DEFAULT_ARAMINA_PREPROCESSING_CONFIG_PATH
     )
-    _preprocessing_config = helpers.read_aramis_preprocessing_config(
-        _aramis_preprocessing_default
+    _preprocessing_config = helpers.read_aramina_preprocessing_config(
+        _aramina_preprocessing_default
     )
     _archive_default, _output_joblib_default = helpers.preprocessing_io_paths(
-        _aramis_preprocessing_default,
+        _aramina_preprocessing_default,
         _preprocessing_config,
     )
     _default_settings = {
         "archive_path": str(_archive_default),
         "agbh_config_path": str(_agbh_default),
-        "aramis_preprocessing_config_path": str(_aramis_preprocessing_default),
+        "aramina_preprocessing_config_path": str(_aramina_preprocessing_default),
         "output_joblib_path": str(_output_joblib_default),
         "max_sessions": 0,
         "npt": 100,
@@ -151,9 +151,9 @@ def _(
         value=str(_agbh_default),
         label="AgBH config JSON",
     )
-    aramis_preprocessing_config_path_input = mo.ui.text(
-        value=str(_aramis_preprocessing_default),
-        label="Aramis one-to-many preprocessing YAML",
+    aramina_preprocessing_config_path_input = mo.ui.text(
+        value=str(_aramina_preprocessing_default),
+        label="Aramina one-to-many preprocessing YAML",
     )
     output_joblib_path_input = mo.ui.text(
         value=str(_output_joblib_default),
@@ -211,7 +211,7 @@ def _(
 
     return (
         agbh_config_path_input,
-        aramis_preprocessing_config_path_input,
+        aramina_preprocessing_config_path_input,
         archive_path_input,
         get_pipeline_settings,
         max_sessions_input,
@@ -229,7 +229,7 @@ def _(
 @app.cell(hide_code=True)
 def _(
     agbh_config_path_input,
-    aramis_preprocessing_config_path_input,
+    aramina_preprocessing_config_path_input,
     archive_path_input,
     max_sessions_input,
     min_measurements_per_specimen_input,
@@ -244,8 +244,8 @@ def _(
         return {
             "archive_path": archive_path_input.value,
             "agbh_config_path": agbh_config_path_input.value,
-            "aramis_preprocessing_config_path": (
-                aramis_preprocessing_config_path_input.value
+            "aramina_preprocessing_config_path": (
+                aramina_preprocessing_config_path_input.value
             ),
             "output_joblib_path": output_joblib_path_input.value,
             "max_sessions": int(max_sessions_input.value),
@@ -265,7 +265,7 @@ def _(
 @app.cell(hide_code=True)
 def _(
     agbh_config_path_input,
-    aramis_preprocessing_config_path_input,
+    aramina_preprocessing_config_path_input,
     archive_path_input,
     collect_pipeline_settings,
     max_sessions_input,
@@ -291,7 +291,7 @@ def _(
         [
             archive_path_input,
             agbh_config_path_input,
-            aramis_preprocessing_config_path_input,
+            aramina_preprocessing_config_path_input,
             output_joblib_path_input,
             max_sessions_input,
             npt_input,
@@ -323,8 +323,8 @@ def _(
     _settings = get_pipeline_settings()
     archive_path = Path(_settings["archive_path"])
     agbh_config_path = Path(_settings["agbh_config_path"])
-    aramis_preprocessing_config_path = Path(
-        _settings["aramis_preprocessing_config_path"]
+    aramina_preprocessing_config_path = Path(
+        _settings["aramina_preprocessing_config_path"]
     )
     output_joblib_path = Path(_settings["output_joblib_path"])
     max_sessions = helpers.max_sessions_from_value(_settings["max_sessions"])
@@ -336,7 +336,7 @@ def _(
     min_measurements_per_specimen = int(_settings["min_measurements_per_specimen"])
     return (
         agbh_config_path,
-        aramis_preprocessing_config_path,
+        aramina_preprocessing_config_path,
         archive_path,
         max_sessions,
         min_measurements_per_specimen,
@@ -350,14 +350,14 @@ def _(
 
 
 @app.cell(hide_code=True)
-def _(aramis_preprocessing_config_path, helpers):
-    aramis_preprocessing_config = helpers.read_aramis_preprocessing_config(
-        aramis_preprocessing_config_path
+def _(aramina_preprocessing_config_path, helpers):
+    aramina_preprocessing_config = helpers.read_aramina_preprocessing_config(
+        aramina_preprocessing_config_path
     )
     thickness_settings = helpers.thickness_settings_from_config(
-        aramis_preprocessing_config
+        aramina_preprocessing_config
     )
-    return aramis_preprocessing_config, thickness_settings
+    return aramina_preprocessing_config, thickness_settings
 
 
 @app.cell(hide_code=True)
@@ -428,7 +428,7 @@ def _(
     agbh_config_path,
     agbh_selected_batches,
     agbh_threshold,
-    aramis_preprocessing_config_path,
+    aramina_preprocessing_config_path,
     archive_path,
     h5_counts_df,
     h5_filter_plan,
@@ -450,7 +450,7 @@ def _(
                         "",
                         f"archive: `{archive_path}`",
                         f"AgBH config: `{agbh_config_path}`",
-                        f"Aramis preprocessing YAML: `{aramis_preprocessing_config_path}`",
+                        f"Aramina preprocessing YAML: `{aramina_preprocessing_config_path}`",
                         f"selected batches: `{agbh_selected_batches}`",
                         f"accepted AgBH dates: `{len(accepted_dates)}`",
                         f"AgBH threshold: `{agbh_threshold}`",

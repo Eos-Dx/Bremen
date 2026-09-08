@@ -10,7 +10,7 @@ Design and implement the multi-workflow XRD inference platform foundation. This 
 
 ## Product Boundary
 
-Bremen and Aramis remain scientifically and operationally independent. They share platform-level infrastructure only:
+Bremen and Aramina remain scientifically and operationally independent. They share platform-level infrastructure only:
 
 **Shared**: H5 staging, layout adapters, calibration discovery, raw XRD integration, canonical XRD data types, request orchestration, model trust, error isolation, logging, readiness infrastructure.
 
@@ -42,7 +42,7 @@ This PR creates:
 8. Common result envelope — partial-success contract
 9. Per-workflow readiness — independent certification gates
 10. Bremen provider — migrated from existing single-workflow code
-11. Aramis provider integration boundary with safety isolation
+11. Aramina provider integration boundary with safety isolation
 
 ## Non-Goals
 
@@ -53,7 +53,7 @@ This PR creates:
 - No modification of committed H5 files
 - No committed private artifacts
 - No rewritten scientific code
-- No reverse-engineered Aramis features
+- No reverse-engineered Aramina features
 - No combined clinical verdict
 
 ## Architecture Overview
@@ -62,7 +62,7 @@ This PR creates:
 H5 container → H5 staging → layout detection → canonical normalization
 → explicit workflow selection
   → Bremen provider (preprocessing → features → model → result)
-  → Aramis provider (preprocessing → features → model → result)
+  → Aramina provider (preprocessing → features → model → result)
 → common result envelope with partial-success contract
 ```
 
@@ -203,8 +203,8 @@ class WorkflowModelState:
 Key rules:
 - Each workflow has independent model URI, checksum, version, validator, readiness
 - `joblib.load()` only after checksum validation
-- Broken Aramis model → Bremen still available
-- Broken Bremen model → Aramis still available
+- Broken Aramina model → Bremen still available
+- Broken Bremen model → Aramina still available
 - Feature-count equality is not sufficient for compatibility — must include workflow identity and schema identity
 
 ## Request Routing
@@ -269,7 +269,7 @@ The Bremen provider is a first-class implementation owning:
 
 The provider imports `inference.adapt_model_package`, `inference.validate_portable_logreg_model`, `inference.predict_proba_portable`, and `feature_artifacts.validate_feature_artifact`.
 
-The provider must not reference Aramis preprocessing configs, features, or artifacts.
+The provider must not reference Aramina preprocessing configs, features, or artifacts.
 
 ## Bremen Model Compatibility
 
@@ -330,20 +330,20 @@ Not permitted without training-pipeline evidence:
 - Discard positions
 - Use `sqrt(i² + q²)`
 
-## Aramis Provider
+## Aramina Provider
 
-Aramis is a separate first-class workflow, not a helper inside Bremen.
+Aramina is a separate first-class workflow, not a helper inside Bremen.
 
 The integration mode depends on available authoritative artifacts:
-- **Option A (in-process provider)**: If the authoritative Aramis implementation is importable (e.g., via pip-installed package or repository source)
+- **Option A (in-process provider)**: If the authoritative Aramina implementation is importable (e.g., via pip-installed package or repository source)
 - **Option B (subprocess adapter)**: If the authoritative implementation runs as a CLI or container
-- **Option C (isolated service client)**: If Aramis remains independently deployed
+- **Option C (isolated service client)**: If Aramina remains independently deployed
 
 **Preferred**: Option A if the authoritative source is available. Option B as fallback. Option C for production isolation.
 
-No copy or reimplementation of Aramis feature mathematics. No reverse-engineering from output examples. No Aramis logic inside the Bremen provider.
+No copy or reimplementation of Aramina feature mathematics. No reverse-engineering from output examples. No Aramina logic inside the Bremen provider.
 
-## Aramis Existing Runtime Integration
+## Aramina Existing Runtime Integration
 
 Determine from available evidence:
 - Source package/library identity
@@ -353,29 +353,29 @@ Determine from available evidence:
 - Preprocessing YAML config
 - Prediction request/response schema
 
-Plan a parity test comparing the provider result with the existing working Aramis invocation.
+Plan a parity test comparing the provider result with the existing working Aramina invocation.
 
-Aramis integration is production-ready only when:
+Aramina integration is production-ready only when:
 - Exact implementation identity is known
 - Model checksum is known
 - Preprocessing config is resolved
 - Reference output matches
 - Workflow-specific readiness passes
 
-When an Aramis artifact is missing, return `workflow_unavailable`. No fallback to Bremen.
+When an Aramina artifact is missing, return `workflow_unavailable`. No fallback to Bremen.
 
-## Aramis Scientific Parity
+## Aramina Scientific Parity
 
 Same standard as Bremen: compare feature values, scores, and decisions against authoritative reference output. Separate certification gate.
 
 ## Workflow Isolation
 
-- Bremen config cannot configure Aramis
-- Aramis config cannot configure Bremen
-- Bremen model cannot load in Aramis
-- Aramis model cannot load in Bremen
-- Bremen failure cannot corrupt Aramis state
-- Aramis failure cannot corrupt Bremen state
+- Bremen config cannot configure Aramina
+- Aramina config cannot configure Bremen
+- Bremen model cannot load in Aramina
+- Aramina model cannot load in Bremen
+- Bremen failure cannot corrupt Aramina state
+- Aramina failure cannot corrupt Bremen state
 
 Enforced by: separate `WorkflowModelState` instances, separate model validators, separate provider instances, typed except clauses by workflow ID.
 
@@ -460,9 +460,9 @@ Operator-run certification (outside repository tests):
 
 Artifacts from `../bremen-private-artifacts/`:
 - `atypical_one_patient.h5`, `benign_one_patient.h5`, `cancer_one_patient.h5`
-- `Nova_103_.h5`, `aramis_real_h5_subset_20260128_5_patients.h5`
+- `Nova_103_.h5`, `aramina_real_h5_subset_20260128_5_patients.h5`
 - Real Bremen model package
-- Real Aramis model/runtime artifacts
+- Real Aramina model/runtime artifacts
 
 Compare: layout, measurement count, positions, side pairs, q/intensity validation, workflow compatibility, feature names, feature values (within tolerance), probabilities/scores, decisions, model versions, checksums, statuses.
 
@@ -475,7 +475,7 @@ Minimal additions:
 existing tests → build existing image → workflow certification tests → deploy → per-workflow readiness checks → promote
 ```
 
-Where Aramis remains separately deployed: Bremen image availability independent of Aramis image build.
+Where Aramina remains separately deployed: Bremen image availability independent of Aramina image build.
 
 ## Migration and Backward Compatibility
 
@@ -495,12 +495,12 @@ Where Aramis remains separately deployed: Bremen image availability independent 
 5. **Workflow registry** — `WorkflowRegistry` with typed isolation
 6. **Per-workflow model state** — `WorkflowModelState` with independent trust
 7. **Bremen provider** — wire existing logic into provider contract
-8. **Aramis provider integration boundary** — scaffold with availability check
+8. **Aramina provider integration boundary** — scaffold with availability check
 9. **Multi-workflow orchestration** — normalization + dispatch + envelope
 10. **Partial-success result envelope** — `MultiWorkflowResult`
 11. **Per-workflow readiness endpoint** — `/api/v1/readiness`
 12. **Local certification harness** — operator-run comparison script
-13. **Aramis real inference integration** — if authoritative artifacts are available
+13. **Aramina real inference integration** — if authoritative artifacts are available
 
 ## Expected Files to Change
 
@@ -512,18 +512,18 @@ Where Aramis remains separately deployed: Bremen image availability independent 
 | `src/bremen/api/workflow_registry.py` | NEW — typed registry |
 | `src/bremen/api/model_state.py` | MODIFY — separate per-workflow model state |
 | `src/bremen/api/workflow_bremen.py` | NEW — Bremen provider |
-| `src/bremen/api/workflow_aramis.py` | NEW — Aramis provider scaffold |
+| `src/bremen/api/workflow_aramina_scaffold.py` | NEW — Aramina provider scaffold |
 | `src/bremen/api/inference.py` | MODIFY — `adapt_model_package` already present; verify compatibility |
 | `src/bremen/api/server.py` | MODIFY — add multi-workflow endpoint, readiness endpoint |
 | `src/bremen/api/app.py` | MODIFY — add orchestration handler |
 | `tests/test_bremen_xrd_normalization.py` | NEW |
 | `tests/test_bremen_workflow_registry.py` | NEW |
 | `tests/test_bremen_workflow_bremen.py` | NEW |
-| `tests/test_bremen_workflow_aramis.py` | NEW |
+| `tests/test_bremen_workflow_aramina_scaffold.py` | NEW |
 
 ## Risks and Unknowns
 
-1. **Aramis authoritative source location** — If the exact importable package or runtime is not available, the Aramis provider must stop with `workflow_unavailable` rather than fabricating behavior.
+1. **Aramina authoritative source location** — If the exact importable package or runtime is not available, the Aramina provider must stop with `workflow_unavailable` rather than fabricating behavior.
 2. **Bremen P1/P2/P3 aggregation rule** — The training pipeline's exact position handling must be determined. Without evidence, multi-position Nova files cannot produce production-certified results.
 3. **Bremen q/intensity normalization parity** — `sqrt(i² + q²)` usage must be verified against the authoritative training pipeline.
 4. **`perform_azimuthal_integration` for real Nova calibration** — The real PONI format may differ from unit-test expectations. Integration wrapper must fail safely.
@@ -532,7 +532,7 @@ Where Aramis remains separately deployed: Bremen image availability independent 
 ## Stop Conditions
 
 Block if:
-- Real Aramis implementation cannot be identified and no scaffold fallback is acceptable
+- Real Aramina implementation cannot be identified and no scaffold fallback is acceptable
 - Bremen P1/P2/P3 aggregation rule cannot be determined from training pipeline
 - Per-workflow model state cannot coexist with existing `ModelState` singleton
 - Breaking changes to existing `/predictions`, `/health`, `/demo` endpoints are required
@@ -546,8 +546,8 @@ Block if:
 | Workflow architecture pass | Provider contract, registry, isolation verified with synthetic tests |
 | Bremen technical pass | Bremen provider produces result matching existing `run_inference()` output on same fixture |
 | Bremen scientific parity pass | Feature values match authoritative training pipeline (TBD tolerances) |
-| Aramis technical pass | Aramis provider scaffold resolves availability correctly |
-| Aramis scientific parity pass | Aramis provider output matches existing working Aramis invocation |
+| Aramina technical pass | Aramina provider scaffold resolves availability correctly |
+| Aramina scientific parity pass | Aramina provider output matches existing working Aramina invocation |
 | Multi-workflow isolation pass | Cross-workflow model rejection, independent readiness, partial-success envelope |
 | Production readiness pass | All enabled workflows have passed scientific certification |
 
@@ -563,7 +563,7 @@ A non-enabled or unavailable workflow does not block another certified workflow.
 - confirm: workflow provider and registry contracts planned: yes
 - confirm: independent model states planned: yes
 - confirm: Bremen provider migrated: yes
-- confirm: Aramis provider integration boundary planned: yes
+- confirm: Aramina provider integration boundary planned: yes
 - confirm: explicit workflow selection planned: yes
 - confirm: independent readiness planned: yes
 - confirm: failure isolation planned: yes

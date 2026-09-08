@@ -186,7 +186,7 @@ All 1316 existing tests pass (11 skipped).
 | `--ui` flag grep | 0 | Only in test assertions |
 | Synthetic Feature Artifact | 0 | Only in test assertion |
 | External assets/CDN | 0 | Only in test assertions |
-| Aramis references | 0 | Only prohibition patterns and test assertions |
+| Aramina references | 0 | Only prohibition patterns and test assertions |
 | Clinical/replacement claims | 0 | Only safe negation language |
 | Forbidden files changed | 0 | No output |
 | Docs/ROADMAP changed | 0 | No output |
@@ -266,7 +266,7 @@ None.
 - confirm: no unsafe model loading added: yes
 - confirm: no H5 mutation added: yes
 - confirm: no committed H5/patient data: yes
-- confirm: no Aramis dependency added: yes
+- confirm: no Aramina dependency added: yes
 - confirm: no clinical diagnosis/replacement claims added: yes
 - confirm: no H5/model/tfstate artifacts: yes
 - confirm: no git mutation commands: yes

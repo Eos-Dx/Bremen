@@ -429,7 +429,7 @@ Add test cases:
 - No clinical diagnosis claims.
 - `technical_demo_only: True` in every output.
 - No real patient data.
-- No Aramis references.
+- No Aramina references.
 
 ## Validation checklist
 
@@ -460,8 +460,8 @@ python -m bremen demo-run --help
 ### Forbidden-pattern grep checks
 
 ```bash
-# No Aramis dependency or product labels
-grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" \
+# No Aramina dependency or product labels
+grep -R -I -n "Aramina\|aramina\|M2Q\|BENIGN vs CANCER" \
   src/bremen/demo_run.py src/bremen/demo_smoke.py src/bremen/demo_evidence.py \
   tests/test_bremen_demo_run.py tests/test_bremen_demo_smoke.py tests/test_bremen_demo_evidence.py || true
 # Expected: no output
@@ -621,7 +621,7 @@ Block if:
 - confirm: no unsafe model loading planned: yes (reuses existing approved `_load_synthetic_model()`)
 - confirm: no H5 mutation planned: yes
 - confirm: no real patient data planned: yes
-- confirm: no Aramis dependency planned: yes
+- confirm: no Aramina dependency planned: yes
 - confirm: no clinical diagnosis/replacement claims planned: yes
 - confirm: implementation assigned to Agent: coder / Mode: implementation: yes
 - confirm: no git mutation commands run: yes

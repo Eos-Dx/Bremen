@@ -31,7 +31,7 @@ VALIDATION:
 - command: grep -n "integration/q\|integration/i\|q-axis\|normalization" .project-memory/pr/0071-demo-legacy-h5-layout-adapter/PLAN.md
   exit code: 0
   output: 17 matches — integration array handling covered
-- command: grep -n "Aramis\|aramis\|biopsy\|birads\|BENIGN\|CANCER\|benign\|cancer\|diagnosis\|diagnose\|replaces\|replace" .project-memory/pr/0071-demo-legacy-h5-layout-adapter/PLAN.md
+- command: grep -n "Aramina\|aramina\|biopsy\|birads\|BENIGN\|CANCER\|benign\|cancer\|diagnosis\|diagnose\|replaces\|replace" .project-memory/pr/0071-demo-legacy-h5-layout-adapter/PLAN.md
   exit code: 0
   output: 15 matches — all in forbidden/avoidance context, not as prediction targets
 - command: grep -n "technical_demo_only\|clinical\|patient data\|patient_name\|patient_identifier" .project-memory/pr/0071-demo-legacy-h5-layout-adapter/PLAN.md
@@ -92,7 +92,7 @@ BOUNDARY CONFIRMATIONS:
 
 SCOPE CHECK: pass
 - PLAN focuses on adding a third H5LayoutAdapter (`SessionLayoutH5Adapter`) for legacy/synthetic session-layout H5 containers using `/session/sets/*` structure.
-- No broad frontend/design work, infra, deployment automation, model retraining, Aramis alignment, or multi-tenancy.
+- No broad frontend/design work, infra, deployment automation, model retraining, Aramina alignment, or multi-tenancy.
 
 ADAPTER IMPLEMENTATION CHECK: pass
 - PLAN correctly implements the `H5LayoutAdapter` protocol (detect + resolve_prediction_context).
@@ -102,11 +102,11 @@ ADAPTER IMPLEMENTATION CHECK: pass
 - Q-axis validation: length match + range compatibility (≤0.01 tolerance).
 - Registration via `register_adapter(SessionLayoutH5Adapter())`.
 
-ARAMIS BOUNDARY CHECK: pass
-- PLAN explicitly states adapter is NOT Aramis integration.
-- No Aramis product labels, biopsy metadata, birads, or benign/cancer classifications used as Bremen prediction targets.
+ARAMINA BOUNDARY CHECK: pass
+- PLAN explicitly states adapter is NOT Aramina integration.
+- No Aramina product labels, biopsy metadata, birads, or benign/cancer classifications used as Bremen prediction targets.
 - Side metadata from `sample/sample_type` → breast type → side (not clinical labels).
-- Validation grep checks verify all Aramis/cancer/biopsy references are in forbidden context only.
+- Validation grep checks verify all Aramina/cancer/biopsy references are in forbidden context only.
 
 SAFETY CHECK: pass
 - No unsafe deserialization, no H5 mutation, no clinical claims.
@@ -119,7 +119,7 @@ VALIDATION CHECK: pass
 - 11+ tests specified (detect True/False cases, resolve_prediction_context validation, explicit refs, metadata handling).
 - Full pytest compile + test suite.
 - CLI help checks.
-- Forbidden-pattern greps for Aramis/biopsy/cancer labels, clinical claims, unsafe deserialization, React, etc.
+- Forbidden-pattern greps for Aramina/biopsy/cancer labels, clinical claims, unsafe deserialization, React, etc.
 - Forbidden file diff checks, artifact scan, .DS_Store check.
 
 IMPLEMENTATION AGENT CHECK: pass
@@ -145,7 +145,7 @@ COMMIT READINESS:
 
 BOUNDARY CONFIRMATIONS:
 - PR0071 planned as legacy/synthetic H5 ingestion-boundary adapter: confirmed
-- no Aramis product dependency planned: confirmed
+- no Aramina product dependency planned: confirmed
 - legacy session/sets layout detection planned: confirmed
 - set/contralateral pairing planned: confirmed
 - integration q/i normalization planned: confirmed

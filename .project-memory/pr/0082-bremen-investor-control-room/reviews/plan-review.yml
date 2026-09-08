@@ -94,7 +94,7 @@ confirmed:
   privacy_allowlist: true
   accessibility_complete: true
   performance_bounds: true
-  bremen_aramis_separate: true
+  bremen_aramina_separate: true
   no_xrd_parity_scope: true
   no_auc_scope: true
   no_model_variant_scope: true

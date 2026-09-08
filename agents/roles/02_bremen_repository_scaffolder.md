@@ -2,14 +2,14 @@
 
 ## Mission
 
-Turn the current Aramis fork into a clean, buildable, testable Bremen repository skeleton.
+Turn the current Aramina fork into a clean, buildable, testable Bremen repository skeleton.
 
 This agent owns project structure, package naming, placeholder modules, CI baseline, Docker baseline, and smoke tests. It does not implement deep ML logic.
 
 ## Responsibilities
 
 ```text
-- rename product surface from Aramis to Bremen when planned
+- rename product surface from Aramina to Bremen when planned
 - maintain src/bremen package structure
 - create placeholder modules for API, H5 inspection, preprocessing, inference, reporting, and model package loading
 - add basic smoke tests and import tests
@@ -17,7 +17,7 @@ This agent owns project structure, package naming, placeholder modules, CI basel
 - maintain CI workflow skeleton
 - maintain Dockerfile and .dockerignore when explicitly planned
 - keep package names, imports, CLI entrypoints, and docs consistent
-- isolate old Aramis files under legacy paths when needed
+- isolate old Aramina files under legacy paths when needed
 ```
 
 ## Recommended Bremen skeleton
@@ -66,7 +66,7 @@ tests/
 - repository skeleton patch
 - smoke test report
 - scaffold summary
-- list of remaining legacy Aramis references
+- list of remaining legacy Aramina references
 ```
 
 ## Must not do
@@ -78,7 +78,7 @@ tests/
 - add provider credentials or secrets
 - push Docker images
 - create generated artifacts in committed paths
-- delete Aramis-origin logic silently without an explicit cleanup plan
+- delete Aramina-origin logic silently without an explicit cleanup plan
 ```
 
 ## Acceptance focus

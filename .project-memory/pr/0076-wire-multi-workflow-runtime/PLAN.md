@@ -6,19 +6,19 @@ Branch: 0076-wire-multi-workflow-runtime
 
 ## Objective
 
-Connect the canonical XRD normalization, workflow registry, Bremen provider, Aramis provider, and per-workflow model state introduced in PR0075 to the actual public runtime entry points (`_handle_demo_h5_analyze`, `run_inference`, `/predictions`). After this PR, the public paths must resolve workflows through the registry and providers, not through the legacy preflight/preprocessing/inference pipeline.
+Connect the canonical XRD normalization, workflow registry, Bremen provider, Aramina provider, and per-workflow model state introduced in PR0075 to the actual public runtime entry points (`_handle_demo_h5_analyze`, `run_inference`, `/predictions`). After this PR, the public paths must resolve workflows through the registry and providers, not through the legacy preflight/preprocessing/inference pipeline.
 
 ## Production Evidence
 
 - 1495 tests pass.
-- PR0075 created `WorkflowProvider`, `WorkflowRegistry`, `WorkflowBremenProvider`, `WorkflowAramisProvider`, `CanonicalXRDCase`, `normalize_to_canonical()` on all adapters.
+- PR0075 created `WorkflowProvider`, `WorkflowRegistry`, `WorkflowBremenProvider`, `WorkflowAraminaProvider`, `CanonicalXRDCase`, `normalize_to_canonical()` on all adapters.
 - PR0075 did NOT wire any of these into public routes.
 - `_handle_demo_h5_analyze` (server.py:1037) calls `run_inference(str(staged_path))`.
 - `run_inference` (inference_handler.py:35) calls `run_h5_preflight`, `run_preprocessing_bridge`, `validate_portable_logreg_model`.
 - `preprocessing_bridge.py` has `_extract_matador_profiles` for legacy Matador raw path.
 - `adapt_model_package()` is NOT in `inference.py` (spike-only, not merged).
 - Deployed logs show Nova reaches `_extract_matador_profiles` and fails with "No PONI calibration text found" — proving the canonical path is not connected.
-- Aramis-style container hits `target_scan_ref must be a non-empty string` — proving workflow routing is not connected.
+- Aramina-style container hits `target_scan_ref must be a non-empty string` — proving workflow routing is not connected.
 
 ## Root Cause
 
@@ -26,15 +26,15 @@ PR0075 implemented and tested the new architecture as isolated components with u
 
 ## Scope
 
-A bounded integration change covering: one runtime orchestrator, workflow-registry bootstrap, public route wiring, legacy compatibility wrapper, Bremen model adaptation, canonical Nova normalization, typed Aramis routing, route-level tests, and readiness verification.
+A bounded integration change covering: one runtime orchestrator, workflow-registry bootstrap, public route wiring, legacy compatibility wrapper, Bremen model adaptation, canonical Nova normalization, typed Aramina routing, route-level tests, and readiness verification.
 
 ## Non-Goals
 
 - No new scientific policy (P1/P2/P3, normalization, feature formulas)
 - No certification of Bremen scientific parity
-- No recreation of Aramis scientific logic
+- No recreation of Aramina scientific logic
 - No model training
-- No combining Bremen and Aramis results
+- No combining Bremen and Aramina results
 - No changes to Docker or CI/CD
 - No committed private artifacts
 
@@ -310,7 +310,7 @@ Per-workflow readiness exposed through `WorkflowReadiness`:
   "platform": {"alive": true, "normalization_ready": true},
   "workflows": {
     "bremen": {"configured": true, "model_ready": true, "scientifically_certified": false, "ready": true},
-    "aramis": {"configured": false, "model_ready": false, "scientifically_certified": false, "ready": false}
+    "aramina": {"configured": false, "model_ready": false, "scientifically_certified": false, "ready": false}
   }
 }
 ```
@@ -362,17 +362,17 @@ body: {"container_id": "...", "workflow_id": "bremen"}
 → no legacy PONI search
 ```
 
-### Aramis routing test
+### Aramina routing test
 
 ```
 POST /demo/api/h5/analyze
-body: {"container_id": "...", "workflow_id": "aramis"}
-→ AramisProvider called
+body: {"container_id": "...", "workflow_id": "aramina"}
+→ AraminaProvider called
 → workflow_unavailable when unconfigured
 → Bremen preflight never called
 ```
 
-### Aramis-style container + Bremen workflow test
+### Aramina-style container + Bremen workflow test
 
 ```
 POST /demo/api/h5/analyze
@@ -395,7 +395,7 @@ Use mocks/spies to verify that `_handle_demo_h5_analyze` does NOT call:
 Operator runs actual local server against private artifacts:
 - Session atypical/benign/cancer
 - Nova raw
-- Aramis multi-patient subset
+- Aramina multi-patient subset
 - Real Bremen model package
 
 Checks: route enters orchestrator, correct normalizer, correct provider, no legacy calls, typed result, checksums unchanged.
@@ -430,7 +430,7 @@ Checks: route enters orchestrator, correct normalizer, correct provider, no lega
 1. **`adapt_model_package()` not merged** — It was spike-only; must be added in this PR. Low risk — pure function.
 2. **`run_inference` signature preservation** — The legacy wrapper must preserve the exact return dict shape. Verify against existing callers.
 3. **Per-workflow model state coexistence with singleton** — PR0075's `WorkflowModelState` must coexist with the existing `ModelState` singleton. Verify no startup conflicts.
-4. **Aramis provider always unavailable** — Expected for this PR (scaffold only). Controlled result, not an error.
+4. **Aramina provider always unavailable** — Expected for this PR (scaffold only). Controlled result, not an error.
 
 ## Stop Conditions
 
@@ -438,7 +438,7 @@ Block if implementation would require:
 - Inventing P1/P2/P3 behavior
 - Combining q and intensity arrays
 - Loading joblib before checksum verification
-- Running Aramis through Bremen logic
+- Running Aramina through Bremen logic
 - Changing feature formulas without training evidence
 - Committing private artifacts
 - Breaking existing Bremen clients without explicit migration
@@ -453,7 +453,7 @@ Block if implementation would require:
 | Session route pass | Session fixture completes through orchestrator |
 | Real model adaptation pass | `adapt_model_package` applied inside Bremen provider |
 | Nova canonical pass | Nova fixture reaches `workflow_configuration_required` |
-| Aramis routing pass | Aramis fixture returns `workflow_unavailable` |
+| Aramina routing pass | Aramina fixture returns `workflow_unavailable` |
 | HTTP contract pass | Typed result body with safe error details |
 | Readiness pass | Per-workflow readiness reflects configured state |
 | Full regression pass | 1495+ tests pass |
@@ -475,7 +475,7 @@ PR completion does not claim Bremen scientific certification or Nova model infer
 - confirm: adapt_model_package added to inference.py: yes
 - confirm: Bremen provider calls adaptation inside provider boundary: yes
 - confirm: Nova canonical normalization connected: yes
-- confirm: Aramis routing connected: yes
+- confirm: Aramina routing connected: yes
 - confirm: legacy preprocessing bridge isolated from public routes: yes
 - confirm: typed HTTP result contract planned: yes
 - confirm: per-workflow readiness planned: yes

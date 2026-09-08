@@ -330,7 +330,7 @@ Test the contract document:
 5. Target/control refs required and explicit in request schema.
 6. Local machine paths not required by the public API contract.
 7. No clinical/diagnostic wording in the contract.
-8. No Aramis identity in the contract.
+8. No Aramina identity in the contract.
 9. After reviewing the contract with grep, verify no prohibited claims.
 
 ### `tests/test_bremen_api_skeleton.py`
@@ -351,7 +351,7 @@ Test the handler functions:
 12. No H5/HDF5 references in any API source file.
 13. No AWS/S3/network calls in any API source file.
 14. No clinical/diagnostic wording in any API source or test file.
-15. No Aramis identity in any API source or test file.
+15. No Aramina identity in any API source or test file.
 16. Import safety — importing `bremen.api` does not trigger joblib/pickle/H5/AWS side effects.
 
 ## Validation checklist
@@ -404,8 +404,8 @@ grep -R -I -n -E "boto3|requests|urllib|httpx|s3|aws" \
 grep -R -I -n -E "diagnos|cancer detected|replace MRI|replace biopsy|replace radiologist|replace clinician" \
   docs/api_contract.md src/bremen/api tests/test_bremen_api_contract.py tests/test_bremen_api_skeleton.py 2>/dev/null || true
 
-# 23) No Aramis identity
-grep -R -I -n -E "Aramis|aramis" \
+# 23) No Aramina identity
+grep -R -I -n -E "Aramina|aramina" \
   docs/api_contract.md src/bremen/api tests/test_bremen_api_contract.py tests/test_bremen_api_skeleton.py 2>/dev/null || true
 
 # 24) No forbidden file changes
@@ -452,7 +452,7 @@ If the API contract or skeleton contains errors:
 - No PR 0019–0024 renumbering.
 - No Product Track renumbering.
 - No APRANA implementation.
-- No Aramis active architecture.
+- No Aramina active architecture.
 
 ## Follow-up PRs
 
@@ -474,7 +474,7 @@ If the API contract or skeleton contains errors:
 | **Model package boundary drift** | May import safe types from model_package.py but must not validate real package by default. No joblib.load(). No deserialization. |
 | **No-dependency drift** | pyproject.toml and requirements.txt unchanged. Standard library only. |
 | **Clinical safety drift** | No "cancer detected", no diagnosis wording, no MRI/biopsy/radiologist replacement language. |
-| **Identity drift** | No Aramis active architecture. Bremen identity preserved. |
+| **Identity drift** | No Aramina active architecture. Bremen identity preserved. |
 | **Infrastructure drift** | No CI/Docker/IaC changes. No ROADMAP.md/architecture/ADR changes. |
 | **Test drift** | All validation scenarios covered. Import safety verified. Prohibited-reference grep checks pass. |
 | **Validation drift** | All 27 validation checks pass. |
@@ -491,7 +491,7 @@ Block if:
 - Plan adds AWS/S3/network calls.
 - Plan creates model artifacts.
 - Plan creates clinical report or patient-facing output.
-- Plan makes Aramis active architecture.
+- Plan makes Aramina active architecture.
 - Plan renumbers PR 0019–0024.
 - Any file outside the seven allowed files is changed (unless __main__.py or CLI test change is strongly justified and pre-approved).
 
@@ -526,7 +526,7 @@ submit → status "accepted" with job_id → poll returns status. Completed resu
 Safe types may be imported from model_package.py. No joblib/pickle. No deserialization. No real package validation by default.
 
 ### Safety/non-goals summary
-No web framework added. No dependency changes. No CI/Docker/IaC. No H5/model/AWS/Matador. No training/inference. No clinical claims. No Aramis. No PR renumbering.
+No web framework added. No dependency changes. No CI/Docker/IaC. No H5/model/AWS/Matador. No training/inference. No clinical claims. No Aramina. No PR renumbering.
 
 ### Validation summary
 27 checks: git state, file existence (7), compile and test (6), CLI help, security grep (5), forbidden path check, model artifact scan, .DS_Store.

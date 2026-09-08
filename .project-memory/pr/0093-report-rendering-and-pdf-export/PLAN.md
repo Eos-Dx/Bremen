@@ -605,7 +605,7 @@ No GitHub palette.
 - `src/bremen/start_page_ui.py` — no changes.
 - All model artifacts, private H5 files, Dockerfile, requirements.txt, pyproject.toml — no changes.
 - All frontend framework files (package.json, node_modules) — no changes.
-- All Aramis files — no changes.
+- All Aramina files — no changes.
 
 ---
 
@@ -730,7 +730,7 @@ Run all validation checks (§16).
 - No dependency additions (no WeasyPrint, Chromium, etc.).
 - No Start Page redesign.
 - No Control Room redesign.
-- No Aramis integration.
+- No Aramina integration.
 - No clinical validation claims.
 - No POST /predictions schema changes.
 - No changes to `symmetry_signals.py`, `decision_support.py`, `report_bremen.py`.
@@ -930,7 +930,7 @@ FUTURE ROADMAP NOTE
 Future calibration PR will obtain real reference-statistics artifact, wire percentile-position bucketing, replace `not_available` with real `small`/`moderate`/`larger` buckets. Never expose raw values or cutoffs.
 
 NON-GOALS CONFIRMED
-No real thresholds. No fabricated buckets. No backend changes. No server-side PDF. No dependency changes. No Start Page/Control Room redesign. No Aramis. No clinical claims. No POST /predictions changes. No changes to symmetry_signals.py, decision_support.py, report_bremen.py.
+No real thresholds. No fabricated buckets. No backend changes. No server-side PDF. No dependency changes. No Start Page/Control Room redesign. No Aramina. No clinical claims. No POST /predictions changes. No changes to symmetry_signals.py, decision_support.py, report_bremen.py.
 
 STOP CONDITIONS CONFIRMED
 - PR0092 merged with symmetry_signals present ✓
@@ -944,7 +944,7 @@ STOP CONDITIONS CONFIRMED
 - No backend inference/preprocessing changes ✓
 - No decision vocabulary changes ✓
 - No POST /predictions schema changes ✓
-- No Aramis work ✓
+- No Aramina work ✓
 - Safety language preserved ✓
 
 NEXT REQUIRED ACTION

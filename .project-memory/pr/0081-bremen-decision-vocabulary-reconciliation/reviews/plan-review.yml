@@ -105,7 +105,7 @@ confirmed:
   events_use_authoritative_decision: true
   reports_use_authoritative_decision: true
   frontend_scope_bounded: true
-  bremen_aramis_separate: true
+  bremen_aramina_separate: true
   no_numerical_change: true
   no_xrd_preprocessing_change: true
   behavioral_tests_sufficient: true

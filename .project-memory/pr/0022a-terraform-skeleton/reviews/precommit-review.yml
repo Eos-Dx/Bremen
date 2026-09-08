@@ -7,7 +7,7 @@ BLOCKERS
 WARNINGS
 - `terraform fmt -check -recursive infra/terraform/` passed, and `terraform init -backend=false` / `terraform validate` passed only in a temporary copy outside the repo. The temporary init created a lock file in the temp directory as expected; no repo state was modified.
 - `infra/terraform/README.md` correctly states that agents must not run `terraform apply` or `terraform destroy`, but the skeleton is intentionally not production-ready and has no load balancer yet.
-- The repository still contains an existing H5 fixture at `./tests/data/aramis_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR.
+- The repository still contains an existing H5 fixture at `./tests/data/aramina_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR.
 
 VALIDATION
 - `git rev-parse --verify HEAD` ✅ `450f25ff753c3f32a5ab25c4cfd307ac7125e11a` on branch `0022a-terraform-skeleton`
@@ -157,7 +157,7 @@ COMMIT READINESS
   - infra/terraform/README.md
   - .project-memory/pr/0022a-terraform-skeleton/reviews/precommit-review.yml
 - files to exclude:
-  - ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5 (existing fixture, not modified)
+  - ./tests/data/aramina_real_h5_subset_20260128_5_patients.h5 (existing fixture, not modified)
 
 BOUNDARY CONFIRMATIONS
 - no implementation files edited by reviewer

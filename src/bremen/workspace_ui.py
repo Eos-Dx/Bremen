@@ -145,7 +145,7 @@ button.small { padding: 3px 8px; font-size: 11px; }
             border-left: 4px solid #42a5f5; }
 .wf-card.bremen { border-left-color: #1565c0; }
 .wf-card.nova { border-left-color: #ffa726; }
-.wf-card.aramis { border-left-color: #999; }
+.wf-card.aramina { border-left-color: #999; }
 .wf-card-header { display: flex; justify-content: space-between; align-items: center;
                     margin-bottom: 12px; }
 .wf-card-header h3 { margin: 0; font-size: 16px; }

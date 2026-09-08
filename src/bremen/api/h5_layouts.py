@@ -604,7 +604,7 @@ class SessionLayoutH5Adapter(H5LayoutAdapter):
     ``set_NNN_sample_main`` and ``contralateral_set_NNN_sample_main``
     groups with ``integration/q`` and ``integration/i`` datasets.
 
-    This adapter does NOT use Aramis product labels, biopsy metadata,
+    This adapter does NOT use Aramina product labels, biopsy metadata,
     or clinical classifications as Bremen prediction targets.
     """
 
@@ -835,7 +835,7 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
     The actual 2D-to-1D radial integration is performed via the
     ``xrd_preprocessing`` library wrapper in the preprocessing bridge.
 
-    This adapter does NOT use Aramis product labels, biopsy metadata,
+    This adapter does NOT use Aramina product labels, biopsy metadata,
     or clinical classifications as Bremen prediction targets.
     """
 

@@ -6,7 +6,7 @@ Branch: 0037-h5-preflight-gate
 
 ## Objective
 
-Implement a strict H5 preflight gate that validates target/control structural and metadata constraints before any preprocessing or inference, and clean up the historically tracked real H5 artifact inherited from the Aramis fork. This is the second step on the critical path to Bremen's first working prediction.
+Implement a strict H5 preflight gate that validates target/control structural and metadata constraints before any preprocessing or inference, and clean up the historically tracked real H5 artifact inherited from the Aramina fork. This is the second step on the critical path to Bremen's first working prediction.
 
 ## Critical path context
 
@@ -15,11 +15,11 @@ Bremen roadmap was redefined on 2026-07-06. Completed: PR 0036 (v0.1 model packa
 ## Historical tracked H5 cleanup
 
 The repository historically tracked this real H5 subset:
-- `tests/data/aramis_real_h5_subset_20260128_5_patients.h5`
+- `tests/data/aramina_real_h5_subset_20260128_5_patients.h5`
 
-On this branch, the file has already been removed from git tracking (visible in `git status --short` as `D tests/data/aramis_real_h5_subset_20260128_5_patients.h5`). This is a pre-existing cleanup delta, not a blocker.
+On this branch, the file has already been removed from git tracking (visible in `git status --short` as `D tests/data/aramina_real_h5_subset_20260128_5_patients.h5`). This is a pre-existing cleanup delta, not a blocker.
 
-**External copy**: `../bremen-private-artifacts/h5/aramis_real_h5_subset_20260128_5_patients.h5` (outside repo). Human-verified SHA-256: `0bda036f08b057d992b329f6bd6834b3bb52cb74b1f3fca3efb08dda5edf655a`.
+**External copy**: `../bremen-private-artifacts/h5/aramina_real_h5_subset_20260128_5_patients.h5` (outside repo). Human-verified SHA-256: `0bda036f08b057d992b329f6bd6834b3bb52cb74b1f3fca3efb08dda5edf655a`.
 
 ## External H5 artifact policy
 
@@ -294,7 +294,7 @@ def test_real_subset_schema_inspection():
 
 1. `src/bremen/api/preflight.py` — NEW
 2. `tests/test_bremen_h5_preflight.py` — NEW
-3. Deletion of `tests/data/aramis_real_h5_subset_20260128_5_patients.h5` from git tracking (already done on this branch)
+3. Deletion of `tests/data/aramina_real_h5_subset_20260128_5_patients.h5` from git tracking (already done on this branch)
 
 ## Forbidden files
 

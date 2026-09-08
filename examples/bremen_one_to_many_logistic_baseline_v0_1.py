@@ -26,7 +26,7 @@ def _():
 
     PRODUCT_DIR = Path(__file__).resolve().parent
     DEFAULT_DATAFRAME_JOBLIB_PATH = (
-        PRODUCT_DIR / "outputs" / "aramis_one_to_many_benign_cancer_dataframe.joblib"
+        PRODUCT_DIR / "outputs" / "aramina_one_to_many_benign_cancer_dataframe.joblib"
     )
     return (
         DEFAULT_DATAFRAME_JOBLIB_PATH,
@@ -45,13 +45,13 @@ def _(mo):
     mo.md(
         "\n".join(
             [
-                "# Aramis One-To-Many Logistic Baseline v0.1",
+                "# Aramina One-To-Many Logistic Baseline v0.1",
                 "",
                 "Research draft model notebook.",
                 "",
                 "Goal: first BENIGN vs CANCER decision-support baseline from the one-to-many preprocessing DataFrame.",
                 "",
-                "Input is a preprocessed joblib DataFrame. H5 decoding, filtering, faulty-pixel masking, azimuthal integration, SNR filtering, and q-range normalization must already be completed by `aramis_dataframe_one_to_many_v0_1.py`.",
+                "Input is a preprocessed joblib DataFrame. H5 decoding, filtering, faulty-pixel masking, azimuthal integration, SNR filtering, and q-range normalization must already be completed by `aramina_dataframe_one_to_many_v0_1.py`.",
                 "",
                 "Model test: `LogisticRegression` on the full normalized `radial_profile_data` profile, evaluated over repeated 70/30 patient-safe splits. The same `patientId` is never allowed in train and test for one split.",
             ]
@@ -99,7 +99,7 @@ def _(dataframe_joblib_path, load_one_to_many_dataframe, mo):
             True,
             mo.md(
                 f"Missing one-to-many joblib: `{dataframe_joblib_path}`. "
-                "Run `examples/aramis_dataframe_one_to_many_v0_1.py` first."
+                "Run `examples/aramina_dataframe_one_to_many_v0_1.py` first."
             ),
         )
     one_to_many_df = load_one_to_many_dataframe(dataframe_joblib_path)

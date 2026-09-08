@@ -4,15 +4,15 @@ Purpose:
 
 ```text
 install XRD-preprocessing
-install Aramis
+install Aramina
 install container
 create empty Bremen folder
 copy bundled H5 data
 create/update conda env eosproduct
 install Miniforge automatically if conda is missing
-install container, XRD-preprocessing, and Aramis as editable local packages
+install container, XRD-preprocessing, and Aramina as editable local packages
 run tests
-launch Aramis marimo notebooks
+launch Aramina marimo notebooks
 ```
 
 Run:
@@ -24,8 +24,8 @@ cd eosproduct_onboarding_bundle
 ```
 
 The installer asks before running tests or launching notebooks. If tests are
-accepted, XRD-preprocessing and Aramis tests run together in a separate Terminal
-window. If notebooks are accepted, Aramis one-to-one and one-to-many notebooks
+accepted, XRD-preprocessing and Aramina tests run together in a separate Terminal
+window. If notebooks are accepted, Aramina one-to-one and one-to-many notebooks
 open in separate Terminal windows.
 
 If git clone/update succeeds, installer uses latest pushed repositories. If git
@@ -47,14 +47,14 @@ Manual test commands:
 
 ```bash
 ./run_tests.sh ~/dev/eosproduct xrd
-./run_tests.sh ~/dev/eosproduct aramis
+./run_tests.sh ~/dev/eosproduct aramina
 ./run_tests.sh ~/dev/eosproduct all
 ```
 
 Manual notebook command:
 
 ```bash
-./run_aramis_notebooks.sh ~/dev/eosproduct
+./run_aramina_notebooks.sh ~/dev/eosproduct
 ```
 
 Notebook behavior:

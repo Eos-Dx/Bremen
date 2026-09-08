@@ -31,7 +31,7 @@ confirmed:
   decision_language_correct: true
   lifecycle_order_defined: true
   nova_stops_before_inference: true
-  aramis_stages_not_fabricated: true
+  aramina_stages_not_fabricated: true
   trace_event_derived: true
   showcase_uses_real_api: true
   showcase_uses_real_sse: true
@@ -60,7 +60,7 @@ summary: >
   versions, validation status) — no feature values, coefficients, raw arrays, or
   private paths. The checksum_status rule correctly prohibits claiming verification
   when no trusted checksum is configured. Nova stops before feature generation.
-  Aramis produces only readiness/unavailable — no fabricated stages. The execution
+  Aramina produces only readiness/unavailable — no fabricated stages. The execution
   trace is event-derived, not a second divergent state machine. The investor showcase
   uses real API endpoints and real SSE — no mock data, fake timers, or random progress.
   Visual pipeline has distinct states for active/completed/failed/blocked/not-started

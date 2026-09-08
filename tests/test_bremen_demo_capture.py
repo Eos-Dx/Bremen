@@ -8,7 +8,7 @@ Covers:
 - Directory creation
 - FileExistsError when capture_dir is a file
 - FileExistsError when output files exist
-- No Aramis references
+- No Aramina references
 - No clinical/replacement claims (except safe negation)
 - JSON serializability
 - Import/dependency safety
@@ -422,13 +422,13 @@ class TestFileExistsError:
 
 
 # ===================================================================
-# Class 6: No Aramis references
+# Class 6: No Aramina references
 # ===================================================================
 
 
-class TestNoAramisReferences:
-    def test_no_aramis_in_capture_files(self, tmp_path: Path):
-        """Capture files do not contain Aramis strings."""
+class TestNoAraminaReferences:
+    def test_no_aramina_in_capture_files(self, tmp_path: Path):
+        """Capture files do not contain Aramina strings."""
         result = _make_result()
         capture_dir = str(tmp_path / "capture")
         write_demo_capture(
@@ -439,16 +439,16 @@ class TestNoAramisReferences:
         dir_path = Path(capture_dir)
         for fname in (FILE_SUMMARY, FILE_EVIDENCE, FILE_MANIFEST):
             content = (dir_path / fname).read_text(encoding="utf-8").lower()
-            for pattern in ("aramis", "m2q", "benign vs cancer"):
+            for pattern in ("aramina", "m2q", "benign vs cancer"):
                 assert pattern not in content, (
                     f"{fname} contains prohibited pattern: {pattern}"
                 )
 
-    def test_no_aramis_in_module_source(self):
-        """Module source does not contain Aramis references."""
+    def test_no_aramina_in_module_source(self):
+        """Module source does not contain Aramina references."""
         source = MODULE_PATH.read_text(encoding="utf-8")
-        assert "Aramis" not in source
-        assert "aramis" not in source
+        assert "Aramina" not in source
+        assert "aramina" not in source
 
 
 # ===================================================================

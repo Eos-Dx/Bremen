@@ -33,7 +33,7 @@ VALIDATION
 * grep "first two\|[:2]\|list.*keys.*\[:2\]": only test comment "not the first two" — no first-two pairing in source
 * grep "future PR\|future work\|structural-only" in PR0073 artifacts: only in PLAN.md postmortem (acknowledging PR0072's error), and implementation report warning about dataframe-mode calibration. No deferral of required Matador runtime path.
 * grep "h5_preflight_failed\|preprocessing_failed\|model_inference_started": server.py has h5_preflight_failed/preprocessing_failed for error classification; h5_layouts.py detection error includes "h5_preflight_failed" keyword; model_inference_started NOT emitted prematurely (only as completed after success)
-* grep "biopsy\|birads\|BENIGN\|CANCER\|Aramis\|aramis" in api source files: only safe docstring prohibition language
+* grep "biopsy\|birads\|BENIGN\|CANCER\|Aramina\|aramina" in api source files: only safe docstring prohibition language
 * grep "joblib\.load\|pickle\.load\|import pickle": only in controlled boundaries (model_state.py, model_loader.py, modeling.py)
 * grep "React\|react\|package.json\|vite\|webpack": no matches
 * grep "alert(" in demo_ui.py/test files: only test comments/assertions
@@ -164,7 +164,7 @@ IMMUTABILITY CHECK
 * Pass: Source H5 checksum unchanged after both successful and failed analysis — verified by test_source_checksum_unchanged and test_checksum_unchanged_on_failure. H5 opened read-only throughout. No writes, no derived artifacts, no committed H5 files.
 
 METADATA SAFETY CHECK
-* Pass: No patient/sample/specimen identifiers exposed in API/UI/logs/events/exceptions. Clinical/product labels (biopsy/birads/BENIGN/CANCER/Aramis) only in safe docstring prohibition language. No raw array values or sensitive attribute values in response text.
+* Pass: No patient/sample/specimen identifiers exposed in API/UI/logs/events/exceptions. Clinical/product labels (biopsy/birads/BENIGN/CANCER/Aramina) only in safe docstring prohibition language. No raw array values or sensitive attribute values in response text.
 
 NATIVE/SESSION REGRESSION CHECK
 * Pass: All 1368 tests pass (11 skipped). Canonical and session layout tests all pass unchanged. Demo UI and workflow tests unchanged. Event lifecycle truthful. Catalog/upload/select/Analyze/events/result workflow preserved.

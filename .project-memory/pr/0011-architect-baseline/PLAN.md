@@ -34,7 +34,7 @@ After this cascade completes, sequencing returns to normal one-number-one-PR num
 The implementation phase (Agent: architect, Mode: WRITE) may create exactly these files:
 
 1. `docs/adr/0001-bremen-product-identity.md` — NEW. ADR documenting Bremen product identity.
-2. `docs/adr/0002-twin-product-document-separation.md` — NEW. ADR documenting permanent separation from Aramis.
+2. `docs/adr/0002-twin-product-document-separation.md` — NEW. ADR documenting permanent separation from Aramina.
 3. `ROADMAP.md` — NEW. Root-level roadmap with Product Track only.
 4. `docs/architecture.md` — NEW. Architecture baseline document.
 
@@ -68,7 +68,7 @@ These documents have been read to establish the evidence base for this PLAN.md:
 - `docs/product_development_rules.md` — contains the exact clinical question, label definitions, and product separation rules
 - `.project-memory/project_contract.yml` — contains safety invariants and source-of-truth order
 - `.project-memory/memory_index.yml` — confirms no existing ADR/architecture documents
-- `AGENTS.md` — contains product intent for Bremen and Aramis
+- `AGENTS.md` — contains product intent for Bremen and Aramina
 - `.project-memory/pr/0001-*/` through `pr/0009-*/` — confirm completed PR scope
 
 ## Implementation phase assignment
@@ -87,7 +87,7 @@ ADR-0001 must contain:
 
 ### Identity statement
 - Bremen is the active product identity for this repository.
-- "Bremen Assembly plan v1" is the authoritative product identity reference (not the Aramis-inherited text currently in `README.md`, `docs/roadmap.md`, or `docs/machine_learning_concept.md`).
+- "Bremen Assembly plan v1" is the authoritative product identity reference (not the Aramina-inherited text currently in `README.md`, `docs/roadmap.md`, or `docs/machine_learning_concept.md`).
 
 ### Clinical question
 The exact clinical question, quoted verbatim from `docs/product_development_rules.md`:
@@ -97,8 +97,8 @@ The exact clinical question, quoted verbatim from `docs/product_development_rule
 - Task: healthy vs. disease (NORMAL vs. BENIGN+CANCER).
 - Explicitly stated as distinct from a malignant-vs-benign task.
 
-### Contrast with Aramis
-- Explicit statement: This is NOT Aramis's malignant-vs-benign classification (BI-RADS 3/4 → biopsy decision).
+### Contrast with Aramina
+- Explicit statement: This is NOT Aramina's malignant-vs-benign classification (BI-RADS 3/4 → biopsy decision).
 
 ### Bremen feature-family anchors
 The seven Bremen feature-family anchors, named exactly:
@@ -110,15 +110,15 @@ The seven Bremen feature-family anchors, named exactly:
 6. `meanrms2`
 7. `weightedrms1`
 
-### Contrast with Aramis feature families
-Explicit contrast with Aramis's feature families, presented as a paired table tied to the product identity statement:
+### Contrast with Aramina feature families
+Explicit contrast with Aramina's feature families, presented as a paired table tied to the product identity statement:
 
-| Bremen family | Aramis family |
+| Bremen family | Aramina family |
 |---|---|
 | `sigma_l1`, `sigma_l2` | complete azimuthal integration (components approach) |
 | `Mahalanobis1`, `Mahalanobis2`, `wasserstein_distance_full_q2`, `meanrms2`, `weightedrms1` | cosine asymmetry distance (symmetry approach) |
 
-These families implement Bremen's own healthy-vs-disease symmetry/distance approach and are not interchangeable with Aramis's azimuthal-integration/cosine-asymmetry approach.
+These families implement Bremen's own healthy-vs-disease symmetry/distance approach and are not interchangeable with Aramina's azimuthal-integration/cosine-asymmetry approach.
 
 ### Product description
 - Bremen is an XRD-based ML decision-support workflow for patients referred to MRI after suspicious mammography findings (dense breast / low-efficacy mammography).
@@ -139,17 +139,17 @@ These families implement Bremen's own healthy-vs-disease symmetry/distance appro
 ADR-0002 must contain:
 
 ### Separation policy
-- Bremen and Aramis are permanently separate forks/products/final deliverables.
+- Bremen and Aramina are permanently separate forks/products/final deliverables.
 
-### Aramis in Bremen
-- Aramis may appear in Bremen only as historical/provenance context (fork origin).
-- Aramis is not an active dependency, runtime, shared feature set, API, or configuration target for Bremen.
+### Aramina in Bremen
+- Aramina may appear in Bremen only as historical/provenance context (fork origin).
+- Aramina is not an active dependency, runtime, shared feature set, API, or configuration target for Bremen.
 
 ### Shared technical surface
 - The only shared technical surface between the two products is the upstream XRD-preprocessing repository.
 
 ### Prohibition
-- No Aramis-specific architecture, endpoints, or configuration should be added to Bremen as a result of this or any future PR.
+- No Aramina-specific architecture, endpoints, or configuration should be added to Bremen as a result of this or any future PR.
 
 ## ROADMAP.md planned baseline content
 
@@ -162,7 +162,7 @@ No Platform Readiness Track. No Decision Gate Register. No hard calendar dates �
 
 - PR-0001 — Agent workflow foundation
 - PR-0002 — Planning/identity cleanup
-- PR-0003 — Full Aramis-to-Bremen alignment
+- PR-0003 — Full Aramina-to-Bremen alignment
 - PR-0004 — Roadmap quality/docker/entrypoint planning
 - PR-0005 — Docker/CI/Sonar skeleton
 - PR-0006 — Coverage/cache
@@ -237,7 +237,7 @@ The four documents created by this PR must:
 - Not contain clinical validation claims.
 - Not claim FDA clearance, autonomous diagnosis capability, or clinical release.
 - Not present Bremen as a replacement for MRI, biopsy, radiologists, or clinicians.
-- Not use Aramis as active architecture (only as historical/provenance context in ADR-0002).
+- Not use Aramina as active architecture (only as historical/provenance context in ADR-0002).
 - Not introduce runtime training endpoints or claims.
 - Not introduce Platform Readiness Track content (belongs to PR 0011C).
 - Not introduce Decision Gate Register (belongs to PR 0011C).
@@ -311,8 +311,8 @@ for f in sigma_l1 sigma_l2 Mahalanobis1 Mahalanobis2 wasserstein_distance_full_q
   grep -q "$f" docs/adr/0001-bremen-product-identity.md || exit 1
 done
 
-# 21) Aramis contrast language present and does not make Aramis active architecture
-grep -q "NOT Aramis" docs/adr/0001-bremen-product-identity.md || echo "WARNING: contrast language might not be explicit"
+# 21) Aramina contrast language present and does not make Aramina active architecture
+grep -q "NOT Aramina" docs/adr/0001-bremen-product-identity.md || echo "WARNING: contrast language might not be explicit"
 ```
 
 ### ADR-0002 content checks
@@ -424,7 +424,7 @@ After PR 0011A merges:
 |----------------|-------|
 | **File drift** | Only the four allowed files created. No other files created or modified. |
 | **ADR scope drift** | Only ADR-0001 and ADR-0002 created. No ADR-0003..0006. |
-| **ADR-0001 identity drift** | Contains exact clinical question, NORMAL vs BENIGN+CANCER, all 7 feature-family names, Aramis contrast, architecture constraints. |
+| **ADR-0001 identity drift** | Contains exact clinical question, NORMAL vs BENIGN+CANCER, all 7 feature-family names, Aramina contrast, architecture constraints. |
 | **ADR-0002 separation drift** | Declares permanent separation. Only shared surface is XRD-preprocessing. |
 | **ROADMAP.md drift** | Product Track only. Product-core items (1-7) before infrastructure/wrappers (8-12). No hard dates. Completed PRs recorded. |
 | **Architecture drift** | Core chain stated exactly. ALL applicable project_contract.yml invariants included. Honest implementation state. |
@@ -470,14 +470,14 @@ Block if:
 
 ### ADR-0001 identity summary
 - Bremen is active product identity. Clinical question: "Should patient continue to MRI?"
-- Task: NORMAL vs BENIGN+CANCER (healthy vs disease). NOT Aramis malignant-vs-benign.
-- Seven feature families mapped to Bremen-specific task: sigma_l1/sigma_l2 (vs Aramis complete azimuthal integration), Mahalanobis1/Mahalanobis2/wasserstein_distance_full_q2/meanrms2/weightedrms1 (vs Aramis cosine asymmetry distance).
+- Task: NORMAL vs BENIGN+CANCER (healthy vs disease). NOT Aramina malignant-vs-benign.
+- Seven feature families mapped to Bremen-specific task: sigma_l1/sigma_l2 (vs Aramina complete azimuthal integration), Mahalanobis1/Mahalanobis2/wasserstein_distance_full_q2/meanrms2/weightedrms1 (vs Aramina cosine asymmetry distance).
 - Architecture constraints: no runtime training, Matador is system of record, no local path dependency.
 
 ### ADR-0002 separation summary
-- Bremen and Aramis are permanently separate. Aramis = historical source material only.
+- Bremen and Aramina are permanently separate. Aramina = historical source material only.
 - Shared surface: XRD-preprocessing repository only.
-- No Aramis-specific architecture/endpoints/config in Bremen.
+- No Aramina-specific architecture/endpoints/config in Bremen.
 
 ### ROADMAP Product Track summary
 - 9 completed foundation PRs recorded.
@@ -514,8 +514,8 @@ All 11 safety invariants from project_contract.yml restated verbatim, 1:1, no su
 - `AGENTS.md`
 - `docs/roadmap.md` (existing, for reference)
 - `.project-memory/pr/0001-bremen-agent-workflow/PLAN.md`
-- `.project-memory/pr/0002-aramis-to-bremen-cleanup/PLAN.md`
-- `.project-memory/pr/0003-full-aramis-to-bremen-alignment/PLAN.md`
+- `.project-memory/pr/0002-aramina-to-bremen-cleanup/PLAN.md`
+- `.project-memory/pr/0003-full-aramina-to-bremen-alignment/PLAN.md`
 - `.project-memory/pr/0004-roadmap-quality-docker-entrypoint/PLAN.md`
 - `.project-memory/pr/0005-docker-ci-sonarcloud-skeleton/PLAN.md`
 - `.project-memory/pr/0006-ci-coverage-cache/PLAN.md`

@@ -59,7 +59,7 @@ grep -n "JSON\|backward-compatible\|preserved" PLAN.md
 # Lines 11, 18, 23, 29, 182, 191, 243, 381, 403, 429, 430, 475
 # JSON unchanged, pretty is additive, backward-compatible
 
-grep -n "Aramis\|aramis" PLAN.md
+grep -n "Aramina\|aramina" PLAN.md
 # Lines 153, 236, 280, 313, 314, 485 — all in prohibition/negation context
 
 grep -n "multi-tenancy\|model-profile\|plugin" PLAN.md
@@ -187,8 +187,8 @@ PLAN.md is focused on product demo presentation polish — a reusable `--pretty`
 
 **Result: pass**
 
-- Aramis appears only in forbidden-pattern grep and non-goal contexts.
-- Zero-tolerance for Aramis strings in presentation output.
+- Aramina appears only in forbidden-pattern grep and non-goal contexts.
+- Zero-tolerance for Aramina strings in presentation output.
 - Product identity is `Bremen`, clinical question is "Should patient continue to MRI?".
 
 ---
@@ -256,7 +256,7 @@ PLAN.md is focused on product demo presentation polish — a reusable `--pretty`
 | AWS/S3 SDK/network clients | Grep check for boto3/botocore/requests/httpx. Stdlib only. |
 | Matador resolver | Not mentioned or planned. |
 | Real patient demo data | "No real patient data." All values synthetic. |
-| Aramis dependency | Zero tolerance. Grep check for Aramis/M2Q/BENIGN vs CANCER. |
+| Aramina dependency | Zero tolerance. Grep check for Aramina/M2Q/BENIGN vs CANCER. |
 | Clinical/replacement claims | Zero tolerance except safe negation in disclaimers. Grep check enforced. |
 
 ---
@@ -277,7 +277,7 @@ PLAN.md is focused on product demo presentation polish — a reusable `--pretty`
 | Dependency hygiene tests | Conditionally: `if test -f tests/test_bremen_dependency_hygiene.py; then ...` |
 | Full pytest | `python -m pytest -q` |
 | CLI help all commands | `python -m bremen --help`, `python -m bremen serve --help`, `python -m bremen demo-smoke --help`, `python -m bremen demo-run --help` |
-| Aramis dependency grep | `grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" src/bremen/demo_presentation.py src/bremen/demo_run.py ... || true` |
+| Aramina dependency grep | `grep -R -I -n "Aramina\|aramina\|M2Q\|BENIGN vs CANCER" src/bremen/demo_presentation.py src/bremen/demo_run.py ... || true` |
 | Clinical/replacement claim grep | `grep -R -I -n "diagnosis\|diagnose\|replaces MRI\|..." || true` |
 | joblib/pickle grep | `grep -R -I -n "joblib\.load\|pickle\.load\|import pickle" src/bremen/demo_presentation.py ... || true` |
 | H5 grep | `grep -R -I -n "\.h5\|\.hdf5\|h5py" src/bremen/demo_presentation.py ... || true` |
@@ -334,7 +334,7 @@ PLAN.md Section "Implementation agent":
 | Boundary | Status | Evidence |
 |----------|--------|---------|
 | PR0063 planned as product demo presentation polish | pass | "Add a reusable, testable presentation layer to the existing Bremen demo path." |
-| demo remains Bremen-native | pass | `format_pretty()` includes `"Bremen"` product identity. Zero tolerance for Aramis. |
+| demo remains Bremen-native | pass | `format_pretty()` includes `"Bremen"` product identity. Zero tolerance for Aramina. |
 | demo presentation is not disposable | pass | Reusable module (`demo_presentation.py`), pure functions, 14+ test scenarios. |
 | pretty output planned | pass | `python -m bremen demo-run --pretty` with `format_pretty()` formatter. |
 | product-owner demo value planned | pass | "presentation-ready for product-owner and stakeholder demos." |
@@ -349,7 +349,7 @@ PLAN.md Section "Implementation agent":
 | no unsafe model loading planned | pass | Presentation module is pure dict→str transformation. No model loading. |
 | no H5 mutation planned | pass | No H5 reads or writes. Presentation module works with dict input. |
 | no real patient data planned | pass | "No real patient data." All values synthetic. |
-| no Aramis dependency planned | pass | Zero tolerance. Validation grep enforces. |
+| no Aramina dependency planned | pass | Zero tolerance. Validation grep enforces. |
 | no clinical diagnosis/replacement claims planned | pass | Safety disclaimer prominent. Zero tolerance for diagnosis/replacement language except safe negation. |
 | Bremen safety identity preserved | pass | Consistent with project_contract.yml and AGENTS.md. |
 | implementation assigned to coder | pass | Section "Implementation agent": Agent: coder, Mode: implementation. |

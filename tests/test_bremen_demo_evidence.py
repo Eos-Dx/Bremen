@@ -10,7 +10,7 @@ Covers:
 - product is "Bremen"
 - product_question is correct
 - safety_notes is a non-empty list
-- No Aramis references in evidence output
+- No Aramina references in evidence output
 - No diagnosis/replacement language in evidence output
 - validate_demo_evidence_bundle() passes for valid bundle
 - validate_demo_evidence_bundle() rejects various invalid bundles
@@ -375,13 +375,13 @@ class TestSafetyNotes:
 
 
 # ===================================================================
-# Class 9: No Aramis references
+# Class 9: No Aramina references
 # ===================================================================
 
 
-class TestNoAramisReferences:
-    def test_no_aramis_in_evidence_bundle(self):
-        """Evidence bundle does not contain Aramis references."""
+class TestNoAraminaReferences:
+    def test_no_aramina_in_evidence_bundle(self):
+        """Evidence bundle does not contain Aramina references."""
         bundle = build_demo_evidence_bundle(
             base_url="http://example.com",
             request_id="req-001",
@@ -390,15 +390,15 @@ class TestNoAramisReferences:
             warnings=["warning"],
         )
         bundle_str = json.dumps(bundle).lower()
-        for pattern in ("aramis", "m2q", "benign vs cancer"):
+        for pattern in ("aramina", "m2q", "benign vs cancer"):
             assert pattern not in bundle_str, (
                 f"Evidence bundle contains prohibited pattern: {pattern}"
             )
 
-    def test_no_aramis_in_build_function(self):
-        """build_demo_evidence_bundle output does not contain 'Aramis'.
+    def test_no_aramina_in_build_function(self):
+        """build_demo_evidence_bundle output does not contain 'Aramina'.
 
-        The source code may reference 'Aramis' in prohibition context
+        The source code may reference 'Aramina' in prohibition context
         (pattern lists for detection).  This is safe — only output matters."""
         import json
 
@@ -409,8 +409,8 @@ class TestNoAramisReferences:
             warnings=["test warning"],
         )
         bundle_str = json.dumps(bundle).lower()
-        assert "aramis" not in bundle_str, (
-            "Evidence bundle output must not contain 'aramis'"
+        assert "aramina" not in bundle_str, (
+            "Evidence bundle output must not contain 'aramina'"
         )
 
 
@@ -501,7 +501,7 @@ class TestValidateBundleInvalid:
     def test_rejects_wrong_product(self):
         """Rejects bundle with wrong product name."""
         bundle = build_demo_evidence_bundle()
-        bundle["product"] = "Aramis"
+        bundle["product"] = "Aramina"
         with pytest.raises(ValueError, match="product"):
             validate_demo_evidence_bundle(bundle)
 
@@ -554,12 +554,12 @@ class TestValidateBundleInvalid:
         with pytest.raises(ValueError, match="safety_notes"):
             validate_demo_evidence_bundle(bundle)
 
-    def test_rejects_bundle_with_aramis_in_optional_field(self):
-        """Rejects bundle with 'Aramis' in optional field."""
+    def test_rejects_bundle_with_aramina_in_optional_field(self):
+        """Rejects bundle with 'Aramina' in optional field."""
         bundle = build_demo_evidence_bundle(
-            checks={"check": "Aramis check failed"},
+            checks={"check": "Aramina check failed"},
         )
-        with pytest.raises(ValueError, match="Aramis"):
+        with pytest.raises(ValueError, match="Aramina"):
             validate_demo_evidence_bundle(bundle)
 
     def test_rejects_bundle_with_clinical_replacement_language(self):
@@ -607,7 +607,7 @@ class TestJsonSerializable:
     def test_json_dumps_helper_raises_on_invalid(self):
         """json_dumps_evidence_bundle raises ValueError on invalid bundle."""
         bundle = build_demo_evidence_bundle()
-        bundle["product"] = "Aramis"
+        bundle["product"] = "Aramina"
         with pytest.raises(ValueError, match="product"):
             json_dumps_evidence_bundle(bundle)
 

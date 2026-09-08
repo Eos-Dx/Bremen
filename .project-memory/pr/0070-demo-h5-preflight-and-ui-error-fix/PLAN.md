@@ -78,7 +78,7 @@ Fix the two specific blocker issues found during live demo rehearsal, enabling t
 - `tfstate`, `.terraform`
 - `config/training/**`, `src/bremen/training/**`
 - `docs/**`, `ROADMAP.md`
-- Aramis artifacts, model descriptions, feature schemas as dependency
+- Aramina artifacts, model descriptions, feature schemas as dependency
 
 ## Exact implementation scope
 
@@ -241,7 +241,7 @@ The plan targets this path. If preprocessing/model inference fails after the pre
 - No raw patient data in logs or API responses — patient identifier is used for metadata resolution only, not logged.
 - `technical_demo_only: true` in all responses.
 - No clinical diagnosis/replacement claims.
-- No Aramis references.
+- No Aramina references.
 - No new dependencies.
 
 ## Validation checklist
@@ -422,7 +422,7 @@ Block if:
 - confirm: no unsafe model loading planned: yes
 - confirm: no H5 mutation planned: yes
 - confirm: no committed H5/patient data planned: yes
-- confirm: no Aramis dependency planned: yes
+- confirm: no Aramina dependency planned: yes
 - confirm: no clinical diagnosis/replacement claims planned: yes
 - confirm: implementation assigned to Agent: coder / Mode: implementation: yes
 - confirm: no git mutation commands run: yes

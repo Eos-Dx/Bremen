@@ -221,7 +221,7 @@ Cover these scenarios:
 10. **Empty config file** — Create an empty `.toml` file, verify `ConfigLoadResult` with empty `data` and a warning.
 11. **Import safety** — Verify that importing `bremen.config` does not import `xrd_preprocessing`, `container`, `pipelines`, `modeling`, or `mlflow_tracking` at top level. Use AST inspection of the module source.
 12. **No H5 read** — Verify `discover_config()` and `load_config()` do not attempt to open H5 files or load model artifacts (the functions parse text-only config files and do not follow references).
-13. **No Aramis identity** — Verify that user-facing error messages and the module docstring do not contain "Aramis" or "aramis".
+13. **No Aramina identity** — Verify that user-facing error messages and the module docstring do not contain "Aramina" or "aramina".
 
 ### What tests must NOT do
 
@@ -456,9 +456,9 @@ python -m pytest -q
 grep -R -I -n "BREMEN.CONFIG" .project-memory/pr/0009-config-discovery-loading/PLAN.md src/bremen/config.py tests/test_bremen_config_loading.py 2>/dev/null | grep -v "BREMEN_CONFIG" && \
   echo "WARNING: Possible BREMEN_CONFIG typo found" || echo "No BREMEN_CONFIG typos"
 
-# 23) No Aramis identity in new module or tests
-grep -R -I -n -E "Aramis|aramis" src/bremen/config.py tests/test_bremen_config_loading.py 2>/dev/null && \
-  echo "ERROR: Aramis identity found" || echo "No Aramis identity"
+# 23) No Aramina identity in new module or tests
+grep -R -I -n -E "Aramina|aramina" src/bremen/config.py tests/test_bremen_config_loading.py 2>/dev/null && \
+  echo "ERROR: Aramina identity found" || echo "No Aramina identity"
 
 # 24) No prohibited clinical claims in new module or tests
 grep -R -I -n -E "diagnos|diagnostic|clinically validated|replace MRI|replace biopsy|replace radiologist|replace clinician|autonomous clinical" src/bremen/config.py tests/test_bremen_config_loading.py 2>/dev/null && \
@@ -519,7 +519,7 @@ Precommit-review must check each of these drift categories. Any drift blocks mer
 | **No CLI drift** | No changes to `__main__.py`, `cli.py`, or `test_bremen_cli_entrypoint.py`. No `config show` or `config list-paths`. No `python -m bremen config ...`. |
 | **No README drift** | No changes to README.md. |
 | **Import safety drift** | No heavy imports in config.py at top level. No import-time side effects. |
-| **Identity drift** | No Aramis identity. No clinical/diagnostic claims. No `BREMEN_CONFIG` spelling errors in config module. |
+| **Identity drift** | No Aramina identity. No clinical/diagnostic claims. No `BREMEN_CONFIG` spelling errors in config module. |
 | **Runtime drift** | No changes to pipelines.py, modeling.py, mlflow_tracking.py, __init__.py. No preprocessing/modeling/inference changes. |
 | **Infrastructure drift** | No CI/Docker/GHCR/SonarCloud changes. No pyproject.toml/environment/Makefile changes. |
 | **Test drift** | New `test_bremen_config_loading.py` covers all scenarios. Existing tests pass unchanged. No test data changes. |
@@ -536,7 +536,7 @@ Block if:
 - `README.md`, `__main__.py`, `cli.py`, or `test_bremen_cli_entrypoint.py` is modified.
 - `pyproject.toml`, `environment.yml`, `Makefile`, or any infrastructure file is modified.
 - `BREMEN_CONFIG` appears incorrectly (typo of `BREMEN_CONFIG`) anywhere in PLAN.md, source, or tests.
-- Aramis identity appears in new source or test files.
+- Aramina identity appears in new source or test files.
 - Clinical/diagnostic claims appear in new user-facing text.
 - H5/HDF5 files or model/joblib artifacts are changed.
 - Existing tests break (identity test, CLI entrypoint tests, preprocessing/modeling tests).
@@ -574,10 +574,10 @@ Block if:
 - No changes to existing source, tests, or infrastructure files.
 
 ### Testing strategy
-- New test file (13 tests): explicit path YAML/TOML, BREMEN_CONFIG env, default discovery, missing config, invalid syntax (YAML + TOML), empty config, import safety, no H5/model reads, no Aramis identity.
+- New test file (13 tests): explicit path YAML/TOML, BREMEN_CONFIG env, default discovery, missing config, invalid syntax (YAML + TOML), empty config, import safety, no H5/model reads, no Aramina identity.
 
 ### Validation checklist
-27 checks: static (file state, H5, data, model, CI/Docker, forbidden files), Python (compileall, import safety), config module behavior (8 behavioral tests), test (identity, new tests, full suite), identity/safety (BREMEN_CONFIG typo check, Aramis, clinical claims, H5/model/Matador, forbidden files), coverage (80%).
+27 checks: static (file state, H5, data, model, CI/Docker, forbidden files), Python (compileall, import safety), config module behavior (8 behavioral tests), test (identity, new tests, full suite), identity/safety (BREMEN_CONFIG typo check, Aramina, clinical claims, H5/model/Matador, forbidden files), coverage (80%).
 
 ### Stop conditions
 10 block conditions.

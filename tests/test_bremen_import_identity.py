@@ -3,9 +3,9 @@
 Verifies via filesystem inspection (no imports that trigger xrd_preprocessing):
 - bremen package directory exists
 - bremen __init__.py docstring mentions Bremen
-- bremen.pipelines source contains Bremen* class names (not Aramis*)
+- bremen.pipelines source contains Bremen* class names (not Aramina*)
 - bremen.__main__ source contains prog="bremen"
-- No Aramis class names remain in src/bremen/ source files
+- No Aramina class names remain in src/bremen/ source files
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ def test_bremen_init_docstring_is_bremen():
 
 
 def test_bremen_pipelines_has_bremen_class_names():
-    """pipelines.py contains Bremen* class names (not Aramis*)."""
+    """pipelines.py contains Bremen* class names (not Aramina*)."""
     path = SRC_BREMEN / "pipelines.py"
     assert path.is_file()
     content = path.read_text(encoding="utf-8")
@@ -47,19 +47,19 @@ def test_bremen_pipelines_has_bremen_class_names():
     )
 
 
-def test_bremen_pipelines_no_aramis_class_names():
-    """pipelines.py does not contain Aramis* class definitions."""
+def test_bremen_pipelines_no_aramina_class_names():
+    """pipelines.py does not contain Aramina* class definitions."""
     path = SRC_BREMEN / "pipelines.py"
     assert path.is_file()
     content = path.read_text(encoding="utf-8")
-    assert "class AramisPreprocessingPipeline" not in content, (
-        "pipelines.py must not define AramisPreprocessingPipeline"
+    assert "class AraminaPreprocessingPipeline" not in content, (
+        "pipelines.py must not define AraminaPreprocessingPipeline"
     )
-    assert "class AramisOneToOnePreprocessingPipeline" not in content, (
-        "pipelines.py must not define AramisOneToOnePreprocessingPipeline"
+    assert "class AraminaOneToOnePreprocessingPipeline" not in content, (
+        "pipelines.py must not define AraminaOneToOnePreprocessingPipeline"
     )
-    assert "class AramisOneToManyPreprocessingPipeline" not in content, (
-        "pipelines.py must not define AramisOneToManyPreprocessingPipeline"
+    assert "class AraminaOneToManyPreprocessingPipeline" not in content, (
+        "pipelines.py must not define AraminaOneToManyPreprocessingPipeline"
     )
 
 
@@ -84,15 +84,15 @@ def test_bremen_main_docstring_is_bremen():
 
 
 def test_bremen_mlflow_env_var_is_bremen():
-    """mlflow_tracking.py uses BREMEN_LOG_MLFLOW_MODEL (not ARAMIS)."""
+    """mlflow_tracking.py uses BREMEN_LOG_MLFLOW_MODEL (not ARAMINA)."""
     path = SRC_BREMEN / "mlflow_tracking.py"
     assert path.is_file()
     content = path.read_text(encoding="utf-8")
     assert "BREMEN_LOG_MLFLOW_MODEL" in content, (
         "mlflow_tracking.py must use BREMEN_LOG_MLFLOW_MODEL env var"
     )
-    assert "ARAMIS_LOG_MLFLOW_MODEL" not in content, (
-        "mlflow_tracking.py must not reference ARAMIS_LOG_MLFLOW_MODEL"
+    assert "ARAMINA_LOG_MLFLOW_MODEL" not in content, (
+        "mlflow_tracking.py must not reference ARAMINA_LOG_MLFLOW_MODEL"
     )
 
 
@@ -116,16 +116,16 @@ def test_bremen_modeling_docstring_is_bremen():
     )
 
 
-def test_no_aramis_class_names_in_src():
-    """No source file under src/bremen/ defines an Aramis* class."""
-    aramis_class_patterns = [
-        "class AramisPreprocessingPipeline",
-        "class AramisOneToOnePreprocessingPipeline",
-        "class AramisOneToManyPreprocessingPipeline",
+def test_no_aramina_class_names_in_src():
+    """No source file under src/bremen/ defines an Aramina* class."""
+    aramina_class_patterns = [
+        "class AraminaPreprocessingPipeline",
+        "class AraminaOneToOnePreprocessingPipeline",
+        "class AraminaOneToManyPreprocessingPipeline",
     ]
     for py_file in SRC_BREMEN.glob("*.py"):
         content = py_file.read_text(encoding="utf-8")
-        for pattern in aramis_class_patterns:
+        for pattern in aramina_class_patterns:
             assert pattern not in content, (
                 f"{py_file.name} must not define {pattern}"
             )

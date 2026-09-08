@@ -82,9 +82,9 @@ _DEFAULT_SAFETY_NOTES: list[str] = [
 # Forbidden-pattern checks used by validation
 # ---------------------------------------------------------------------------
 
-# Prohibited Aramis-related strings (case-insensitive match)
-_ARAMIS_PATTERNS: tuple[str, ...] = (
-    "aramis",
+# Prohibited Aramina-related strings (case-insensitive match)
+_ARAMINA_PATTERNS: tuple[str, ...] = (
+    "aramina",
     "m2q",
     "benign vs cancer",
     "benign and cancer",
@@ -226,7 +226,7 @@ def validate_demo_evidence_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
     - ``scenario_id`` is a non-empty string.
     - ``safety_notes`` is a non-empty list of strings.
     - ``disclaimer`` is a non-empty string.
-    - No Aramis references in any field value.
+    - No Aramina references in any field value.
     - No clinical diagnosis or replacement language in any
       field value.
 
@@ -273,7 +273,7 @@ def validate_demo_evidence_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
             )
 
     # Scan all string values for forbidden patterns
-    _check_no_aramis_references(bundle)
+    _check_no_aramina_references(bundle)
     _check_no_clinical_replacement_language(bundle)
 
     return bundle
@@ -324,18 +324,18 @@ def _check_field(
         )
 
 
-def _check_no_aramis_references(bundle: dict[str, Any]) -> None:
-    """Scan all string values in *bundle* for Aramis references.
+def _check_no_aramina_references(bundle: dict[str, Any]) -> None:
+    """Scan all string values in *bundle* for Aramina references.
 
     Raises ``ValueError`` on the first match found.
     """
     for key, value in _iter_flat_strs(bundle):
         value_lower = value.lower()
-        for pattern in _ARAMIS_PATTERNS:
+        for pattern in _ARAMINA_PATTERNS:
             if pattern in value_lower:
                 raise ValueError(
                     f"Evidence bundle contains prohibited "
-                    f"Aramis-related string {pattern!r} "
+                    f"Aramina-related string {pattern!r} "
                     f"in field {key!r}"
                 )
 

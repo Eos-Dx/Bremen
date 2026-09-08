@@ -15,7 +15,7 @@ Covers:
 - format_pretty() is deterministic
 - format_pretty_header() output
 - format_pretty_footer() output
-- No Aramis references in output
+- No Aramina references in output
 - No clinical/replacement claims (except safe negation)
 - Import/dependency safety
 """
@@ -486,26 +486,26 @@ class TestHeaderFooter:
 
 
 # ===================================================================
-# Class 11: No Aramis references
+# Class 11: No Aramina references
 # ===================================================================
 
 
-class TestNoAramisReferences:
-    def test_no_aramis_in_pretty_output(self):
-        """format_pretty output does not contain Aramis strings."""
+class TestNoAraminaReferences:
+    def test_no_aramina_in_pretty_output(self):
+        """format_pretty output does not contain Aramina strings."""
         result = _make_pass_result()
         output = format_pretty(result)
         output_lower = output.lower()
-        for pattern in ("aramis", "m2q", "benign vs cancer"):
+        for pattern in ("aramina", "m2q", "benign vs cancer"):
             assert pattern not in output_lower, (
                 f"Output contains prohibited pattern: {pattern}"
             )
 
-    def test_no_aramis_in_module_source(self):
-        """Module source does not contain Aramis references."""
+    def test_no_aramina_in_module_source(self):
+        """Module source does not contain Aramina references."""
         source = MODULE_PATH.read_text(encoding="utf-8")
-        assert "Aramis" not in source
-        assert "aramis" not in source
+        assert "Aramina" not in source
+        assert "aramina" not in source
 
 
 # ===================================================================

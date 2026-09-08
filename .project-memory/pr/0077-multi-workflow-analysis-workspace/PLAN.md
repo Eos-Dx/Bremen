@@ -20,9 +20,9 @@ The interface must make the distinction clear between:
 
 The architecture must support any number of registered workflows, beginning with:
 - `bremen`
-- `aramis`
+- `aramina`
 
-Bremen and Aramis must retain separate:
+Bremen and Aramina must retain separate:
 - model identity
 - model readiness
 - scientific certification
@@ -60,9 +60,9 @@ Session containers report two normalized measurements. Nova reports six normaliz
 - Bremen's product question: "Should the patient continue to MRI?"
 - Bremen report language must remain decision-support only
 - No diagnosis claim, no clinician-replacement claim
-- No biopsy recommendation copied from Aramis
+- No biopsy recommendation copied from Aramina
 - Scientific certification status must be visible — a `scientifically_certified = false` report must not visually imply certified clinical readiness
-- Aramis unavailable state: `WORKFLOW_OR_REPORT_PROVIDER_NOT_CONFIGURED`
+- Aramina unavailable state: `WORKFLOW_OR_REPORT_PROVIDER_NOT_CONFIGURED`
 - Do not fabricate TRA probabilities, reliability, symmetry features, sensitivity/specificity, or recommendations
 
 ## Scope
@@ -72,7 +72,7 @@ Session containers report two normalized measurements. Nova reports six normaliz
 - Job status API, report metadata API
 - Workflow-specific report contracts
 - Bremen report renderer v1
-- Aramis report provider boundary
+- Aramina report provider boundary
 - Analysis Workspace frontend (new route under /demo/)
 - Timeline, workflow cards, process-log panel, report tabs, audit view
 - Privacy and redaction boundaries
@@ -83,7 +83,7 @@ Session containers report two normalized measurements. Nova reports six normaliz
 This PR does **not**:
 - Define Bremen P1/P2/P3 science
 - Certify Bremen scientifically
-- Implement missing Aramis science
+- Implement missing Aramina science
 - Combine model results
 - Diagnose disease
 - Replace clinicians
@@ -140,8 +140,8 @@ class WorkflowRun:
 ```
 
 Isolation rules:
-- A failed Aramis workflow must not remove a completed Bremen result
-- A failed Bremen workflow must not remove a completed Aramis result
+- A failed Aramina workflow must not remove a completed Bremen result
+- A failed Bremen workflow must not remove a completed Aramina result
 
 ## Event Schema
 
@@ -204,7 +204,7 @@ runtime.request.completed
 ```
 
 Where a stage is not applicable, do not fabricate it.
-An unavailable Aramis provider should not emit model inference completion.
+An unavailable Aramina provider should not emit model inference completion.
 
 Replace `VALIDATE: SUCCESS` with a structured `runtime.model.validation.completed` event containing: workflow_id, model_version, model_checksum, feature_schema_version, duration_ms.
 
@@ -343,16 +343,16 @@ Bremen language rules:
 - "MRI decision support" only
 - No diagnosis claim
 - No clinician-replacement claim
-- No biopsy recommendation copied from Aramis
+- No biopsy recommendation copied from Aramina
 - If `scientifically_certified = false`, the report must not visually imply certified clinical readiness
 
-## Aramis Report Provider Boundary
+## Aramina Report Provider Boundary
 
-Aramis must have its own report provider/renderer registered in the workflow registry.
+Aramina must have its own report provider/renderer registered in the workflow registry.
 
 ```python
-class AramisReportProvider:
-    workflow_id = "aramis"
+class AraminaReportProvider:
+    workflow_id = "aramina"
 
     def get_report(self, workflow_result: WorkflowResult) -> ReportEnvelope:
         if workflow_result.status == "failed":
@@ -360,10 +360,10 @@ class AramisReportProvider:
                 report_status="unavailable",
                 reason_code="WORKFLOW_OR_REPORT_PROVIDER_NOT_CONFIGURED",
             )
-        # Future: delegate to authoritative Aramis report generator
+        # Future: delegate to authoritative Aramina report generator
 ```
 
-Where the authoritative Aramis report generator is configured, the platform should reference or adapt its output without recreating scientific content.
+Where the authoritative Aramina report generator is configured, the platform should reference or adapt its output without recreating scientific content.
 
 Where it is unavailable:
 ```json
@@ -538,7 +538,7 @@ The frontend must render workflows from response data. Do not hardcode UI as:
 ```javascript
 // ANTIPATTERN
 if (workflow === "bremen") { ... }
-else if (workflow === "aramis") { ... }
+else if (workflow === "aramina") { ... }
 ```
 
 Workflow-specific report renderers may be registered by workflow ID, but:
@@ -586,7 +586,7 @@ Rules:
 - Bremen completed state
 - Bremen scientific certification pending state
 - Nova workflow configuration required state
-- Aramis unavailable state
+- Aramina unavailable state
 - Unknown workflow rendering
 - Process mode vs technical details mode
 - Filtering by workflow/stage
@@ -632,7 +632,7 @@ Multi-Workflow Analysis Workspace
 - SSE live event stream
 - Workflow cards with independent status per workflow
 - Bremen report v1 (extended from PR0053 decision_support_report)
-- Aramis report provider boundary
+- Aramina report provider boundary
 - Job/report API endpoints
 - Analysis Workspace frontend (timeline, process panel, report/audit tabs)
 - Privacy/redaction enforcements
@@ -642,8 +642,8 @@ Multi-Workflow Analysis Workspace
 ### Next milestone:
 
 ```
-- Authoritative Aramis runtime integration
-- Aramis report parity
+- Authoritative Aramina runtime integration
+- Aramina report parity
 - Persistent job/event history (database backend)
 - Report access controls
 - PDF/report artifact storage
@@ -664,7 +664,7 @@ Multi-Workflow Analysis Workspace
 
 Distinguish: committed | planned | blocked by scientific evidence | future.
 
-Do not describe unavailable Aramis inference or Bremen scientific certification as completed.
+Do not describe unavailable Aramina inference or Bremen scientific certification as completed.
 
 ## Implementation Sequence
 
@@ -677,7 +677,7 @@ Do not describe unavailable Aramis inference or Bremen scientific certification 
 5. **SSE stream** — EventSource-compatible endpoint with reconnect/cursor/heartbeat
 6. **Workflow report contracts** — `ReportEnvelope` and per-workflow `ReportProvider` protocol
 7. **Bremen report v1** — Extend `decision_support_report` to v0.2 with workflow readiness, audit, disclaimer
-8. **Aramis report-provider boundary** — `AramisReportProvider` returning unavailable for now
+8. **Aramina report-provider boundary** — `AraminaReportProvider` returning unavailable for now
 9. **Workspace shell** — New `/demo/workspace` route with layout, job list, job summary
 10. **Timeline** — Render structured events as human-readable timeline
 11. **Workflow cards** — Render per-workflow status, model identity, readiness, results
@@ -699,7 +699,7 @@ Avoid monolithic frontend rewrite — each frontend gate is additive.
 - `src/bremen/api/sse_handler.py` — SSE stream handler
 - `src/bremen/api/report_provider.py` — ReportEnvelope, ReportProvider protocol
 - `src/bremen/api/report_bremen.py` — Bremen report v1 renderer
-- `src/bremen/api/report_aramis.py` — Aramis report provider (scaffold)
+- `src/bremen/api/report_aramina.py` — Aramina report provider (scaffold)
 - `src/bremen/workspace_ui.py` — Analysis Workspace HTML page generator
 - `tests/test_bremen_event_stream.py` — Backend event/timeline/SSE tests
 - `tests/test_bremen_workspace_ui.py` — Frontend workspace tests
@@ -744,7 +744,7 @@ Avoid monolithic frontend rewrite — each frontend gate is additive.
 Stop planning with a blocker if:
 - Event payloads require raw patient/H5 data
 - Report content would need fabrication
-- Aramis report content would need reverse engineering
+- Aramina report content would need reverse engineering
 - Frontend requires direct access to App Runner logs
 - Job storage would be unbounded
 - Live stream depends on browser connection for job execution
@@ -779,8 +779,8 @@ Stop planning with a blocker if:
 - `GET /demo/api/jobs/{job_id}/events` returns ordered events
 
 ### Gate 5: Workflow isolation pass
-- Bremen workflow events are separate from Aramis workflow events
-- Failed Aramis does not affect Bremen outcome
+- Bremen workflow events are separate from Aramina workflow events
+- Failed Aramina does not affect Bremen outcome
 - Partial success status rendered when outcomes differ
 - Report generation is independent per workflow
 
@@ -790,8 +790,8 @@ Stop planning with a blocker if:
 - Report language is decision-support only
 - `scientifically_certified=false` report does not imply clinical readiness
 
-### Gate 7: Aramis report-boundary pass
-- Aramis report returns `unavailable` with typed reason code
+### Gate 7: Aramina report-boundary pass
+- Aramina report returns `unavailable` with typed reason code
 - No fabricated TRA probabilities, reliability, or recommendations
 - No cross-import of Bremen report logic
 
@@ -828,7 +828,7 @@ Stop planning with a blocker if:
 
 ### Gate 13: Roadmap pass
 - ROADMAP.md updated with current/next/later milestones
-- No false claims about scientific certification or Aramis completion
+- No false claims about scientific certification or Aramina completion
 
 ### Gate 14: Full regression pass
 - All existing tests pass
@@ -858,7 +858,7 @@ SSE CONTRACT: GET /demo/api/jobs/{job_id}/events/stream with Last-Event-ID, hear
 JOB API: POST/GET /demo/api/jobs/* endpoints in `job_api_handler.py`
 REPORT ARCHITECTURE: ReportEnvelope + ReportProvider protocol in `report_provider.py`
 BREMEN REPORT: v0.2 extension of decision_support_report in `report_bremen.py`
-ARAMIS REPORT BOUNDARY: AramisReportProvider scaffold in `report_aramis.py`
+ARAMINA REPORT BOUNDARY: AraminaReportProvider scaffold in `report_aramina.py`
 ANALYSIS WORKSPACE: `/demo/workspace` route in `workspace_ui.py`
 PROCESS PANEL: Resizable right panel with Process/Technical modes
 AUDIT VIEW: Immutable identifier section in workspace

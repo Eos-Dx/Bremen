@@ -513,7 +513,7 @@ Backend changes are minimal:
 2. No changes to:
    workflow_bremen.py, workflow_orchestrator.py, workflow_provider.py
    event_schema.py, event_store.py, execution_trace.py
-   report_bremen.py, report_aramis.py, report_provider.py
+   report_bremen.py, report_aramina.py, report_provider.py
    decision_contract.py, lifecycle_contracts.py
    job_api_handler.py, job_models.py, model_state.py
    All existing API endpoints remain unchanged.
@@ -835,7 +835,7 @@ Files NOT modified:
   src/bremen/api/lifecycle_contracts.py
   src/bremen/api/decision_contract.py
   src/bremen/api/report_bremen.py
-  src/bremen/api/report_aramis.py
+  src/bremen/api/report_aramina.py
   src/bremen/api/report_provider.py
   src/bremen/api/job_api_handler.py
   src/bremen/api/job_models.py

@@ -106,12 +106,12 @@ _DEFAULT_REGISTRY: WorkflowRegistry | None = None
 def get_default_registry() -> WorkflowRegistry:
     """Return the default workflow registry with all configured providers.
 
-    Registers ``bremen`` and ``aramis``.  The registry is rebuilt
+    Registers ``bremen`` and ``aramina``.  The registry is rebuilt
     on every call to pick up current ``ModelState`` (needed for
     test suites where model state changes between tests).
     """
     from .workflow_bremen import BremenProvider  # noqa: PLC0415
-    from .workflow_aramis import AramisProvider  # noqa: PLC0415
+    from .workflow_aramina_scaffold import AraminaProvider  # noqa: PLC0415
     from .model_state import ModelState  # noqa: PLC0415
 
     registry = WorkflowRegistry()
@@ -132,9 +132,9 @@ def get_default_registry() -> WorkflowRegistry:
     )
     registry.register(bremen_provider)
 
-    # --- Aramis provider (scaffold) ---
-    aramis_provider = AramisProvider()
-    registry.register(aramis_provider)
+    # --- Aramina provider (scaffold) ---
+    aramina_provider = AraminaProvider()
+    registry.register(aramina_provider)
 
     return registry
 

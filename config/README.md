@@ -1,7 +1,7 @@
 # Bremen Human-1 Product Metadata
 
 This directory contains canonical JSON/CSV metadata for the Bremen Human-1
-research draft product workflow (derived from Aramis Human-1).
+research draft product workflow (derived from Aramina Human-1).
 
 These files are product metadata prepared for Bremen by Slava Shcherbakov
 (Viacheslav SHCHERBAKOV). Treat them as controlled product inputs, not as
@@ -13,7 +13,7 @@ diagnosis.
 
 ## Files
 
-### `aramis_product_versioning.json`
+### `aramina_product_versioning.json`
 
 Purpose:
 
@@ -29,14 +29,14 @@ product filtering policy
 ```
 
 Use this file when deciding whether a measurement batch is product-usable for a
-K-alpha-only Aramis workflow.
+K-alpha-only Aramina workflow.
 
-### `preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml`
+### `preprocessing/aramina_one_to_one_preprocessing_v0_1.yaml`
 
 Purpose:
 
 ```text
-Aramis one-to-one preprocessing config
+Aramina one-to-one preprocessing config
 decision unit: patientId
 row unit: measurementId
 grouping unit: specimenId
@@ -47,12 +47,12 @@ SNR / normalization / profile-gate parameters
 quality_exclusions by linked AgBH session ID with date fallback
 ```
 
-### `preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml`
+### `preprocessing/aramina_one_to_many_benign_cancer_preprocessing_v0_1.yaml`
 
 Purpose:
 
 ```text
-Aramis standard one-to-many BENIGN/CANCER preprocessing config
+Aramina standard one-to-many BENIGN/CANCER preprocessing config
 decision unit: specimenId
 row unit: measurementId
 grouping unit: specimenId
@@ -72,12 +72,12 @@ specimens with `specimen_status` BENIGN, CANCER, ATYPICAL, or PRE_CANCEROUS,
 then maps ATYPICAL/PRE_CANCEROUS to the product CANCER group at `specimenId`
 level.
 
-### `preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml`
+### `preprocessing/aramina_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml`
 
 Purpose:
 
 ```text
-Aramis biopsy-only one-to-many BENIGN/CANCER preprocessing config
+Aramina biopsy-only one-to-many BENIGN/CANCER preprocessing config
 decision unit: specimenId
 row unit: measurementId
 grouping unit: specimenId
@@ -121,7 +121,7 @@ Reusable preprocessing YAML template/contract is owned by XRD-preprocessing:
 XRD-preprocessing/src/xrd_preprocessing/configs/preprocessing_branch_config_template.yaml
 ```
 
-These files are the concrete Aramis branch configs that follow that template.
+These files are the concrete Aramina branch configs that follow that template.
 Each preprocessing YAML owns its own runtime paths:
 
 ```text
@@ -158,12 +158,12 @@ tiff:
 Do not silently mix these source types in one product run. The selected source
 must be declared in the branch YAML and logged with the dataset artifacts.
 
-### `aramis_preprocessing_v0_1_config.json`
+### `aramina_preprocessing_v0_1_config.json`
 
 Purpose:
 
 ```text
-Aramis AgBH monochromaticity product-selection audit artifact
+Aramina AgBH monochromaticity product-selection audit artifact
 rejected AgBH session IDs
 rejected AgBH dates for older-container fallback
 AgBH shoulder-metric threshold
@@ -176,23 +176,23 @@ selection_contract explaining how exclusions were produced and consumed
 Canonical location:
 
 ```text
-Aramis/config/aramis_preprocessing_v0_1_config.json
+Aramina/config/aramina_preprocessing_v0_1_config.json
 ```
 
-The runtime preprocessing configs are the Aramis branch YAML files. Their
+The runtime preprocessing configs are the Aramina branch YAML files. Their
 `filters.quality_exclusions` blocks hold the controlled exclusion lists. This
 JSON explains how those lists were produced.
 
 This config was generated from:
 
 ```text
-Clinical_trials/Product/Aramis/Aramis_Preprocessing_v0_1.py
+Clinical_trials/Product/Aramina/Aramina_Preprocessing_v0_1.py
 ```
 
 Initial exported artifact:
 
 ```text
-Clinical_trials/analysis/aramis_preprocessing_v0_1/aramis_preprocessing_v0_1_config.json
+Clinical_trials/analysis/aramina_preprocessing_v0_1/aramina_preprocessing_v0_1_config.json
 ```
 
 The JSON carries its own `purpose`, `provenance`, and `selection_contract`
@@ -202,23 +202,23 @@ session IDs, rejected-date fallback, and downstream consumers.
 Exclusion rationale:
 
 ```text
-Aramis/docs/agbh_quality_exclusions.md
+Aramina/docs/agbh_quality_exclusions.md
 ```
 
 Used by:
 
 ```text
-Aramis/examples/aramis_dataframe_one_to_one_v0_1.py
-Aramis/examples/aramis_dataframe_one_to_many_v0_1.py
-Aramis/packaging/eosproduct_bundle/scripts/run_aramis_notebooks.sh
+Aramina/examples/aramina_dataframe_one_to_one_v0_1.py
+Aramina/examples/aramina_dataframe_one_to_many_v0_1.py
+Aramina/packaging/eosproduct_bundle/scripts/run_aramina_notebooks.sh
 ```
 
 Regeneration rule:
 
 ```text
-regenerate with Aramis_Preprocessing_v0_1.py or equivalent scripted export
+regenerate with Aramina_Preprocessing_v0_1.py or equivalent scripted export
 update the JSON provenance block
-rerun Aramis tests and marimo checks
+rerun Aramina tests and marimo checks
 rebuild eosproduct_onboarding_bundle.tar.gz
 ```
 

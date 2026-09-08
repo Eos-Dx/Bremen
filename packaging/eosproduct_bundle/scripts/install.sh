@@ -165,7 +165,7 @@ if command -v git >/dev/null 2>&1 && ask_yes_no "Use git to clone/update repos?"
 fi
 
 copy_or_update_repo "XRD-preprocessing" "https://github.com/Eos-Dx/XRD-preprocessing.git" "${TARGET_ROOT}/XRD-preprocessing" "src/xrd_preprocessing/configs/preprocessing_branch_config_template.yaml"
-copy_or_update_repo "Aramis" "https://github.com/Eos-Dx/Aramis.git" "${TARGET_ROOT}/Aramis" "examples/aramis_dataframe_one_to_one_v0_1.py"
+copy_or_update_repo "Aramina" "https://github.com/Eos-Dx/Aramina.git" "${TARGET_ROOT}/Aramina" "examples/aramina_dataframe_one_to_one_v0_1.py"
 copy_or_update_repo "container" "https://github.com/Eos-Dx/container.git" "${TARGET_ROOT}/container" "pyproject.toml" "feat/v0_3-eoscan-session-container"
 mkdir -p "${TARGET_ROOT}/Bremen"
 
@@ -184,23 +184,23 @@ if ask_yes_no "Create/update conda env ${ENV_NAME}?" "y"; then
   fi
   conda run -n "${ENV_NAME}" python -m pip install -e "${TARGET_ROOT}/container"
   conda run -n "${ENV_NAME}" python -m pip install -e "${TARGET_ROOT}/XRD-preprocessing[dev]"
-  conda run -n "${ENV_NAME}" python -m pip install --no-deps -e "${TARGET_ROOT}/Aramis[dev]"
-  conda run -n "${ENV_NAME}" python -c "import aramis, xrd_preprocessing; print('imports ok'); print('xrd_preprocessing', xrd_preprocessing.__file__); print('aramis', aramis.__file__)"
+  conda run -n "${ENV_NAME}" python -m pip install --no-deps -e "${TARGET_ROOT}/Aramina[dev]"
+  conda run -n "${ENV_NAME}" python -c "import aramina, xrd_preprocessing; print('imports ok'); print('xrd_preprocessing', xrd_preprocessing.__file__); print('aramina', aramina.__file__)"
 fi
 
 echo "Ready: ${TARGET_ROOT}"
 echo "Run tests: ${BUNDLE_DIR}/run_tests.sh ${TARGET_ROOT}"
-echo "Run notebooks: ${BUNDLE_DIR}/run_aramis_notebooks.sh ${TARGET_ROOT}"
+echo "Run notebooks: ${BUNDLE_DIR}/run_aramina_notebooks.sh ${TARGET_ROOT}"
 
 if [[ "${AUTO_RUN}" == "1" ]]; then
   run_in_terminal "EOS product tests" "ENV_NAME='${ENV_NAME}' '${BUNDLE_DIR}/run_tests.sh' '${TARGET_ROOT}' all"
-  "${BUNDLE_DIR}/run_aramis_notebooks.sh" "${TARGET_ROOT}"
+  "${BUNDLE_DIR}/run_aramina_notebooks.sh" "${TARGET_ROOT}"
   exit 0
 fi
 
-if ask_yes_no "Run XRD-preprocessing and Aramis tests now?" "n"; then
+if ask_yes_no "Run XRD-preprocessing and Aramina tests now?" "n"; then
   run_in_terminal "EOS product tests" "ENV_NAME='${ENV_NAME}' '${BUNDLE_DIR}/run_tests.sh' '${TARGET_ROOT}' all"
 fi
-if ask_yes_no "Launch Aramis marimo notebooks now?" "n"; then
-  "${BUNDLE_DIR}/run_aramis_notebooks.sh" "${TARGET_ROOT}"
+if ask_yes_no "Launch Aramina marimo notebooks now?" "n"; then
+  "${BUNDLE_DIR}/run_aramina_notebooks.sh" "${TARGET_ROOT}"
 fi

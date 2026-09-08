@@ -953,7 +953,7 @@ class TestControlRoomLaunchUploadUX:
 class TestControlRoomLaunchWorkflowCompat:
     """Workflow compatibility (requirement 6)."""
 
-    def test_aramis_workflow_excluded_on_frontend(self):
+    def test_aramina_workflow_excluded_on_frontend(self):
         """Non-Bremen containers are filtered by workflow_id."""
         html = open("src/bremen/control_room_ui.py", encoding="utf-8").read()
         assert "workflow_id" in html

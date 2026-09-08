@@ -37,7 +37,7 @@ VALIDATION:
 - command: grep -n "technical_demo_only\|clinical\|patient data\|patient_id\|patient_identifier" .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
   exit code: 0
   output: 10 matches — safety markers and data protection covered
-- command: grep -n "Aramis\|aramis\|biopsy\|birads\|BENIGN\|CANCER\|diagnosis\|diagnose\|replaces\|replace" .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
+- command: grep -n "Aramina\|aramina\|biopsy\|birads\|BENIGN\|CANCER\|diagnosis\|diagnose\|replaces\|replace" .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
   exit code: 0
   output: 7 matches — all in forbidden/avoidance context
 - command: grep -n "React\|package manager\|new dependencies\|package.json" .project-memory/pr/0072-canonical-h5-normalizer-and-runtime-wiring/PLAN.md
@@ -96,7 +96,7 @@ BOUNDARY CONFIRMATIONS:
 SCOPE CHECK: pass
 - PLAN focuses on fixing the runtime defect where `run_h5_preflight()` hardcodes `/scans/target` when no explicit refs provided.
 - Three specific changes: (1) universal `detect_layout()` in preflight, (2) event lifecycle fix, (3) MatadorRawH5Adapter.
-- No broad frontend/design, infra, deployment automation, model retraining, Aramis alignment, or multi-tenancy.
+- No broad frontend/design, infra, deployment automation, model retraining, Aramina alignment, or multi-tenancy.
 
 PREFLIGHT REWRITE CHECK: pass
 - PLAN requires refactoring `run_h5_preflight()` to use `detect_layout()` for ALL inputs, not just when explicit refs provided.
@@ -125,7 +125,7 @@ SAFETY CHECK: pass
 - No committed H5/patient data, no new dependencies, no React.
 - No deployment mutation, no Terraform/GitHub Actions/Docker changes.
 - `technical_demo_only: true` preserved.
-- No Aramis runtime/product dependency.
+- No Aramina runtime/product dependency.
 
 VALIDATION CHECK: pass
 - Controlled HTTP tests for all three layouts (Bremen-native, session, Matador raw).
@@ -173,7 +173,7 @@ BOUNDARY CONFIRMATIONS:
 - no fake success planned: confirmed
 - no clinical/product labels used as target: confirmed
 - no patient identifiers exposed: confirmed
-- no Aramis runtime/product dependency: confirmed
+- no Aramina runtime/product dependency: confirmed
 - no persisted Matador/Bremen derived artifact: confirmed
 - no React/package/dependency/startup/infra changes: confirmed
 - no unsafe model loading: confirmed

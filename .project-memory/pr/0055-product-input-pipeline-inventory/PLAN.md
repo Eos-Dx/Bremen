@@ -110,7 +110,7 @@ require external specification from the Bremen/GeoFrame integration team."
 **Inventory result**: No protobuf `.proto` files, `protobuf` dependency,
 or protobuf parsing code exists in the repo. The `config/` directory
 contains `measurement_protocol` references in JSON config — these are
-metadata fields in `aramis_product_versioning.json`, not related to
+metadata fields in `aramina_product_versioning.json`, not related to
 protobuf serialization format.
 
 **Plan in contract**: "Protobuf-derived data is a candidate external input

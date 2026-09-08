@@ -238,7 +238,7 @@ class TestWorkflowIncompatibility:
         reset_for_tests()
 
     def test_wrong_workflow_rejected(self):
-        entry = _make_entry(workflow_id="aramis")
+        entry = _make_entry(workflow_id="aramina")
         reg = ModelRegistry(entries=(entry,), catalog_status="available", available_count=1)
         initialize_registry(reg)
         from bremen.api.model_catalog import resolve_model, ModelIncompatibleError

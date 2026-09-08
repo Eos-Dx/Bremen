@@ -127,10 +127,10 @@ VALIDATION:
   - command: grep -R -I -n "https://\|http://.*cdn\|unpkg\|jsdelivr\|googleapis\|fontawesome" src/bremen/demo_ui.py
     exit_code: 1
     output: "No external assets/CDN in source"
-  - command: grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" src/bremen
+  - command: grep -R -I -n "Aramina\|aramina\|M2Q\|BENIGN vs CANCER" src/bremen
     exit_code: 0
     output: "Only in demo_evidence.py prohibition patterns and validation code"
-    note: "No Aramis dependency or product labels in UI/server/tests"
+    note: "No Aramina dependency or product labels in UI/server/tests"
   - command: grep -R -I -n "diagnosis\|diagnose\|replaces MRI\|replace MRI\|replaces biopsy\|replace biopsy\|replaces radiologist\|replace radiologist\|replaces clinician\|replace clinician" src/bremen tests/test_bremen_demo_ui.py tests/test_bremen_api_server.py
     exit_code: 0
     output: "Only safe negation language (Does not replace...) and prohibition patterns"
@@ -197,7 +197,7 @@ SNAPSHOT_DELTA:
 # ---------------------------------------------------------------------------
 SCOPE_CHECK:
   verdict: pass
-  details: "Implementation focuses exclusively on demo UX polish and readiness fixes for /demo. No React/frontend build, deployment automation, multi-tenancy, model profiles/plugins, or Aramis alignment introduced."
+  details: "Implementation focuses exclusively on demo UX polish and readiness fixes for /demo. No React/frontend build, deployment automation, multi-tenancy, model profiles/plugins, or Aramina alignment introduced."
 
 # ---------------------------------------------------------------------------
 # UX REDESIGN CHECK
@@ -281,7 +281,7 @@ SAFETY_CHECK:
   details: |-
     No unsafe deserialization — only existing controlled modules use joblib. No new
     joblib.load() or pickle.load() in demo_ui.py or server.py. No raw H5 logging,
-    no real patient data committed, no Aramis dependency, no clinical/replacement
+    no real patient data committed, no Aramina dependency, no clinical/replacement
     claims (only safe negation "Does not replace..."), no deployment mutation,
     no new dependencies. technical_demo_only preserved in all responses.
 
@@ -388,7 +388,7 @@ BOUNDARY_CONFIRMATIONS:
   no_unsafe_model_loading: true
   no_h5_mutation: true
   no_committed_h5_patient_data: true
-  no_aramis_dependency: true
+  no_aramina_dependency: true
   no_clinical_diagnosis_replacement_claims: true
   implementation_report_present: true
   no_h5_model_tfstate_artifacts: true

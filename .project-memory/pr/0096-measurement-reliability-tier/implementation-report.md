@@ -69,7 +69,7 @@ Deferred to follow-up PR (as approved). JSON-only emission.
 - No raw measurement values — only aggregate int counts
 - No PHI, no patient identifiers, no clinical claims
 - POST /predictions schema unchanged
-- No Aramis code touched, no PR0092 touched
+- No Aramina code touched, no PR0092 touched
 
 ## Validation Results
 

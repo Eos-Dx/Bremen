@@ -302,7 +302,7 @@ scope_control:
   no_feature_changes: true
   no_threshold_changes: true
   no_decision_vocabulary_changes: true
-  no_Aramis_discovery: true
+  no_Aramina_discovery: true
   no_React: true
   no_npm: true
   no_frontend_frameworks: true

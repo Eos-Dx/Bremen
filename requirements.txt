@@ -34,7 +34,7 @@ container @ git+https://github.com/Eos-Dx/container.git@v0.3.0
 # xrd-preprocessing is declared in pyproject.toml as a git+
 # dependency — no local-path replacement needed here.
 #
-# Aramis is not an active Bremen dependency (ADR-0002) — the
+# Aramina is not an active Bremen dependency (ADR-0002) — the
 # stale local-path editable line has been removed.
 
 # S3 model artifact download (PR 0040)

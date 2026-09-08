@@ -49,7 +49,7 @@ Confirmed working in production App Runner after PR0044:
 **Current production smoke failure:**
 ```json
 {
-  "h5_uri": "s3://matur-misc-uk/bremen/prediction-inputs/smoke/v0.1/aramis_real_h5_subset_20260128_5_patients.h5",
+  "h5_uri": "s3://matur-misc-uk/bremen/prediction-inputs/smoke/v0.1/aramina_real_h5_subset_20260128_5_patients.h5",
   "h5_checksum": "sha256:0bda036f08b057d992b329f6bd6834b3bb52cb74b1f3fca3efb08dda5edf655a",
   "target_scan_ref": "target",
   "control_scan_ref": "control",
@@ -412,7 +412,7 @@ def _count_sets(h5_file, sample_path: str) -> int:
 
 ```json
 {
-  "h5_uri": "s3://matur-misc-uk/bremen/prediction-inputs/smoke/v0.1/aramis_real_h5_subset_20260128_5_patients.h5",
+  "h5_uri": "s3://matur-misc-uk/bremen/prediction-inputs/smoke/v0.1/aramina_real_h5_subset_20260128_5_patients.h5",
   "h5_checksum": "sha256:0bda036f08b057d992b329f6bd6834b3bb52cb74b1f3fca3efb08dda5edf655a",
   "target_scan_ref": "calib_20260128_132622/sample_01_20260128_Nova_376_Right",
   "control_scan_ref": "calib_20260128_132622/sample_02_20260128_Nova_376_Left",

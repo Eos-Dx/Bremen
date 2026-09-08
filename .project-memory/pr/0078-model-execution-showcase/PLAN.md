@@ -42,7 +42,7 @@ CanonicalXRDCase → WorkflowRegistry → WorkflowRuntimePlugin
 PR0075–PR0077 provide:
 - canonical XRD normalization via CanonicalXRDCase
 - explicit workflow registry (WorkflowRegistry → WorkflowProvider)
-- independent Bremen and Aramis providers
+- independent Bremen and Aramina providers
 - public runtime orchestration (run_workflow_request)
 - structured job events (JobEvent, EventType enum, 24 typed event types)
 - bounded ephemeral event storage (BoundedEventStore)
@@ -115,7 +115,7 @@ Score and threshold may be displayed only where the existing workflow result/rep
 - Typed intermediate contracts (PreparedArtifact, PreparedWorkflowInput, FeatureSet, FeatureValidation, ModelOutput, OutputValidation, DecisionOutput)
 - Per-stage structured events (28 new event types for artifact, input, feature validation, output validation stages)
 - Bremen lifecycle instrumentation
-- Aramis lifecycle boundary (early stop at readiness check)
+- Aramina lifecycle boundary (early stop at readiness check)
 - Model execution trace API fields
 - Investor showcase frontend mode
 - Visual pipeline (stage-by-stage)
@@ -136,7 +136,7 @@ This PR does **not**:
 - Define Bremen P1/P2/P3 science
 - Train, tune, calibrate, or replace models
 - Certify Bremen scientifically
-- Implement missing Aramis science
+- Implement missing Aramina science
 - Combine model results
 - Diagnose disease
 - Replace clinicians
@@ -159,7 +159,7 @@ WorkflowRegistry
     → build_features()
     → run_inference()
     → execute()  -- monolithic
-  → AramisProvider (scaffold)
+  → AraminaProvider (scaffold)
     → readiness()
     → validate_compatibility()  -- always compatible
     → execute()  -- returns unavailable
@@ -313,7 +313,7 @@ workflow resolved
 → report unavailable
 ```
 
-### Aramis unconfigured:
+### Aramina unconfigured:
 ```
 workflow resolved
 → readiness evaluated
@@ -541,9 +541,9 @@ Current Bremen boundaries to instrument:
 
 Do not duplicate Bremen feature construction. Do not change the 15-feature order. Do not change numerical behavior. Do not make Bremen scientifically certified.
 
-## Aramis Boundary
+## Aramina Boundary
 
-The Aramis provider must expose the same plugin lifecycle interface even where the runtime is unavailable.
+The Aramina provider must expose the same plugin lifecycle interface even where the runtime is unavailable.
 
 ```
 workflow resolved → readiness checked → workflow_unavailable
@@ -553,11 +553,11 @@ workflow resolved → readiness checked → workflow_unavailable
   → report unavailable
 ```
 
-Expected trace for Aramis:
+Expected trace for Aramina:
 ```json
 {
   "execution_trace": {
-    "workflow_id": "aramis",
+    "workflow_id": "aramina",
     "current_stage": "unavailable",
     "completed_stage_count": 1,
     "total_applicable_stage_count": 1,
@@ -574,7 +574,7 @@ Expected trace for Aramis:
 }
 ```
 
-Do not fabricate deeper stages. Do not recreate Aramis scientific runtime.
+Do not fabricate deeper stages. Do not recreate Aramina scientific runtime.
 
 ## Job API Changes
 
@@ -795,9 +795,9 @@ No event is emitted for every numerical operation or feature. Events represent m
 - Started/completed pairing per stage
 - Impossible-order rejection (no inference event before features event)
 - Nova early stop (no feature/inference events after configuration_required)
-- Aramis unavailable early stop (no model/inference events after workflow_unavailable)
+- Aramina unavailable early stop (no model/inference events after workflow_unavailable)
 - Bremen full trace (all stages present in order)
-- Provider isolation (Bremen events not affecting Aramis)
+- Provider isolation (Bremen events not affecting Aramina)
 - Plugin provenance fields
 - Safe stage details (no coefficient exposure, no feature-value exposure)
 - No raw arrays in event details
@@ -818,7 +818,7 @@ No event is emitted for every numerical operation or feature. Events represent m
 - Bremen decision visualization
 - Certification pending state
 - Nova configuration-required state
-- Aramis unavailable state
+- Aramina unavailable state
 - Unknown workflow generic fallback
 - Event click highlights corresponding pipeline stage
 - SSE reconnect/late subscriber reconstruction
@@ -853,7 +853,7 @@ Model Runtime Plugin Tracing and Investor Showcase
 - Lifecycle state machine with ordering rules
 - Bremen instrumentation for all lifecycle stages
 - Nova (configuration-required) early-stop trace
-- Aramis unavailable lifecycle boundary
+- Aramina unavailable lifecycle boundary
 - Execution trace projection in job API
 - Investor showcase mode (real API, real SSE, live visualization)
 - Visual pipeline (stage-by-stage layout)
@@ -869,8 +869,8 @@ Model Runtime Plugin Tracing and Investor Showcase
 ### Next milestone:
 
 ```
-- Authoritative Aramis runtime integration
-- Aramis report parity
+- Authoritative Aramina runtime integration
+- Aramina report parity
 - Persistent job/event history (database backend)
 - PDF/report artifact storage
 - Bremen scientific parity evidence
@@ -910,7 +910,7 @@ Model Runtime Plugin Tracing and Investor Showcase
 12. **Output validation** — output validation events
 13. **Decision stage** — decision policy application events
 14. **Report stage** — report generation events
-15. **Nova/Aramis early-stop trace** — lifecycle ends at configuration_required/unavailable
+15. **Nova/Aramina early-stop trace** — lifecycle ends at configuration_required/unavailable
 16. **Execution trace projection** — derive execution_trace from stored events
 17. **Job API extension** — add execution_trace field, filtered event queries
 18. **Showcase frontend** — visual pipeline, expanded cards, stage drawer, decision viz
@@ -932,7 +932,7 @@ Model Runtime Plugin Tracing and Investor Showcase
 - `src/bremen/api/event_schema.py` — Add 28 new EventType enum members, extend prohibited keys
 - `src/bremen/api/workflow_provider.py` — Add WorkflowRuntimePlugin protocol check, optional event_sink
 - `src/bremen/api/workflow_bremen.py` — Instrument with lifecycle stage events
-- `src/bremen/api/workflow_aramis.py` — Instrument with early-stop trace
+- `src/bremen/api/workflow_aramina_scaffold.py` — Instrument with early-stop trace
 - `src/bremen/api/workflow_orchestrator.py` — Wire EventSink through execution context
 - `src/bremen/api/job_api_handler.py` — Add execution_trace to job responses, filtered event queries
 - `src/bremen/api/server.py` — Register showcase route, pass event_store to handlers
@@ -951,7 +951,7 @@ Model Runtime Plugin Tracing and Investor Showcase
 - `src/bremen/api/model_state.py` — No changes to model loading
 - `src/bremen/api/model_source.py` — No changes to model source resolution
 - `src/bremen/api/report_bremen.py` — No changes to report schema
-- `src/bremen/api/report_aramis.py` — No changes to report boundary
+- `src/bremen/api/report_aramina.py` — No changes to report boundary
 - `src/bremen/api/report_provider.py` — No changes to report contract
 - `src/bremen/api/jobs.py` — No changes to InMemoryJobStore
 - `src/bremen/api/schemas.py` — No changes to response schemas
@@ -980,7 +980,7 @@ Stop planning with a blocker if:
 - Model weights would need to be exposed
 - Feature values would need to be logged
 - Bremen numerical behavior would need to change
-- Aramis stages would need to be fabricated
+- Aramina stages would need to be fabricated
 - Training/evaluation code would enter production runtime
 - A second competing plugin registry would be required
 - Provider code would need hidden global event state
@@ -1003,7 +1003,7 @@ Stop planning with a blocker if:
 ### Gate 3: Lifecycle order pass
 - Bremen trace order: artifact → input → features → inference → decision → report
 - Nova trace: input compatibility → configuration_required (stop)
-- Aramis trace: readiness → unavailable (stop)
+- Aramina trace: readiness → unavailable (stop)
 - No completion event without corresponding started event
 - Impossible-order events rejected
 
@@ -1020,7 +1020,7 @@ Stop planning with a blocker if:
 - No feature/inference/report events emitted
 - Trace shows stopped stage
 
-### Gate 6: Aramis unavailable trace pass
+### Gate 6: Aramina unavailable trace pass
 - Readiness evaluated
 - Workflow_unavailable status
 - No model/lifecycle events emitted
@@ -1105,11 +1105,11 @@ HEAD: `b0ae6cadb45981725b7f0d0a10781bb3ac7d6a9c`
 BRANCH: `0078-model-execution-showcase`
 TARGET PLUGIN CONTRACT: WorkflowRuntimePlugin interface in runtime_plugin.py — composable stage layer owned by provider, not a second registry
 EXECUTION CONTEXT: WorkflowExecutionContext with EventSink protocol — no hidden global state, no patient identifiers
-LIFECYCLE STATE MACHINE: Formal ordering rules — Bremen (10 stages), Nova (early stop), Aramis (early stop) — impossible-order rejection
+LIFECYCLE STATE MACHINE: Formal ordering rules — Bremen (10 stages), Nova (early stop), Aramina (early stop) — impossible-order rejection
 SAFE EVENT MODEL: 28 new EventType members, extended prohibited keys (feature_value, coefficient, scaler_*, imputer_*, intercept)
 BREMEN INSTRUMENTATION: All 10 lifecycle stages emit started/completed events — artifact → input → features → inference → decision → report
 NOVA EARLY STOP: Input compatibility → configuration_required — no feature/inference/report events
-ARAMIS BOUNDARY: Readiness → unavailable — no model/lifecycle events
+ARAMINA BOUNDARY: Readiness → unavailable — no model/lifecycle events
 TRACE PROJECTION: execution_trace derived from stored events at query time, not separate state
 INVESTOR SHOWCASE: `/demo/workspace?view=showcase` — real APIs, real SSE, no mock data, no fake timers
 VISUAL PIPELINE: Input → XRD → Plugin → Contract → Features → Inference → Decision → Report — event-driven transitions
@@ -1117,7 +1117,7 @@ STAGE DETAILS: Allowlisted per stage — feature contract shows counts only, mod
 DECISION VISUALIZATION: Score + threshold + decision code + scientific certification flag — no diagnosis language
 PRIVACY: Extended prohibited-key list, four-zone model preserved, all existing privacy tests pass
 ACCESSIBILITY: Keyboard nav, text+icon status, prefers-reduced-motion, semantic <ol>, WCAG AA contrast
-ROADMAP UPDATE: Current = PR0078, Next = Aramis integration + persistent storage, Later = more providers + dashboards
+ROADMAP UPDATE: Current = PR0078, Next = Aramina integration + persistent storage, Later = more providers + dashboards
 IMPLEMENTATION SEQUENCE: 20 incremental gates from execution context through deployment smoke
 EXPECTED FILES: 6 new files, 12 modified files
 BLOCKERS: None — all stop conditions checked and clear

@@ -302,7 +302,7 @@ Events are emitted by the stages that actually complete. No premature events.
 - No H5 mutation
 - No raw patient data in API/UI/logs
 - No clinical labels as prediction targets
-- No Aramis product dependency
+- No Aramina product dependency
 - `technical_demo_only: true`
 - No clinical diagnosis/replacement claims
 
@@ -364,7 +364,7 @@ grep -n "xrd.preprocessing\|xrd_preprocessing\|integrat" src/bremen tests || tru
 # Expected: only in Matador adapter or preprocessing bridge, not duplicated
 
 # No clinical/product target labels
-grep -R -I -n "biopsy\|birads\|target_side\|BENIGN\|CANCER\|Aramis\|aramis" src/bremen tests || true
+grep -R -I -n "biopsy\|birads\|target_side\|BENIGN\|CANCER\|Aramina\|aramina" src/bremen tests || true
 # Expected: only in test assertions verifying absence or structural fixture context
 
 # No unsafe deserialization
@@ -432,7 +432,7 @@ find . -name ".DS_Store" -print
 - confirm: no fake success planned: yes
 - confirm: no clinical/product labels used as target: yes
 - confirm: no patient identifiers exposed: yes
-- confirm: no Aramis runtime/product dependency: yes
+- confirm: no Aramina runtime/product dependency: yes
 - confirm: no persisted Matador/Bremen derived artifact: yes
 - confirm: no React/package/dependency/startup/infra changes: yes
 - confirm: no unsafe model loading: yes

@@ -53,7 +53,7 @@ The smoke H5 object is already in place:
 
 | Property | Value |
 |---|---|
-| **S3 URI** | `s3://matur-misc-uk/bremen/prediction-inputs/smoke/v0.1/aramis_real_h5_subset_20260128_5_patients.h5` |
+| **S3 URI** | `s3://matur-misc-uk/bremen/prediction-inputs/smoke/v0.1/aramina_real_h5_subset_20260128_5_patients.h5` |
 | **SHA-256** | `0bda036f08b057d992b329f6bd6834b3bb52cb74b1f3fca3efb08dda5edf655a` |
 | **ContentLength** | 40324488 |
 | **ContentType** | `application/x-hdf5` |

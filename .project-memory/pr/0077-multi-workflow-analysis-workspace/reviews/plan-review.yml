@@ -7,7 +7,7 @@ review:
     - .project-memory/pr/0077-multi-workflow-analysis-workspace/PLAN.md
     - src/bremen/api/workflow_orchestrator.py
     - src/bremen/api/workflow_bremen.py
-    - src/bremen/api/workflow_aramis.py
+    - src/bremen/api/workflow_aramina_scaffold.py
     - src/bremen/api/workflow_provider.py
     - src/bremen/api/workflow_registry.py
     - src/bremen/api/server.py
@@ -49,7 +49,7 @@ confirmed:
   report_failure_isolated: true
   bremen_language_correct: true
   bremen_certification_honest: true
-  aramis_content_not_fabricated: true
+  aramina_content_not_fabricated: true
   workflow_ui_dynamic: true
   generic_workflow_fallback: true
   process_panel_structured: true
@@ -80,9 +80,9 @@ summary: >
   (5) build_decision_support_report exists at decision_support.py:48 — confirmed.
   The plan defines a complete job model, versioned event schema, bounded
   in-memory store, SSE contract, separate report architecture for Bremen and
-  Aramis, accessible frontend workspace, privacy zones with allowlists,
+  Aramina, accessible frontend workspace, privacy zones with allowlists,
   recursion safeguard, roadmap update, and comprehensive tests. Scientific
-  boundaries are preserved — no fabricated Aramis content, no combined verdict,
+  boundaries are preserved — no fabricated Aramina content, no combined verdict,
   no diagnosis claims, no clinician-replacement language, scientifically_certified
   flag visible. Scope is focused on observability, reports, and frontend
   presentation with no redesign of existing scientific infrastructure.

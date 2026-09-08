@@ -7,7 +7,7 @@ BLOCKERS
 WARNINGS
 - `tests/test_bremen_cloud_config.py` includes negative safety assertions that mention `/Users`, `/home`, `file://`, and `s3://`; these are acceptable because they are explicit rejection cases, not supported runtime paths.
 - `src/bremen/config.py` now exposes cloud-aware metadata only; it does not read S3 or load models, which is correct for this PR but means API integration remains deferred.
-- The repository still contains an existing H5 fixture at `./tests/data/aramis_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR.
+- The repository still contains an existing H5 fixture at `./tests/data/aramina_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR.
 
 VALIDATION
 - `git rev-parse --verify HEAD` ✅ `fcfd0114d462c9aa23c081258b471846f93972c3` on branch `0020-cloud-aware-config-sourcing`
@@ -112,7 +112,7 @@ COMMIT READINESS
   - tests/test_bremen_cloud_config.py
   - .project-memory/pr/0020-cloud-aware-config-sourcing/reviews/precommit-review.yml
 - files to exclude:
-  - ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5 (existing fixture, not modified)
+  - ./tests/data/aramina_real_h5_subset_20260128_5_patients.h5 (existing fixture, not modified)
 
 BOUNDARY CONFIRMATIONS
 - no implementation files edited by reviewer

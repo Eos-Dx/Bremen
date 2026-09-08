@@ -127,7 +127,7 @@ NOVA_STAGE_ORDER: tuple[str, ...] = (
     "input_prepared",
 )
 
-ARAMIS_STAGE_ORDER: tuple[str, ...] = (
+ARAMINA_STAGE_ORDER: tuple[str, ...] = (
     "readiness",
 )
 

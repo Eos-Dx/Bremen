@@ -7,7 +7,7 @@ BLOCKERS
 WARNINGS
 - `docs/api_contract.md` is a draft contract and still contains the explicit disclaimer that Bremen is not a diagnostic replacement; this is correct and required, but it means the document is intentionally not a final runtime guarantee.
 - The API skeleton is framework-neutral and in-memory by design. That is acceptable for this PR, but it means the job store is test/dev only and not persistent.
-- The repository still contains an existing H5 fixture at `./tests/data/aramis_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR.
+- The repository still contains an existing H5 fixture at `./tests/data/aramina_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR.
 
 VALIDATION
 - `git rev-parse --verify HEAD` ✅ `d5741819cd4a903bad34d38a1e23404b2d44525c` on branch `0019-api-contract-microservice-skeleton`
@@ -34,10 +34,10 @@ VALIDATION
 - `grep -R -I -n -E "\.h5|\.hdf5|h5py" src/bremen/api tests/test_bremen_api_contract.py tests/test_bremen_api_skeleton.py 2>/dev/null || true` ✅ only negative-test references in the test file; no H5/HDF5 references in API implementation
 - `grep -R -I -n -E "boto3|import requests|from requests|httpx|urllib|s3://|aws_access_key|secret_access_key" src/bremen/api tests/test_bremen_api_contract.py tests/test_bremen_api_skeleton.py 2>/dev/null || true` ✅ only negative-test references in the test file; no AWS/S3/network calls in API implementation
 - `grep -R -I -n -E "diagnos|cancer detected|replace MRI|replace biopsy|replace radiologist|replace clinician" docs/api_contract.md src/bremen/api tests/test_bremen_api_contract.py tests/test_bremen_api_skeleton.py 2>/dev/null || true` ✅ only the intended disclaimer / negative-test references
-- `grep -R -I -n -E "Aramis|aramis" docs/api_contract.md src/bremen/api tests/test_bremen_api_contract.py tests/test_bremen_api_skeleton.py 2>/dev/null || true` ✅ only negative-test references in the contract tests; no Aramis identity in API implementation
+- `grep -R -I -n -E "Aramina|aramina" docs/api_contract.md src/bremen/api tests/test_bremen_api_contract.py tests/test_bremen_api_skeleton.py 2>/dev/null || true` ✅ only negative-test references in the contract tests; no Aramina identity in API implementation
 - `git diff --name-only -- ROADMAP.md docs/architecture.md docs/adr README.md docs/roadmap.md docs/machine_learning_concept.md docs/repository_cleanup.md .github Dockerfile .dockerignore requirements.txt pyproject.toml sonar-project.properties environment.yml Makefile config examples tests/data agents` ✅ no output
 - `git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|npy|npz)$" || true` ✅ no output
-- `find . -path "./.git" -prune -o -path "./venv" -prune -o -path "./.venv" -prune -o -type f \( -name "*.h5" -o -name "*.hdf5" -o -name "*.joblib" -o -name "*.pkl" -o -name "*.npy" -o -name "*.npz" \) -print` ✅ existing fixture found at `./tests/data/aramis_real_h5_subset_20260128_5_patients.h5`
+- `find . -path "./.git" -prune -o -path "./venv" -prune -o -path "./.venv" -prune -o -type f \( -name "*.h5" -o -name "*.hdf5" -o -name "*.joblib" -o -name "*.pkl" -o -name "*.npy" -o -name "*.npz" \) -print` ✅ existing fixture found at `./tests/data/aramina_real_h5_subset_20260128_5_patients.h5`
 - `find . -name ".DS_Store" -print` ✅ no output
 - `date -u +%Y-%m-%dT%H:%M:%SZ` ✅ `2026-07-03T16:03:57Z`
 
@@ -111,7 +111,7 @@ IMPORT/SECURITY CHECK
 CLINICAL/IDENTITY CHECK
 - pass: no clinical validation claim added
 - pass: no diagnostic replacement claim added beyond the required disclaimer language
-- pass: no Aramis active architecture introduced
+- pass: no Aramina active architecture introduced
 
 TESTING CHECK
 - pass: focused API tests passed
@@ -142,7 +142,7 @@ COMMIT READINESS
   - tests/test_bremen_api_skeleton.py
   - .project-memory/pr/0019-api-contract-microservice-skeleton/reviews/precommit-review.yml
 - files to exclude:
-  - ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5 (existing fixture, not modified)
+  - ./tests/data/aramina_real_h5_subset_20260128_5_patients.h5 (existing fixture, not modified)
 
 BOUNDARY CONFIRMATIONS
 - no implementation files edited by reviewer

@@ -19,7 +19,7 @@ from .lifecycle_contracts import (
 from .runtime_plugin import (
     BREMEN_STAGE_ORDER,
     BREMEN_STAGE_LABELS,
-    ARAMIS_STAGE_ORDER,
+    ARAMINA_STAGE_ORDER,
     ALL_STAGE_LABELS,
 )
 
@@ -61,8 +61,8 @@ def build_trace_from_events(
     # Determine stage order
     if workflow_id == "bremen":
         stage_order = BREMEN_STAGE_ORDER
-    elif workflow_id == "aramis":
-        stage_order = ARAMIS_STAGE_ORDER
+    elif workflow_id == "aramina":
+        stage_order = ARAMINA_STAGE_ORDER
     else:
         stage_order = BREMEN_STAGE_ORDER  # default
 
@@ -187,6 +187,6 @@ def measure_event_budget(
     if workflow_id == "bremen":
         # 11 stages × 2 events (started+completed) + request events
         return len(BREMEN_STAGE_ORDER) * 2 + 4
-    elif workflow_id == "aramis":
+    elif workflow_id == "aramina":
         return 2  # readiness check only
     return 0

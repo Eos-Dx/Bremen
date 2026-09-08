@@ -160,7 +160,7 @@ All 1322 existing tests pass (11 skipped).
 | `alert()` in source | 0 | Only in test assertions |
 | `--ui` flag | 0 | Only in test assertions |
 | External assets/CDN | 0 | Only in test assertions |
-| Aramis references | 0 | Only prohibition patterns and test assertions |
+| Aramina references | 0 | Only prohibition patterns and test assertions |
 | React/frontend | 0 | No matches |
 | Forbidden files changed | 0 | No output |
 | Docs/ROADMAP changed | 0 | No output |
@@ -238,7 +238,7 @@ None.
 - confirm: no deployment mutation: yes
 - confirm: no Terraform/GitHub Actions/Docker changes: yes
 - confirm: no unsafe model loading added: yes
-- confirm: no Aramis dependency added: yes
+- confirm: no Aramina dependency added: yes
 - confirm: no clinical diagnosis/replacement claims added: yes
 - confirm: no H5/model/tfstate artifacts: yes
 - confirm: no git mutation commands: yes

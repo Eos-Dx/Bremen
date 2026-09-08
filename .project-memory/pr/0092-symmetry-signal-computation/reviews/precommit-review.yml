@@ -21,7 +21,7 @@ duplicate_feature_handling: "sigma_l1==meanrms1 and sigma_l2==sigma_r2==meanrms2
 bucketing_behavior: "_percentile_bucket: pure function, percentile-position against reference bounds. Returns not_available for None bounds, non-numeric, or non-finite values. value <= bounds.small -> small, value <= bounds.moderate -> moderate, value > bounds.moderate -> larger. _aggregate_signal_level: most extreme (highest) level across per-feature levels. All cutoffs come from reference artifact, never hardcoded."
 output_wiring: "External: symmetry_signals field in build_decision_support_report() output with schema_status, measurement_summary, signals (label + difference_level), note. Internal: symmetry_signal_detail under supporting_technical_evidence in BremenReportProvider._build_report() with feature_family, checksum_prefix (<=8 chars), reference_artifact_version. feature_artifact_prediction.py passes feature_values to build_decision_support_report() for consistency. POST /predictions schema unchanged (additive field)."
 not_available_behavior: "ref_stats None -> all not_available schema_status unavailable. Invalid artifact shape -> all not_available schema_status error. Signal missing from artifact -> that signal not_available. Non-finite feature value -> not_available for that feature. Missing feature in feature_values dict -> not_available for that feature. All 5 signals always present."
-safety: "No raw feature values in external or internal output. No percentile cutoffs in external or internal output. No full checksum (truncated to 8 chars). No S3 paths, manifest keys, model internals, coefficients, patient names, PHI, raw H5 paths, or exception text exposed. Decision vocabulary unchanged. POST /predictions schema unchanged. No HTTP routes, HTML, CSS, or PDF rendering introduced. No Aramis data reuse. No fabricated thresholds. No mockup sample values used as runtime data."
+safety: "No raw feature values in external or internal output. No percentile cutoffs in external or internal output. No full checksum (truncated to 8 chars). No S3 paths, manifest keys, model internals, coefficients, patient names, PHI, raw H5 paths, or exception text exposed. Decision vocabulary unchanged. POST /predictions schema unchanged. No HTTP routes, HTML, CSS, or PDF rendering introduced. No Aramina data reuse. No fabricated thresholds. No mockup sample values used as runtime data."
 tests:
   total: 35
   classes:
@@ -63,7 +63,7 @@ validation:
     result: "20 passed"
   - command: "python -m pytest -q"
     result: "2054 passed, 11 skipped, 28 warnings"
-scope_control: "No inference changes. No preprocessing changes. No model catalog discovery changes. No Docker/requirements/CI/agents changes. No model artifacts or manifests changed. No Aramis scope. No rendering/PDF/UI work. No POST /predictions schema changes. Backward-compatible signature extension only."
+scope_control: "No inference changes. No preprocessing changes. No model catalog discovery changes. No Docker/requirements/CI/agents changes. No model artifacts or manifests changed. No Aramina scope. No rendering/PDF/UI work. No POST /predictions schema changes. Backward-compatible signature extension only."
 implementation_report:
   matches_actual_diff: true
   files_claimed: "symmetry_signals.py CREATED, decision_support.py MODIFIED, report_bremen.py MODIFIED, feature_artifact_prediction.py MODIFIED, test file CREATED, api_contract.md MODIFIED"

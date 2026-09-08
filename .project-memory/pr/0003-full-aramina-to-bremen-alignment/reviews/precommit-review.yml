@@ -3,7 +3,7 @@ review:
   verdict: warning
   blockers: []
   warnings:
-    - "Active repository identity is now Bremen, but README/AGENTS still retain historical Aramis provenance notes and legacy config references as allowed deferred source-material."
+    - "Active repository identity is now Bremen, but README/AGENTS still retain historical Aramina provenance notes and legacy config references as allowed deferred source-material."
   validation:
     - command: "python -m compileall src tests"
       exit_code: 0
@@ -27,8 +27,8 @@ review:
         container import OK
         container supported versions: ['0_1', '0_2', '0_3']
   files_read:
-    - .project-memory/pr/0003-full-aramis-to-bremen-alignment/PLAN.md
-    - .project-memory/pr/0003-full-aramis-to-bremen-alignment/reviews/plan-review.yml
+    - .project-memory/pr/0003-full-aramina-to-bremen-alignment/PLAN.md
+    - .project-memory/pr/0003-full-aramina-to-bremen-alignment/reviews/plan-review.yml
     - .project-memory/project_contract.yml
     - .project-memory/memory_index.yml
     - README.md
@@ -76,11 +76,11 @@ review:
     - docs/agbh_quality_exclusions.md
     - docs/product_development_rules.md
   files_written:
-    - .project-memory/pr/0003-full-aramis-to-bremen-alignment/reviews/precommit-review.yml
+    - .project-memory/pr/0003-full-aramina-to-bremen-alignment/reviews/precommit-review.yml
   evidence_written: []
   snapshot_delta:
     - "src/bremen exists"
-    - "src/aramis absent"
+    - "src/aramina absent"
     - "tests/test_bremen_import_identity.py present"
     - "container.VERSION_REGISTRY includes 0_3"
     - "compileall passed"
@@ -99,10 +99,10 @@ review:
     validation_drift: none
     semantic_drift: none
     future_scope_drift: none
-    aramis_reference_drift: allowed historical/provenance references only
+    aramina_reference_drift: allowed historical/provenance references only
     bremen_safety_drift: none
     accepted_deviations:
-      - "Historical Aramis references remain only in allowed provenance/context locations."
+      - "Historical Aramina references remain only in allowed provenance/context locations."
     blockers: []
   scope_check: pass
   package_rename_check: pass
@@ -111,7 +111,7 @@ review:
   test_check: pass
   config_example_check: pass
   repository_identity_check: pass
-  aramis_reference_policy_check: pass
+  aramina_reference_policy_check: pass
   runtime_drift_check: pass
   ml_preprocessing_h5_joblib_safety_check: pass
   dependency_check: pass

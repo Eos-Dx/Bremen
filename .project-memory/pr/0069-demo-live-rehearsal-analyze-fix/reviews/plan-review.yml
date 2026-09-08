@@ -6,7 +6,7 @@ BLOCKERS:
 
 WARNINGS:
 - PLAN.md _list_s3_containers() docstring says "returns empty list" but code raises re-raise; this is a minor documentation/comment inconsistency. The caller (in _handle_demo_h5_containers_list) must catch the exception to set list_failed status. The coder should align the docstring or comment to match the raise behavior.
-- PLAN.md references S3 path containing "aramis" in example H5 filename (`aramis_real_h5_subset_20260128_5_patients.h5`). This is acknowledged as factual observation of existing S3 objects, not a planned Aramis dependency. Acceptable but should be noted for review awareness.
+- PLAN.md references S3 path containing "aramina" in example H5 filename (`aramina_real_h5_subset_20260128_5_patients.h5`). This is acknowledged as factual observation of existing S3 objects, not a planned Aramina dependency. Acceptable but should be noted for review awareness.
 
 VALIDATION:
 - command: git rev-parse --verify HEAD
@@ -103,7 +103,7 @@ BOUNDARY CONFIRMATIONS:
 
 SCOPE CHECK: pass
 - PLAN focuses on three specific live-rehearsal blockers (S3 catalog listing, uploaded container selectability, Analyze failure observability).
-- No broad frontend/design work, deployment automation, multi-tenancy, model profiles, plugins, or Aramis alignment.
+- No broad frontend/design work, deployment automation, multi-tenancy, model profiles, plugins, or Aramina alignment.
 
 S3 CATALOG CHECK: pass
 - PLAN requires listing configured S3 prefix (boto3 list_objects_v2 paginator).
@@ -145,7 +145,7 @@ SAFETY CHECK: pass
 - No unsafe deserialization (uses existing ModelState and run_inference()).
 - No raw H5 logging — only key, filename, size, last_modified.
 - No real patient data committed.
-- No Aramis dependency.
+- No Aramina dependency.
 - No clinical/replacement claims — technical_demo_only: true in all responses.
 - No deployment mutation.
 - No new dependencies.
@@ -161,7 +161,7 @@ VALIDATION CHECK: pass
 - Includes focused API/UI tests (S3 listing mock, merged catalog, exception logging, mock inference).
 - Full pytest and compile checks.
 - CLI help checks (bremen --help, serve --help, demo-smoke --help, demo-run --help).
-- Forbidden-pattern grep checks for: logger.exception, React/webpack/vite, alert(), --ui, external assets/CDN, Aramis/M2Q/BENIGN vs CANCER, clinical/replacement claims, unsafe deserialization.
+- Forbidden-pattern grep checks for: logger.exception, React/webpack/vite, alert(), --ui, external assets/CDN, Aramina/M2Q/BENIGN vs CANCER, clinical/replacement claims, unsafe deserialization.
 - Forbidden file diff checks (.github, infra/terraform, Dockerfile, requirements.txt, etc.).
 - Model/data artifact checks (.h5, .hdf5, .joblib, .pkl, .npy, .npz, tfstate).
 - .DS_Store check.
@@ -209,7 +209,7 @@ BOUNDARY CONFIRMATIONS:
 - no unsafe model loading planned: confirmed
 - no H5 mutation planned: confirmed
 - no committed H5/patient data planned: confirmed
-- no Aramis dependency planned: confirmed
+- no Aramina dependency planned: confirmed
 - no clinical diagnosis/replacement claims planned: confirmed
 - Bremen safety identity preserved: confirmed
 - implementation assigned to coder: confirmed

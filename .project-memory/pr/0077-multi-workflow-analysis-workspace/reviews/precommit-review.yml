@@ -15,13 +15,13 @@ review:
     - src/bremen/api/job_api_handler.py
     - src/bremen/api/report_provider.py
     - src/bremen/api/report_bremen.py
-    - src/bremen/api/report_aramis.py
+    - src/bremen/api/report_aramina.py
     - src/bremen/api/server.py
     - src/bremen/api/workflow_orchestrator.py
     - src/bremen/api/workflow_bremen.py
     - src/bremen/api/workflow_provider.py
     - src/bremen/api/workflow_registry.py
-    - src/bremen/api/workflow_aramis.py
+    - src/bremen/api/workflow_aramina_scaffold.py
     - src/bremen/api/model_state.py
     - src/bremen/api/app.py
     - src/bremen/workspace_ui.py
@@ -85,7 +85,7 @@ confirmed:
   reports_workflow_specific: true
   bremen_language_correct: true
   bremen_certification_honest: true
-  aramis_content_not_fabricated: true
+  aramina_content_not_fabricated: true
   workspace_uses_real_api: true
   workflow_cards_dynamic: true
   unknown_workflow_fallback: true
@@ -140,7 +140,7 @@ summary: >
   2. WORKSPACE CONTRACT DOCUMENTED — docs/workspace_contract.md covers
      all endpoints, event schema, SSE contract with Condition-based
      delivery, retention, privacy allowlists, and known limitations.
-     No false claims about persistence, Aramis availability, or
+     No false claims about persistence, Aramina availability, or
      Bremen certification.
 
   3. DEAD EVENT CODE REMOVED — _emit_to_store and

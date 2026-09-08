@@ -284,7 +284,7 @@ class TestControlRoomLaunchFlow:
         )
 
     def test_launch_flow_workflow_compat(self):
-        """Aramis/incompatible containers are excluded."""
+        """Aramina/incompatible containers are excluded."""
         if not _node_available():
             pytest.skip("Node.js not available")
 

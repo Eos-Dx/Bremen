@@ -1,6 +1,6 @@
 # Product Development Rules
 
-These rules are for Aramis and future EOS medical-model products.
+These rules are for Aramina and future EOS medical-model products.
 
 They are development controls, not a regulatory clearance claim.
 
@@ -27,7 +27,7 @@ Software as a Medical Device guidance
 
 ## Product Intent
 
-### Aramis
+### Aramina
 
 Clinical question:
 
@@ -96,7 +96,7 @@ decision threshold
 performance requirements
 ```
 
-Never mix Aramis and Bremen filters silently.
+Never mix Aramina and Bremen filters silently.
 
 Every MLflow run must include:
 
@@ -113,12 +113,12 @@ preprocessing_config
 model_dataset_fingerprint
 ```
 
-## Aramis Human-1 Versioning
+## Aramina Human-1 Versioning
 
 Product versioning is tracked in:
 
 ```text
-config/aramis_product_versioning.json
+config/aramina_product_versioning.json
 ```
 
 Conservative K-alpha-only rule:
@@ -213,7 +213,7 @@ stored selected and dropped measurement IDs
 
 ## Label Rules
 
-Aramis current label grouping is defined at `specimenId` / breast-side level.
+Aramina current label grouping is defined at `specimenId` / breast-side level.
 Full branch-specific preprocessing rules are in:
 
 ```text
@@ -279,7 +279,7 @@ threshold
 confidence intervals
 ```
 
-For Aramis, sensitivity and false-negative analysis are safety-critical.
+For Aramina, sensitivity and false-negative analysis are safety-critical.
 
 For Bremen, false-negative and false-positive workflow burden must both be
 tracked.
@@ -309,7 +309,7 @@ predictions.csv
 Required MLflow tags:
 
 ```text
-product = Aramis or Bremen
+product = Aramina or Bremen
 intended_use_id
 pipeline_version
 preprocessing_git_sha

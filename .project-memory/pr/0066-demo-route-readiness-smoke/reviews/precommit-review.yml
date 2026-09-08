@@ -77,7 +77,7 @@ VALIDATION:
   - command: grep -R -I -n "https://\|http://.*cdn\|unpkg\|jsdelivr\|googleapis\|fontawesome" src/bremen/demo_ui.py tests/test_bremen_demo_ui.py || true
     exit code: 0
     output: Only found in test assertions (test_no_external_urls) — safe negation checks
-  - command: grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" src/bremen tests/test_bremen_demo_smoke.py tests/test_bremen_demo_ui.py || true
+  - command: grep -R -I -n "Aramina\|aramina\|M2Q\|BENIGN vs CANCER" src/bremen tests/test_bremen_demo_smoke.py tests/test_bremen_demo_ui.py || true
     exit code: 0
     output: Only in demo_evidence.py (safety guard code) and test assertions — safe
   - command: grep -R -I -n "diagnosis\|diagnose\|replaces MRI\|replace MRI\|replaces biopsy\|replace biopsy\|replaces radiologist\|replace radiologist\|replaces clinician\|replace clinician" src/bremen tests/test_bremen_demo_smoke.py tests/test_bremen_demo_ui.py || true
@@ -153,7 +153,7 @@ BREMEN CONTRACT CHECK:
   - No unsafe model loading/joblib: pass — no new joblib.load/pickle.load in changed files
   - No H5 mutation or reads: pass — only pre-existing placeholder path
   - No real patient data: pass
-  - No Aramis dependency: pass
+  - No Aramina dependency: pass
   - No AWS/S3 network calls: pass — stdlib urllib only
   - Decision-support language preserved: pass — "technical demo only" and safety disclaimers present
 
@@ -228,7 +228,7 @@ SAFETY CHECK:
   - No H5 mutation: pass
   - No real patient data: pass
   - No clinical diagnosis claims: pass
-  - No Aramis references in new code: pass
+  - No Aramina references in new code: pass
   - No AWS/S3 network calls: pass
   - technical_demo_only enforced: pass
   - No deployment mutation (Terraform, Docker, CI/CD): pass
@@ -300,7 +300,7 @@ BOUNDARY CONFIRMATIONS:
   - no unsafe model loading: yes
   - no H5 mutation: yes
   - no real patient data: yes
-  - no Aramis dependency: yes
+  - no Aramina dependency: yes
   - no clinical diagnosis/replacement claims: yes
   - no H5/model/tfstate artifacts: yes
   - no implementation files modified by reviewer: yes

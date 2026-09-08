@@ -1,7 +1,7 @@
 """Workflow provider contract and result types.
 
 Defines the abstract provider interface for independent scientific
-workflows (Bremen, Aramis, ...).  Providers share canonical XRD inputs
+workflows (Bremen, Aramina, ...).  Providers share canonical XRD inputs
 but own their feature schemas, model artifacts, thresholds, and
 decision contracts.
 
@@ -81,7 +81,7 @@ class MultiWorkflowResult:
 
     One normalization produces one canonical case.  Each requested
     workflow runs independently against it.  Partial success is
-    explicit: a working Bremen + failed Aramis produces
+    explicit: a working Bremen + failed Aramina produces
     ``overall_status = "partial_success"``.
     """
 

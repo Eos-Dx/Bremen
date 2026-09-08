@@ -81,7 +81,7 @@ VALIDATION:
 - command: tmpdir="$(mktemp -d)" && python -m bremen demo-run --pretty --capture-dir "$tmpdir"
   exit code: 0
   output: "3 files created: bremen-demo-evidence.json, bremen-demo-manifest.json, bremen-demo-summary.txt"
-- command: grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" src/bremen/demo_ui.py src/bremen/api/server.py tests/test_bremen_demo_ui.py tests/test_bremen_api_server.py
+- command: grep -R -I -n "Aramina\|aramina\|M2Q\|BENIGN vs CANCER" src/bremen/demo_ui.py src/bremen/api/server.py tests/test_bremen_demo_ui.py tests/test_bremen_api_server.py
   exit code: 0
   output: Only test assertion/comments (negation tests), no source references
 - command: grep -R -I -n "diagnosis\|diagnose\|replaces MRI\|replace MRI\|replaces biopsy\|replace biopsy\|replaces radiologist\|replace radiologist\|replaces clinician\|replace clinician" src/bremen/demo_ui.py src/bremen/api/server.py tests/test_bremen_demo_ui.py tests/test_bremen_api_server.py
@@ -173,7 +173,7 @@ SCOPE CHECK: pass
 - Implementation is exactly `/demo/*` route namespace in existing Bremen HTTP service
 - No Terraform, GitHub Actions, Dockerfiles, dependency files, frontend files, training config, tests/data changes
 - No docs/ROADMAP changes
-- No production frontend, React, deployment automation, training, multi-tenancy/model profiles/plugins, or Aramis alignment
+- No production frontend, React, deployment automation, training, multi-tenancy/model profiles/plugins, or Aramina alignment
 
 ROUTE NAMESPACE CHECK: pass
 - Demo is under `/demo` and `/demo/api/evidence`
@@ -237,7 +237,7 @@ SAFETY CHECK: pass
 - No H5 reads, writes, or mutation (verified by grep)
 - No AWS/S3 SDK or network client imports (verified by grep)
 - No real patient data (synthetic evidence only)
-- No Aramis dependency or strings in source code (only test negation assertions)
+- No Aramina dependency or strings in source code (only test negation assertions)
 - No deployment mutation (no Terraform, Docker, CI/CD changes)
 - No new dependencies (stdlib only)
 - `build_existence_proof` not created or imported (verified by grep)
@@ -247,7 +247,7 @@ VALIDATION CHECK: pass
 - 33 UI tests passed (test_bremen_demo_ui.py)
 - 38 server tests passed (test_bremen_api_server.py)
 - 1238 total tests passed, 11 skipped, 0 failures
-- All forbidden-pattern greps clean: no Aramis references, no clinical claims, no unsafe deserialization, no H5 dependency, no AWS/network deps, no web framework deps, no external assets/CDN, no --ui flag, no build_existence_proof
+- All forbidden-pattern greps clean: no Aramina references, no clinical claims, no unsafe deserialization, no H5 dependency, no AWS/network deps, no web framework deps, no external assets/CDN, no --ui flag, no build_existence_proof
 - No forbidden files changed
 - No docs/ROADMAP changes
 - No artifacts (h5, hdf5, joblib, pkl, npy, npz, tfstate)
@@ -310,7 +310,7 @@ BOUNDARY CONFIRMATIONS:
 - no unsafe model loading: yes — no joblib.load/pickle.load
 - no H5 mutation: yes — no H5 access
 - no real patient data: yes — synthetic evidence only
-- no Aramis dependency: yes — zero Aramis strings in source (test negation only)
+- no Aramina dependency: yes — zero Aramina strings in source (test negation only)
 - no clinical diagnosis/replacement claims: yes — only safety negation language
 - Bremen safety identity preserved: yes — decision-support framing throughout
 - build_existence_proof not created/imported: yes — zero matches in repo

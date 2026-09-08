@@ -318,7 +318,7 @@ Cover these scenarios:
 
 5. **`python -m bremen preprocess --help`** — exits 0, shows preprocess help. Does not trigger heavy imports.
 
-6. **No active Aramis identity** in help output or command names. Grep new files for `aramis` or `Aramis` — must not appear.
+6. **No active Aramina identity** in help output or command names. Grep new files for `aramina` or `Aramina` — must not appear.
 
 7. **Console script `bremen --help`** (if applicable) — same behavior as `python -m bremen --help`.
 
@@ -424,9 +424,9 @@ assert result.returncode == 0, f'Console script return code: {result.returncode}
 print('Console script OK')
 " || echo "Console script check skipped (not on PATH in CI)"
 
-# 13) No Aramis identity in new or modified source files
-git diff --name-only | grep -E "\.py$" | xargs grep -l "aramis\|Aramis" 2>/dev/null && \
-  echo "ERROR: Aramis identity found in changed files" || echo "No Aramis identity in changed files"
+# 13) No Aramina identity in new or modified source files
+git diff --name-only | grep -E "\.py$" | xargs grep -l "aramina\|Aramina" 2>/dev/null && \
+  echo "ERROR: Aramina identity found in changed files" || echo "No Aramina identity in changed files"
 ```
 
 ### Test checks
@@ -491,7 +491,7 @@ Precommit-review must check each of these drift categories. Any drift blocks mer
 | **Entrypoint drift** | `--help` does NOT import xrd_preprocessing/pipelines/modeling/mlflow. No args shows help exit 0. Stub commands exit 1 with deferral message. |
 | **Help text drift** | Contains "Bremen" and "Not a diagnostic replacement." No clinical claims. |
 | **Lazy import drift** | Heavy imports are inside command handlers, not at module level. |
-| **Identity drift** | No Aramis identity in new or modified files. `prog="bremen"` preserved. |
+| **Identity drift** | No Aramina identity in new or modified files. `prog="bremen"` preserved. |
 | **Runtime drift** | No changes to pipelines.py, modeling.py, mlflow_tracking.py, __init__.py. No H5/model/joblib/config changes. |
 | **Infrastructure drift** | No CI/Docker/GHCR/SonarCloud changes. No Dockerfile, .dockerignore, or quality.yml changes. |
 | **Test drift** | New test file covers all entrypoint scenarios. Existing tests pass unchanged. No test data changes. |
@@ -507,7 +507,7 @@ Block if:
 - Heavy imports (`xrd_preprocessing`, `container`, `pipelines`, `modeling`, `mlflow`) are at the top level of `__main__.py` or `cli.py`.
 - `python -m bremen --help` triggers import errors related to private dependencies.
 - Help text omits the "Not a diagnostic replacement" disclaimer.
-- Aramis identity appears in new or modified source files.
+- Aramina identity appears in new or modified source files.
 - Changes are made to infrastructure files (Dockerfile, .dockerignore, quality.yml, sonar-project.properties).
 - Changes are made to preprocessing, modeling, or MLflow source files.
 - Changes are made to `__init__.py` (package API).
@@ -562,12 +562,12 @@ Block if:
 - Help text has mandatory disclaimer.
 
 ### Testing strategy
-- New `tests/test_bremen_cli_entrypoint.py` with tests for: help output, no-args help, stubs, lazy imports, no Aramis identity, console script.
+- New `tests/test_bremen_cli_entrypoint.py` with tests for: help output, no-args help, stubs, lazy imports, no Aramina identity, console script.
 - Existing identity test unchanged.
 - Full test suite must pass.
 
 ### Validation checklist
-17 checks: static (git state, H5, data, model, CI/Docker), Python (compileall, help output, no-args, stubs, console script, Aramis grep), test (identity test, new entrypoint test, full suite), coverage (80%).
+17 checks: static (git state, H5, data, model, CI/Docker), Python (compileall, help output, no-args, stubs, console script, Aramina grep), test (identity test, new entrypoint test, full suite), coverage (80%).
 
 ### Rollback plan
 - Revert __main__.py to previous version. Delete cli.py and new test file if created.
@@ -583,7 +583,7 @@ Block if:
 12 drift-check criteria: file drift, entrypoint drift, help text drift, lazy import drift, identity drift, runtime drift, infrastructure drift, test drift, documentation drift, coverage drift, validation drift, blockers.
 
 ### Stop conditions
-12 block conditions covering: file scope, top-level heavy imports, help import errors, missing disclaimer, Aramis identity, infrastructure changes, source changes (pipelines/modeling/mlflow/__init__), test data/config changes, existing test breakage, preprocess command broken, H5/model artifact changes.
+12 block conditions covering: file scope, top-level heavy imports, help import errors, missing disclaimer, Aramina identity, infrastructure changes, source changes (pipelines/modeling/mlflow/__init__), test data/config changes, existing test breakage, preprocess command broken, H5/model artifact changes.
 
 ### Blockers
 - None for writing this PLAN.md. Implementation blocked until plan-review approves.
@@ -649,5 +649,5 @@ This PLAN.md is a planning artifact only. No implementation files have been crea
 - confirm: `--help` does not import heavy dependencies: yes
 - confirm: stub commands exit 1 with deferral message: yes
 - confirm: help text includes "Not a diagnostic replacement": yes
-- confirm: no Aramis identity in new or modified files: yes
+- confirm: no Aramina identity in new or modified files: yes
 - confirm: existing identity test assertion for __main__.py docstring preserved: yes

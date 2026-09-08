@@ -5,8 +5,8 @@ BLOCKERS
 - None.
 
 WARNINGS
-- The new `src/bremen/model_package.py` and `tests/test_bremen_model_package.py` files are present and focused, but the tests include explicit negative safety assertions for joblib/pickle/H5/Aramis via source inspection. That is acceptable here because the module is import-safe and the checks are negative-only.
-- The repository still contains an existing H5 fixture at `./tests/data/aramis_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR.
+- The new `src/bremen/model_package.py` and `tests/test_bremen_model_package.py` files are present and focused, but the tests include explicit negative safety assertions for joblib/pickle/H5/Aramina via source inspection. That is acceptable here because the module is import-safe and the checks are negative-only.
+- The repository still contains an existing H5 fixture at `./tests/data/aramina_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR.
 
 VALIDATION
 - `git rev-parse --verify HEAD` ✅ `3b7063e16ad16a71894cf0c7e4db71686bda66cd` on branch `0013-model-package-contract`
@@ -24,10 +24,10 @@ VALIDATION
 - `python -m bremen --help` ✅ help output shown
 - `grep -R -I -n -E "import joblib|from joblib|import pickle|from pickle|joblib\.load|pickle\.load" src/bremen/model_package.py tests/test_bremen_model_package.py 2>/dev/null || true` ✅ only negative-test references in the test file; no imports or load calls in the implementation module
 - `grep -R -I -n -E "\.h5|\.hdf5|h5py" src/bremen/model_package.py tests/test_bremen_model_package.py 2>/dev/null || true` ✅ only negative-test references in the test file; no H5/HDF5 references in the implementation module
-- `grep -R -I -n -E "Aramis|aramis" src/bremen/model_package.py tests/test_bremen_model_package.py 2>/dev/null || true` ✅ only negative-test references in the test file; no Aramis references in the implementation module
+- `grep -R -I -n -E "Aramina|aramina" src/bremen/model_package.py tests/test_bremen_model_package.py 2>/dev/null || true` ✅ only negative-test references in the test file; no Aramina references in the implementation module
 - `git diff --name-only -- ROADMAP.md docs docs/adr docs/api_contract.md .github Dockerfile .dockerignore requirements.txt pyproject.toml sonar-project.properties environment.yml Makefile config examples tests/data agents` ✅ no output
 - `git diff --name-only | grep -E "\.(h5|hdf5|joblib|pkl|npy|npz)$" || true` ✅ no output
-- `find . -path "./.git" -prune -o -path "./venv" -prune -o -path "./.venv" -prune -o -type f \( -name "*.h5" -o -name "*.hdf5" -o -name "*.joblib" -o -name "*.pkl" -o -name "*.npy" -o -name "*.npz" \) -print` ✅ existing fixture found at `./tests/data/aramis_real_h5_subset_20260128_5_patients.h5`
+- `find . -path "./.git" -prune -o -path "./venv" -prune -o -path "./.venv" -prune -o -type f \( -name "*.h5" -o -name "*.hdf5" -o -name "*.joblib" -o -name "*.pkl" -o -name "*.npy" -o -name "*.npz" \) -print` ✅ existing fixture found at `./tests/data/aramina_real_h5_subset_20260128_5_patients.h5`
 - `find . -name ".DS_Store" -print` ✅ no output
 - `date -u +%Y-%m-%dT%H:%M:%SZ` ✅ `2026-07-03T14:08:51Z`
 
@@ -104,7 +104,7 @@ COMMIT READINESS
   - tests/test_bremen_model_package.py
   - .project-memory/pr/0013-model-package-contract/reviews/precommit-review.yml
 - files to exclude:
-  - ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5 (existing fixture, not modified)
+  - ./tests/data/aramina_real_h5_subset_20260128_5_patients.h5 (existing fixture, not modified)
 
 BOUNDARY CONFIRMATIONS
 - no implementation files edited by reviewer

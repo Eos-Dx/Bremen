@@ -1,4 +1,4 @@
-# MLflow In Aramis
+# MLflow In Aramina
 
 MLflow stores one complete product run.
 
@@ -22,10 +22,10 @@ Example:
 
 ```text
 EOS H5 v0.3
-├── Aramis dataset
+├── Aramina dataset
 │   ├── diagnosis filter
 │   ├── BENIGN vs CANCER labels
-│   └── Aramis classifier
+│   └── Aramina classifier
 └── Bremen dataset
     ├── different product filter
     ├── different labels or target
@@ -50,7 +50,7 @@ Without preprocessing lineage, the model is not reproducible.
 Run local MLflow UI:
 
 ```bash
-cd /Users/sad/dev/Aramis
+cd /Users/sad/dev/Aramina
 mlflow ui --backend-store-uri ./mlruns --port 5000
 ```
 
@@ -63,7 +63,7 @@ http://127.0.0.1:5000
 Notebook:
 
 ```bash
-marimo run examples/aramis_mlflow_draft.py
+marimo run examples/aramina_mlflow_draft.py
 ```
 
 Default mode is `dry_run`.
@@ -106,7 +106,7 @@ calibration metrics
 confidence intervals
 ```
 
-## Aramis First Classifier
+## Aramina First Classifier
 
 Output:
 

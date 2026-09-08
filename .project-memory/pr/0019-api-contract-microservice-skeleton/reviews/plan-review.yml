@@ -56,13 +56,13 @@ SECURITY / BOUNDARY CHECK:
 - pass: PLAN.md forbids joblib/pickle imports and loads, model deserialization, training/inference, H5/HDF5 reading, preprocessing/feature extraction, AWS/S3/network calls, Matador calls, secrets, model artifact creation, and clinical report/patient-facing output.
 
 CLINICAL / IDENTITY CHECK:
-- pass: PLAN.md forbids clinical validation claims, diagnostic replacement wording, diagnostic language, and Aramis as an active dependency/runtime/API target/architecture component.
+- pass: PLAN.md forbids clinical validation claims, diagnostic replacement wording, diagnostic language, and Aramina as an active dependency/runtime/API target/architecture component.
 
 TESTING CHECK:
-- pass: PLAN.md requires tests for contract existence, endpoint names, async flow, completed-result fields, health/model-version skeletons, accepted/queued job creation, unknown-job controlled error, explicit target/control refs, no local path requirement, no H5/HDF5, no joblib/pickle, no AWS/S3/network, no training/inference, no clinical wording, and no Aramis active architecture.
+- pass: PLAN.md requires tests for contract existence, endpoint names, async flow, completed-result fields, health/model-version skeletons, accepted/queued job creation, unknown-job controlled error, explicit target/control refs, no local path requirement, no H5/HDF5, no joblib/pickle, no AWS/S3/network, no training/inference, no clinical wording, and no Aramina active architecture.
 
 VALIDATION CHECKLIST CHECK:
-- pass: PLAN.md includes git state checks, file existence checks, compileall, focused API tests, model package/config/identity/full pytest, CLI help, grep checks for joblib/pickle/H5/AWS/clinical/Aramis, forbidden path diff check, artifact find check, and .DS_Store check.
+- pass: PLAN.md includes git state checks, file existence checks, compileall, focused API tests, model package/config/identity/full pytest, CLI help, grep checks for joblib/pickle/H5/AWS/clinical/Aramina, forbidden path diff check, artifact find check, and .DS_Store check.
 
 PROCESS RULES CHECK:
 - pass: first validation commands were git rev-parse --verify HEAD and git branch --show-current; branch matched 0019-api-contract-microservice-skeleton.

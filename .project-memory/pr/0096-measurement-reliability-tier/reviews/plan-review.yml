@@ -119,7 +119,7 @@ safety:
   prohibited_terms: "clinical reliability, diagnostic reliability, model reliability, scientific reliability"
   prediction_not_blocked: true
   no_new_request_fields: true
-  no_aramis_coupling: true
+  no_aramina_coupling: true
   no_pr0092_symmetry_signals: true
   no_clinical_claims: true
 validation:
@@ -155,7 +155,7 @@ commit_readiness:
     - "tests/ (new and updated test files)"
   new_dependencies: false
   request_schema_changed: false
-  aramis_touched: false
+  aramina_touched: false
   pr0092_touched: false
   clinical_language_used: false
   plan_ends_with_coder: true

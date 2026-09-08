@@ -249,7 +249,7 @@ Restate key safety invariants relevant to the runtime deployment:
 - No H5 reading/mutation, no config/preprocessing changes.
 - No APRANA implementation (remains unverified).
 - No closing G-CFG-1 or G-DEP-1 (both remain OPEN).
-- No product identity relitigation, no Aramis active architecture.
+- No product identity relitigation, no Aramina active architecture.
 - No renumbering of PR 0019–0024.
 
 ## Validation checklist
@@ -406,7 +406,7 @@ Block if:
 - Plan renumbers PR 0019–0024.
 - Plan treats Product Track sequence positions as literal PR identifiers.
 - Plan invents APRANA technical details (must remain unverified).
-- Plan makes Aramis active architecture.
+- Plan makes Aramina active architecture.
 - Any implementation file outside the three allowed files is planned.
 
 ## Decisions summary

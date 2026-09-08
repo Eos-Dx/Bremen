@@ -20,7 +20,7 @@ review:
     - src/bremen/api/job_models.py
     - src/bremen/api/schemas.py
     - src/bremen/api/execution_trace.py
-    - src/bremen/api/report_aramis.py
+    - src/bremen/api/report_aramina.py
     - src/bremen/workspace_ui.py
     - src/bremen/inference.py
     - tests/test_bremen_decision_vocabulary.py
@@ -77,7 +77,7 @@ confirmed:
   legacy_compatibility_exact: true
   event_schema_handled: true
   workspace_showcase_correct: true
-  bremen_aramis_separate: true
+  bremen_aramina_separate: true
   documentation_accurate: true
   full_suite_executed: true
   full_suite_passed: true
@@ -92,7 +92,7 @@ tests:
   D002_resolved:
     file: docs/workspace_contract.md
     result: resolved
-    details: New PR0081 section documents clinical question, approved machine codes, decision policy identity, canonical decision contract architecture, DecisionOutput relationship, numerical behavior preservation, legacy alias policy, scientific boundaries, Bremen/Aramis separation.
+    details: New PR0081 section documents clinical question, approved machine codes, decision policy identity, canonical decision contract architecture, DecisionOutput relationship, numerical behavior preservation, legacy alias policy, scientific boundaries, Bremen/Aramina separation.
   D003_resolved:
     file: ROADMAP.md
     result: resolved
@@ -108,7 +108,7 @@ tests:
   decision_contract:
     file: tests/test_bremen_decision_vocabulary.py
     result: 43 passed
-    details: Canonical codes, threshold boundaries, legacy aliases, model metadata adapter, to_dict privacy, input validation, no diagnostic wording, Bremen/Aramis separation
+    details: Canonical codes, threshold boundaries, legacy aliases, model metadata adapter, to_dict privacy, input validation, no diagnostic wording, Bremen/Aramina separation
   reports:
     file: tests/test_bremen_decision_support_output.py
     result: 38 passed

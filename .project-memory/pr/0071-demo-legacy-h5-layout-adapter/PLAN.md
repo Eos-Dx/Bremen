@@ -8,7 +8,7 @@ Branch: 0071-demo-legacy-h5-layout-adapter
 
 Add a third `H5LayoutAdapter` implementation for legacy/synthetic diffraction H5 containers that use a `session/sets/*` structure (not the Bremen-native `/scans/target` layout). This enables demo ingestion of the two existing H5 files (`cancer_one_patient.h5`, `benign_one_patient.h5`) stored in S3 under `s3://matur-misc-uk/bremen/prediction-inputs/smoke/v0.1/`.
 
-Product framing: This is a Bremen ingestion-boundary adapter for a legacy/synthetic diffraction H5 session layout. It is NOT Aramis integration. No Aramis product labels, targets, biopsy metadata, or benign/cancer classifications are used as Bremen prediction targets.
+Product framing: This is a Bremen ingestion-boundary adapter for a legacy/synthetic diffraction H5 session layout. It is NOT Aramina integration. No Aramina product labels, targets, biopsy metadata, or benign/cancer classifications are used as Bremen prediction targets.
 
 The existing `CalibrationSampleH5LayoutAdapter` already handles the metadata/context resolution for multi-sample calibration layouts. However, the synthetic one-patient session-layout H5 files do NOT use calibration groups — they use a flat `session/sets/*` structure.
 
@@ -84,7 +84,7 @@ Currently registered: `CanonicalH5LayoutAdapter` and `CalibrationSampleH5LayoutA
 - `tfstate`, `.terraform`
 - `config/training/**`, `src/bremen/training/**`
 - `docs/**`, `ROADMAP.md`
-- Aramis artifacts, model descriptions, feature schemas as dependency
+- Aramina artifacts, model descriptions, feature schemas as dependency
 
 ## Exact implementation scope
 
@@ -100,7 +100,7 @@ class SessionLayoutH5Adapter(H5LayoutAdapter):
     ``set_NNN_sample_main`` and ``contralateral_set_NNN_sample_main``
     groups with ``integration/q`` and ``integration/i`` datasets.
 
-    This adapter does NOT use Aramis product labels, biopsy metadata,
+    This adapter does NOT use Aramina product labels, biopsy metadata,
     or clinical classifications as Bremen prediction targets.
     """
 
@@ -310,7 +310,7 @@ If the bridge requires changes, the plan allows minimal modifications.
 
 ## Non-goals
 
-- No Aramis product labels as prediction targets.
+- No Aramina product labels as prediction targets.
 - No clinical diagnosis claims.
 - No fake successful prediction.
 - No UI redesign.
@@ -328,7 +328,7 @@ If the bridge requires changes, the plan allows minimal modifications.
 - No H5 mutation.
 - No raw patient data in API/UI/logs.
 - No biopsy/birads/target_side/BENIGN/CANCER labels used as Bremen prediction targets.
-- No Aramis product labels used.
+- No Aramina product labels used.
 - `technical_demo_only: true` preserved.
 - No clinical diagnosis/replacement claims.
 - No fake success.
@@ -363,8 +363,8 @@ python -m bremen demo-run --help
 ### Forbidden-pattern grep checks
 
 ```bash
-# No Aramis dependency/product labels — check session layout adapter only
-grep -R -I -n "biopsy\|birads\|target_side\|BENIGN\|CANCER\|Aramis\|aramis" \
+# No Aramina dependency/product labels — check session layout adapter only
+grep -R -I -n "biopsy\|birads\|target_side\|BENIGN\|CANCER\|Aramina\|aramina" \
   src/bremen/api/h5_layouts.py tests/test_bremen_h5_layouts.py || true
 # Expected: only in test assertion strings verifying absence, or in sample_type metadata reading
 # For detection only (not as prediction target)
@@ -441,7 +441,7 @@ find . -name ".DS_Store" -print
 |----------------|-------|
 | **File drift** | Only allowed files changed. No forbidden files. |
 | **Adapter drift** | Implements `H5LayoutAdapter` protocol. No `/scans/target` requirement. |
-| **No Aramis drift** | No biopsy/birads/BENIGN/CANCER labels as prediction targets. No Aramis product labels. |
+| **No Aramina drift** | No biopsy/birads/BENIGN/CANCER labels as prediction targets. No Aramina product labels. |
 | **No React** | No React, package.json, vite, webpack. |
 | **Safety drift** | No unsafe deserialization, no H5 mutation, no clinical claims. |
 | **Test drift** | 11+ layout tests + existing 286 tests pass unchanged. |
@@ -451,8 +451,8 @@ find . -name ".DS_Store" -print
 ## Stop conditions
 
 Block if:
-- Plan uses Aramis product labels, biopsy, birads, BENIGN/CANCER as Bremen prediction target.
-- Plan adds Aramis as a product dependency.
+- Plan uses Aramina product labels, biopsy, birads, BENIGN/CANCER as Bremen prediction target.
+- Plan adds Aramina as a product dependency.
 - Plan requires committed H5 files.
 - Plan requires new dependencies.
 - Plan adds React, `--ui`, or deployment mutation.
@@ -511,7 +511,7 @@ Block if:
 ## Boundary confirmations
 
 - confirm: PR0071 planned as legacy/synthetic H5 ingestion-boundary adapter: yes
-- confirm: no Aramis product dependency planned: yes
+- confirm: no Aramina product dependency planned: yes
 - confirm: legacy session/sets layout detection planned: yes
 - confirm: set/contralateral pairing planned: yes
 - confirm: integration q/i normalization planned: yes

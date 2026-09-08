@@ -307,6 +307,6 @@ function onModelSelect(sel){
 
 No S3 keys, bucket names, S3 prefixes, s3:// URIs, filesystem paths, /tmp paths, H5 internals, feature values, coefficients, PHI, raw exceptions, or stack traces exposed in model display or job identity.
 
-### Aramis
+### Aramina
 
-Not implemented. Only future-safe identity contract fixed. Aramis will inherit the model-scoped identity model when implemented.
+Not implemented. Only future-safe identity contract fixed. Aramina will inherit the model-scoped identity model when implemented.

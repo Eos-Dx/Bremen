@@ -24,8 +24,8 @@ This PR adds a deterministic evidence layer without changing any of those paths.
 
 - **Bremen owns its own clinical question**: "Should patient continue to MRI?"
 - **Bremen owns its own target definition**, feature schema (`BREMEN_V01_FEATURE_COLUMNS`, 15-column v0.1), preprocessing boundary, model package, and decision-support output contract.
-- **Aramis is sibling provenance/context only.** Aramis is not a dependency, benchmark, benchmark target, comparison baseline, or alignment target for Bremen.
-- No Aramis artifact, Aramis model description, Aramis feature schema, or Aramis score may be used as a Bremen dependency.
+- **Aramina is sibling provenance/context only.** Aramina is not a dependency, benchmark, benchmark target, comparison baseline, or alignment target for Bremen.
+- No Aramina artifact, Aramina model description, Aramina feature schema, or Aramina score may be used as a Bremen dependency.
 - The demo evidence pack is for **Bremen product usage only**, not cross-product alignment.
 
 ## Required reads — observed facts
@@ -191,7 +191,7 @@ Validates that the bundle dict has the required shape:
 - `evidence_version` must be a non-empty string.
 - `safety_notes` must be a non-empty list of strings.
 - No diagnosis/replacement language in any field value.
-- No Aramis references in any field value.
+- No Aramina references in any field value.
 
 Returns the validated bundle (pass-through). Raises `ValueError` on validation failure.
 
@@ -208,7 +208,7 @@ Returns the validated bundle (pass-through). Raises `ValueError` on validation f
 
 **Non-negotiable rules in this module**:
 
-- **No Aramis references** — no string `"Aramis"`, `"aramis"`, `"M2Q"`, `"BENIGN vs CANCER"`, or any Aramis product label in any evidence output.
+- **No Aramina references** — no string `"Aramina"`, `"aramina"`, `"M2Q"`, `"BENIGN vs CANCER"`, or any Aramina product label in any evidence output.
 - **No clinical diagnosis language** — no `"diagnosis"`, `"diagnose"`, `"replaces MRI"`, `"replaces biopsy"`, `"replaces radiologist"`, `"replaces clinician"`.
 - **No real patient data** — all values are synthetic.
 - **No model artifact loading** — the synthetic feature payload is just numbers.
@@ -257,7 +257,7 @@ Test scenarios:
 7. **`product` is "Bremen"** — Product identity invariant.
 8. **`product_question` is correct** — Product question invariant.
 9. **`safety_notes` is a non-empty list** — Safety invariant.
-10. **No Aramis references** — String scan for "Aramis", "aramis", "M2Q", "BENIGN vs CANCER" returns no matches.
+10. **No Aramina references** — String scan for "Aramina", "aramina", "M2Q", "BENIGN vs CANCER" returns no matches.
 11. **No diagnosis/replacement language** — String scan for prohibited patterns returns no matches.
 12. **validate_demo_evidence_bundle() passes for valid bundle** — Accepts well-formed bundle.
 13. **validate_demo_evidence_bundle() rejects bundle without technical_demo_only** — Raises ValueError.
@@ -285,7 +285,7 @@ Demote any existing tests that break due to the added `evidence` field (they sho
 - No AWS/S3 calls.
 - No Matador resolver implementation.
 - No clinical report template addition.
-- No Aramis alignment or cross-product comparison.
+- No Aramina alignment or cross-product comparison.
 - No ensemble planning.
 - No deployment mutation (Terraform, Docker, CI/CD).
 - No React/frontend.
@@ -308,7 +308,7 @@ Demote any existing tests that break due to the added `evidence` field (they sho
 - No clinical diagnosis claims.
 - `technical_demo_only: true` in every evidence bundle.
 - No real patient data, no fabricated clinical evidence.
-- **No Aramis references** — zero tolerance for Aramis product labels in Bremen demo evidence.
+- **No Aramina references** — zero tolerance for Aramina product labels in Bremen demo evidence.
 - **No clinical/replacement language** — zero tolerance for diagnosis, MRI/biopsy/radiologist replacement language.
 
 ## Validation checklist
@@ -338,8 +338,8 @@ python -m bremen demo-smoke --help
 ### Forbidden-pattern grep checks
 
 ```bash
-# No Aramis dependency or product labels in Bremen demo evidence
-grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" \
+# No Aramina dependency or product labels in Bremen demo evidence
+grep -R -I -n "Aramina\|aramina\|M2Q\|BENIGN vs CANCER" \
   src/bremen/demo_evidence.py src/bremen/demo_smoke.py \
   tests/test_bremen_demo_evidence.py tests/test_bremen_demo_smoke.py || true
 # Expected: no output
@@ -398,7 +398,7 @@ find . -name ".DS_Store" -print
 | `technical_demo_only` | Required `True` in every bundle. |
 | `product` | Required `"Bremen"`. |
 | `product_question` | Required `"Should patient continue to MRI?"`. |
-| Aramis references | **Zero tolerance** — no Aramis strings in any evidence output. |
+| Aramina references | **Zero tolerance** — no Aramina strings in any evidence output. |
 | Clinical/replacement language | **Zero tolerance** — no diagnosis/replacement strings in any evidence output. |
 | Real patient data | **Forbidden** — all values synthetic. |
 
@@ -417,7 +417,7 @@ find . -name ".DS_Store" -print
 | **Evidence drift** | Stdlib-only. No model loading. No H5 reads. No network calls. No clinical data. |
 | **Demo-smoke drift** | Evidence field is additive — backward compatible. Existing checks/prediction/health behavior unchanged. |
 | **Safety drift** | No unsafe deserialization. No H5. No AWS. No clinical claims. `technical_demo_only: true` enforced. |
-| **Aramis drift** | Zero Aramis references in evidence output. |
+| **Aramina drift** | Zero Aramina references in evidence output. |
 | **Test drift** | 18+ new evidence tests + 2–3 updated demo-smoke tests. Existing tests pass unchanged. |
 | **Validation drift** | All validation checks pass. Forbidden-pattern greps return nothing. |
 | **Blockers** | Any blocking condition found during drift gate evaluation prevents merge. |
@@ -425,8 +425,8 @@ find . -name ".DS_Store" -print
 ## Stop conditions
 
 Block if:
-- Implementation makes Aramis a dependency, benchmark, or alignment target.
-- Implementation introduces Aramis product labels in evidence output.
+- Implementation makes Aramina a dependency, benchmark, or alignment target.
+- Implementation introduces Aramina product labels in evidence output.
 - Implementation introduces clinical diagnosis or replacement language in evidence output.
 - Implementation requires new dependencies.
 - Implementation requires Terraform, Docker, GitHub Actions, or deployment changes.
@@ -448,7 +448,7 @@ Block if:
 | Evidence validator | `validate_demo_evidence_bundle()` — validates shape, product identity, safety disclaimers. |
 | Demo-smoke integration | Additive `evidence` field in `run_demo_smoke()` output. Backward-compatible. |
 | Product identity | `product: "Bremen"`, `product_question: "Should patient continue to MRI?"`. |
-| Aramis | Not referenced, not used, not benchmarked. |
+| Aramina | Not referenced, not used, not benchmarked. |
 | Clinical claims | None. `technical_demo_only: true`. |
 | Dependencies | None new. |
 
@@ -490,8 +490,8 @@ Block if:
 ## Boundary confirmations
 
 - confirm: PR0061 planned as Bremen-native demo evidence pack: yes
-- confirm: Bremen remains independent from Aramis: yes
-- confirm: Aramis not used as dependency or benchmark: yes
+- confirm: Bremen remains independent from Aramina: yes
+- confirm: Aramina not used as dependency or benchmark: yes
 - confirm: demo evidence is not disposable: yes (reusable module with versioned contract)
 - confirm: product-owner demo value planned: yes
 - confirm: evidence bundle planned: yes

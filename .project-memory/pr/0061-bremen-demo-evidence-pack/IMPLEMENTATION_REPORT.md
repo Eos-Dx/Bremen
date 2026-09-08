@@ -24,7 +24,7 @@ All files listed in PLAN.md "Allowed implementation files" section.
   - Constant `BREMEN_PRODUCT_NAME = "Bremen"` — hardcoded product identity
   - Constant `BREMEN_PRODUCT_QUESTION = "Should patient continue to MRI?"` — Bremen's own clinical question
   - Constant `BREMEN_DEMO_DISCLAIMER` — explicit safety negation (not clinical result, not validated, does not replace MRI/biopsy/radiologist/clinician/clinical judgment)
-  - Zero Aramis references in any evidence output. Module includes internal pattern-lists to detect and reject Aramis strings during validation.
+  - Zero Aramina references in any evidence output. Module includes internal pattern-lists to detect and reject Aramina strings during validation.
   - Zero clinical/replacement claims in any evidence output. Module includes internal pattern-lists and skips `disclaimer`/`safety_notes` fields (which intentionally contain safe negation language).
 
 ## DEMO EVIDENCE CONTRACT SUMMARY
@@ -50,7 +50,7 @@ Evidence bundle produced by `build_demo_evidence_bundle()`:
 - Rejects `technical_demo_only: False` or wrong product identity
 - Rejects empty/absent safety_notes, disclaimer, evidence_version, scenario_id
 - Scans all string values (excluding disclaimer/safety_notes which are safe negation) for:
-  - Aramis-related strings (aramis, m2q, benign vs cancer)
+  - Aramina-related strings (aramina, m2q, benign vs cancer)
   - Clinical/replacement language (diagnosis, diagnose, replaces MRI, replaces biopsy, replaces radiologist, replaces clinician)
 - Raises `ValueError` with specific field-level error messages on any violation
 
@@ -101,7 +101,7 @@ The evidence bundle supports a complete demo narrative:
 
 | Boundary | Status | Evidence |
 |----------|--------|---------|
-| No Aramis dependency or benchmark | ✓ | Zero Aramis strings in evidence output. Pattern-lists only for detection. Tests verify output is Aramis-free. |
+| No Aramina dependency or benchmark | ✓ | Zero Aramina strings in evidence output. Pattern-lists only for detection. Tests verify output is Aramina-free. |
 | No clinical diagnosis/replacement claims | ✓ | Disclaimer and safety_notes use safe negation only. Test asserts output is free of clinical claims. |
 | No real patient data | ✓ | All feature values are synthetic floats. Metadata explicitly states "technical_demo_only". |
 | No new dependencies | ✓ | Stdlib-only module. No changes to `requirements.txt` or `pyproject.toml`. |
@@ -136,9 +136,9 @@ Test coverage for evidence pack:
 - `technical_demo_only: True` invariant
 - Product identity (`product: "Bremen"`, `product_question` correct)
 - `safety_notes`: non-empty list, all strings, expected language
-- No Aramis references in output
+- No Aramina references in output
 - No diagnosis/replacement language in output
-- `validate_demo_evidence_bundle()`: valid bundles pass, invalid bundles rejected (non-dict, missing fields, wrong product, Aramis, clinical language, empty lists, non-string safety_notes)
+- `validate_demo_evidence_bundle()`: valid bundles pass, invalid bundles rejected (non-dict, missing fields, wrong product, Aramina, clinical language, empty lists, non-string safety_notes)
 - JSON serializability (both `json.dumps` and `json_dumps_evidence_bundle`)
 - Deterministic output (two calls with same args produce identical output)
 - No real patient data
@@ -166,7 +166,7 @@ Test coverage for evidence pack:
 | `python -m bremen --help` | ✓ Lists demo-smoke and all commands |
 | `python -m bremen serve --help` | ✓ Shows --host, --port |
 | `python -m bremen demo-smoke --help` | ✓ Shows --base-url, --timeout, --skip-prediction |
-| Aramis grep (evidence files) | ✓ Safe-only (prohibition lists, test assertions) |
+| Aramina grep (evidence files) | ✓ Safe-only (prohibition lists, test assertions) |
 | Clinical grep (evidence files) | ✓ Safe-only (disclaimer negation, test assertions) |
 | joblib/pickle grep | ✓ Only pre-existing modules, not in scope |
 | H5 grep (evidence files) | ✓ None in evidence module |
@@ -220,7 +220,7 @@ tests/test_bremen_demo_smoke.py    | 182 +, 4 -
 | Evidence drift | Stdlib-only, no model loading, no H5, no network, no clinical data | ✓ |
 | Demo-smoke drift | Evidence field additive — backward compatible. Existing checks/health unchanged. | ✓ |
 | Safety drift | No unsafe deserialization. No H5. No AWS. `technical_demo_only: true`. | ✓ |
-| Aramis drift | Zero Aramis strings in evidence output. Pattern lists for detection only. | ✓ |
+| Aramina drift | Zero Aramina strings in evidence output. Pattern lists for detection only. | ✓ |
 | Test drift | 63 new evidence tests + 10 new demo-smoke evidence tests. All 1069 pass. | ✓ |
 
 **Note on plan-review warning**: PLAN.md incorrectly claimed `build_standard_feature_artifact()` exists in `feature_artifacts.py`. Implementation correctly creates `build_demo_feature_artifact_payload()` in `demo_evidence.py` and uses the actual API surface (`validate_feature_artifact()`, `REQUIRED_FEATURE_COLUMNS`). No import of the non-existent function.
@@ -242,13 +242,13 @@ The following is explicitly out of scope for PR0061 and deferred:
 - Real patient data integration
 - Clinical report template additions
 - Training pipeline changes
-- Aramis cross-product alignment (permanent non-goal)
+- Aramina cross-product alignment (permanent non-goal)
 
 ## BOUNDARY CONFIRMATIONS
 
 - confirm: Bremen-native demo evidence pack implemented: yes
-- confirm: Bremen remains independent from Aramis: yes
-- confirm: Aramis not used as dependency or benchmark: yes
+- confirm: Bremen remains independent from Aramina: yes
+- confirm: Aramina not used as dependency or benchmark: yes
 - confirm: demo evidence is not disposable: yes (versioned module, 386 lines, comprehensive tests)
 - confirm: product-owner demo value implemented: yes
 - confirm: evidence bundle implemented: yes

@@ -31,7 +31,7 @@ VALIDATION
 * grep "def _read_sample_metadata_str\|_read_sample_metadata_str(" src/bremen tests: function defined at h5_layouts.py:356 with 3 params; calls at lines 256-277 (calibration adapter) and 567-581 (session adapter) all use 3 args
 * grep "build_feature_table" src/bremen tests: function defined at preprocessing_bridge.py:244; "session_layout" branch at line 277
 * grep "h5_preflight_completed\|preprocessing_started\|preprocessing_completed\|model_inference_started\|model_inference_completed" src/bremen tests: event labels in server.py (PR0069) — no changes
-* grep "biopsy\|birads\|target_side\|BENIGN\|CANCER\|Aramis\|aramis" src/bremen tests: all in safe negation, prohibition logic, test assertions, or existing training/pipeline code — NOT in SessionLayoutH5Adapter product paths
+* grep "biopsy\|birads\|target_side\|BENIGN\|CANCER\|Aramina\|aramina" src/bremen tests: all in safe negation, prohibition logic, test assertions, or existing training/pipeline code — NOT in SessionLayoutH5Adapter product paths
 * grep "patient_name\|patientId\|specimenId\|sample_name" src/bremen tests: in structural/path references only; no raw identifiers exposed in API/UI/logs
 * grep "React\|react\|package.json\|vite\|webpack" src/bremen tests: no matches
 * grep "alert(" src/bremen/demo_ui.py tests/test_bremen_demo_ui.py: only test comments/assertions
@@ -68,7 +68,7 @@ SNAPSHOT DELTA
 
 SCOPE CHECK
 * Pass: Implementation adds SessionLayoutH5Adapter for legacy/synthetic session-layout H5 containers (/session/sets/* structure) with necessary preprocessing bridge branch.
-* No broad frontend/design work, infra, deployment automation, model retraining, Aramis alignment, or multi-tenancy.
+* No broad frontend/design work, infra, deployment automation, model retraining, Aramina alignment, or multi-tenancy.
 * Files changed: h5_layouts.py, preprocessing_bridge.py, test_bremen_h5_layouts.py.
 
 SESSION ADAPTER CHECK
@@ -107,9 +107,9 @@ METADATA HELPER SIGNATURE CHECK
 
 PRODUCT BOUNDARY CHECK
 * Pass: SessionLayoutH5Adapter does NOT use biopsy, BIRADS, target_side, BENIGN/CANCER, or product-specific semantics as Bremen prediction targets.
-* No Aramis product labels used as prediction targets.
+* No Aramina product labels used as prediction targets.
 * Side metadata from sample_type → breast type → side only (not clinical labels).
-* Direct evidence: h5_layouts.py lines 454-456 (docstring: "does NOT use Aramis product labels, biopsy metadata, or clinical classifications"), lines 560-562 (comment: "intentionally does NOT use biopsy/birads/target_side labels"), and test_h5_layouts.py lines 892-925 (AST-based safety check, benign/cancer absence check).
+* Direct evidence: h5_layouts.py lines 454-456 (docstring: "does NOT use Aramina product labels, biopsy metadata, or clinical classifications"), lines 560-562 (comment: "intentionally does NOT use biopsy/birads/target_side labels"), and test_h5_layouts.py lines 892-925 (AST-based safety check, benign/cancer absence check).
 * Existing H5/training code in modeling.py and pipelines.py uses BENIGN/CANCER/biopsy in training context (not prediction routing or adapter).
 
 METADATA SAFETY CHECK
@@ -136,7 +136,7 @@ DEPENDENCY/STARTUP CHECK
 * Pass: No React, package manager files, new dependencies, CDN, startup command changes, --ui flag, or root-route additions. Only dependency addition is numpy import in h5_layouts.py (already a project dependency).
 
 SAFETY CHECK
-* Pass: No H5 mutation, no committed H5/HDF5 files, no unsafe model loading (no new joblib.load/pickle.load), no clinical diagnosis/replacement claims, no infra/deployment mutation, no Aramis runtime dependency.
+* Pass: No H5 mutation, no committed H5/HDF5 files, no unsafe model loading (no new joblib.load/pickle.load), no clinical diagnosis/replacement claims, no infra/deployment mutation, no Aramina runtime dependency.
 * technical_demo_only: true preserved.
 
 PLAN REVIEW WARNING RESOLUTION CHECK
@@ -151,7 +151,7 @@ IMPLEMENTATION REPORT CHECK
   * session layout adapter design and registration
   * preprocessing bridge compatibility ("session_layout" branch + _extract_session_profiles)
   * 12 new tests covering detection, context resolution, preflight, clinical-label safety
-  * safety boundaries (no Aramis, no clinical labels as targets, metadata safety)
+  * safety boundaries (no Aramina, no clinical labels as targets, metadata safety)
   * preserved behavior (canonical/calibration adapters, event ordering, UI)
   * tests run (1334 passed, 11 skipped)
 
@@ -186,7 +186,7 @@ BOUNDARY CONFIRMATIONS
 * controlled success exercises real preprocessing: yes
 * no fake success: yes
 * no H5 mutation or committed H5: yes
-* no Aramis runtime/product dependency: yes
+* no Aramina runtime/product dependency: yes
 * no dependency/frontend/startup/infra changes: yes
 * no unsafe model loading: yes
 * no clinical claims: yes
