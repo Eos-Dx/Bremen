@@ -101,7 +101,22 @@ _DISCOVERY_REQUIRED_FIELDS = frozenset({
 _ALLOWED_ARTIFACT_TYPES = frozenset({"portable_logreg"})
 
 # Allowed workflow IDs
-_ALLOWED_WORKFLOW_IDS = frozenset({"bremen"})
+_ALLOWED_WORKFLOW_IDS = frozenset({"bremen", "aramina"})
+
+# Aramina-specific manifest fields
+_ARAMINA_ARTIFACT_TYPE = "aramina.joblib.model_package"
+_ARAMINA_PROVIDER_CONTRACT = "aramina_provider.v0.1"
+_ARAMINA_ALLOWED_FIELDS = frozenset({
+    "schema_version", "model_id", "display_name", "workflow_id",
+    "model_version", "model_filename", "model_checksum",
+    "feature_schema_version", "clinical_stage", "provider_contract",
+    "artifact_type", "provider_config", "requirements_id",
+    "model_family", "input_container", "required_container_contract",
+    "required_fields", "optional_fields", "required_measurements",
+    "required_metadata", "optional_metadata", "feature_contract",
+    "validation_behavior", "technical_demo_only", "request_requirements",
+    "notes",
+})
 
 # model_id pattern: lowercase alphanumeric start, max 64 chars
 _MODEL_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
@@ -428,6 +443,49 @@ def _validate_discovery_fields(data: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(
             f"Unsupported workflow_id: {workflow_id!r}. "
             f"Allowed: {sorted(_ALLOWED_WORKFLOW_IDS)}"
+        )
+
+    # --- Aramina manifest validation (manifest-gated, no joblib loading) ---
+    artifact_type = str(data.get("artifact_type", "portable_logreg"))
+    if artifact_type == _ARAMINA_ARTIFACT_TYPE:
+        return _validate_aramina_discovery_fields(data)
+
+    # --- Bremen portable_logreg validation (existing path) ---
+    return data
+
+
+def _validate_aramina_discovery_fields(data: dict[str, Any]) -> dict[str, Any]:
+    """Validate Aramina-specific manifest fields.
+
+    Aramina manifests are lightweight: they declare identity, workflow,
+    provider_contract, and optional container requirements.  No joblib
+    is loaded during catalog discovery.
+    """
+    model_version = str(data.get("model_version", "")).strip()
+    if not model_version:
+        raise ValueError("Aramina manifest missing model_version")
+
+    model_filename = str(data.get("model_filename", "")).strip()
+    if not model_filename:
+        raise ValueError("Aramina manifest missing model_filename")
+
+    model_checksum = str(data.get("model_checksum", "")).strip()
+    if not model_checksum:
+        raise ValueError("Aramina manifest missing model_checksum")
+
+    fs_version = str(data.get("feature_schema_version", "")).strip()
+    if not fs_version:
+        raise ValueError("Aramina manifest missing feature_schema_version")
+
+    clinical_stage = str(data.get("clinical_stage", "")).strip()
+    if not clinical_stage:
+        raise ValueError("Aramina manifest missing clinical_stage")
+
+    provider_contract = str(data.get("provider_contract", "")).strip()
+    if provider_contract != _ARAMINA_PROVIDER_CONTRACT:
+        raise ValueError(
+            f"Unsupported Aramina provider_contract: {provider_contract!r}. "
+            f"Expected: {_ARAMINA_PROVIDER_CONTRACT!r}"
         )
 
     return data
@@ -890,6 +948,36 @@ def discover_models(
             _log.warning(
                 "bremen.catalog.candidate.rejected\t"
                 "reason_category=not_compatible\tmodel_id=%s",
+                model_id,
+            )
+            continue
+
+        # Aramina entries: manifest-gated, no joblib loading needed
+        if artifact_type == _ARAMINA_ARTIFACT_TYPE:
+            model_version = str(data.get("model_version", "unknown"))
+            feature_schema_version = str(data.get("feature_schema_version", "v0.1"))
+
+            entry = RegistryModelEntry(
+                model_id=model_id,
+                display_name=display_name,
+                workflow_id=workflow_id,
+                model_version=model_version,
+                artifact_type=artifact_type,
+                feature_schema_version=feature_schema_version,
+                decision_policy_id="",
+                decision_policy_version="",
+                technical_ready=True,
+                scientifically_certified=False,
+                technical_demo_only=True,
+                availability="available",
+                _package={},
+                _checksum=str(data.get("model_checksum", "")),
+                _container_requirements=container_requirements_data.get(dname),
+            )
+            entries.append(entry)
+            result.available_count += 1
+            _log.info(
+                "bremen.catalog.candidate.accepted\tmodel_id=%s\ttype=aramina",
                 model_id,
             )
             continue

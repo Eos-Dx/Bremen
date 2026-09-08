@@ -350,17 +350,17 @@ class TestRequestShape:
 class TestAraminaRoutingClosed:
     """workflow_id=aramina is still not executable in the catalog/allow-list."""
 
-    def test_aramina_not_in_allowed_workflow_ids(self):
-        """workflow_id='aramina' must not be in S3 discovery allow-list."""
+    def test_aramina_now_in_allowed_workflow_ids(self):
+        """workflow_id='aramina' is now in the S3 discovery allow-list."""
         from bremen.api.s3_model_discovery import _ALLOWED_WORKFLOW_IDS
-        assert "aramina" not in _ALLOWED_WORKFLOW_IDS
+        assert "aramina" in _ALLOWED_WORKFLOW_IDS
         assert "bremen" in _ALLOWED_WORKFLOW_IDS
 
-    def test_aramina_not_in_bremen_executable_allow_list(self):
-        """workflow_id='aramina' must not be routable through Bremen catalog."""
+    def test_aramina_still_not_routed_through_bremen(self):
+        """Aramina does not route through Bremen provider."""
         from bremen.api.s3_model_discovery import _ALLOWED_WORKFLOW_IDS
-        # The only allowed workflow is bremen — aramina is excluded
-        assert _ALLOWED_WORKFLOW_IDS == frozenset({"bremen"})
+        # Both are allowed, but they are separate workflow paths
+        assert _ALLOWED_WORKFLOW_IDS == frozenset({"bremen", "aramina"})
 
     def test_result_workflow_id_is_aramina_not_bremen(self):
         """Result explicitly sets workflow_id='aramina' (not 'bremen')."""

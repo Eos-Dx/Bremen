@@ -212,11 +212,17 @@ def _build_declared_requirements_response(
     if not optional_fields:
         optional_fields = _coerce_string_list(requirements.get("optional_metadata"))
 
+    # Aramina entries: default required_fields for request_requirements
+    workflow_id = row.get("workflow_id")
+    if workflow_id == "aramina" and not required_fields:
+        required_fields = ["container_id", "source_id", "patient_id", "target_side"]
+        optional_fields = ["analysis_author", "prediction_comment"]
+
     response: dict[str, Any] = {
         "schema_version": "bremen.model_requirements.v1",
         "technical_demo_only": True,
         "model_id": model_id,
-        "workflow_id": row.get("workflow_id"),
+        "workflow_id": workflow_id,
         "model_version": row.get("model_version"),
         "feature_schema_version": row.get("feature_schema_version"),
         "requirements_available": True,
