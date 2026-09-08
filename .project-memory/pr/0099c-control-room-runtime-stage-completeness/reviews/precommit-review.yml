@@ -73,7 +73,7 @@ pr0099b_preservation:
 
 model_report_binding:
   status: valid
-  detail: "Reports are per-job (AnalysisJob.reports dict keyed by workflow_id, not source-level). Each create_analysis_job() call produces a unique job_id via str(_uuid.uuid4()). No source-level dedup, caching, or report reuse logic exists. Same source can produce separate jobs/reports for different model_id values. No Aramis behavior implemented."
+  detail: "Reports are per-job (AnalysisJob.reports dict keyed by workflow_id, not source-level). Each create_analysis_job() call produces a unique job_id via str(_uuid.uuid4()). No source-level dedup, caching, or report reuse logic exists. Same source can produce separate jobs/reports for different model_id values. No Aramina behavior implemented."
 
 selected_model_request_contract:
   status: valid
@@ -95,9 +95,9 @@ job_history_model_identity:
   status: valid
   detail: "loadJobHistory() sends model_id query parameter (line 568: params.append('model_id', selectedModelId)). Server-side list_analysis_jobs() filters by model_id (line 597-599). Job History displays model_id in each row (j.model_id, truncated to 16 chars). Multiple jobs for same source with different model_ids appear as separate rows."
 
-aramis_future_safety:
+aramina_future_safety:
   status: valid
-  detail: "Only model/report identity contract made future-safe. No Aramis-specific behavior implemented. The PR0099 implementation report explicitly states 'Not implemented. Only future-safe identity contract fixed.'"
+  detail: "Only model/report identity contract made future-safe. No Aramina-specific behavior implemented. The PR0099 implementation report explicitly states 'Not implemented. Only future-safe identity contract fixed.'"
 
 # ---- Tests ----
 
@@ -137,7 +137,7 @@ validation:
   model_id_sent_in_request: "CONFIRMED — body.model_id=selectedModelId in startAnalysis()"
   model_id_filtered_history: "CONFIRMED — params.append('model_id', selectedModelId) in loadJobHistory()"
   job_specific_reports: "CONFIRMED — reports keyed by job_id, not source_id"
-  no_aramis_implementation: "CONFIRMED — no Aramis-specific behavior added"
+  no_aramina_implementation: "CONFIRMED — no Aramina-specific behavior added"
 
 functional_verification_limitation: "Sandbox/source review cannot confirm the deployed UI outcome. A real deployment must verify that: (1) the same patient now shows completed pipeline rows with the four missing stages completed, (2) a 15/15 terminal summary appears for completed jobs, (3) tiny score 3.000407207061041E-8 renders as <0.001, (4) missing score renders as —, (5) source name shows safe patient filename not opaque UUID, (6) Job History shows 'Patient' not 'Unknown', (7) model switch resets decision card and pipeline, (8) same patient with different model produces separate jobs/reports."
 

@@ -53,7 +53,7 @@ boundary_confirmations_plan_review:
   - "No code written: confirmed | not confirmed"
   - "No tests written: confirmed | not confirmed"
   - "No review artifact written: confirmed | not confirmed"
-  - "No Aramis-to-Bremen source rename performed: confirmed | not confirmed"
+  - "No Aramina-to-Bremen source rename performed: confirmed | not confirmed"
   - "No Docker/CI/API/H5/model implementation planned: confirmed | not confirmed"
   - "Plan Drift Gate required: yes | no"
   - "No git mutation commands run: confirmed | not confirmed"

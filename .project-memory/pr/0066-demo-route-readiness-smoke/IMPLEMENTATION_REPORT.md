@@ -94,7 +94,7 @@ Bremen product input is ultimately an H5 container. This PR (0066) remains focus
 - No clinical diagnosis or replacement claims in new code
 - `technical_demo_only: true` enforced in all output paths
 - No real patient data
-- No Aramis references in new code
+- No Aramina references in new code
 - No React/frontend/package-manager files
 - No deployment mutation (Terraform, Docker, CI/CD)
 - No multi-tenancy/model-profile/plugin work
@@ -148,7 +148,7 @@ All validation commands from PLAN.md pass:
 - `demo-run --capture-dir`: PASS (3 files written)
 - `grep --ui`: Only found in negative test (acceptable)
 - `grep CDN/external assets`: Only found in test assertions (acceptable)
-- `grep Aramis`: Only found in safe validation/negation contexts
+- `grep Aramina`: Only found in safe validation/negation contexts
 - `grep diagnosis/replacement`: Only in safety disclaimers and test assertions
 - `grep joblib.load/pickle.load`: No matches in changed files
 - `grep .h5/.hdf5/h5py`: Only pre-existing placeholder path in demo_smoke.py
@@ -221,7 +221,7 @@ None.
 - confirm: no unsafe model loading added: YES
 - confirm: no H5 mutation added: YES
 - confirm: no real patient data added: YES
-- confirm: no Aramis dependency added: YES
+- confirm: no Aramina dependency added: YES
 - confirm: no clinical diagnosis/replacement claims added: YES
 - confirm: no H5/model/tfstate artifacts: YES
 - confirm: no git mutation commands: YES

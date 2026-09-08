@@ -89,12 +89,12 @@ validation:
   git_diff_check: "CLEAN"
   naming_guard: "PASS — only measurement_reliability keys present"
   safety_check: "PASS — no raw paths, S3 keys, stack traces, or PHI in public responses"
-  scope_control_aramis: "PASS — no Aramis touched"
+  scope_control_aramina: "PASS — no Aramina touched"
   scope_control_pr0092: "PASS — no symmetry_signals/difference_level changes"
   scope_control_docs_deps: "PASS — no docs/requirements/pyproject/Dockerfile changes"
   prohibited_wording: "PASS — no clinical/diagnostic/model/scientific reliability"
 scope_control:
-  aramis_touched: false
+  aramina_touched: false
   pr0092_touched: false
   request_schema_changed: false
   new_dependencies: false
@@ -123,7 +123,7 @@ commit_readiness:
   git_diff_check_clean: true
   naming_guard_verified: true
   scope_control_verified: true
-  aramis_untouched: true
+  aramina_untouched: true
   pr0092_untouched: true
   no_new_dependencies: true
   no_clinical_wording: true

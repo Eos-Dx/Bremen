@@ -1,11 +1,11 @@
 {
-  "product": "Aramis",
+  "product": "Aramina",
   "cohort": "Human-1",
   "clinical_stage": "research draft",
   "intended_use_note": "Decision support only; not for autonomous diagnosis.",
-  "source_container": "data/product-aramis-data/combined_archive.h5",
+  "source_container": "data/product-aramina-data/combined_archive.h5",
   "canonical_metadata": true,
-  "created_for": "Aramis product preprocessing metadata and filtering",
+  "created_for": "Aramina product preprocessing metadata and filtering",
   "versioning_rows": [
     {
       "effective_date": "2025-02-06",
@@ -143,12 +143,12 @@
         {
           "effective_before": "2026-04-22",
           "calibrant_thickness_mm": 40.0,
-          "source": "Aramis product JSON rule"
+          "source": "Aramina product JSON rule"
         },
         {
           "effective_from": "2026-04-22",
           "calibrant_thickness_mm": 10.0,
-          "source": "Aramis product JSON rule"
+          "source": "Aramina product JSON rule"
         }
       ],
       "integration_use": "AzimuthalIntegration(thickness_reference_column=\"calibrant_thickness_mm\")",

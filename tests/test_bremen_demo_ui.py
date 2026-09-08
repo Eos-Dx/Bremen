@@ -15,7 +15,7 @@ Covers:
 - build_demo_evidence_json_response() returns valid JSON
 - Evidence JSON contains technical_demo_only: true
 - Evidence JSON contains product: "Bremen"
-- No Aramis references in HTML or JSON
+- No Aramina references in HTML or JSON
 - No clinical/replacement claims (except safe negation)
 - Import/dependency safety
 """
@@ -419,34 +419,34 @@ class TestEvidenceJsonResponse:
 
 
 # ===================================================================
-# Class 3: No Aramis references
+# Class 3: No Aramina references
 # ===================================================================
 
 
-class TestNoAramisReferences:
-    def test_no_aramis_in_html(self):
-        """HTML output does not contain Aramis strings."""
+class TestNoAraminaReferences:
+    def test_no_aramina_in_html(self):
+        """HTML output does not contain Aramina strings."""
         html = build_demo_html_page()
         html_lower = html.lower()
-        for pattern in ("aramis", "m2q", "benign vs cancer"):
+        for pattern in ("aramina", "m2q", "benign vs cancer"):
             assert pattern not in html_lower, (
                 f"HTML contains prohibited pattern: {pattern}"
             )
 
-    def test_no_aramis_in_json(self):
-        """JSON output does not contain Aramis strings."""
+    def test_no_aramina_in_json(self):
+        """JSON output does not contain Aramina strings."""
         json_str = build_demo_evidence_json_response()
         json_lower = json_str.lower()
-        for pattern in ("aramis", "m2q", "benign vs cancer"):
+        for pattern in ("aramina", "m2q", "benign vs cancer"):
             assert pattern not in json_lower, (
                 f"JSON contains prohibited pattern: {pattern}"
             )
 
-    def test_no_aramis_in_module_source(self):
-        """Module source does not contain Aramis references."""
+    def test_no_aramina_in_module_source(self):
+        """Module source does not contain Aramina references."""
         source = MODULE_PATH.read_text(encoding="utf-8")
-        assert "Aramis" not in source
-        assert "aramis" not in source
+        assert "Aramina" not in source
+        assert "aramina" not in source
 
 
 # ===================================================================

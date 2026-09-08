@@ -77,7 +77,7 @@ This PR does NOT plan a broad production file manager, patient data management s
 - `tfstate`, `.terraform`
 - `config/training/**`, `src/bremen/training/**`
 - `docs/**`, `ROADMAP.md`
-- Aramis artifacts, model descriptions, feature schemas as dependency
+- Aramina artifacts, model descriptions, feature schemas as dependency
 
 ## Exact implementation scope
 
@@ -416,7 +416,7 @@ loadContainers();
 7. **Contains Events/Logs card** — HTML includes "Events / Logs".
 8. **Contains inline JavaScript** — `<script>` tag present.
 9. **No external assets** — Still passes CDN checks.
-10. **Existing safety/identity tests still pass** — Technical demo only, Bremen identity, safety notes, no Aramis, no clinical claims.
+10. **Existing safety/identity tests still pass** — Technical demo only, Bremen identity, safety notes, no Aramina, no clinical claims.
 
 ### 5. `tests/test_bremen_api_server.py` — New endpoint tests
 
@@ -464,7 +464,7 @@ loadContainers();
 - No hardcoded patient S3 paths — only env-var-configured bucket/prefix.
 - `technical_demo_only: true` in every response.
 - No clinical diagnosis/replacement claims.
-- No Aramis references.
+- No Aramina references.
 
 ## Validation checklist
 
@@ -509,8 +509,8 @@ grep -R -I -n "https://\|http://.*cdn\|unpkg\|jsdelivr\|googleapis\|fontawesome"
   src/bremen/demo_ui.py tests/test_bremen_demo_ui.py || true
 # Expected: no output
 
-# No Aramis dependency or product labels
-grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" \
+# No Aramina dependency or product labels
+grep -R -I -n "Aramina\|aramina\|M2Q\|BENIGN vs CANCER" \
   src/bremen tests/test_bremen_demo_ui.py tests/test_bremen_api_server.py || true
 # Expected: no output (test assertions verifying absence are allowed)
 
@@ -674,7 +674,7 @@ Block if:
 - confirm: no new dependencies planned: yes (boto3 already exists)
 - confirm: no unsafe model loading planned: yes
 - confirm: no H5 mutation planned: yes
-- confirm: no Aramis dependency planned: yes
+- confirm: no Aramina dependency planned: yes
 - confirm: no clinical diagnosis/replacement claims planned: yes
 - confirm: implementation assigned to Agent: coder / Mode: implementation: yes
 - confirm: no git mutation commands run: yes

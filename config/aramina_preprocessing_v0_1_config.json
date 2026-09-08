@@ -1,24 +1,24 @@
 {
-  "schema_version": "aramis_preprocessing_v0_1",
-  "product": "Aramis",
+  "schema_version": "aramina_preprocessing_v0_1",
+  "product": "Aramina",
   "clinical_stage": "research draft",
-  "purpose": "AgBH monochromaticity QC config for downstream Aramis data selection; not for autonomous diagnosis.",
+  "purpose": "AgBH monochromaticity QC config for downstream Aramina data selection; not for autonomous diagnosis.",
   "provenance": {
     "status": "research draft product configuration",
-    "owner": "Aramis product workflow",
-    "created_from_notebook": "Clinical_trials/Product/Aramis/Aramis_Preprocessing_v0_1.py",
+    "owner": "Aramina product workflow",
+    "created_from_notebook": "Clinical_trials/Product/Aramina/Aramina_Preprocessing_v0_1.py",
     "notebook_role": "AgBH calibration review notebook that computes monochromaticity shoulder metric, detector-distance/q-range eligibility, accepted AgBH days, and reference calibrant-thickness metadata.",
-    "source_config_export": "Clinical_trials/analysis/aramis_preprocessing_v0_1/aramis_preprocessing_v0_1_config.json",
-    "canonical_location": "Aramis/config/aramis_preprocessing_v0_1_config.json",
+    "source_config_export": "Clinical_trials/analysis/aramina_preprocessing_v0_1/aramina_preprocessing_v0_1_config.json",
+    "canonical_location": "Aramina/config/aramina_preprocessing_v0_1_config.json",
     "documentation": [
-      "Aramis/config/README.md",
-      "Aramis/docs/data_preprocessing.md",
-      "Aramis/examples/README.md"
+      "Aramina/config/README.md",
+      "Aramina/docs/data_preprocessing.md",
+      "Aramina/examples/README.md"
     ],
     "used_by": [
-      "Aramis/examples/aramis_dataframe_one_to_one_v0_1.py",
-      "Aramis/examples/aramis_dataframe_one_to_many_v0_1.py",
-      "Aramis/packaging/eosproduct_bundle/scripts/run_aramis_notebooks.sh"
+      "Aramina/examples/aramina_dataframe_one_to_one_v0_1.py",
+      "Aramina/examples/aramina_dataframe_one_to_many_v0_1.py",
+      "Aramina/packaging/eosproduct_bundle/scripts/run_aramina_notebooks.sh"
     ],
     "generation_summary": [
       "Load AgBH calibration H5/session data and associated PONI metadata.",
@@ -27,19 +27,19 @@
       "Keep days with score <= parameters.max_score and detector distance compatible with required product q-range.",
       "Record accepted dates, rejected dates, reference AgBH rows, and calibrant-thickness policy."
     ],
-    "reproducibility_note": "Regenerate this file only through the referenced Aramis preprocessing notebook or an equivalent scripted export, then update this provenance block and rerun Aramis tests/notebook checks.",
+    "reproducibility_note": "Regenerate this file only through the referenced Aramina preprocessing notebook or an equivalent scripted export, then update this provenance block and rerun Aramina tests/notebook checks.",
     "clinical_safety_note": "This configuration is for research draft decision-support preprocessing only; it is not clinical validation and not for autonomous diagnosis."
   },
   "source": {
-    "calibration_dir": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/calibration",
+    "calibration_dir": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramina-data/calibration",
     "data_preference": "gfrm",
     "integration": "xrd_preprocessing.AzimuthalIntegration",
     "monochromaticity_qc": "xrd_preprocessing.AgBHMonochromaticityQualityControl"
   },
   "selection_contract": {
     "selection_source": "AgBH calibration monochromaticity QC plus detector-distance/q-range eligibility.",
-    "accepted_dates_meaning": "Calendar dates in selection.accepted_dates passed AgBH shoulder-metric QC and distance/q-range policy. Downstream Aramis DataFrame notebooks use these dates as an H5-level started_at date filter before GFRM loading.",
-    "rejected_dates_meaning": "Calendar dates in selection.rejected_dates failed the current AgBH monochromaticity threshold or distance/q-range policy and should not be used for the current Aramis research-draft product dataset.",
+    "accepted_dates_meaning": "Calendar dates in selection.accepted_dates passed AgBH shoulder-metric QC and distance/q-range policy. Downstream Aramina DataFrame notebooks use these dates as an H5-level started_at date filter before GFRM loading.",
+    "rejected_dates_meaning": "Calendar dates in selection.rejected_dates failed the current AgBH monochromaticity threshold or distance/q-range policy and should not be used for the current Aramina research-draft product dataset.",
     "monochromaticity_rule": "Pass when score <= parameters.max_score. Current score uses AgBH peak shoulder behavior with parameters.beta_ratio and parameters.beta_half_width_nm_inv.",
     "h5_filter_level": "measurementId/session level before detector frame loading",
     "downstream_yaml_fields": [
@@ -84,7 +84,7 @@
     "excluded_batches_by_distance": [
       "1"
     ],
-    "reason": "Aramis product preprocessing requires detector distance short enough to provide q-range coverage above 20 nm^-1. Batch 7 distance is used as the current acceptable reference; longer-distance AgBH days are excluded before downstream measurement selection."
+    "reason": "Aramina product preprocessing requires detector distance short enough to provide q-range coverage above 20 nm^-1. Batch 7 distance is used as the current acceptable reference; longer-distance AgBH days are excluded before downstream measurement selection."
   },
   "calibrant_thickness": {
     "unit": "mm",
@@ -5817,12 +5817,12 @@
     }
   ],
   "artifacts": {
-    "calibration_manifest_csv": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/analysis/aramis_preprocessing_v0_1/calibration_manifest.csv",
-    "selected_agbh_csv": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/analysis/aramis_preprocessing_v0_1/selected_agbh.csv",
-    "reference_agbh_csv": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/analysis/aramis_preprocessing_v0_1/reference_agbh.csv",
-    "agbh_monochromaticity_manifest_csv": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/analysis/aramis_preprocessing_v0_1/agbh_monochromaticity_manifest.csv",
-    "agbh_monochromaticity_scores_csv": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/analysis/aramis_preprocessing_v0_1/agbh_monochromaticity_scores.csv",
-    "agbh_monochromaticity_summary_by_batch_csv": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/analysis/aramis_preprocessing_v0_1/agbh_monochromaticity_summary_by_batch.csv",
-    "agbh_monochromaticity_by_batch_png": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/analysis/aramis_preprocessing_v0_1/agbh_monochromaticity_by_batch.png"
+    "calibration_manifest_csv": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/analysis/aramina_preprocessing_v0_1/calibration_manifest.csv",
+    "selected_agbh_csv": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/analysis/aramina_preprocessing_v0_1/selected_agbh.csv",
+    "reference_agbh_csv": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/analysis/aramina_preprocessing_v0_1/reference_agbh.csv",
+    "agbh_monochromaticity_manifest_csv": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/analysis/aramina_preprocessing_v0_1/agbh_monochromaticity_manifest.csv",
+    "agbh_monochromaticity_scores_csv": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/analysis/aramina_preprocessing_v0_1/agbh_monochromaticity_scores.csv",
+    "agbh_monochromaticity_summary_by_batch_csv": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/analysis/aramina_preprocessing_v0_1/agbh_monochromaticity_summary_by_batch.csv",
+    "agbh_monochromaticity_by_batch_png": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/analysis/aramina_preprocessing_v0_1/agbh_monochromaticity_by_batch.png"
   }
 }

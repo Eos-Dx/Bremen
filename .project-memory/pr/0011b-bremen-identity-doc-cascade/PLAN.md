@@ -6,7 +6,7 @@ Branch: 0011b-bremen-identity-doc-cascade
 
 ## Objective
 
-Rewrite the identity-facing sections of four documentation files (README.md, docs/roadmap.md, docs/machine_learning_concept.md, docs/repository_cleanup.md) to match ADR-0001 (Bremen product identity) and ADR-0002 (permanent separation from Aramis). These files currently violate Bremen's actual product identity because they were derived by mechanically replacing "Aramis" with "Bremen" in text that still describes Aramis's product (malignant vs. benign, patients referred to biopsy, azimuthal-integration/cosine-asymmetry features).
+Rewrite the identity-facing sections of four documentation files (README.md, docs/roadmap.md, docs/machine_learning_concept.md, docs/repository_cleanup.md) to match ADR-0001 (Bremen product identity) and ADR-0002 (permanent separation from Aramina). These files currently violate Bremen's actual product identity because they were derived by mechanically replacing "Aramina" with "Bremen" in text that still describes Aramina's product (malignant vs. benign, patients referred to biopsy, azimuthal-integration/cosine-asymmetry features).
 
 ## Precondition verification
 
@@ -25,9 +25,9 @@ All four are confirmed present. This PLAN.md is written against that base.
 
 ADR-0002 records, as explicit Consequences, that four files in the repository currently violate Bremen's actual product identity:
 
-1. **README.md** — Describes Bremen's product as "for patients referred to biopsy" with a "malignant vs benign" classification task, using Aramis's clinical framing under Bremen's name.
+1. **README.md** — Describes Bremen's product as "for patients referred to biopsy" with a "malignant vs benign" classification task, using Aramina's clinical framing under Bremen's name.
 2. **docs/roadmap.md** — Contains stale PR descriptions (PR 0005/0006/0007 described with their original planned content, not what actually shipped) and an outdated test policy table.
-3. **docs/machine_learning_concept.md** — Title is "Aramis Machine Learning Concept," uses "malignant vs benign" language, refers to biopsy rather than MRI continuation, and lists Aramis feature families instead of Bremen's.
+3. **docs/machine_learning_concept.md** — Title is "Aramina Machine Learning Concept," uses "malignant vs benign" language, refers to biopsy rather than MRI continuation, and lists Aramina feature families instead of Bremen's.
 4. **docs/repository_cleanup.md** — Contains a stale "Future PR Sequencing" table with incorrect PR descriptions and a now-orphaned second roadmap.
 
 This PR rewrites exactly these four files to carry forward the identity anchors from ADR-0001 and the separation policy from ADR-0002.
@@ -68,14 +68,14 @@ The coder may modify exactly these four files:
 
 ## Required reads (completed for this PLAN.md)
 
-- `docs/adr/0001-bremen-product-identity.md` — identity anchors: clinical question, NORMAL vs BENIGN+CANCER, 7 feature families, Aramis contrast table
+- `docs/adr/0001-bremen-product-identity.md` — identity anchors: clinical question, NORMAL vs BENIGN+CANCER, 7 feature families, Aramina contrast table
 - `docs/adr/0002-twin-product-document-separation.md` — separation policy: permanently separate, provenance only, XRD-preprocessing as shared surface
 - `ROADMAP.md` — authoritative roadmap (root-level)
 - `docs/architecture.md` — architecture baseline
 - `docs/product_development_rules.md` — independent confirmation source for identifier structure and product separation
-- `README.md` (current) — to identify Aramis-identity sections
+- `README.md` (current) — to identify Aramina-identity sections
 - `docs/roadmap.md` (current) — to be replaced with stub
-- `docs/machine_learning_concept.md` (current) — titled "Aramis Machine Learning Concept"
+- `docs/machine_learning_concept.md` (current) — titled "Aramina Machine Learning Concept"
 - `docs/repository_cleanup.md` (current) — stale "Future PR Sequencing" table
 
 ## Implementation phase assignment
@@ -95,7 +95,7 @@ The product description section will be rewritten to state:
 - **Classification task**: healthy vs. disease (NORMAL vs. BENIGN+CANCER), not malignant vs. benign.
 - **Target population**: patients referred to MRI after suspicious mammography findings (dense breast / low-efficacy mammography), not patients referred to biopsy.
 - **The seven Bremen feature families**, named exactly: `sigma_l1`, `sigma_l2`, `Mahalanobis1`, `Mahalanobis2`, `wasserstein_distance_full_q2`, `meanrms2`, `weightedrms1` — replacing any mention of "complete azimuthal integration" or "cosine asymmetry distance" as Bremen's own features.
-- **The existing "derived from Aramis" provenance sentence** is KEPT. ADR-0002 explicitly permits provenance mentions as historical context.
+- **The existing "derived from Aramina" provenance sentence** is KEPT. ADR-0002 explicitly permits provenance mentions as historical context.
 - **No new clinical validation or diagnostic-replacement claims** introduced.
 
 ### Development Roadmap section (update)
@@ -107,7 +107,7 @@ The "## Development Roadmap" section will be updated to:
 
 ### Other sections
 
-Non-identity sections (CLI usage, Repository Split, config file listings, syntax examples) may be preserved or updated for consistency but must not introduce identity drift. No section that currently describes Bremen's product identity may continue to use Aramis's clinical framing (biopsy, malignant vs. benign) as Bremen's own.
+Non-identity sections (CLI usage, Repository Split, config file listings, syntax examples) may be preserved or updated for consistency but must not introduce identity drift. No section that currently describes Bremen's product identity may continue to use Aramina's clinical framing (biopsy, malignant vs. benign) as Bremen's own.
 
 ## docs/roadmap.md planned content (stub)
 
@@ -125,7 +125,7 @@ No re-statement of roadmap content. No product identity content. Just the redire
 
 ### Title
 
-Change from "Aramis Machine Learning Concept" to **"Bremen Machine Learning Concept"**.
+Change from "Aramina Machine Learning Concept" to **"Bremen Machine Learning Concept"**.
 
 ### "## Clinical Workflow Concept" section
 
@@ -145,9 +145,9 @@ Rewrite to healthy-vs-disease framing:
 
 ### Feature-family references
 
-Replace all mentions of Aramis feature families (complete azimuthal integration / components approach, cosine asymmetry distance / symmetry approach) as Bremen's own features with the seven Bremen feature families: `sigma_l1`, `sigma_l2`, `Mahalanobis1`, `Mahalanobis2`, `wasserstein_distance_full_q2`, `meanrms2`, `weightedrms1`.
+Replace all mentions of Aramina feature families (complete azimuthal integration / components approach, cosine asymmetry distance / symmetry approach) as Bremen's own features with the seven Bremen feature families: `sigma_l1`, `sigma_l2`, `Mahalanobis1`, `Mahalanobis2`, `wasserstein_distance_full_q2`, `meanrms2`, `weightedrms1`.
 
-If Aramis feature families are mentioned for historical/provenance context (e.g., to explain how Bremen's approach was derived or differs), they must be clearly labeled as Aramis's approach and contrasted with Bremen's approach — not presented as Bremen's own features.
+If Aramina feature families are mentioned for historical/provenance context (e.g., to explain how Bremen's approach was derived or differs), they must be clearly labeled as Aramina's approach and contrasted with Bremen's approach — not presented as Bremen's own features.
 
 ### Identifier structure
 
@@ -173,8 +173,8 @@ Add new rows to the "Completed" sections (or a new "Completed (PR 0011A/B — Id
 
 | Item | Status | Details |
 |------|--------|---------|
-| ADR-0001 (Bremen product identity) | ✅ Done | PR 0011A. Product identity ADR with clinical question, classification task, 7 feature families, Aramis contrast. |
-| ADR-0002 (Twin product separation) | ✅ Done | PR 0011A. Permanent separation from Aramis; XRD-preprocessing as only shared surface. |
+| ADR-0001 (Bremen product identity) | ✅ Done | PR 0011A. Product identity ADR with clinical question, classification task, 7 feature families, Aramina contrast. |
+| ADR-0002 (Twin product separation) | ✅ Done | PR 0011A. Permanent separation from Aramina; XRD-preprocessing as only shared surface. |
 | ROADMAP.md (root-level) | ✅ Done | PR 0011A. Product Track roadmap with 12 sequenced items. |
 | docs/architecture.md | ✅ Done | PR 0011A. Architecture baseline with core chain and 11 safety invariants. |
 | Identity documentation cascade | ✅ Done | PR 0011B. README.md, docs/roadmap.md, docs/machine_learning_concept.md, docs/repository_cleanup.md aligned with ADR-0001/ADR-0002. |
@@ -239,19 +239,19 @@ for f in sigma_l1 sigma_l2 Mahalanobis1 Mahalanobis2 wasserstein_distance_full_q
 done
 ```
 
-### Prohibited Aramis-identity framing
+### Prohibited Aramina-identity framing
 
 ```bash
 # 14) No "referred to biopsy" or "malignant vs. benign" as Bremen's OWN framing
-# (Historical Aramis-provenance mentions, clearly labeled, are acceptable)
+# (Historical Aramina-provenance mentions, clearly labeled, are acceptable)
 grep -i -n -E "referred to biopsy|malignant vs\.? benign" README.md docs/machine_learning_concept.md && \
   echo "WARNING: Check context — these may be acceptable provenance mentions" || \
   echo "OK"
 
 # 15) No "azimuthal integration" or "cosine asymmetry" as Bremen's OWN feature list
-# (Aramis feature mentions in provenance context are acceptable)
+# (Aramina feature mentions in provenance context are acceptable)
 grep -i -n -E "azimuthal integration.*components|cosine asymmetry" README.md && \
-  echo "WARNING: Check context — may need to be labeled as Aramis" || echo "OK"
+  echo "WARNING: Check context — may need to be labeled as Aramina" || echo "OK"
 ```
 
 ### Target file content checks
@@ -356,8 +356,8 @@ Block if:
 - Clinical question: "Should patient continue to MRI?" (verbatim)
 - Classification task: NORMAL vs BENIGN+CANCER (healthy vs disease), not malignant vs benign
 - Target population: patients referred to MRI after suspicious mammography (not biopsy)
-- All 7 Bremen feature families replace Aramis features as Bremen's own
-- "Derived from Aramis" provenance sentence preserved
+- All 7 Bremen feature families replace Aramina features as Bremen's own
+- "Derived from Aramina" provenance sentence preserved
 - Development roadmap points to root ROADMAP.md
 - No new clinical/diagnostic claims
 
@@ -366,10 +366,10 @@ Block if:
 - No product identity content, no roadmap content, no PR descriptions
 
 ### docs/machine_learning_concept.md rewrite summary
-- Title: "Bremen Machine Learning Concept" (not "Aramis ML Concept")
+- Title: "Bremen Machine Learning Concept" (not "Aramina ML Concept")
 - Clinical workflow: MRI-continuation framing, healthy vs disease
 - Modeling goal: separate healthy (NORMAL) from disease (BENIGN+CANCER)
-- Feature families: all 7 Bremen families as own features; Aramis families only as labeled provenance
+- Feature families: all 7 Bremen families as own features; Aramina families only as labeled provenance
 - Identifier structure: kept (product-agnostic per product_development_rules.md)
 - Technical sections (training, quality, decisions, open questions): preserved with minimal changes
 
@@ -382,7 +382,7 @@ Block if:
 - Mode: implementation
 
 ### Validation checklist
-21 checks: working tree state, changed files, precondition verification, ADR-0001 identity anchors in README.md and docs/machine_learning_concept.md (11 checks), prohibited Aramis framing (2 checks), target file content (3 checks), prohibited clinical claims (1 check), forbidden file changes (1 check), .DS_Store (1 check).
+21 checks: working tree state, changed files, precondition verification, ADR-0001 identity anchors in README.md and docs/machine_learning_concept.md (11 checks), prohibited Aramina framing (2 checks), target file content (3 checks), prohibited clinical claims (1 check), forbidden file changes (1 check), .DS_Store (1 check).
 
 ### Stop conditions
 8 block conditions: file drift, missing identity anchors, non-stub roadmap, stale table not fixed, wrong agent assignment, architect file changes, prohibited claims, missing identifier check.

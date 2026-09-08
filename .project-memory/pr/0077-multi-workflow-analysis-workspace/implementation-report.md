@@ -34,7 +34,7 @@ All six unresolved findings have been addressed:
 | `src/bremen/api/job_models.py` | `AnalysisJob`, `WorkflowRun`, `ReportMetadata` dataclasses |
 | `src/bremen/api/report_provider.py` | `ReportEnvelope` and `ReportProvider` abstract protocol |
 | `src/bremen/api/report_bremen.py` | Bremen v0.2 report with all required sections |
-| `src/bremen/api/report_aramis.py` | Aramis report boundary (unavailable, typed reason code) |
+| `src/bremen/api/report_aramina.py` | Aramina report boundary (unavailable, typed reason code) |
 | `src/bremen/api/job_api_handler.py` | Job/report API handlers + SSE stream with persistent package-state |
 | `src/bremen/workspace_ui.py` | Analysis Workspace HTML/JS page generator |
 | `tests/test_bremen_event_stream.py` | 26 backend event/SSE/store tests |
@@ -143,7 +143,7 @@ SSE stream loop:
 - SSE contract (cursor, reconnect, heartbeat, terminal, real-time delivery via Condition)
 - Ephemeral retention (limits: 100 jobs, 1000 events/job, 3600s age)
 - Process vs Technical modes
-- Report lifecycle and Bremen/Aramis boundaries
+- Report lifecycle and Bremen/Aramina boundaries
 - Audit fields
 - Privacy allowlists and 16 prohibited keys
 - Multi-workflow partial success

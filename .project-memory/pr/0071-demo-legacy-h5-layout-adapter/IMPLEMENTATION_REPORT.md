@@ -79,7 +79,7 @@ All 1334 tests pass (11 skipped), including:
 
 ## SAFETY BOUNDARY SUMMARY
 
-- No Aramis product dependency
+- No Aramina product dependency
 - No biopsy/birads/BENIGN/CANCER labels used as Bremen prediction targets
 - Side metadata from sample_type → breast type → side (not hardcoded clinical labels)
 - Patient metadata resolved through existing safe `resolve_patient_metadata()` path
@@ -131,7 +131,7 @@ None.
 ## BOUNDARY CONFIRMATIONS
 
 - confirm: PR0071 implemented as legacy/synthetic H5 ingestion-boundary adapter: yes
-- confirm: no Aramis product dependency: yes
+- confirm: no Aramina product dependency: yes
 - confirm: legacy session/sets layout detection implemented: yes
 - confirm: set/contralateral pairing implemented: yes
 - confirm: integration q/i normalization implemented: yes

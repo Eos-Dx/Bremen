@@ -48,7 +48,7 @@ test -f .project-memory/pr/0061-bremen-demo-evidence-pack/PLAN.md
 grep -n "Bremen-native\|Bremen" PLAN.md
 # 40+ matches — core objective is Bremen-native evidence pack
 
-grep -n "Aramis\|aramis" PLAN.md
+grep -n "Aramina\|aramina" PLAN.md
 # 14 matches — all in prohibition/negation context: "not a dependency, benchmark, benchmark target"
 
 grep -n "demo evidence\|evidence bundle\|evidence pack" PLAN.md
@@ -133,7 +133,7 @@ date -u +%Y-%m-%dT%H:%M:%SZ
 PLAN.md is focused on a reusable, Bremen-native demo evidence pack. Creates `src/bremen/demo_evidence.py`, integrates with existing `demo_smoke.py`, adds tests.
 
 - **Not docs-only**: creates new module, modifies existing module, creates tests.
-- **Not solving everything**: no frontend, deployment automation, config UI, clinical report template, training pipeline, or Aramis alignment.
+- **Not solving everything**: no frontend, deployment automation, config UI, clinical report template, training pipeline, or Aramina alignment.
 
 ---
 
@@ -143,11 +143,11 @@ PLAN.md is focused on a reusable, Bremen-native demo evidence pack. Creates `src
 
 | Requirement | Evidence |
 |-------------|----------|
-| Aramis not a dependency | Section "Bremen Product Positioning": "Aramis is sibling provenance/context only. Aramis is not a dependency, benchmark, benchmark target, comparison baseline, or alignment target for Bremen." |
-| Aramis not a benchmark | Same section: "not a dependency, benchmark, benchmark target, comparison baseline." |
-| Aramis not a source of truth | Same section: "No Aramis artifact, Aramis model description, Aramis feature schema, or Aramis score may be used as a Bremen dependency." |
-| Aramis not an alignment target | Same section: "The demo evidence pack is for Bremen product usage only, not cross-product alignment." |
-| Bremen independent | ENFORCED via: zero-tolerance Aramis string grep in evidence output, `product: "Bremen"` invariant, `product_question: "Should patient continue to MRI?"` (Bremen own clinical question). |
+| Aramina not a dependency | Section "Bremen Product Positioning": "Aramina is sibling provenance/context only. Aramina is not a dependency, benchmark, benchmark target, comparison baseline, or alignment target for Bremen." |
+| Aramina not a benchmark | Same section: "not a dependency, benchmark, benchmark target, comparison baseline." |
+| Aramina not a source of truth | Same section: "No Aramina artifact, Aramina model description, Aramina feature schema, or Aramina score may be used as a Bremen dependency." |
+| Aramina not an alignment target | Same section: "The demo evidence pack is for Bremen product usage only, not cross-product alignment." |
+| Bremen independent | ENFORCED via: zero-tolerance Aramina string grep in evidence output, `product: "Bremen"` invariant, `product_question: "Should patient continue to MRI?"` (Bremen own clinical question). |
 
 ---
 
@@ -172,7 +172,7 @@ PLAN.md is focused on a reusable, Bremen-native demo evidence pack. Creates `src
 |-------------|----------|
 | No real patient data | Section "Non-goals": "No real patient data." Section "Safety boundaries": "No real patient data, no fabricated clinical evidence." Synethetic payload section: "Avoid real patient data, real scan data, clinical values." |
 | No committed H5/model artifacts | Forbidden files: `.h5`, `.hdf5`, `.joblib`, `.pkl`, `tests/data/**`. Synthetic payload is inline dict/list/float data. |
-| No Aramis artifacts | Section "Bremen Product Positioning": explicitly forbidden. |
+| No Aramina artifacts | Section "Bremen Product Positioning": explicitly forbidden. |
 | Deterministic synthetic Bremen payload | `build_demo_feature_artifact_payload()` returns deterministic 15-column feature artifact. TEST 16: deterministic output invariant. |
 
 ---
@@ -246,7 +246,7 @@ PLAN.md is focused on a reusable, Bremen-native demo evidence pack. Creates `src
 | AWS/S3 SDK/network clients | Grep check: `grep -R -I -n "boto3\|botocore\|requests\|httpx" src/bremen/demo_evidence.py` |
 | Matador resolver | Section "Non-goals": "No Matador resolver implementation." |
 | Real patient demo data | Section "Non-goals"/"Safety boundaries": "No real patient data. All values synthetic." |
-| Aramis dependency | Section "Bremen Product Positioning": zero tolerance. Grep check for Aramis/M2Q/BENIGN vs CANCER. |
+| Aramina dependency | Section "Bremen Product Positioning": zero tolerance. Grep check for Aramina/M2Q/BENIGN vs CANCER. |
 | Clinical/replacement claims | Section "Non-negotiable rules": zero tolerance. Grep check for diagnosis/replace patterns. |
 
 ---
@@ -267,7 +267,7 @@ PLAN.md is focused on a reusable, Bremen-native demo evidence pack. Creates `src
 | Dependency hygiene tests | Conditionally: `if test -f tests/test_bremen_dependency_hygiene.py; then ...` |
 | Full pytest | `python -m pytest -q` |
 | CLI help/serve help/demo-smoke help | `python -m bremen --help`, `python -m bremen serve --help`, `python -m bremen demo-smoke --help` |
-| Aramis dependency grep | `grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" src/bremen/demo_evidence.py src/bremen/demo_smoke.py tests/` |
+| Aramina dependency grep | `grep -R -I -n "Aramina\|aramina\|M2Q\|BENIGN vs CANCER" src/bremen/demo_evidence.py src/bremen/demo_smoke.py tests/` |
 | Clinical/replacement claim grep | `grep -R -I -n "diagnosis\|diagnose\|replaces MRI\|replace MRI\|replaces biopsy\|..."` |
 | joblib/pickle grep | `grep -R -I -n "joblib\.load\|pickle\.load\|import pickle" src/bremen tests/` |
 | H5 grep | `grep -R -I -n "\.h5\|\.hdf5\|h5py" src/bremen/demo_evidence.py tests/test_bremen_demo_evidence.py` |
@@ -324,8 +324,8 @@ PLAN.md Section "Implementation agent":
 | Boundary | Status | Evidence |
 |----------|--------|---------|
 | PR0061 planned as Bremen-native demo evidence pack | pass | Objective: "Create a reusable, Bremen-native demo evidence pack." Product identity: `product: "Bremen"`. |
-| Bremen remains independent from Aramis | pass | Section "Bremen Product Positioning": "Aramis is sibling provenance/context only." Zero-tolerance for Aramis strings. |
-| Aramis not used as dependency or benchmark | pass | Section "Bremen Product Positioning": "not a dependency, benchmark, benchmark target, comparison baseline, or alignment target." |
+| Bremen remains independent from Aramina | pass | Section "Bremen Product Positioning": "Aramina is sibling provenance/context only." Zero-tolerance for Aramina strings. |
+| Aramina not used as dependency or benchmark | pass | Section "Bremen Product Positioning": "not a dependency, benchmark, benchmark target, comparison baseline, or alignment target." |
 | demo evidence is not disposable | pass | "reusable... standard evidence bundle structure... survives beyond a single demo session." Versioned via `DEMO_EVIDENCE_VERSION`. |
 | product-owner demo value planned | pass | "product owners can show, and operators can rely on for release confidence." |
 | evidence bundle planned | pass | `build_demo_evidence_bundle()` with structured dict including `technical_demo_only`, `product`, `product_question`, `disclaimer`, `evidence_version`, `safety_notes`. |

@@ -104,10 +104,10 @@ BOUNDARY CHECK
 - pass: no forbidden file drift was observed
 - pass: no docs/api_contract.md, source, tests, CI, Docker, requirements, config, H5, model, or IaC implementation was introduced
 
-CLINICAL/ARAMIS CHECK
+CLINICAL/ARAMINA CHECK
 - pass: no clinical validation claim added
 - pass: no diagnostic replacement claim added
-- pass: no Aramis active-architecture language introduced
+- pass: no Aramina active-architecture language introduced
 - pass: APRANA is not part of this PR and no APRANA technical details were invented
 
 PLAN DRIFT GATE

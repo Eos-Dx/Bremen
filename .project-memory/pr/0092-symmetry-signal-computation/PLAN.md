@@ -295,10 +295,10 @@ Percentile-position bucketing is:
 - **Training-coherent**: uses the same population distribution that the model
   was trained on.
 
-### 5.4 Aramis constraint
+### 5.4 Aramina constraint
 
-Aramis may be used only as a design pattern for percentile-against-reference-population
-logic. No Aramis data, Aramis thresholds, Aramis labels, or Aramis clinical
+Aramina may be used only as a design pattern for percentile-against-reference-population
+logic. No Aramina data, Aramina thresholds, Aramina labels, or Aramina clinical
 wording may be reused.
 
 ---
@@ -519,7 +519,7 @@ All of:
 - Any HTML/CSS/PDF files — no rendering
 - `Dockerfile`, `requirements.txt`, `pyproject.toml` — no dependency changes
 - `ROADMAP.md` — no roadmap editing
-- Any Aramis files — no Aramis work
+- Any Aramina files — no Aramina work
 - Any model artifacts — no inspection
 - Any private H5 data — no inspection
 
@@ -634,7 +634,7 @@ grep -rn "raw_feature\|feature_value\|model_checksum\|manifest_key\|s3://\|arn:a
 - No fabricated thresholds.
 - No raw feature values in output.
 - No percentile cutoffs in output.
-- No Aramis data reuse.
+- No Aramina data reuse.
 - No mockup/example values.
 - No change to inference semantics.
 - No change to preprocessing semantics.
@@ -826,7 +826,7 @@ BUCKETING METHOD
 - Percentile-position bucketing against a safe aggregate training-cohort reference distribution.
 - Cutoffs come from the reference-statistics artifact (not invented).
 - Per-signal aggregation: most extreme (highest) level across features.
-- Decision vocabulary unchanged. No Aramis data reused.
+- Decision vocabulary unchanged. No Aramina data reused.
 
 OUTPUT WIRING PLAN
 - External: `symmetry_signals` in `decision_support_report` (extends `build_decision_support_report()`).
@@ -860,7 +860,7 @@ VALIDATION PLAN
 - Manual confirmation of every output path.
 
 NON-GOALS CONFIRMED
-No rendering, PDF export, report UI, React, frontend, new routes, schema changes, fabricated thresholds, raw values, cutoffs, Aramis data, mockup values, inference/preprocessing/catalog changes, dependency changes, CI/CD changes, or model artifact changes.
+No rendering, PDF export, report UI, React, frontend, new routes, schema changes, fabricated thresholds, raw values, cutoffs, Aramina data, mockup values, inference/preprocessing/catalog changes, dependency changes, CI/CD changes, or model artifact changes.
 
 STOP CONDITIONS CONFIRMED
 - Branch matches 0092-symmetry-signal-computation ✓
@@ -871,7 +871,7 @@ STOP CONDITIONS CONFIRMED
 - No raw feature values/deltas/cutoffs exposed ✓
 - No rendering/PDF work required ✓
 - No private H5/model artifact inspection required ✓
-- No Aramis work required ✓
+- No Aramina work required ✓
 - No inference/preprocessing semantics changes ✓
 - No /demo safety weakening ✓
 

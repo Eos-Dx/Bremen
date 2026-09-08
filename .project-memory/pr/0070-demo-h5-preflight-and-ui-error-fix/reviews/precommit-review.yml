@@ -37,7 +37,7 @@ VALIDATION
 * grep "alert(" src/bremen/demo_ui.py tests/test_bremen_demo_ui.py: only test comments/assertions, no alert() in module source
 * grep "--ui\|demo-run --ui" src/bremen tests: only test assertions for rejection of --ui
 * grep "cdn\|unpkg\|jsdelivr\|googleapis\|fontawesome" src/bremen/demo_ui.py tests/test_bremen_demo_ui.py: only test assertions
-* grep "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" src/bremen tests: only prohibition logic and test assertions
+* grep "Aramina\|aramina\|M2Q\|BENIGN vs CANCER" src/bremen tests: only prohibition logic and test assertions
 * grep "diagnosis\|diagnose\|replaces MRI\|replace MRI\|replaces biopsy\|replace biopsy\|replaces radiologist\|replace radiologist\|replaces clinician\|replace clinician" src/bremen tests: only safe negation language
 * grep "joblib\.load\|pickle\.load\|import pickle" src/bremen tests: matches in model_state.py/model_loader.py/modeling.py (controlled boundaries) and test assertions — no new unsafe loading
 * git diff --name-only -- .github infra/terraform Dockerfile Dockerfile.training requirements.txt pyproject.toml config/training frontend web ui package.json package-lock.json yarn.lock pnpm-lock.yaml tests/data: no output
@@ -69,7 +69,7 @@ SNAPSHOT DELTA
 
 SCOPE CHECK
 * Pass: Implementation focuses on the two approved live-rehearsal blockers: H5 preflight traversal fix (KeyError) and UI null request-id textContent guard.
-* No broad redesign, deployment automation, infra, multi-tenancy, model profiles, plugins, docs/roadmap, or Aramis alignment.
+* No broad redesign, deployment automation, infra, multi-tenancy, model profiles, plugins, docs/roadmap, or Aramina alignment.
 * Files changed: preflight.py, demo_ui.py, test_h5_sample_metadata.py, test_demo_ui.py.
 
 H5 PREFLIGHT CHECK
@@ -120,7 +120,7 @@ SAFETY CHECK
 * No raw H5 content in logging/responses — patient identifier used for metadata resolution only, not logged.
 * No real patient data committed.
 * No H5 mutation — read-only traversal.
-* No Aramis dependency or product labels.
+* No Aramina dependency or product labels.
 * No clinical diagnosis/replacement claims — only safe negation.
 * No deployment mutation.
 * technical_demo_only: true preserved.
@@ -194,7 +194,7 @@ BOUNDARY CONFIRMATIONS
 * no deployment mutation: yes
 * no Terraform/GitHub Actions/Docker changes: yes
 * no unsafe model loading: yes
-* no Aramis dependency: yes
+* no Aramina dependency: yes
 * no clinical diagnosis/replacement claims: yes (safe negation only)
 * implementation report present: yes
 * no H5/model/tfstate artifacts: yes

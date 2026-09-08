@@ -8,7 +8,7 @@ Covers:
 - Target/control refs required and explicit
 - No local machine path dependency
 - No clinical/diagnostic wording
-- No Aramis identity
+- No Aramina identity
 """
 
 from __future__ import annotations
@@ -146,9 +146,9 @@ class TestSafety:
             "Contract must not use 'cancer detected'"
         )
 
-    def test_no_aramis_identity(self):
-        """Contract must not reference Aramis as active architecture."""
+    def test_no_aramina_identity(self):
+        """Contract must not reference Aramina as active architecture."""
         content = _read_contract()
-        assert "aramis" not in content.lower(), (
-            "Contract must not reference Aramis"
+        assert "aramina" not in content.lower(), (
+            "Contract must not reference Aramina"
         )

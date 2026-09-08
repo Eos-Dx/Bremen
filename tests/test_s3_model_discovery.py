@@ -369,7 +369,7 @@ class TestDiscoveryFieldValidation:
     def test_wrong_workflow_id(self):
         with pytest.raises(ValueError, match="workflow_id"):
             _validate_discovery_fields({
-                "model_id": "test", "display_name": "Test", "workflow_id": "aramis",
+                "model_id": "test", "display_name": "Test", "workflow_id": "unknown",
             })
 
 

@@ -409,4 +409,4 @@ class TestResolveModel:
         )
 
         with pytest.raises(ModelIncompatibleError):
-            resolve_model("bremen-current", workflow_id="aramis")
+            resolve_model("bremen-current", workflow_id="aramina")

@@ -91,7 +91,7 @@ BOUNDARY CONFIRMATIONS:
 
 SCOPE CHECK: pass
 - PLAN focuses on two specific live-rehearsal blockers (H5 preflight traversal KeyError, UI null textContent crash).
-- No broad frontend/design work, infra, deployment automation, model retraining, Aramis alignment, or multi-tenancy.
+- No broad frontend/design work, infra, deployment automation, model retraining, Aramina alignment, or multi-tenancy.
 
 PREFLIGHT CHECK: pass
 - PLAN requires fixing `_walk_for_patient_name()` traversal so valid nested H5 metadata does not raise raw h5py `component not found` KeyError.
@@ -177,7 +177,7 @@ BOUNDARY CONFIRMATIONS:
 - no unsafe model loading planned: confirmed
 - no H5 mutation planned: confirmed
 - no committed H5/patient data planned: confirmed
-- no Aramis dependency planned: confirmed
+- no Aramina dependency planned: confirmed
 - no clinical diagnosis/replacement claims planned: confirmed
 - Bremen safety identity preserved: confirmed
 - implementation assigned to coder: confirmed

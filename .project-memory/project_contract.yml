@@ -58,7 +58,7 @@ plan_drift_gate_requirements:
   evidence_capture: "Agent claims must be accompanied by runtime-captured or explicitly observed evidence stored under .project-memory/pr/<pr-id>/evidence/ before merge."
 
 legacy_project_names:
-  - name: Aramis
+  - name: Aramina
     status: "source material — original project from which Bremen was adapted"
     rename_policy: "No automated rename in PR 0001. First coder PR touching source must include mapping of legacy names."
   - name: Ariadne

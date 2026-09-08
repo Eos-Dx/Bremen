@@ -12,7 +12,7 @@ review:
     - src/bremen/api/workflow_provider.py
     - src/bremen/api/workflow_registry.py
     - src/bremen/api/workflow_bremen.py
-    - src/bremen/api/workflow_aramis.py
+    - src/bremen/api/workflow_aramina_scaffold.py
     - src/bremen/api/xrd_normalization.py
     - src/bremen/api/model_state.py
     - src/bremen/api/h5_layouts.py
@@ -42,8 +42,8 @@ confirmed:
   nova_canonical_route_tested: true
   nova_all_measurements_retained: true
   no_default_p1: true
-  aramis_registry_routing: true
-  no_aramis_to_bremen_fallback: true
+  aramina_registry_routing: true
+  no_aramina_to_bremen_fallback: true
   demo_http_contract_explicit: true
   application_http_contract_explicit: true
   readiness_matches_runtime: true
@@ -56,12 +56,12 @@ confirmed:
 
 summary: >
   Plan PR0076 is approved. It correctly identifies the integration gap left by PR0075
-  (WorkflowRegistry/BremenProvider/AramisProvider/CanonicalXRDCase not wired into
+  (WorkflowRegistry/BremenProvider/AraminaProvider/CanonicalXRDCase not wired into
   public routes), provides a single authoritative runtime path via
   run_workflow_request() → WorkflowRegistry → provider, converts run_inference() to
   a legacy compatibility wrapper, adds adapt_model_package() inside the provider
   boundary with checksum-before-load, and tests all three workflow routes (Session,
-  Nova, Aramis) at the route level with legacy-bypass assertions. Scientific
+  Nova, Aramina) at the route level with legacy-bypass assertions. Scientific
   boundaries are preserved — no P1/P2/P3 policy invention, no Nova inference
-  readiness claim, no Aramis science reimplementation, no model training, no
+  readiness claim, no Aramina science reimplementation, no model training, no
   private artifacts. Scope is tightly bounded to the wiring integration.

@@ -107,8 +107,8 @@ review:
     evidence: |
       Server adds workflow_id to container response dict.
       Frontend filters containers where c.workflow_id && c.workflow_id !== 'bremen'.
-      With mixed catalog (bremen + aramis + unknown): only Bremen container renders.
-      Aramis/incompatible sources cannot be selected. Verified by behavioral test.
+      With mixed catalog (bremen + aramina + unknown): only Bremen container renders.
+      Aramina/incompatible sources cannot be selected. Verified by behavioral test.
 
   regression:
     status: PASS

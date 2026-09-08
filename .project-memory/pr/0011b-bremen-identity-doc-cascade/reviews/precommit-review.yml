@@ -6,7 +6,7 @@ BLOCKERS
 
 WARNINGS
 - `docs/repository_cleanup.md` still contains a `## Future PR Sequencing` section, but it now points to `ROADMAP.md` rather than restating the stale table. The task allowed either absence or a clear pointer, so this is acceptable but worth noting.
-- `README.md` still contains historical Aramis provenance and shared-surface references. They are framed historically and as provenance, which is acceptable, but the file also retains a few legacy mentions outside the identity-critical sections.
+- `README.md` still contains historical Aramina provenance and shared-surface references. They are framed historically and as provenance, which is acceptable, but the file also retains a few legacy mentions outside the identity-critical sections.
 
 VALIDATION
 - `git rev-parse --verify HEAD` ✅ `ab7c8ebd3ad3d0bfb56da8283f707225b6eaf3fe` on branch `0011b-bremen-identity-doc-cascade`
@@ -20,7 +20,7 @@ VALIDATION
 - `for f in sigma_l1 sigma_l2 Mahalanobis1 Mahalanobis2 wasserstein_distance_full_q2 meanrms2 weightedrms1; do grep -n "$f" README.md docs/machine_learning_concept.md; done` ✅ all 7 feature-family names present in both docs
 - `grep -i -n -E "referred to biopsy|malignant vs\.? benign" README.md docs/machine_learning_concept.md` ✅ no matches
 - `grep -i -n -E "azimuthal integration.*components|cosine asymmetry" README.md docs/machine_learning_concept.md` ✅ no matches
-- `grep -n "derived from Aramis\|Aramis" README.md` ✅ historical/provenance and shared-surface mentions present; see quoted lines in FILES READ
+- `grep -n "derived from Aramina\|Aramina" README.md` ✅ historical/provenance and shared-surface mentions present; see quoted lines in FILES READ
 - `grep -q "Bremen Machine Learning Concept" docs/machine_learning_concept.md` ✅
 - `grep -q "ROADMAP.md" README.md docs/roadmap.md docs/repository_cleanup.md` ✅
 - `wc -l docs/roadmap.md` ✅ `3 docs/roadmap.md`
@@ -62,10 +62,10 @@ IDENTITY FIDELITY CHECK
 - pass: the feature-family names are present in both files
 - pass: the docs no longer frame Bremen as a biopsy / malignant-vs-benign product
 
-ARAMIS PROVENANCE CHECK
-- pass: Aramis is retained as historical provenance only
-- pass: README.md line 5 explicitly frames Aramis as the inherited source code / pipeline architecture, not active identity
-- pass: no Aramis-as-Bremen identity language was observed in the reviewed content
+ARAMINA PROVENANCE CHECK
+- pass: Aramina is retained as historical provenance only
+- pass: README.md line 5 explicitly frames Aramina as the inherited source code / pipeline architecture, not active identity
+- pass: no Aramina-as-Bremen identity language was observed in the reviewed content
 
 ROADMAP STUB CHECK
 - pass: docs/roadmap.md is a 3-line stub redirecting to root ROADMAP.md

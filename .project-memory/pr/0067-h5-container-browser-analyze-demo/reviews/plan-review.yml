@@ -113,7 +113,7 @@ BOUNDARY CONFIRMATIONS:
 - no git mutation commands: yes
 
 SCOPE CHECK: pass
-PLAN focuses on fastest H5 container browser analyze demo. Not docs-only. Not production frontend, React, deployment automation, multi-tenancy, model profiles, plugins, or Aramis alignment.
+PLAN focuses on fastest H5 container browser analyze demo. Not docs-only. Not production frontend, React, deployment automation, multi-tenancy, model profiles, plugins, or Aramina alignment.
 
 DEMO INPUT CHECK: pass
 H5 container is clearly stated as product/demo input (line 9). PLAN includes: list of existing containers via env-var mock list (lines 149-152), browser upload of new H5 container (lines 164-178), selecting a container for analysis (lines 322-326). Synthetic feature artifact removed as primary input (lines 410-411, 555-556).
@@ -137,13 +137,13 @@ FRONTEND/DEPENDENCY CHECK: pass
 No React/frontend stack (line 446). Forbidden files include package.json, node_modules, frontend/ (lines 73-74). No external assets/CDN tested by greps (lines 508-509). No new dependencies (boto3 already exists, line 29).
 
 SAFETY CHECK: pass
-No unsafe deserialization — uses existing ModelState.load_at_startup() and inference_handler.run_inference() (lines 454-455, 522-523). No real patient data committed (line 462). No Aramis dependency (lines 513-514, 677). No clinical diagnosis/replacement claims (lines 466, 517-519, 678). technical_demo_only: true prominent in every response (lines 211, 465). No deployment mutation. Upload to configured S3 bucket only.
+No unsafe deserialization — uses existing ModelState.load_at_startup() and inference_handler.run_inference() (lines 454-455, 522-523). No real patient data committed (line 462). No Aramina dependency (lines 513-514, 677). No clinical diagnosis/replacement claims (lines 466, 517-519, 678). technical_demo_only: true prominent in every response (lines 211, 465). No deployment mutation. Upload to configured S3 bucket only.
 
 PRESERVED BEHAVIOR CHECK: pass
 Existing demo-run preserved (no changes to demo_run.py, line 68). Existing capture-dir preserved (same). Existing demo-smoke preserved (same). Existing /demo/api/evidence unchanged. request_id preserved. Existing API endpoints (health, model/version, predictions) unchanged. Root / still 404.
 
 VALIDATION CHECK: pass
-PLAN includes (lines 469-539): git checks (rev-parse, branch, status, diff), compileall, focused tests (demo_ui, api_server, demo_smoke, demo_run, demo_capture, api_skeleton), full pytest, CLI help checks (bremen --help, serve, demo-smoke, demo-run), forbidden --ui grep, synthetic-feature-as-primary grep, external/CDN asset grep, Aramis grep, clinical-claims grep, unsafe-deserialization grep, forbidden-path diff, docs/ROADMAP diff, model/artifact diff, .DS_Store find.
+PLAN includes (lines 469-539): git checks (rev-parse, branch, status, diff), compileall, focused tests (demo_ui, api_server, demo_smoke, demo_run, demo_capture, api_skeleton), full pytest, CLI help checks (bremen --help, serve, demo-smoke, demo-run), forbidden --ui grep, synthetic-feature-as-primary grep, external/CDN asset grep, Aramina grep, clinical-claims grep, unsafe-deserialization grep, forbidden-path diff, docs/ROADMAP diff, model/artifact diff, .DS_Store find.
 
 IMPLEMENTATION AGENT CHECK: pass
 PLAN explicitly assigns Agent: coder (line 50) / Mode: implementation (line 51).
@@ -188,7 +188,7 @@ BOUNDARY CONFIRMATIONS:
 - no new dependencies planned: yes (boto3 already exists)
 - no unsafe model loading planned: yes
 - no H5 mutation planned: yes
-- no Aramis dependency planned: yes
+- no Aramina dependency planned: yes
 - no clinical diagnosis/replacement claims planned: yes
 - Bremen safety identity preserved: yes
 - implementation assigned to coder: yes

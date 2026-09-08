@@ -29,7 +29,7 @@ validation:
   terraform_ecs_var_refs: "pass — var.model_version (line 77), var.model_uri (line 81), var.model_checksum (line 85) confirmed in ecs.tf"
   no_s3_sdk_production: "pass — grep for s3.upload/boto3/s3_client/upload_file/put_object returned nothing in production code paths"
   skipif_smoke_test: "pass — pytest.mark.skipif with BREMEN_V01_JOBLIB_PATH confirmed at line 191 of test_bremen_model_v01_publication.py"
-  no_committed_artifacts: "pass — only pre-existing ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5 found (not new, not a joblib)"
+  no_committed_artifacts: "pass — only pre-existing ./tests/data/aramina_real_h5_subset_20260128_5_patients.h5 found (not new, not a joblib)"
   forbidden_diff_check: "pass — no forbidden files modified (ADR, ROADMAP, docs/architecture, model_loader.py, api/, config.py, Dockerfile, requirements.txt, pyproject.toml, agents/)"
   ds_store_check: "pass — no .DS_Store files found"
 checks:
@@ -77,7 +77,7 @@ notes:
   - "Test results: 21 passed, 1 skipped (test_v01_real_artifact_smoke correctly skipped per pytest.mark.skipif). Full suite: 367 passed, 1 skipped, 28 warnings (numpy/joblib deprecation warnings, unrelated to PR 0036)."
   - "Smoke test decorator (line 191): @pytest.mark.skipif(not bool(os.environ.get('BREMEN_V01_JOBLIB_PATH')), reason='Set BREMEN_V01_JOBLIB_PATH to run real artifact smoke test'). Skipped reason is correct — env var not set."
   - "No S3 SDK: grep for s3.upload/boto3/s3_client/upload_file/put_object in publish_v01.py/model_release.py/publish_model_package.py returned exit code 1 (no matches). publish_v01.py uses only hashlib, json, shutil (stdlib)."
-  - "No committed joblib: find for *.joblib/*.pkl/*.npy/*.npz/*.h5/*.hdf5 returned only pre-existing ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5 (not new, not in changed files)."
+  - "No committed joblib: find for *.joblib/*.pkl/*.npy/*.npz/*.h5/*.hdf5 returned only pre-existing ./tests/data/aramina_real_h5_subset_20260128_5_patients.h5 (not new, not in changed files)."
   - "Forbidden diff: git diff --name-only for ADR/ROADMAP/architecture/model_loader.py/api/config.py/Dockerfile/requirements.txt/pyproject.toml/agents/ returned empty. No forbidden files modified."
   - "WARNING-1: scripts/publish_model_v01.sh is not in PLAN.md and does not exist. PLAN-authoritative publication path is python -m bremen.training.publish_v01. Not a blocker since the PLAN is the contract."
   - "Dry-run is default in publish_v01.py: `if not args.no_dry_run:` prints DRY RUN without writing files (lines 79-85)."

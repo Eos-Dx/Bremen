@@ -120,7 +120,7 @@ All existing endpoints and behaviors preserved and verified:
 - No React/frontend/package-manager files
 - No deployment mutation
 - No Terraform/GitHub Actions/Docker changes
-- No Aramis dependency
+- No Aramina dependency
 - No clinical/replacement claims
 - Server-side upload validation (413/100 MB) preserved unchanged
 
@@ -166,7 +166,7 @@ All 1308 existing tests pass (11 skipped).
 | `--ui` flag grep | 0 | Only in negative test assertions |
 | Synthetic Feature Artifact | 0 | Only in test assertion (verifying absence) |
 | External assets/CDN | 0 | Only in test assertions |
-| Aramis references | 0 | Only in prohibition patterns and test assertions |
+| Aramina references | 0 | Only in prohibition patterns and test assertions |
 | Clinical/replacement claims | 0 | Only safe negation language |
 | `joblib.load` / `pickle.load` | 0 | Only existing controlled modules |
 | Forbidden files changed | 0 | No output (none changed) |
@@ -245,7 +245,7 @@ None.
 - confirm: no unsafe model loading added: yes
 - confirm: no H5 mutation added: yes
 - confirm: no committed H5/patient data: yes
-- confirm: no Aramis dependency added: yes
+- confirm: no Aramina dependency added: yes
 - confirm: no clinical diagnosis/replacement claims added: yes
 - confirm: no H5/model/tfstate artifacts: yes
 - confirm: no git mutation commands: yes

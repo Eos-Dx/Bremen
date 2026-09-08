@@ -2,12 +2,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ARAMIS_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-DEV_ROOT="$(cd "${ARAMIS_ROOT}/.." && pwd)"
+ARAMINA_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+DEV_ROOT="$(cd "${ARAMINA_ROOT}/.." && pwd)"
 XRD_ROOT="${XRD_ROOT:-${DEV_ROOT}/XRD-preprocessing}"
 CONTAINER_ROOT="${CONTAINER_ROOT:-${DEV_ROOT}/container}"
-DATA_H5="${DATA_H5:-${ARAMIS_ROOT}/tests/data/aramis_real_h5_subset_20260128_5_patients.h5}"
-DIST_DIR="${DIST_DIR:-${ARAMIS_ROOT}/dist}"
+DATA_H5="${DATA_H5:-${ARAMINA_ROOT}/tests/data/aramina_real_h5_subset_20260128_5_patients.h5}"
+DIST_DIR="${DIST_DIR:-${ARAMINA_ROOT}/dist}"
 BUNDLE_NAME="${BUNDLE_NAME:-eosproduct_onboarding_bundle}"
 WORK_DIR="${DIST_DIR}/${BUNDLE_NAME}"
 ARCHIVE_PATH="${DIST_DIR}/${BUNDLE_NAME}.tar.gz"
@@ -40,7 +40,7 @@ rm -rf "${WORK_DIR}" "${ARCHIVE_PATH}"
 mkdir -p "${WORK_DIR}/repos" "${WORK_DIR}/data" "${WORK_DIR}/docs" "${DIST_DIR}"
 
 copy_repo "${XRD_ROOT}" "${WORK_DIR}/repos/XRD-preprocessing"
-copy_repo "${ARAMIS_ROOT}" "${WORK_DIR}/repos/Aramis"
+copy_repo "${ARAMINA_ROOT}" "${WORK_DIR}/repos/Aramina"
 copy_repo "${CONTAINER_ROOT}" "${WORK_DIR}/repos/container"
 mkdir -p "${WORK_DIR}/repos/Bremen"
 touch "${WORK_DIR}/repos/Bremen/.gitkeep"
@@ -53,11 +53,11 @@ fi
 
 cp "${SCRIPT_DIR}/scripts/install.sh" "${WORK_DIR}/install.sh"
 cp "${SCRIPT_DIR}/scripts/run_tests.sh" "${WORK_DIR}/run_tests.sh"
-cp "${SCRIPT_DIR}/scripts/run_aramis_notebooks.sh" "${WORK_DIR}/run_aramis_notebooks.sh"
+cp "${SCRIPT_DIR}/scripts/run_aramina_notebooks.sh" "${WORK_DIR}/run_aramina_notebooks.sh"
 cp "${SCRIPT_DIR}/environment.yml" "${WORK_DIR}/environment.yml"
 cp "${SCRIPT_DIR}/docs/INSTALL.md" "${WORK_DIR}/docs/INSTALL.md"
 cp "${SCRIPT_DIR}/docs/INSTALL.md" "${WORK_DIR}/README.md"
-chmod +x "${WORK_DIR}/install.sh" "${WORK_DIR}/run_tests.sh" "${WORK_DIR}/run_aramis_notebooks.sh"
+chmod +x "${WORK_DIR}/install.sh" "${WORK_DIR}/run_tests.sh" "${WORK_DIR}/run_aramina_notebooks.sh"
 
 (
   cd "${DIST_DIR}"

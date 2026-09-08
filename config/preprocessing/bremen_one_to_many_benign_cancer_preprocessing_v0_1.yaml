@@ -15,7 +15,7 @@ provenance:
   status: research draft product preprocessing config
   template: XRD-preprocessing/src/xrd_preprocessing/configs/preprocessing_branch_config_template.yaml
   canonical_location: config/preprocessing/bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml
-  quality_exclusion_source: config/aramis_preprocessing_v0_1_config.json
+  quality_exclusion_source: config/aramina_preprocessing_v0_1_config.json
   quality_exclusion_reason_doc: docs/agbh_quality_exclusions.md
   used_by:
     - src/bremen/pipelines.py

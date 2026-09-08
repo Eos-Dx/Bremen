@@ -34,7 +34,7 @@ Files NOT modified:
   src/bremen/api/job_models.py — No model changes.
   src/bremen/api/workflow_provider.py — No API changes.
   src/bremen/api/workflow_bremen.py — No changes.
-  src/bremen/api/workflow_aramis.py — No changes.
+  src/bremen/api/workflow_aramina_scaffold.py — No changes.
   src/bremen/api/workflow_orchestrator.py — No changes.
   All other files — No changes.
 
@@ -294,7 +294,7 @@ when additional real model configurations are available.
 Future architecture: WorkflowRegistry -> WorkflowProvider ->
 ProviderOwnedModelVariantCatalog -> ModelVariant.  Independence
 guarantees: no combined verdict, no score averaging, no silent
-fallback, no fabricated variants, Bremen and Aramis separate.
+fallback, no fabricated variants, Bremen and Aramina separate.
 
 
 Focused Tests

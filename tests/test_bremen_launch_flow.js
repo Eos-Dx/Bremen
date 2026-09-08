@@ -1018,7 +1018,7 @@ async function runAllTests() {
       storage: "configured",
       containers: [
         { source_id: "bremen-001", display_name: "bremen_sample.h5", size_bytes: 1000, last_modified: "2026-07-22T10:00:00Z", workflow_id: "bremen" },
-        { source_id: "aramis-001", display_name: "aramis_sample.h5", size_bytes: 2000, last_modified: "2026-07-22T10:00:00Z", workflow_id: "aramis" },
+        { source_id: "aramina-001", display_name: "aramina_sample.h5", size_bytes: 2000, last_modified: "2026-07-22T10:00:00Z", workflow_id: "aramina" },
         { source_id: "unknown-001", display_name: "unknown_sample.h5", size_bytes: 3000, last_modified: "2026-07-22T10:00:00Z", workflow_id: "unknown" },
       ],
     });

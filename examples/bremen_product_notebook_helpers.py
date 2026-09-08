@@ -88,7 +88,7 @@ def read_agbh_config(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def read_aramis_preprocessing_config(path: Path) -> dict[str, Any]:
+def read_aramina_preprocessing_config(path: Path) -> dict[str, Any]:
     return load_preprocessing_config(path)
 
 
@@ -309,7 +309,7 @@ def add_agbh_reference_thickness(
             source = "h5"
         elif batch in thickness_by_batch:
             value = float(thickness_by_batch[batch])
-            source = "aramis_product_versioning_json_batch"
+            source = "aramina_product_versioning_json_batch"
         else:
             value = np.nan
             source = "missing"
@@ -661,7 +661,7 @@ def build_branch_h5_filters(
             "H5 level; broad CANCER product labels are formed after h5_to_df"
         )
     else:
-        raise ValueError(f"Unknown Aramis DataFrame branch: {branch}")
+        raise ValueError(f"Unknown Aramina DataFrame branch: {branch}")
 
     return {
         "branch": branch,

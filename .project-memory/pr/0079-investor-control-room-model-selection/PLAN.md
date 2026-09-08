@@ -80,7 +80,7 @@ PR0079 does **not** implement:
 - Model variant catalog API
 - Multiple model runs
 - New Bremen model variant
-- Aramis model integration
+- Aramina model integration
 - Training or evaluation
 - Persistent job/event storage
 - Async framework migration
@@ -479,10 +479,10 @@ Bremen
   Bremen version 2
   future Bremen variants
 
-Aramis
-  Aramis current
-  Aramis version 2
-  future Aramis variants
+Aramina
+  Aramina current
+  Aramina version 2
+  future Aramina variants
 ```
 
 Future selection identity:
@@ -503,7 +503,7 @@ Future guarantees:
 - One variant cannot overwrite another
 - No combined verdict, no score averaging, no automatic promotion
 - Unavailable variants do not silently fall back
-- Bremen and Aramis remain separate providers
+- Bremen and Aramina remain separate providers
 
 This architecture is documented for compatibility only. No fields are added to runtime APIs in PR0079.
 
@@ -601,7 +601,7 @@ Do not expose private artifacts during smoke testing.
 - `src/bremen/api/job_models.py` — No model changes
 - `src/bremen/api/workflow_provider.py` — No API changes
 - `src/bremen/api/workflow_bremen.py` — No changes
-- `src/bremen/api/workflow_aramis.py` — No changes
+- `src/bremen/api/workflow_aramina_scaffold.py` — No changes
 - `src/bremen/api/workflow_orchestrator.py` — No changes
 - `src/bremen/api/runtime_plugin.py` — No changes
 - `src/bremen/api/execution_context.py` — No changes
@@ -609,7 +609,7 @@ Do not expose private artifacts during smoke testing.
 - `src/bremen/api/execution_trace.py` — No changes
 - `src/bremen/api/report_provider.py` — No changes
 - `src/bremen/api/report_bremen.py` — No changes
-- `src/bremen/api/report_aramis.py` — No changes
+- `src/bremen/api/report_aramina.py` — No changes
 - `src/bremen/api/decision_support.py` — No changes
 - `src/bremen/api/app.py` — No changes
 - `src/bremen/api/schemas.py` — No changes

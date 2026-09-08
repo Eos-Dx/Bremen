@@ -20,7 +20,7 @@ review:
     - src/bremen/api/event_store.py
     - src/bremen/api/workflow_provider.py
     - src/bremen/api/workflow_registry.py
-    - src/bremen/api/workflow_aramis.py
+    - src/bremen/api/workflow_aramina_scaffold.py
     - src/bremen/api/model_state.py
     - src/bremen/workspace_ui.py
     - tests/test_bremen_runtime_plugin.py
@@ -55,14 +55,14 @@ resolved_findings:
   - id: W001-W003
     resolution: >
       Event budget documented in workspace_contract.md (Bremen ~22-26,
-      Nova ~6, Aramis ~4, limit 1000).  Duplicate inference eliminated.
+      Nova ~6, Aramina ~4, limit 1000).  Duplicate inference eliminated.
       Orchestrator context wiring confirmed.  All previous deferred-scope
       warnings closed.
   - id: W004
     resolution: >
-      Hardcoded provider.workflow_id == "aramis" check replaced with
+      Hardcoded provider.workflow_id == "aramina" check replaced with
       generic provider.readiness().model_ready check for ALL providers.
-      Verified by grep (no 'aramis' string in orchestrator execution
+      Verified by grep (no 'aramina' string in orchestrator execution
       path).  Behavioral test with SyntheticUnavailableProvider proves
       generic handling without workflow-ID knowledge.
 
@@ -71,7 +71,7 @@ confirmed:
   one_authoritative_execution_path: true
   inference_exactly_once: true
   generic_provider_unavailability: true
-  no_hardcoded_aramis_orchestration: true
+  no_hardcoded_aramina_orchestration: true
   showcase_implemented: true
   showcase_uses_real_api: true
   showcase_uses_real_sse: true
@@ -85,7 +85,7 @@ confirmed:
   stage_drawer_safe: true
   decision_visualization_safe: true
   nova_presentation_honest: true
-  aramis_presentation_honest: true
+  aramina_presentation_honest: true
   process_linkage_works: true
   sse_behavior_preserved: true
   accessibility_behavior_tested: true
@@ -120,11 +120,11 @@ summary: >
   workflow cards (unknown-workflow fallback), process-panel linkage,
   accessibility (keyboard, aria-live, reduced-motion, responsive),
   investor summary (technical readiness separate from scientific
-  certification).  Nova and Aramis typed blocked/unavailable states.
+  certification).  Nova and Aramina typed blocked/unavailable states.
 
   W004 resolved: orchestrator now uses generic
   provider.readiness().model_ready check for ALL providers.  No
-  hardcoded workflow_id == "aramis" check.  Synthetic third-provider
+  hardcoded workflow_id == "aramina" check.  Synthetic third-provider
   test proves generic handling.
 
   All events are derived from real runtime execution.  No stage is

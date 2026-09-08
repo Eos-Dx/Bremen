@@ -502,8 +502,8 @@ Behavioral tests planned for:
     the decision still produces canonical codes (the code logic is
     built into the provider, not fetched dynamically).
 
-  Bremen and Aramis separation: No decision vocabulary from Bremen
-    leaks into Aramis. No Aramis vocabulary leaks into Bremen.
+  Bremen and Aramina separation: No decision vocabulary from Bremen
+    leaks into Aramina. No Aramina vocabulary leaks into Bremen.
 
   Privacy allowlists: No patient identifiers, feature values, or
     model parameters in decision output.
@@ -568,7 +568,7 @@ This PR must not absorb:
   AUC investigation
   Model promotion catalog
   Multiple model variants
-  Aramis integration
+  Aramina integration
 
 Those remain later independent work.
 
@@ -684,7 +684,7 @@ Files NOT modified:
   src/bremen/api/execution_context.py
   src/bremen/api/execution_trace.py
   src/bremen/api/report_provider.py
-  src/bremen/api/report_aramis.py
+  src/bremen/api/report_aramina.py
   src/bremen/api/model_state.py
   src/bremen/api/schemas.py
   src/bremen/api/job_models.py
@@ -768,7 +768,7 @@ The implementation would require retraining. (Not required.)
 The implementation would require changing numerical inference.
 (Not required.)
 
-The implementation would require Aramis terminology.
+The implementation would require Aramina terminology.
 (Not required.)
 
 The implementation would require the PR0082 UI redesign.
@@ -834,9 +834,9 @@ Gate 13: No diagnostic or rule-out claim.
   Report assessment text uses "may be recommended" / "may not be
   indicated". No cancer-ruled-out claim.
 
-Gate 14: Bremen and Aramis remain separate.
-  Bremen decision contract does not affect Aramis.
-  Aramis decision vocabulary (when implemented) is its own contract.
+Gate 14: Bremen and Aramina remain separate.
+  Bremen decision contract does not affect Aramina.
+  Aramina decision vocabulary (when implemented) is its own contract.
 
 Gate 15: No xrd-preprocessing change.
   No preprocessing files modified.

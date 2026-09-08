@@ -82,7 +82,7 @@ Exact docs to create (paths)
 
 Old-project-name removal rules
 -------------------------------
-- Do not perform source rename from Aramis -> Bremen in this PR.
+- Do not perform source rename from Aramina -> Bremen in this PR.
 - Document all occurrences of legacy names in .project-memory/report (coder responsibility in subsequent PR).
 - The first coder PR that touches source code must include an explicit mapping of legacy names to retained identifiers or planned rename steps. This PR must be reviewed under Plan Drift Gate.
 - Any automated rename tools are forbidden until explicit approval by plan-review and precommit-review.
@@ -151,7 +151,7 @@ The precommit-review step must execute these validations before allowing code co
    - Ensure plan-review writes only plan-review.yml (only when plan-review role runs).
    - Ensure coder changes match the approved file list in the PLAN.md.
 5) Anti-drift content checks (content validation):
-   - Search for legacy project name uses in changed files: grep -R --line-number "Ariadne|Aramis" $(git diff --name-only --staged) || true
+   - Search for legacy project name uses in changed files: grep -R --line-number "Ariadne|Aramina" $(git diff --name-only --staged) || true
    - If legacy names are changed in source files, block — a rename may only be planned and executed in a dedicated PR following the approved plan.
 6) Bremen safety invariants presence:
    - Any PR that will later introduce inference must include checks for: H5 metadata validation, target/control role validation, joblib checksum verification, model metadata outputs (prediction_id, model_version, etc.). Precommit must verify presence of TODOs or placeholders if implementation is deferred.
@@ -195,7 +195,7 @@ Plan execution roles and exact write permissions
 
 Manifest of non-goals (explicit)
 --------------------------------
-- Do not plan or implement source package rename from Aramis -> Bremen in this PR.
+- Do not plan or implement source package rename from Aramina -> Bremen in this PR.
 - Do not plan or implement CI, Docker, API, H5 reader, preprocessing, or joblib inference in this PR.
 
 Plan verification checklist (what the plan-review role must verify)
@@ -262,7 +262,7 @@ Boundary confirmations
 - confirm: no code written: yes
 - confirm: no tests written: yes
 - confirm: no review artifact written: yes
-- confirm: no Aramis-to-Bremen source rename performed: yes
+- confirm: no Aramina-to-Bremen source rename performed: yes
 - confirm: no Docker/CI/API/H5/model implementation planned for this PR: yes
 - confirm: Plan Drift Gate required: yes
 - confirm: no git mutation commands run: yes

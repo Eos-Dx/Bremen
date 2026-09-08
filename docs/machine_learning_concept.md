@@ -181,7 +181,7 @@ population reference measurements from other patients
 distance / similarity features against external population
 ```
 
-Possible feature families (Bremen's own, not inherited from Aramis):
+Possible feature families (Bremen's own, not inherited from Aramina):
 
 ```text
 sigma_l1

@@ -90,7 +90,7 @@ On startup failure: returns `{"technical_demo_only": True, "status": "fail", "ba
 
 | Boundary | Status | Evidence |
 |----------|--------|---------|
-| No Aramis dependency or benchmark | ✓ | Zero Aramis strings in `demo_run.py`. Validation grep confirms `demo_run.py` has no matches. |
+| No Aramina dependency or benchmark | ✓ | Zero Aramina strings in `demo_run.py`. Validation grep confirms `demo_run.py` has no matches. |
 | No clinical diagnosis/replacement claims | ✓ | `demo_run.py` only has the safety header comment (no clinical claims). |
 | No unsafe model deserialization | ✓ | Uses existing `_load_synthetic_model()` — no new `joblib.load()` or `pickle.load()`. |
 | No H5 reads/writes | ✓ | No `.h5`, `.hdf5`, or `h5py` in `demo_run.py` or `demo_evidence.py`. |
@@ -150,8 +150,8 @@ Coverage summary for demo-run tests:
 | `python -m bremen serve --help` | ✓ Shows --host, --port |
 | `python -m bremen demo-smoke --help` | ✓ Shows --base-url, --timeout, --skip-prediction |
 | `python -m bremen demo-run --help` | ✓ Shows --base-url, --timeout, --skip-prediction |
-| Aramis grep (`demo_run.py`) | ✓ Zero matches (required) |
-| Aramis grep (all evidence files) | ✓ Safe-only (prohibition context in `demo_evidence.py`, test assertions) |
+| Aramina grep (`demo_run.py`) | ✓ Zero matches (required) |
+| Aramina grep (all evidence files) | ✓ Safe-only (prohibition context in `demo_evidence.py`, test assertions) |
 | Clinical/replacement grep (`demo_run.py`) | ✓ Only safety header comment |
 | Clinical/replacement grep (all evidence files) | ✓ Safe-only (disclaimer negation, prohibition pattern lists, test assertions) |
 | joblib/pickle grep (all evidence files) | ✓ Only test assertions checking they DON'T appear |
@@ -207,7 +207,7 @@ Plus 2 new files: `src/bremen/demo_run.py` (250 lines), `tests/test_bremen_demo_
 
 **Key design decisions confirmed**:
 - `_make_handler()` is private but used (same pattern as existing tests — acceptable per plan-review warning)
-- `demo_run.py` contains zero Aramis strings (required by plan-review warning)
+- `demo_run.py` contains zero Aramina strings (required by plan-review warning)
 - Uses `ModelState.reset_for_tests()` before auto-start server (to ensure clean singleton state)
 
 ## BLOCKERS
@@ -227,7 +227,7 @@ The following is explicitly out of scope for PR0062 and deferred:
 - Real patient data integration
 - Clinical report template additions
 - Training pipeline changes
-- Aramis cross-product alignment (permanent non-goal)
+- Aramina cross-product alignment (permanent non-goal)
 - Non-localhost server binding for demo-run (localhost-only by design)
 
 ## BOUNDARY CONFIRMATIONS
@@ -248,7 +248,7 @@ The following is explicitly out of scope for PR0062 and deferred:
 - confirm: no unsafe model loading added: yes
 - confirm: no H5 mutation added: yes
 - confirm: no real patient data added: yes
-- confirm: no Aramis dependency added: yes
+- confirm: no Aramina dependency added: yes
 - confirm: no clinical diagnosis/replacement claims added: yes
 - confirm: Bremen safety identity preserved: yes
 - confirm: no H5/model/tfstate artifacts: yes

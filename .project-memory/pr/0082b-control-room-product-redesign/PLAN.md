@@ -239,7 +239,7 @@ Left column (320px):
     16px gap. Monospace values, ellipsis overflow with title tooltip.
   Container catalog with list of technical containers from
     GET /demo/api/h5/containers. No filename-based filtering. No removal of
-    containers whose name contains "Aramis". Server-side validation only.
+    containers whose name contains "Aramina". Server-side validation only.
     Unsupported file extensions, missing objects, and oversize conditions are
     rejected by the server, not by frontend filename pattern.
   Each container as card, selected state with 2px --accent border.
@@ -331,7 +331,7 @@ allows the event list to expand with flex-grow. 2px rails using status colors.
 CONTAINER CATALOG
 
 All server-provided containers preserved. No filename-based inference. No
-removal of containers whose name includes "Aramis". Server-side validation
+removal of containers whose name includes "Aramina". Server-side validation
 is the only gate. Unsupported file extensions, missing objects, and oversize
 conditions are server-rejected conditions, not frontend filename pattern rules.
 

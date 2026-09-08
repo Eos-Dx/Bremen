@@ -77,7 +77,7 @@ No changes to report generation or measurement_reliability plumbing. PR0096/PR00
 | `pytest` (full suite) | 2269 passed, 11 skipped, 0 failed |
 | `git diff --check` | Clean |
 | naming guard | PASS — only measurement_reliability keys |
-| scope checks | PASS — no Aramis, no PR0092 |
+| scope checks | PASS — no Aramina, no PR0092 |
 
 ## Blockers
 

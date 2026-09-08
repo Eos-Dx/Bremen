@@ -724,7 +724,7 @@ Files NOT modified:
   src/bremen/api/preprocessing_bridge.py
   src/bremen/api/xrd_normalization.py
   src/bremen/api/report_provider.py
-  src/bremen/api/report_aramis.py
+  src/bremen/api/report_aramina.py
   src/bremen/inference.py
   src/bremen/demo_ui.py
   src/bremen/demo_presentation.py

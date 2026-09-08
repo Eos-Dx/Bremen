@@ -25,7 +25,7 @@ warnings:
     evidence:
       file: PLAN.md
       lines: 316-337
-    issue: "Aramis integration mode selection (A/B/C) is deferred to implementation with preference for Option A. This is architecturally sound but the plan provides no boundary tests or timeout specifications for the chosen mode. The CI/CD pipeline lacks gates for subprocess/container health if Option B or C is selected."
+    issue: "Aramina integration mode selection (A/B/C) is deferred to implementation with preference for Option A. This is architecturally sound but the plan provides no boundary tests or timeout specifications for the chosen mode. The CI/CD pipeline lacks gates for subprocess/container health if Option B or C is selected."
     recommendation: "Add timeout specifications and lifecycle contracts for each integration mode option before implementation."
   - id: W002
     evidence:
@@ -55,15 +55,15 @@ confirmed:
   no_default_p1_selection: true
   explicit_workflow_selection: true
   workflow_registry_extensible: true
-  bremen_aramis_isolated: true
+  bremen_aramina_isolated: true
   per_workflow_model_state: true
   checksum_before_unsafe_load: true
   no_ensemble_behavior: true
   partial_success_defined: true
   per_workflow_readiness: true
   bremen_parity_required: true
-  aramis_parity_required: true
-  existing_aramis_reused: true
+  aramina_parity_required: true
+  existing_aramina_reused: true
   private_artifacts_excluded: true
   existing_cicd_reused: true
   migration_incremental: true
@@ -71,7 +71,7 @@ confirmed:
 summary: >
   PLAN.md provides a safe, bounded, implementable transition from the existing
   Bremen-specific runtime to a canonical XRD multi-workflow platform with
-  independent Bremen and Aramis providers.  All required architecture layers
+  independent Bremen and Aramina providers.  All required architecture layers
   are separated: H5 layout adaptation, canonical XRD representation,
   workflow-specific preprocessing, workflow-specific features, and
   workflow-specific model inference are clearly delineated.  The canonical
@@ -79,7 +79,7 @@ summary: >
   scientifically neutral — q and intensity remain separate, no patient
   identifiers, no workflow-specific normalization applied in the shared
   layer.  The workflow registry is extensible (dict-based, not hardcoded
-  if/elif), preventing a two-branch design.  Bremen and Aramis providers
+  if/elif), preventing a two-branch design.  Bremen and Aramina providers
   are fully isolated with no cross-imports.  Model state is per-workflow,
   with checksum-before-load guarantees and cross-workflow model rejection.
   No ensemble behavior, no automatic "run all", no shared verdict, no
@@ -89,7 +89,7 @@ summary: >
   pipeline is reused with minimal additions; existing Bremen endpoints
   are preserved.  Migration is incremental — existing run_inference is
   not replaced, new types are additive.  Non-blocking concerns include
-  unspecified Aramis integration timeout/lifecycle contracts, a spike-patch
+  unspecified Aramina integration timeout/lifecycle contracts, a spike-patch
   dataset-name side fallback that should log warnings, pending test
   migration for multiple-pair acceptance, and undefined Bremen parity
   tolerances that will gate scientific certification.  No blockers found.

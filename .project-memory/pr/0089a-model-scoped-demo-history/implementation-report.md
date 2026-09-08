@@ -88,7 +88,7 @@ git diff --check — clean
 - No scientific report content changed
 - No authentication added
 - No jobs deleted
-- No Aramis work
+- No Aramina work
 - No Docker/AWS/private artifacts
 
 ## Rollback

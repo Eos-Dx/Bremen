@@ -5,7 +5,7 @@ BLOCKERS
 
 WARNINGS
 - The plan is now cleanly bounded as docs-only, but it still references future implementation PRs with concrete acceptance criteria; that is acceptable because it is framed as roadmap language only.
-- Historical Aramis provenance remains in README.md and AGENTS.md, which is allowed by the task and prior PR context.
+- Historical Aramina provenance remains in README.md and AGENTS.md, which is allowed by the task and prior PR context.
 
 VALIDATION
 - Read current HEAD/status/diff metadata.
@@ -14,8 +14,8 @@ VALIDATION
 - Read `.project-memory/memory_index.yml`.
 - Read `.project-memory/pr/0001-bremen-agent-workflow/PLAN.md`.
 - Read `.project-memory/pr/0001-bremen-agent-workflow/reviews/precommit-review.yml`.
-- Read `.project-memory/pr/0003-full-aramis-to-bremen-alignment/PLAN.md`.
-- Read `.project-memory/pr/0003-full-aramis-to-bremen-alignment/reviews/precommit-review.yml`.
+- Read `.project-memory/pr/0003-full-aramina-to-bremen-alignment/PLAN.md`.
+- Read `.project-memory/pr/0003-full-aramina-to-bremen-alignment/reviews/precommit-review.yml`.
 - Read `README.md`.
 - Read `AGENTS.md`.
 - Inspected `.project-memory/pr/0004-roadmap-quality-docker-entrypoint` and `docs/` directory listings.
@@ -27,8 +27,8 @@ FILES READ
 - `.project-memory/memory_index.yml`
 - `.project-memory/pr/0001-bremen-agent-workflow/PLAN.md`
 - `.project-memory/pr/0001-bremen-agent-workflow/reviews/precommit-review.yml`
-- `.project-memory/pr/0003-full-aramis-to-bremen-alignment/PLAN.md`
-- `.project-memory/pr/0003-full-aramis-to-bremen-alignment/reviews/precommit-review.yml`
+- `.project-memory/pr/0003-full-aramina-to-bremen-alignment/PLAN.md`
+- `.project-memory/pr/0003-full-aramina-to-bremen-alignment/reviews/precommit-review.yml`
 - `README.md`
 - `AGENTS.md`
 

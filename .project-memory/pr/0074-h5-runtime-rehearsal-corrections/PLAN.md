@@ -70,7 +70,7 @@ Branch: 0074-h5-runtime-rehearsal-corrections
 - `tests/data/**`
 - Any `.h5`, `.hdf5`, `.joblib`, `.pkl`, `.npy`, `.npz`, `.tfstate`, `.terraform`
 - `docs/**`, `ROADMAP.md`
-- Aramis artifacts
+- Aramina artifacts
 
 ## Exact implementation scope
 

@@ -3,7 +3,7 @@
 # Source-material files exist under agents/ as templates reviewed during plan-review verification.
 # Adapted Bremen configs are under agents/ (same directory) written by the respective roles.
 #
-# Policy: Do not perform Aramis-to-Bremen source package rename in PR 0001.
+# Policy: Do not perform Aramina-to-Bremen source package rename in PR 0001.
 # Legacy names appear only as historical/source references, not active Bremen behavior.
 
 version: 1
@@ -48,9 +48,9 @@ source_material_templates:
     status: "not present as separate file — drift gate requirements encoded in project_contract.yml and agent configs"
 
 legacy_project_references:
-  - project: "Aramis"
+  - project: "Aramina"
     status: "source material — original XRD ML project from which Bremen was adapted"
-    location: "config/, examples/, packaging/, src/aramis/, tests/data/, docs/"
+    location: "config/, examples/, packaging/, src/aramina/, tests/data/, docs/"
     rename_policy: "Not renamed in PR 0001. First coder PR touching source must include legacy name mapping."
   - project: "Ariadne"
     status: "legacy project name referenced in agent instruction template comments"

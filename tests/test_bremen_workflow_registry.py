@@ -129,43 +129,43 @@ class TestWorkflowRegistry:
         """list_capabilities returns readiness for all providers."""
         registry = WorkflowRegistry()
         registry.register(_FakeProvider("bremen", ready=True, sci_certified=True))
-        registry.register(_FakeProvider("aramis", ready=False, sci_certified=False))
+        registry.register(_FakeProvider("aramina", ready=False, sci_certified=False))
 
         caps = registry.list_capabilities()
         assert len(caps) == 2
         assert caps["bremen"].ready is True
-        assert caps["aramis"].ready is False
+        assert caps["aramina"].ready is False
 
     def test_list_workflow_ids(self):
         """list_workflow_ids returns all registered IDs."""
         registry = WorkflowRegistry()
         registry.register(_FakeProvider("bremen"))
-        registry.register(_FakeProvider("aramis"))
+        registry.register(_FakeProvider("aramina"))
         ids = registry.list_workflow_ids()
-        assert set(ids) == {"bremen", "aramis"}
+        assert set(ids) == {"bremen", "aramina"}
 
     def test_independent_provider_state(self):
         """Providers maintain independent state."""
         registry = WorkflowRegistry()
         bremen = _FakeProvider("bremen", ready=True, sci_certified=True)
-        aramis = _FakeProvider("aramis", ready=False, sci_certified=False)
+        aramina = _FakeProvider("aramina", ready=False, sci_certified=False)
         registry.register(bremen)
-        registry.register(aramis)
+        registry.register(aramina)
 
         caps = registry.list_capabilities()
         assert caps["bremen"].ready is True
-        assert caps["aramis"].ready is False
+        assert caps["aramina"].ready is False
         # One broken provider does not affect the other
         assert caps["bremen"].configured is True
-        assert caps["aramis"].configured is True
+        assert caps["aramina"].configured is True
 
     def test_unavailable_workflow_readiness(self):
         """Unavailable workflow reports model_ready=False."""
         registry = WorkflowRegistry()
-        registry.register(_UnavailableProvider("aramis"))
+        registry.register(_UnavailableProvider("aramina"))
         caps = registry.list_capabilities()
-        assert caps["aramis"].model_ready is False
-        assert caps["aramis"].ready is False
+        assert caps["aramina"].model_ready is False
+        assert caps["aramina"].ready is False
 
     def test_unknown_workflow_error_typed(self):
         """Unknown workflow lookup produces typed error, not ValueError."""
@@ -203,31 +203,31 @@ class TestProviderIsolation:
     def test_one_success_one_failure(self):
         """One provider failing does not affect another's success."""
         bremen = _FakeProvider("bremen", ready=True)
-        aramis = _FailingExecuteProvider("aramis", ready=True)
+        aramina = _FailingExecuteProvider("aramina", ready=True)
 
         bremen_result = bremen.execute(None)
-        aramis_result = aramis.execute(None)
+        aramina_result = aramina.execute(None)
 
         assert bremen_result.status == "completed"
-        assert aramis_result.status == "failed"
-        # Bremen result is not affected by Aramis failure
+        assert aramina_result.status == "failed"
+        # Bremen result is not affected by Aramina failure
         assert bremen_result.error is None
 
     def test_no_cross_provider_state_leak(self):
         """Provider states are independent."""
         bremen = _FakeProvider("bremen", ready=True, sci_certified=True)
-        aramis = _UnavailableProvider("aramis")
+        aramina = _UnavailableProvider("aramina")
 
         assert bremen.readiness().ready is True
-        assert aramis.readiness().ready is False
-        # Bremen readiness is independent of Aramis
+        assert aramina.readiness().ready is False
+        # Bremen readiness is independent of Aramina
         assert bremen.readiness().ready is True
 
     def test_no_automatic_execution_of_all(self):
         """Registry does not execute all workflows automatically."""
         registry = WorkflowRegistry()
         registry.register(_FakeProvider("bremen"))
-        registry.register(_FakeProvider("aramis"))
+        registry.register(_FakeProvider("aramina"))
         # Registry is passive — explicit resolution required
         # (no automatic run-all)
         assert len(registry.list_workflow_ids()) == 2
@@ -300,10 +300,10 @@ class TestMultiWorkflowResult:
             job_id="job-1",
             normalization_status="completed",
             source_checksum="abc",
-            requested_workflows=("bremen", "aramis"),
+            requested_workflows=("bremen", "aramina"),
             workflows={
                 "bremen": WorkflowResult(workflow_id="bremen", status="completed"),
-                "aramis": WorkflowResult(workflow_id="aramis", status="failed", error="N/A"),
+                "aramina": WorkflowResult(workflow_id="aramina", status="failed", error="N/A"),
             },
             overall_status="partial_success",
         )
@@ -351,14 +351,14 @@ class TestMultiWorkflowResult:
             job_id="job-1",
             normalization_status="completed",
             source_checksum="abc",
-            requested_workflows=("bremen", "aramis"),
+            requested_workflows=("bremen", "aramina"),
             workflows={
                 "bremen": WorkflowResult(
                     workflow_id="bremen", status="completed",
                     payload={"probability": 0.8},
                 ),
-                "aramis": WorkflowResult(
-                    workflow_id="aramis", status="completed",
+                "aramina": WorkflowResult(
+                    workflow_id="aramina", status="completed",
                     payload={"probability": 0.3},
                 ),
             },
@@ -366,7 +366,7 @@ class TestMultiWorkflowResult:
         )
         # Results are stored independently, not averaged
         assert result.workflows["bremen"].payload is not None
-        assert result.workflows["aramis"].payload is not None
+        assert result.workflows["aramina"].payload is not None
         # No combined probability or verdict
         assert "combined" not in str(result)
 

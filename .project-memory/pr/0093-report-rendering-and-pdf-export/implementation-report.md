@@ -201,7 +201,7 @@ python -m pytest -q
 - No server-side PDF generation.
 - No dependency additions.
 - No Start Page or Control Room redesign.
-- No Aramis integration.
+- No Aramina integration.
 - No clinical validation claims.
 - No POST /predictions schema changes.
 - No changes to `symmetry_signals.py`, `decision_support.py`, `report_bremen.py`.

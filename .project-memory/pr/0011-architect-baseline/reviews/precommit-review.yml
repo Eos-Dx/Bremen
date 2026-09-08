@@ -44,7 +44,7 @@ VALIDATION:
   output: "24:5. \"Target and control scans must belong to the same patient/study and be opposite anatomical sides.\""
 - command: find . -path "./.git" -prune -o -type f \( -name "*.h5" -o -name "*.hdf5" -o -name "*.joblib" \) -print && find . -name ".DS_Store" -print
   exit code: 0
-  output: "./tests/data/aramis_real_h5_subset_20260128_5_patients.h5\n./venv/lib/python3.13/site-packages/h5py/tests/data_files/compound-dtype-complex.h5\n./venv/lib/python3.13/site-packages/h5py/tests/data_files/vlen_string_s390x.h5\n./venv/lib/python3.13/site-packages/h5py/tests/data_files/vlen_string_dset_utc.h5\n./venv/lib/python3.13/site-packages/h5py/tests/data_files/vlen_string_dset.h5"
+  output: "./tests/data/aramina_real_h5_subset_20260128_5_patients.h5\n./venv/lib/python3.13/site-packages/h5py/tests/data_files/compound-dtype-complex.h5\n./venv/lib/python3.13/site-packages/h5py/tests/data_files/vlen_string_s390x.h5\n./venv/lib/python3.13/site-packages/h5py/tests/data_files/vlen_string_dset_utc.h5\n./venv/lib/python3.13/site-packages/h5py/tests/data_files/vlen_string_dset.h5"
 - command: git diff --name-only -- src tests config examples .github Dockerfile .dockerignore requirements.txt pyproject.toml sonar-project.properties environment.yml Makefile README.md docs/roadmap.md docs/machine_learning_concept.md docs/repository_cleanup.md AGENTS.md agents/
   exit code: 0
   output: ""
@@ -70,7 +70,7 @@ SNAPSHOT DELTA:
 PLAN COMPLIANCE:
 - pass: four allowed implementation docs exist and match the planned file set
 - pass: no ADR-0003..0006 or docs/api_contract.md present
-- pass: ADR-0001 includes the exact clinical question, NORMAL, BENIGN+CANCER, all seven feature-family names, and the Aramis contrast table
+- pass: ADR-0001 includes the exact clinical question, NORMAL, BENIGN+CANCER, all seven feature-family names, and the Aramina contrast table
 - pass: ADR-0002 states permanent separation and names XRD-preprocessing as the only shared technical surface
 - pass: ROADMAP.md includes the nine completed PRs, the 12-item sequence, no hard dates, no Platform Readiness Track, no Decision Gate Register, and product-core items precede infrastructure items
 - warning: docs/architecture.md contains the required invariant text, but the direct regex count against `project_contract.yml` format returned 11 vs 0 because the architecture file uses a numbered list rather than the same YAML bullet pattern

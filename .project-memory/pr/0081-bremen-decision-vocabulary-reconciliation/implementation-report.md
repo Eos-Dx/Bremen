@@ -95,9 +95,9 @@ Workspace and Showcase
 
 CSS class logic updated: accepts CONTINUE_MRI and legacy MRI_RECOMMENDED for positive styling. triage_recommendation field read from result summary carries canonical value. No layout changes. No new panels. No animations. Resolves plan-review warning W002.
 
-Bremen and Aramis Separation
+Bremen and Aramina Separation
 
-No Aramis files modified. Bremen decision vocabulary does not affect Aramis decision codes, policy identity, threshold, reports, events, readiness, or provider behavior. Shared lifecycle contracts (lifecycle_contracts.py) not modified.
+No Aramina files modified. Bremen decision vocabulary does not affect Aramina decision codes, policy identity, threshold, reports, events, readiness, or provider behavior. Shared lifecycle contracts (lifecycle_contracts.py) not modified.
 
 Privacy
 
@@ -115,7 +115,7 @@ test_bremen_decision_vocabulary.py -- 43 tests
   Decision.to_dict: 3 tests
   Input validation: 5 tests
   No diagnostic wording: 3 tests
-  Bremen/Aramis separation: 2 tests
+  Bremen/Aramina separation: 2 tests
 
 Full Suite
 
@@ -148,7 +148,7 @@ D002 resolved: docs/workspace_contract.md updated.
   New PR0081 section documenting: clinical question, approved machine codes,
   decision policy identity, canonical decision contract architecture,
   DecisionOutput relationship, numerical behavior preservation, legacy alias
-  policy, scientific boundaries, Bremen/Aramis separation.
+  policy, scientific boundaries, Bremen/Aramina separation.
 
 D003 resolved: ROADMAP.md sequence corrected.
   PR0081 renamed from Provider-Owned Model Variants to Bremen Decision

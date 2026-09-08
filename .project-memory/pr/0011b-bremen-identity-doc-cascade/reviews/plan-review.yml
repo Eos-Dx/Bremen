@@ -26,8 +26,8 @@ PRECONDITION CHECK:
 IDENTITY FIDELITY CHECK:
 - pass: PLAN.md requires exact MRI-continuation wording, NORMAL vs BENIGN+CANCER, and all seven Bremen feature-family names in README.md and docs/machine_learning_concept.md.
 
-ARAMIS PROVENANCE CHECK:
-- pass: PLAN.md keeps a clearly labeled historical "derived from Aramis" provenance sentence and frames Aramis mentions as historical/provenance context only.
+ARAMINA PROVENANCE CHECK:
+- pass: PLAN.md keeps a clearly labeled historical "derived from Aramina" provenance sentence and frames Aramina mentions as historical/provenance context only.
 
 ROADMAP STUB CHECK:
 - pass: PLAN.md requires docs/roadmap.md to be a short supersession stub pointing to root ROADMAP.md.

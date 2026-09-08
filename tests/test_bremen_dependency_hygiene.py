@@ -148,7 +148,7 @@ def test_no_h5_model_artifacts_introduced():
     root_files += list(ROOT.glob("*.npy"))
     root_files += list(ROOT.glob("*.npz"))
     # The only allowed data file is the pre-existing test fixture
-    allowed = {ROOT / "tests" / "data" / "aramis_real_h5_subset_20260128_5_patients.h5"}
+    allowed = {ROOT / "tests" / "data" / "aramina_real_h5_subset_20260128_5_patients.h5"}
     found = set(root_files)
     unexpected = found - allowed
     assert not unexpected, (

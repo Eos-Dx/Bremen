@@ -6,9 +6,9 @@ This document defines the current Bremen data-preprocessing contract for model
 development. Bremen output remains decision support: `p_cancer` and suggested
 BENIGN/CANCER class, requiring radiologist / qualified clinician review.
 
-> **Note:** This document was originally authored as part of the Aramis project.
+> **Note:** This document was originally authored as part of the Aramina project.
 > Active command paths, imports, and code references have been updated to Bremen.
-> Historical references to Aramis in dataset descriptions and clinical context
+> Historical references to Aramina in dataset descriptions and clinical context
 > are preserved as source-material documentation.
 
 ## Identifier Levels
@@ -83,7 +83,7 @@ filters.quality_exclusions.fallback_date.excluded_dates
 The reason and session-linking policy are documented in:
 
 ```text
-Aramis/docs/agbh_quality_exclusions.md
+Aramina/docs/agbh_quality_exclusions.md
 ```
 
 Date fallback is compatibility-only. If `linked_agbh_session_uid` exists in H5,
@@ -135,13 +135,13 @@ measurement-level XRD preprocessing:
    radial-profile signal gate
 ```
 
-The historical canonical threshold was 20 dB. Current exploratory Aramis
+The historical canonical threshold was 20 dB. Current exploratory Aramina
 notebooks use 18 dB. Any final product change must be versioned and logged in
 MLflow with the selected measurement IDs and dropped measurement IDs.
 
 ## Pipeline Entrypoints
 
-Current draft code composes reusable `xrd_preprocessing` transformers. Aramis
+Current draft code composes reusable `xrd_preprocessing` transformers. Aramina
 does not own preprocessing transformer implementations.
 
 ```text
@@ -163,10 +163,10 @@ XRD-preprocessing H5ToDataFrameTransformer
   selected H5 session manifest -> decoded measurement DataFrame
   materializes only selected SAMPLE/SAMPLE rows
 
-Aramis/config/preprocessing/bremen_one_to_one_preprocessing_v0_1.yaml
-Aramis/config/preprocessing/bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml
-Aramis/config/preprocessing/bremen_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
-  concrete Bremen project preprocessing config (inherited from Aramis)
+Aramina/config/preprocessing/bremen_one_to_one_preprocessing_v0_1.yaml
+Aramina/config/preprocessing/bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+Aramina/config/preprocessing/bremen_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+  concrete Bremen project preprocessing config (inherited from Aramina)
   separate branch configs because one-to-one, standard one-to-many, and
   biopsy-only one-to-many use different cohort rules
 
@@ -346,7 +346,7 @@ biopsy-only:
 ```
 
 The biopsy-only rule follows the Clinical_trials FDA model notebook convention:
-use only rows where the biopsy flag is true. In the Aramis H5 container this is
+use only rows where the biopsy flag is true. In the Aramina H5 container this is
 the scalar metadata field `biopsy`.
 
 Preprocessing steps:
@@ -475,7 +475,7 @@ target/contralateral orientation remains metadata-level for reporting
 symmetry_available records whether a valid feature was computed
 ```
 
-If both breast sides are clinically suspicious, the first Aramis version does
+If both breast sides are clinically suspicious, the first Aramina version does
 not treat this as one coupled bilateral decision. The product should create
 side-specific decision-support reports for each breast, so the clinical user can
 review whether left, right, or both sides need biopsy / further work-up.

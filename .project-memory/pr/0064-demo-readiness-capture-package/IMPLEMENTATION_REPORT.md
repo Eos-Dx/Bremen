@@ -75,7 +75,7 @@ This produces 3 files that can be shared, archived, or used in walkthroughs.
 | Safety invariant | How enforced |
 |-----------------|--------------|
 | No clinical diagnosis claims | All output uses safe negation only |
-| No Aramis references | Zero Aramis strings in `demo_capture.py` (verified by grep) |
+| No Aramina references | Zero Aramina strings in `demo_capture.py` (verified by grep) |
 | `technical_demo_only: true` | In every capture file |
 | Bremen identity | In manifest, summary, and evidence |
 | No unsafe file overwrite | `FileExistsError` on collision |
@@ -96,7 +96,7 @@ Multi-tenancy, model profiles, and plugin configuration remain deferred. No code
 | No React/frontend | ✓ | No `frontend/**`, `web/**`, `ui/**`, or package-manager files changed. |
 | No docs/ROADMAP changes | ✓ | Docs and ROADMAP unchanged. |
 | No real patient data | ✓ | Pure formatting of existing synthetic data. |
-| No Aramis dependency | ✓ | Zero Aramis strings in `demo_capture.py`. |
+| No Aramina dependency | ✓ | Zero Aramina strings in `demo_capture.py`. |
 | No clinical/replacement claims | ✓ | All output uses safe negation. |
 | No git mutation commands | ✓ | No `git add`, `git commit`, `git push`, or any mutating commands executed. |
 | Safe file collision handling | ✓ | `FileExistsError` on existing output files or dir-as-file. |
@@ -122,7 +122,7 @@ Coverage summary for capture tests (37 tests):
 - `write_demo_capture()` basic — 3 files written, directory creation, summary contains pretty text, evidence JSON valid, evidence contains `technical_demo_only`, manifest valid JSON, returns manifest
 - Fallback without pretty — files written, fallback contains Bremen/safety
 - `FileExistsError` — dir-as-file, existing output files, empty dir allowed
-- No Aramis references — capture files, module source
+- No Aramina references — capture files, module source
 - No clinical claims — capture files, safety notes use negation
 - JSON serializability — evidence and manifest parse correctly
 - Determinism — manifest with fixed timestamp is stable
@@ -151,8 +151,8 @@ Coverage summary for capture tests (37 tests):
 | `python -m bremen demo-smoke --help` | ✓ Shows --base-url, --timeout, --skip-prediction |
 | `python -m bremen demo-run --help` | ✓ Shows `--capture-dir` option |
 | End-to-end `--pretty --capture-dir` smoke test | ✓ 3 files created (summary, evidence, manifest) |
-| Aramis grep (`demo_capture.py`) | ✓ Zero matches (required) |
-| Aramis grep (all demo files) | ✓ Safe-only (test assertions only) |
+| Aramina grep (`demo_capture.py`) | ✓ Zero matches (required) |
+| Aramina grep (all demo files) | ✓ Safe-only (test assertions only) |
 | Clinical/replacement grep (all demo files) | ✓ Safe negation / disclaimer context only |
 | joblib/pickle grep (all demo files) | ✓ Only test assertions checking absence |
 | H5 grep (all demo files) | ✓ No matches in source |
@@ -241,7 +241,7 @@ The following is explicitly out of scope for PR0064 and deferred:
 - confirm: no unsafe model loading added: yes
 - confirm: no H5 mutation added: yes
 - confirm: no real patient data added: yes
-- confirm: no Aramis dependency added: yes
+- confirm: no Aramina dependency added: yes
 - confirm: no clinical diagnosis/replacement claims added: yes
 - confirm: Bremen safety identity preserved: yes
 - confirm: no H5/model/tfstate artifacts: yes

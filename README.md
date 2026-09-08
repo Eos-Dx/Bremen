@@ -2,7 +2,7 @@
 
 Bremen is an XRD-based ML decision-support product candidate. It processes HDF5 target/control scan containers, validates metadata, runs preprocessing and feature extraction, loads a controlled joblib model package, and returns prediction, QC, and model metadata to the platform.
 
-This repository was derived from the Aramis project. Aramis was the EOS research draft product for breast XRD decision support. Bremen carries forward the inherited source code and pipeline architecture while establishing an independent product identity.
+This repository was derived from the Aramina project. Aramina was the EOS research draft product for breast XRD decision support. Bremen carries forward the inherited source code and pipeline architecture while establishing an independent product identity.
 
 ## Product Description
 
@@ -32,7 +32,7 @@ Bremen's own healthy-vs-disease symmetry/distance approach uses the following se
 - `meanrms2`
 - `weightedrms1`
 
-These implement Bremen's healthy-vs-disease classification task and are not interchangeable with Aramis's azimuthal-integration/cosine-asymmetry approach.
+These implement Bremen's healthy-vs-disease classification task and are not interchangeable with Aramina's azimuthal-integration/cosine-asymmetry approach.
 
 ### Architecture constraints
 
@@ -78,7 +78,7 @@ specificity target: maximize, target >50%
 
 ## Repository Split
 
-`XRD-preprocessing` is the common preprocessing core for Bremen and Aramis:
+`XRD-preprocessing` is the common preprocessing core for Bremen and Aramina:
 
 ```text
 H5 raw data
@@ -123,7 +123,7 @@ python -m bremen training --config /path/to/training.yaml
 python -m bremen predict --config /path/to/predict.yaml
 ```
 
-> **Note:** CLI entrypoints now use the `bremen` package name. The inherited `aramis` entrypoint is preserved as a backward-compatibility alias.
+> **Note:** CLI entrypoints now use the `bremen` package name. The inherited `aramina` entrypoint is preserved as a backward-compatibility alias.
 
 `preprocess` config owns input H5 path, output DataFrame/joblib path, raw-data source, H5 quality exclusions, branch rules, and XRD preprocessing parameters.
 `training` config will own dataset paths, split logic, model family, MLflow tracking, and trained model output.
@@ -171,7 +171,7 @@ src/bremen/pipelines.py
   optional DataFrame joblib export
 ```
 
-> **Note:** Classes were renamed from `Aramis*` to `Bremen*` as part of the full alignment.
+> **Note:** Classes were renamed from `Aramina*` to `Bremen*` as part of the full alignment.
 
 Synthetic regression tests:
 
@@ -199,7 +199,7 @@ python -m bremen preprocess --config \
   config/preprocessing/bremen_one_to_many_benign_cancer_preprocessing_v0_1.yaml
 ```
 
-> **Note:** The examples above reference the Bremen project path. The original Aramis workspace path was `cd /Users/sad/dev/Aramis` with old `aramis_*` config filenames.
+> **Note:** The examples above reference the Bremen project path. The original Aramina workspace path was `cd /Users/sad/dev/Aramina` with old `aramina_*` config filenames.
 
 Interactive edit mode:
 
@@ -215,7 +215,7 @@ python -m marimo edit examples/bremen_one_to_many_product_model_v0_1.py -- \
   --biopsy-dataframe-joblib-path examples/outputs/bremen_one_to_many_benign_cancer_biopsy_dataframe.joblib
 ```
 
-> **Note:** Example notebooks and helper filenames have been renamed from `aramis_*` to `bremen_*` as part of the full package alignment.
+> **Note:** Example notebooks and helper filenames have been renamed from `aramina_*` to `bremen_*` as part of the full package alignment.
 
 ```text
 default settings run automatically
@@ -249,10 +249,10 @@ docs/machine_learning_concept.md#data-quality-and-monochromaticity
 Product versioning/config:
 
 ```text
-config/aramis_product_versioning.json
+config/aramina_product_versioning.json
   Human-1 batch/source-line/calibrant-thickness product versioning
 
-config/aramis_preprocessing_v0_1_config.json
+config/aramina_preprocessing_v0_1_config.json
   AgBH monochromaticity QC audit artifact
   contains purpose/provenance/selection_contract
   YAML filters.quality_exclusions drives H5-level filtering before GFRM loading
@@ -323,4 +323,4 @@ The roadmap is maintained as root-level `ROADMAP.md` only. The file `docs/roadma
 
 ## Repository Cleanup Status
 
-See [docs/repository_cleanup.md](docs/repository_cleanup.md) for the current status of repository identity cleanup, Aramis legacy classification, and deferred items.
+See [docs/repository_cleanup.md](docs/repository_cleanup.md) for the current status of repository identity cleanup, Aramina legacy classification, and deferred items.

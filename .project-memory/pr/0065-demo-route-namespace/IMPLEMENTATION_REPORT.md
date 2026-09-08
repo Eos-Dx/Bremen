@@ -96,7 +96,7 @@ Multi-tenancy, model profiles, plugin configuration, and feature flags are defer
 | No unsafe model deserialization | ✓ | No `joblib.load()` or `pickle.load()` in new code |
 | No H5 reads/writes | ✓ | No `.h5`, `.hdf5`, or `h5py` in new code |
 | No AWS/network clients | ✓ | No `boto3`, `requests`, `httpx` in new code |
-| No Aramis dependency | ✓ | Zero Aramis strings in `demo_ui.py` and `server.py` (verified by grep) |
+| No Aramina dependency | ✓ | Zero Aramina strings in `demo_ui.py` and `server.py` (verified by grep) |
 | No clinical/replacement claims | ✓ | Only safe negation in disclaimer strings |
 | `build_existence_proof` not created | ✓ | Zero matches for `build_existence_proof` in repo (verified by grep) |
 | No new dependencies | ✓ | Stdlib-only module |
@@ -122,7 +122,7 @@ Multi-tenancy, model profiles, plugin configuration, and feature flags are defer
 Coverage summary for UI tests (33 tests):
 - HTML page: returns string, contains Bremen, technical demo, disclaimer, inline CSS, product question, uses evidence data, request_id, no external URLs, has doctype, no JS, proper structure, warnings section, all 4 cards present, footer disclaimer
 - Evidence JSON: valid JSON, `technical_demo_only`, `product: "Bremen"`, evidence_version, safety_notes, explicit evidence, deterministic, parsable, no diagnosis claim
-- No Aramis references: HTML, JSON, module source
+- No Aramina references: HTML, JSON, module source
 - Import/dependency safety: no H5, no joblib/pickle, no boto3/requests
 
 Coverage for server HTTP tests:
@@ -155,7 +155,7 @@ Coverage for server HTTP tests:
 | `python -m bremen demo-smoke --help` | ✓ Shows --base-url, --timeout, --skip-prediction |
 | `python -m bremen demo-run --help` | ✓ Shows --pretty, --capture-dir |
 | End-to-end capture smoke test | ✓ 3 files created |
-| Aramis grep (all files) | ✓ Test assertions only — no source references |
+| Aramina grep (all files) | ✓ Test assertions only — no source references |
 | Clinical/replacement grep | ✓ Safety negation only |
 | joblib/pickle grep | ✓ Pre-existing test assertions only |
 | H5 grep (`demo_ui.py` + `server.py`) | ✓ No matches in source |
@@ -249,7 +249,7 @@ None. Implementation fully complies with PLAN.md and plan-review verdict.
 - confirm: no unsafe model loading added: yes
 - confirm: no H5 mutation added: yes
 - confirm: no real patient data added: yes
-- confirm: no Aramis dependency added: yes
+- confirm: no Aramina dependency added: yes
 - confirm: no clinical diagnosis/replacement claims added: yes
 - confirm: build_existence_proof not created/imported: yes
 - confirm: no H5/model/tfstate artifacts: yes

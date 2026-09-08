@@ -25,12 +25,12 @@ def _():
 
     PRODUCT_DIR = Path(__file__).resolve().parent
     DEFAULT_STANDARD_JOBLIB_PATH = (
-        PRODUCT_DIR / "outputs" / "aramis_one_to_many_benign_cancer_dataframe.joblib"
+        PRODUCT_DIR / "outputs" / "aramina_one_to_many_benign_cancer_dataframe.joblib"
     )
     DEFAULT_BIOPSY_JOBLIB_PATH = (
         PRODUCT_DIR
         / "outputs"
-        / "aramis_one_to_many_benign_cancer_biopsy_dataframe.joblib"
+        / "aramina_one_to_many_benign_cancer_biopsy_dataframe.joblib"
     )
     DATASET_COLORS = {
         "standard": "#4c78a8",
@@ -54,7 +54,7 @@ def _(mo):
     mo.md(
         "\n".join(
             [
-                "# Aramis One-To-Many Model Comparison v0.1",
+                "# Aramina One-To-Many Model Comparison v0.1",
                 "",
                 "Research draft model notebook.",
                 "",
@@ -157,7 +157,7 @@ def _(biopsy_joblib_path, load_one_to_many_dataframe, mo, standard_joblib_path):
         mo.md(
             "Missing one-to-many joblib(s): "
             + ", ".join(f"`{_path}`" for _path in _missing)
-            + ". Run `examples/aramis_dataframe_one_to_many_v0_1.py` for standard and biopsy-only outputs first."
+            + ". Run `examples/aramina_dataframe_one_to_many_v0_1.py` for standard and biopsy-only outputs first."
         ),
     )
     one_to_many_datasets = {

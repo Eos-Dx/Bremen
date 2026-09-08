@@ -309,8 +309,8 @@ Fourteen drift-check criteria enforced by precommit-review: file drift, roadmap-
 - `.project-memory/memory_index.yml`
 - `.project-memory/pr/0001-bremen-agent-workflow/PLAN.md`
 - `.project-memory/pr/0001-bremen-agent-workflow/reviews/precommit-review.yml`
-- `.project-memory/pr/0003-full-aramis-to-bremen-alignment/PLAN.md`
-- `.project-memory/pr/0003-full-aramis-to-bremen-alignment/reviews/precommit-review.yml`
+- `.project-memory/pr/0003-full-aramina-to-bremen-alignment/PLAN.md`
+- `.project-memory/pr/0003-full-aramina-to-bremen-alignment/reviews/precommit-review.yml`
 - `README.md`
 - `AGENTS.md`
 - `docs/product_development_rules.md`

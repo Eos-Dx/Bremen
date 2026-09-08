@@ -1,7 +1,7 @@
 # Bremen Examples
 
 These marimo notebooks are package examples. They should run from this folder
-without importing helper code from `Clinical_trials/Product/Aramis`.
+without importing helper code from `Clinical_trials/Product/Aramina`.
 
 Files:
 
@@ -22,7 +22,7 @@ preprocess_one_to_many_biopsy_minimal.sh
 preprocess_all.sh
 ```
 
-> **Note:** Example filenames have been renamed from `aramis_*` to `bremen_*` as part of the full package alignment.
+> **Note:** Example filenames have been renamed from `aramina_*` to `bremen_*` as part of the full package alignment.
 
 The helper file intentionally lives beside the notebooks because marimo examples
 import it directly:
@@ -98,7 +98,7 @@ python -m marimo run examples/bremen_final_experimental_model_v0_1.py -- \
 Default product config:
 
 ```text
-config/aramis_preprocessing_v0_1_config.json
+config/aramina_preprocessing_v0_1_config.json
 ```
 
 This JSON stores provenance: source preprocessing notebook, generation summary,

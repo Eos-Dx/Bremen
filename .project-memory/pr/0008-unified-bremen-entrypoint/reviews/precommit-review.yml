@@ -54,25 +54,25 @@ review:
       exit_code: 0
       output: |
         61 passed, 28 warnings in 17.97s
-    - command: "grep -R -I -n -E \"Aramis|aramis\" src/bremen tests README.md pyproject.toml 2>/dev/null || true"
+    - command: "grep -R -I -n -E \"Aramina|aramina\" src/bremen tests README.md pyproject.toml 2>/dev/null || true"
       exit_code: 0
       output: |
-        tests/test_bremen_cli_entrypoint.py:8:- No active Aramis identity in help output
-        tests/test_bremen_cli_entrypoint.py:145:# No Aramis identity in help output
-        tests/test_bremen_cli_entrypoint.py:149:def test_help_no_aramis():
-        tests/test_bremen_cli_entrypoint.py:150:    \"\"\"python -m bremen --help output does not contain 'aramis' or 'Aramis'.\"\"\"
-        tests/test_bremen_cli_entrypoint.py:156:    assert \"aramis\" not in result.stdout.lower(), (
-        tests/test_bremen_cli_entrypoint.py:157:        \"Help output must not contain 'aramis' (case-insensitive)\"
-        README.md:5:This repository was derived from the Aramis project. Aramis was the EOS research draft product for breast XRD decision support. Bremen carries forward the inherited source code and pipeline architecture while establishing an independent product identity.
-        README.md:76:`XRD-preprocessing` is the common preprocessing core for Bremen and Aramis:
-        README.md:139:> **Note:** CLI entrypoints now use the `bremen` package name. The inherited `aramis` entrypoint is preserved as a backward-compatibility alias.
-        README.md:187:> **Note:** Classes were renamed from `Aramis*` to `Bremen*` as part of the full alignment.
-        README.md:215:> **Note:** The examples above reference the Bremen project path. The original Aramis workspace path was `cd /Users/sad/dev/Aramis` with old `aramis_*` config filenames.
-        README.md:231:> **Note:** Example notebooks and helper filenames have been renamed from `aramis_*` to `bremen_*` as part of the full package alignment.
-        README.md:265:config/aramis_product_versioning.json
-        README.md:268:config/aramis_preprocessing_v0_1_config.json
-        README.md:332:See [docs/repository_cleanup.md](docs/repository_cleanup.md) for the current status of repository identity cleanup, Aramis legacy classification, and deferred items.
-        pyproject.toml:8:description = \"Bremen — XRD-based ML decision-support product candidate. Derived from the Aramis project (cancer-classification product draft).\"
+        tests/test_bremen_cli_entrypoint.py:8:- No active Aramina identity in help output
+        tests/test_bremen_cli_entrypoint.py:145:# No Aramina identity in help output
+        tests/test_bremen_cli_entrypoint.py:149:def test_help_no_aramina():
+        tests/test_bremen_cli_entrypoint.py:150:    \"\"\"python -m bremen --help output does not contain 'aramina' or 'Aramina'.\"\"\"
+        tests/test_bremen_cli_entrypoint.py:156:    assert \"aramina\" not in result.stdout.lower(), (
+        tests/test_bremen_cli_entrypoint.py:157:        \"Help output must not contain 'aramina' (case-insensitive)\"
+        README.md:5:This repository was derived from the Aramina project. Aramina was the EOS research draft product for breast XRD decision support. Bremen carries forward the inherited source code and pipeline architecture while establishing an independent product identity.
+        README.md:76:`XRD-preprocessing` is the common preprocessing core for Bremen and Aramina:
+        README.md:139:> **Note:** CLI entrypoints now use the `bremen` package name. The inherited `aramina` entrypoint is preserved as a backward-compatibility alias.
+        README.md:187:> **Note:** Classes were renamed from `Aramina*` to `Bremen*` as part of the full alignment.
+        README.md:215:> **Note:** The examples above reference the Bremen project path. The original Aramina workspace path was `cd /Users/sad/dev/Aramina` with old `aramina_*` config filenames.
+        README.md:231:> **Note:** Example notebooks and helper filenames have been renamed from `aramina_*` to `bremen_*` as part of the full package alignment.
+        README.md:265:config/aramina_product_versioning.json
+        README.md:268:config/aramina_preprocessing_v0_1_config.json
+        README.md:332:See [docs/repository_cleanup.md](docs/repository_cleanup.md) for the current status of repository identity cleanup, Aramina legacy classification, and deferred items.
+        pyproject.toml:8:description = \"Bremen — XRD-based ML decision-support product candidate. Derived from the Aramina project (cancer-classification product draft).\"
     - command: "grep -R -I -n -E \"diagnos|diagnostic|clinically validated|validated clinically|replace MRI|replace biopsy|replace radiologist|replace clinician|autonomous clinical\" src/bremen tests README.md 2>/dev/null || true"
       exit_code: 0
       output: |
@@ -95,7 +95,7 @@ review:
     - command: "find . -path \"./.git\" -prune -o -path \"./venv\" -prune -o -path \"./.venv\" -prune -o -type f \( -name \"*.h5\" -o -name \"*.hdf5\" \) -print"
       exit_code: 0
       output: |
-        ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5
+        ./tests/data/aramina_real_h5_subset_20260128_5_patients.h5
     - command: "find . -name \".DS_Store\" -print"
       exit_code: 0
       output: |

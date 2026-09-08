@@ -136,7 +136,7 @@ git diff --check — clean
 
 No rendering, PDF, UI, frontend, new routes, POST /predictions schema
 changes, fabricated thresholds, raw value exposure, percentile cutoffs
-in output, Aramis data reuse, mockup values, inference/preprocessing
+in output, Aramina data reuse, mockup values, inference/preprocessing
 changes, catalog changes, dependency changes, model artifact changes.
 
 ## Next Required Action

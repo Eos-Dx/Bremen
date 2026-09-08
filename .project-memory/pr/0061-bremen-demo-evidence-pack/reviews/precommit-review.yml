@@ -12,7 +12,7 @@ None.
 
 WARNINGS
 1. The evidence bundle disclaimer and safety_notes fields contain safe negation language (e.g., "does not replace MRI, biopsy, a radiologist, a clinician, or clinical judgment") that triggers some forbidden-pattern grep patterns. This is expected and safe — the disclaimer is a product-identity safety statement, not a clinical claim. The validation logic in `validate_demo_evidence_bundle()` correctly skips these fields during clinical/replacement language scanning.
-2. The Aramis prohibition pattern list in `demo_evidence.py` (_ARAMIS_PATTERNS) and corresponding test assertions cause grep matches. This is safe — these are internal detection patterns and negative tests, not actual Aramis references in evidence output.
+2. The Aramina prohibition pattern list in `demo_evidence.py` (_ARAMINA_PATTERNS) and corresponding test assertions cause grep matches. This is safe — these are internal detection patterns and negative tests, not actual Aramina references in evidence output.
 
 VALIDATION
 git rev-parse --verify HEAD: 04efe3c591114127f2666d227b948eebe98915f8
@@ -40,7 +40,7 @@ python -m pytest -q: 1069 passed, 11 skipped, 28 warnings
 python -m bremen --help: exit 0 (lists demo-smoke)
 python -m bremen serve --help: exit 0
 python -m bremen demo-smoke --help: exit 0
-grep Aramis/M2Q/BENIGN in evidence files: Only in prohibition pattern lists, docstrings, and test assertions (safe — no Aramis in actual output)
+grep Aramina/M2Q/BENIGN in evidence files: Only in prohibition pattern lists, docstrings, and test assertions (safe — no Aramina in actual output)
 grep diagnosis/replace in evidence files: Only in disclaimer (safe negation), pattern lists, docstrings, and test assertions (safe)
 grep joblib.load/pickle/import pickle: Only pre-existing modules (model_state.py, model_loader.py, modeling.py) — none in PR0061 scope
 grep .h5/.hdf5/h5py in evidence files: Only test_bremen_demo_evidence.py assertions verifying no H5 in evidence module (safe)
@@ -99,11 +99,11 @@ SCOPE CHECK
 pass — Implementation is a real Bremen-native demo evidence pack (not docs-only). Creates src/bremen/demo_evidence.py (386 lines), modifies demo_smoke.py (+22/-4), creates tests/test_bremen_demo_evidence.py (795 lines), modifies tests/test_bremen_demo_smoke.py (+182/-4). No changes to Terraform, GitHub Actions, Dockerfiles, dependency files, frontend files, training config, tests/data, or H5/model/tfstate artifacts. No docs/ROADMAP changes.
 
 BREMEN POSITIONING CHECK
-pass — Bremen remains independent from Aramis:
+pass — Bremen remains independent from Aramina:
 - `product: "Bremen"` and `product_question: "Should patient continue to MRI?"` hardcoded as invariants
-- Aramis appears only in prohibition pattern lists (_ARAMIS_PATTERNS) and negative-test assertions
-- validate_demo_evidence_bundle() rejects any bundle containing Aramis strings
-- Zero Aramis references in any evidence output
+- Aramina appears only in prohibition pattern lists (_ARAMINA_PATTERNS) and negative-test assertions
+- validate_demo_evidence_bundle() rejects any bundle containing Aramina strings
+- Zero Aramina references in any evidence output
 - Bremen owns its own clinical question, feature schema, and decision-support contract
 
 DEMO EVIDENCE CHECK
@@ -158,17 +158,17 @@ pass — All safety boundaries confirmed:
 - No AWS/S3 SDK or network clients (grep: only test assertions)
 - No Matador resolver implementation
 - No real patient demo data (all values synthetic, metadata says "demo_evidence_pack")
-- No Aramis dependency (zero tolerance — Aramis only in prohibition pattern lists)
+- No Aramina dependency (zero tolerance — Aramina only in prohibition pattern lists)
 - No clinical/replacement claims (only safe negation disclaimer)
 - technical_demo_only: true in every output
 
 VALIDATION CHECK
-pass — All required validation commands were run and passed. 63 demo evidence tests pass. 25 demo-smoke tests pass (including 10 new evidence integration tests). All existing tests continue to pass unchanged (1069 passed, 11 skipped). No failures to classify. Forbidden-pattern greps all produce safe results only (prohibition lists, tests assertions, pre-existing code). Aramis/clinical strings appear only in negative-test contexts (safe with justification).
+pass — All required validation commands were run and passed. 63 demo evidence tests pass. 25 demo-smoke tests pass (including 10 new evidence integration tests). All existing tests continue to pass unchanged (1069 passed, 11 skipped). No failures to classify. Forbidden-pattern greps all produce safe results only (prohibition lists, tests assertions, pre-existing code). Aramina/clinical strings appear only in negative-test contexts (safe with justification).
 
 IMPLEMENTATION REPORT CHECK
 pass — IMPLEMENTATION_REPORT.md exists and summarizes:
 - Files changed (4 files: 2 new, 2 modified, 1385 lines total)
-- Bremen product positioning (independent from Aramis, own clinical question)
+- Bremen product positioning (independent from Aramina, own clinical question)
 - Evidence contract (mandatory/optional fields, validation, JSON serialization)
 - Demo payload (deterministic synthetic, 15-column, passes validate_feature_artifact)
 - Demo-smoke integration (additive evidence field, backward compatible)
@@ -194,8 +194,8 @@ files to exclude:
 
 BOUNDARY CONFIRMATIONS
 - Bremen-native demo evidence pack implemented: yes (src/bremen/demo_evidence.py)
-- Bremen remains independent from Aramis: yes (product: "Bremen", zero Aramis in output)
-- Aramis not used as dependency or benchmark: yes (only in prohibition patterns/tests)
+- Bremen remains independent from Aramina: yes (product: "Bremen", zero Aramina in output)
+- Aramina not used as dependency or benchmark: yes (only in prohibition patterns/tests)
 - demo evidence is not disposable: yes (versioned module, 386 lines, comprehensive tests)
 - product-owner demo value implemented: yes (6-step demo narrative supported)
 - evidence bundle implemented: yes (build_demo_evidence_bundle)

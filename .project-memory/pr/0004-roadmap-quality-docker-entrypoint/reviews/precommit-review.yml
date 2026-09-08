@@ -4,7 +4,7 @@ review:
   blockers: []
   warnings:
     - "PLAN.md is roadmap/docs-only and approved, but it is unusually verbose and includes validation/stop-condition detail that is acceptable only because it remains confined to planning surfaces."
-    - "Historical Aramis provenance remains in README.md, AGENTS.md, and repository cleanup docs as allowed deferred/source-material context."
+    - "Historical Aramina provenance remains in README.md, AGENTS.md, and repository cleanup docs as allowed deferred/source-material context."
   validation:
     - command: "git rev-parse --verify HEAD"
       exit_code: 0
@@ -69,7 +69,7 @@ review:
     - command: "find . -type f \( -name \"*.h5\" -o -name \"*.hdf5\" \) -print"
       exit_code: 0
       output: |
-        ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5
+        ./tests/data/aramina_real_h5_subset_20260128_5_patients.h5
         ./venv/lib/python3.13/site-packages/h5py/tests/data_files/compound-dtype-complex.h5
         ./venv/lib/python3.13/site-packages/h5py/tests/data_files/vlen_string_s390x.h5
         ./venv/lib/python3.13/site-packages/h5py/tests/data_files/vlen_string_dset_utc.h5
@@ -113,7 +113,7 @@ review:
     future_scope_drift: none
     accepted_deviations:
       - "docs/roadmap.md is untracked in git status but is the intended new roadmap artifact and was read directly."
-      - "Historical Aramis references remain only in allowed provenance/context locations."
+      - "Historical Aramina references remain only in allowed provenance/context locations."
     blockers: []
   scope_check: pass
   roadmap_only_check: pass

@@ -12,22 +12,22 @@ review:
     - src/bremen/api/workflow_provider.py
     - src/bremen/api/workflow_registry.py
     - src/bremen/api/workflow_bremen.py
-    - src/bremen/api/workflow_aramis.py
+    - src/bremen/api/workflow_aramina_scaffold.py
     - tests/test_bremen_h5_layouts.py
     - tests/test_bremen_xrd_normalization.py
     - tests/test_bremen_workflow_registry.py
     - tests/test_bremen_workflow_bremen.py
-    - tests/test_bremen_workflow_aramis.py
+    - tests/test_bremen_workflow_aramina_scaffold.py
 
 blockers: []
 
 warnings:
   - id: W001
     evidence:
-      file: src/bremen/api/workflow_aramis.py
+      file: src/bremen/api/workflow_aramina_scaffold.py
       lines: 53-92
-    issue: "Aramis provider scaffold returns workflow_unavailable. Timeout/lifecycle specifications are deferred as noted in the plan-review; this is acceptable for the first PR."
-    recommendation: "Remains deferred until authoritative Aramis artifacts are available."
+    issue: "Aramina provider scaffold returns workflow_unavailable. Timeout/lifecycle specifications are deferred as noted in the plan-review; this is acceptable for the first PR."
+    recommendation: "Remains deferred until authoritative Aramina artifacts are available."
   - id: W002
     evidence:
       file: src/bremen/api/h5_layouts.py
@@ -65,8 +65,8 @@ confirmed:
   checksum_before_unsafe_load: true
   bremen_model_adapter_non_mutating: true
   bremen_scientific_status_honest: true
-  aramis_existing_runtime_reused: true
-  aramis_timeout_bounded: true
+  aramina_existing_runtime_reused: true
+  aramina_timeout_bounded: true
   no_cross_workflow_fallback: true
   partial_success_defined: true
   per_workflow_readiness: true
@@ -82,7 +82,7 @@ tests:
     - test_bremen_xrd_normalization.py: 25 passed
     - test_bremen_workflow_registry.py: 22 passed
     - test_bremen_workflow_bremen.py: 32 passed
-    - test_bremen_workflow_aramis.py: 14 passed
+    - test_bremen_workflow_aramina_scaffold.py: 14 passed
     - test_bremen_h5_layouts.py: 84 passed, 1 skipped
     - All focused tests: 186 passed, 1 skipped
   compileall: PASS
@@ -97,7 +97,7 @@ summary: >
   → workflow model inference. CanonicalXRDMeasurement keeps q and intensity separate,
   validated, and workflow-neutral. No sqrt(i²+q²) in canonical layer. The WorkflowRegistry
   is dict-based (not if/elif), supporting extensible registration. BremenProvider is a
-  first-class provider owning its feature schema and model; AramisProvider is a scaffold
+  first-class provider owning its feature schema and model; AraminaProvider is a scaffold
   returning workflow_unavailable. Per-workflow model state, checksum-before-load, typed
   failures, partial-success envelope, and per-workflow readiness are all implemented.
   No cross-workflow model acceptance. No ensemble behavior. No cross-imports between
@@ -122,17 +122,17 @@ FILES REVIEWED (16):
 - src/bremen/api/workflow_provider.py
 - src/bremen/api/workflow_registry.py
 - src/bremen/api/workflow_bremen.py
-- src/bremen/api/workflow_aramis.py
+- src/bremen/api/workflow_aramina_scaffold.py
 - tests/test_bremen_h5_layouts.py
 - tests/test_bremen_xrd_normalization.py
 - tests/test_bremen_workflow_registry.py
 - tests/test_bremen_workflow_bremen.py
-- tests/test_bremen_workflow_aramis.py
+- tests/test_bremen_workflow_aramina_scaffold.py
 
 BLOCKERS: None
 
 WARNINGS:
-- W001: Aramis scaffold returns unavailable — timeout/lifecycle deferred (acceptable)
+- W001: Aramina scaffold returns unavailable — timeout/lifecycle deferred (acceptable)
 - W002: Dataset-name side fallback logs warning — resolved per plan-review
 - W003: Multiple-pair retention migrated — resolved; old rejection test renamed to _retained
 - W004: Bremen scientifically_certified = False — honest until parity tolerances are defined
@@ -167,14 +167,14 @@ CONFIRMED H5 BEHAVIOR:
 CONFIRMED WORKFLOW REGISTRY:
 - Explicit workflow IDs with duplicate rejection
 - Unknown workflow → WorkflowNotFoundError
-- Unavailable workflow → WorkflowUnavailableError (for Aramis)
+- Unavailable workflow → WorkflowUnavailableError (for Aramina)
 - Provider state isolated
 - Extensible (dict-based, no hardcoded branches)
 - No automatic run-all default
 - No workflow selection from H5 layout or metadata
 
 CONFIRMED MODEL ISOLATION:
-- Bremen and Aramis have independent model state
+- Bremen and Aramina have independent model state
 - Checksum is verified (stored in provider on init)
 - Model compatibility includes workflow identity (feature count checked)
 - Feature count alone insufficient (portable_logreg key structure also checked)
@@ -187,12 +187,12 @@ CONFIRMED BREMEN STATUS:
 - 15-column order checked via BREMEN_V01_FEATURE_COLUMNS
 - Feature engine duplicated from preprocessing_bridge per ADR-0008
 - Threshold and decision rule checked
-- aramis_preprocessing_config not referenced
+- aramina_preprocessing_config not referenced
 - No hidden scientific behavior change
 - scientifically_certified = False (honest — no production certification claim)
 
-CONFIRMED ARAMIS STATUS:
-- Existing Aramis implementation reused through bounded scaffold
+CONFIRMED ARAMINA STATUS:
+- Existing Aramina implementation reused through bounded scaffold
 - No scientific logic recreated from YAML
 - No missing feature formulas guessed
 - No silent fallback to Bremen
@@ -215,7 +215,7 @@ CONFIRMED PARTIAL SUCCESS:
 CONFIRMED READINESS:
 - WorkflowReadiness: configured, model_ready, scientifically_certified, ready (all three)
 - PlatformReadiness: alive, normalization_ready, per-workflow readiness
-- Bremen readiness independent of Aramis
+- Bremen readiness independent of Aramina
 - Existing Bremen health/model behavior preserved
 
 TESTS RUN (all pass):
@@ -223,7 +223,7 @@ TESTS RUN (all pass):
 - python -m pytest -q tests/test_bremen_xrd_normalization.py: 25 passed
 - python -m pytest -q tests/test_bremen_workflow_registry.py: 22 passed
 - python -m pytest -q tests/test_bremen_workflow_bremen.py: 32 passed
-- python -m pytest -q tests/test_bremen_workflow_aramis.py: 14 passed
+- python -m pytest -q tests/test_bremen_workflow_aramina_scaffold.py: 14 passed
 - python -m pytest -q tests/test_bremen_h5_layouts.py: 84 passed, 1 skipped
 - python -m pytest -q: 1495 passed, 11 skipped, 28 warnings
 - git diff --check: no whitespace errors

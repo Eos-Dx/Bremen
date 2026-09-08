@@ -87,7 +87,7 @@ privacy:
 container_boundary:
   no_filename_inference: true
   no_display_name_filtering: true
-  aramis_named_containers_preserved: true
+  aramina_named_containers_preserved: true
   server_validation_only_gate: true
   unsupported_extensions_are_server_errors: true
   missing_objects_are_server_errors: true
@@ -313,7 +313,7 @@ scope_control:
   no_threshold_changes: true
   no_decision_vocabulary_changes: true
   no_training_changes: true
-  no_Aramis_scientific_changes: true
+  no_Aramina_scientific_changes: true
   no_manifest_metric_additions: true
   no_PR0083_scope: true
   no_PR0084_scope: true

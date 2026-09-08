@@ -101,7 +101,7 @@ validation:
   test_api_server: "104 passed"
   full_suite: "2269 passed, 11 skipped"
 scope_control:
-  aramis_touched: false
+  aramina_touched: false
   pr0092_symmetry_signals_touched: false
   pr0092_difference_level_touched: false
   request_schema_changed: false
@@ -131,7 +131,7 @@ commit_readiness:
   git_diff_check_clean: true
   naming_guard_verified: true
   scope_control_verified: true
-  aramis_untouched: true
+  aramina_untouched: true
   pr0092_untouched: true
   no_new_dependencies: true
   no_clinical_wording: true

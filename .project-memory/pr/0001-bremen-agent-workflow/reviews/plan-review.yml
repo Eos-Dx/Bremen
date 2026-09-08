@@ -13,7 +13,7 @@ VALIDATION
 - Confirmed required source-material files exist under agents/ and are readable, matching the PLAN.md required reads.
 - Verified PLAN.md uses exact repo-relative required-read paths and explicitly distinguishes source-material (agents/* templates) from adapted Bremen output files.
 - Verified PLAN.md enumerates exact future implementation files and forbids edits to src/, tests/, Docker, CI, API, H5, model, preprocessing, and inference logic in this planning PR.
-- Verified PLAN.md preserves two-stage workflow roles and permissions and forbids an Aramis->Bremen rename in this PR.
+- Verified PLAN.md preserves two-stage workflow roles and permissions and forbids an Aramina->Bremen rename in this PR.
 - Verified Bremen-specific safety rules are present and sufficiently explicit for later enforcement (H5 metadata validation, target/control same-patient/opposite-side, feature schema checks, model checksum verification, required prediction metadata fields, Matador as SOR, abstraction of platform paths).
 - Verified Plan Drift Gate is specified with actionable checks (plan hash match, file list freeze, safety-invariant checklist, legacy name policy, evidence capture) and includes concrete validation commands for precommit-review.
 - Verified STOP conditions are enumerated with the required blocking behaviours.
@@ -55,7 +55,7 @@ SOURCE MATERIAL CHECK
 - PLAN.md distinguishes source-material from adapted Bremen agent files and requires adapted files to be created/modified only after plan approval by the appropriate roles.
 
 OLD-PROJECT-NAME CHECK
-- PLAN.md forbids Aramis/Ariadne renames in this PR and requires explicit mapping in the first coder PR that touches source. This satisfies the old-project-name handling requirement for the planning PR.
+- PLAN.md forbids Aramina/Ariadne renames in this PR and requires explicit mapping in the first coder PR that touches source. This satisfies the old-project-name handling requirement for the planning PR.
 
 VALIDATION STRATEGY CHECK
 - PLAN.md contains exact validation commands (shell tests and git-diff checks) for precommit-review to implement. These are actionable and executable by the precommit agent or human reviewer.

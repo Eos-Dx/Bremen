@@ -34,7 +34,7 @@ VALIDATION
 * grep "--ui\|demo-run --ui" src/bremen tests: only test assertions for rejection of --ui
 * grep "Synthetic Feature Artifact" src/bremen/demo_ui.py tests/test_bremen_demo_ui.py: only test assertion checking absence
 * grep "cdn\|unpkg\|jsdelivr\|googleapis\|fontawesome" src/bremen/demo_ui.py tests/test_bremen_demo_ui.py: only test assertions
-* grep "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" src/bremen tests: only prohibition logic and test assertions
+* grep "Aramina\|aramina\|M2Q\|BENIGN vs CANCER" src/bremen tests: only prohibition logic and test assertions
 * grep "diagnosis\|diagnose\|replaces MRI\|replace MRI\|replaces biopsy\|replace biopsy\|replaces radiologist\|replace radiologist\|replaces clinician\|replace clinician" src/bremen tests: only safe negation language
 * grep "joblib\.load\|pickle\.load\|import pickle" src/bremen tests: matches in model_state.py/model_loader.py/modeling.py (controlled boundaries), and test assertions — not in server.py
 * git diff --name-only -- .github infra/terraform Dockerfile Dockerfile.training requirements.txt pyproject.toml config/training frontend web ui package.json package-lock.json yarn.lock pnpm-lock.yaml tests/data: no output
@@ -67,7 +67,7 @@ SNAPSHOT DELTA
 SCOPE CHECK
 * Pass: Implementation focuses on final demo live rehearsal blockers — S3 catalog listing/selectability and Analyze failure/fix.
 * Only src/bremen/api/server.py and tests/test_bremen_api_server.py modified.
-* No broad frontend/design work, deployment automation, multi-tenancy/model profiles/plugins, or Aramis alignment.
+* No broad frontend/design work, deployment automation, multi-tenancy/model profiles/plugins, or Aramina alignment.
 
 S3 CATALOG CHECK
 * Pass: _list_s3_containers() with boto3 paginator lists configured S3 prefix, filters to .h5/.hdf5 (case-insensitive regex), returns safe metadata (id, filename, size_bytes, last_modified).
@@ -114,7 +114,7 @@ SAFETY CHECK
 * Pass: No unsafe deserialization — server.py uses joblib only via _load_synthetic_model() (controlled synthetic test fixture, lazy import inside function).
 * No raw H5 content in logging/responses — only safe S3 metadata.
 * No real patient data committed.
-* No Aramis dependency or product labels.
+* No Aramina dependency or product labels.
 * No clinical diagnosis/replacement claims — only safe negation ("not a clinical result", "does not replace MRI").
 * No deployment mutation.
 * Stage-specific exception detail is safe: "ExceptionClass: message" only (no traceback, file paths, secrets).
@@ -191,7 +191,7 @@ BOUNDARY CONFIRMATIONS
 * no unsafe model loading: yes
 * no H5 mutation: yes
 * no committed H5/patient data: yes
-* no Aramis dependency: yes
+* no Aramina dependency: yes
 * no clinical diagnosis/replacement claims: yes (safe negation only)
 * implementation report present: yes
 * no H5/model/tfstate artifacts: yes

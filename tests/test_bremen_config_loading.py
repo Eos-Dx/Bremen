@@ -11,7 +11,7 @@ Covers:
 - Import safety (AST inspection)
 - No H5/HDF5 reads
 - No model/joblib loads
-- No Aramis identity in user-facing text
+- No Aramina identity in user-facing text
 """
 
 from __future__ import annotations
@@ -334,26 +334,26 @@ class TestImportSafety:
 
 
 # ---------------------------------------------------------------------------
-# No Aramis identity
+# No Aramina identity
 # ---------------------------------------------------------------------------
 
 
 class TestIdentity:
-    def test_no_aramis_in_docstring(self):
-        """config.py docstring must not contain 'Aramis' or 'aramis'."""
+    def test_no_aramina_in_docstring(self):
+        """config.py docstring must not contain 'Aramina' or 'aramina'."""
         config_path = SRC_BREMEN / "config.py"
         content = config_path.read_text(encoding="utf-8")
-        assert "Aramis" not in content, "config.py must not reference Aramis"
-        assert "aramis" not in content, "config.py must not reference aramis"
+        assert "Aramina" not in content, "config.py must not reference Aramina"
+        assert "aramina" not in content, "config.py must not reference aramina"
 
-    def test_no_aramis_in_error_messages(self):
-        """Config error messages must not contain 'Aramis'."""
+    def test_no_aramina_in_error_messages(self):
+        """Config error messages must not contain 'Aramina'."""
         config_path = SRC_BREMEN / "config.py"
         content = config_path.read_text(encoding="utf-8")
         # Check docstring and class __init__ messages
         for line in content.splitlines():
-            if "Aramis" in line or "aramis" in line:
-                pytest.fail(f"config.py contains Aramis reference: {line}")
+            if "Aramina" in line or "aramina" in line:
+                pytest.fail(f"config.py contains Aramina reference: {line}")
 
     def test_no_clinical_claims(self):
         """config.py must not make diagnostic replacement or clinical claims.

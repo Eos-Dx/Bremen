@@ -17,11 +17,11 @@
 | `src/bremen/api/workflow_provider.py` | Abstract provider contract, result types, MultiWorkflowResult |
 | `src/bremen/api/workflow_registry.py` | Typed registry with duplicate/unknown rejection |
 | `src/bremen/api/workflow_bremen.py` | Bremen provider — feature engine, inference, readiness |
-| `src/bremen/api/workflow_aramis.py` | Aramis provider scaffold — unavailable state |
+| `src/bremen/api/workflow_aramina_scaffold.py` | Aramina provider scaffold — unavailable state |
 | `tests/test_bremen_xrd_normalization.py` | 25 tests for canonical XRD validation |
 | `tests/test_bremen_workflow_registry.py` | 22 tests for registry and result envelope |
 | `tests/test_bremen_workflow_bremen.py` | 32 tests for Bremen provider |
-| `tests/test_bremen_workflow_aramis.py` | 14 tests for Aramis scaffold |
+| `tests/test_bremen_workflow_aramina_scaffold.py` | 14 tests for Aramina scaffold |
 
 ### Modified existing files
 
@@ -142,10 +142,10 @@ Supporting types: `WorkflowFeatureVector`, `WorkflowResult`, `WorkflowReadiness`
 
 ---
 
-## 8. Aramis Provider
+## 8. Aramina Provider
 
 - Integration mode: **Scaffold (Option pending)** — returns `workflow_unavailable`
-- Provider registered with `workflow_id = "aramis"`
+- Provider registered with `workflow_id = "aramina"`
 - `configured = True` (provider exists), `model_ready = False` (no model), `scientifically_certified = False`
 - `build_features()` raises `WorkflowUnavailableError`
 - `run_inference()` / `execute()` return failed result with explanation
@@ -171,8 +171,8 @@ Supporting types: `WorkflowFeatureVector`, `WorkflowResult`, `WorkflowReadiness`
 
 - `WorkflowReadiness`: `configured`, `model_ready`, `scientifically_certified`, `ready` (all three)
 - `PlatformReadiness`: `alive`, `normalization_ready`, per-workflow readiness
-- Bremen readiness independent of Aramis
-- Unavailable Aramis does not disable Bremen
+- Bremen readiness independent of Aramina
+- Unavailable Aramina does not disable Bremen
 - Existing endpoints preserved for backward compatibility
 
 ---
@@ -184,7 +184,7 @@ Implemented typed outcomes:
 - `WorkflowNotFoundError` — unknown workflow ID
 - `DuplicateWorkflowError` — duplicate registration
 - `BremenWorkflowError` / `WorkflowIncompatibleError` / `WorkflowConfigurationRequiredError`
-- `AramisWorkflowError` / `WorkflowUnavailableError`
+- `AraminaWorkflowError` / `WorkflowUnavailableError`
 
 Retries: deferred to orchestration layer (not in provider scope)
 
@@ -214,7 +214,7 @@ Test summary by module:
 | `test_bremen_xrd_normalization.py` | 25 | All pass |
 | `test_bremen_workflow_registry.py` | 22 | All pass |
 | `test_bremen_workflow_bremen.py` | 32 | All pass |
-| `test_bremen_workflow_aramis.py` | 14 | All pass |
+| `test_bremen_workflow_aramina_scaffold.py` | 14 | All pass |
 | `test_bremen_h5_layouts.py` | 84 | All pass |
 | All other existing tests | 1318 | All pass |
 
@@ -241,7 +241,7 @@ Key test coverage:
 - Non-mutating package adaptation
 - Independent readiness
 - No ensemble behavior
-- Aramis unavailable behavior
+- Aramina unavailable behavior
 - Privacy-safe failures
 - Source immutability
 - Backward-compatible Bremen routes (unchanged)
@@ -254,7 +254,7 @@ Key test coverage:
 
 2. **Bremen scientific parity tolerances**: Numerical tolerances for feature values, probabilities, and decisions against the authoritative training pipeline are TBD. Until established, `scientifically_certified = False`.
 
-3. **Aramis authoritative artifacts**: Real Aramis model, config, runtime artifacts are not available in the repository. Provider returns `workflow_unavailable` until they are provided.
+3. **Aramina authoritative artifacts**: Real Aramina model, config, runtime artifacts are not available in the repository. Provider returns `workflow_unavailable` until they are provided.
 
 ---
 
@@ -268,7 +268,7 @@ None. All planned items implemented:
 - [x] Workflow registry
 - [x] Per-workflow model state (in providers)
 - [x] Bremen provider
-- [x] Aramis provider scaffold
+- [x] Aramina provider scaffold
 - [x] Multi-workflow result envelope
 - [x] Partial-success contract
 - [x] Per-workflow readiness
@@ -284,10 +284,10 @@ Deferred (additive follow-up PRs):
 
 ## Warnings
 
-- **W001 (plan-review)**: Aramis timeout/lifecycle specs deferred — scaffold returns unavailable
+- **W001 (plan-review)**: Aramina timeout/lifecycle specs deferred — scaffold returns unavailable
 - **W002 (plan-review)**: Dataset-name side fallback logs warnings — implemented as documented
 - **W004 (plan-review)**: Bremen scientific certification remains False — tolerances TBD
-- **pytest importlib mode**: One test (`test_aramis_failure_does_not_affect_bremen`) uses structural attribute checks instead of `isinstance` due to a known `--import-mode=importlib` interaction with editable installs. This affects only test-type identity, not runtime behavior.
+- **pytest importlib mode**: One test (`test_aramina_failure_does_not_affect_bremen`) uses structural attribute checks instead of `isinstance` due to a known `--import-mode=importlib` interaction with editable installs. This affects only test-type identity, not runtime behavior.
 
 ---
 

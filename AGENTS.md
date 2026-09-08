@@ -6,7 +6,7 @@ Bremen and related EOS products are medical decision-support software.
 
 ## Historical Context
 
-This repository was derived from the Aramis project. The initial identity cleanup (PR 0002) updated public identity surfaces. PR 0003 completed the alignment: the source package was renamed from `src/aramis/` to `src/bremen/`, imports were updated, tests were renamed, and configs/examples were aligned. The Aramis derivation is acknowledged here as historical context only.
+This repository was derived from the Aramina project. The initial identity cleanup (PR 0002) updated public identity surfaces. PR 0003 completed the alignment: the source package was renamed from `src/aramina/` to `src/bremen/`, imports were updated, tests were renamed, and configs/examples were aligned. The Aramina derivation is acknowledged here as historical context only.
 
 ## Regulatory Posture
 
@@ -19,7 +19,7 @@ This repository was derived from the Aramis project. The initial identity cleanu
 
 ## Product Intent
 
-Aramis (legacy — inherited context):
+Aramina (legacy — inherited context):
 
 ```text
 Target population: women with BI-RADS 3 or BI-RADS 4 findings
@@ -36,7 +36,7 @@ Clinical user: radiologist / qualified breast-imaging clinician
 Output: MRI-continuation decision support
 ```
 
-Do not mix Aramis and Bremen target populations, endpoints, filters, or labels.
+Do not mix Aramina and Bremen target populations, endpoints, filters, or labels.
 
 ## Required Pipeline Discipline
 
@@ -169,7 +169,7 @@ threshold
 confidence intervals when available
 ```
 
-For Aramis (legacy—inherited context), false negatives are safety-critical.
+For Aramina (legacy—inherited context), false negatives are safety-critical.
 
 For Bremen (active product), track both false negatives and MRI-workflow burden.
 
@@ -207,4 +207,4 @@ replacement for biopsy/MRI/radiologist
 - Run `ruff check .` and `pytest -q` after code edits.
 - For marimo notebooks, also run `python -m marimo check <notebook.py>`.
 
-> **Note:** The package was renamed from `src/aramis` to `src/bremen` in PR 0003. All imports now use `bremen`.
+> **Note:** The package was renamed from `src/aramina` to `src/bremen` in PR 0003. All imports now use `bremen`.

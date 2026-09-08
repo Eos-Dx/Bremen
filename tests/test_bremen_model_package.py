@@ -365,12 +365,12 @@ class TestImportSafety:
             if ref in content:
                 pytest.fail(f"model_package.py contains H5 reference: {ref}")
 
-    def test_no_aramis_references(self):
-        """model_package.py must not contain Aramis identity."""
+    def test_no_aramina_references(self):
+        """model_package.py must not contain Aramina identity."""
         src_path = SRC_BREMEN / "model_package.py"
         content = src_path.read_text(encoding="utf-8")
-        if "Aramis" in content or "aramis" in content:
-            pytest.fail("model_package.py contains Aramis reference")
+        if "Aramina" in content or "aramina" in content:
+            pytest.fail("model_package.py contains Aramina reference")
 
     def test_import_succeeds(self):
         """Importing bremen.model_package succeeds."""

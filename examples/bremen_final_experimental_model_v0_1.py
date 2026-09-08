@@ -28,9 +28,9 @@ def _():
     DEFAULT_ONE_TO_MANY_JOBLIB_PATH = (
         PRODUCT_DIR
         / "outputs"
-        / "aramis_one_to_many_benign_cancer_biopsy_dataframe.joblib"
+        / "aramina_one_to_many_benign_cancer_biopsy_dataframe.joblib"
     )
-    DEFAULT_ONE_TO_ONE_JOBLIB_PATH = PRODUCT_DIR / "outputs" / "aramis_one_to_one_dataframe.joblib"
+    DEFAULT_ONE_TO_ONE_JOBLIB_PATH = PRODUCT_DIR / "outputs" / "aramina_one_to_one_dataframe.joblib"
     MODEL_COLORS = {
         "M0_one_to_many_only": "#4c78a8",
         "M1_one_to_many_plus_symmetry": "#59a14f",
@@ -81,7 +81,7 @@ def _(mo):
     mo.md(
         "\n".join(
             [
-                "# Aramis Final Experimental Model v0.1",
+                "# Aramina Final Experimental Model v0.1",
                 "",
                 "Research draft notebook.",
                 "",

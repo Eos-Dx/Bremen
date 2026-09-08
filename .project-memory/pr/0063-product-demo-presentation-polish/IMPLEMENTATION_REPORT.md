@@ -76,7 +76,7 @@ The `--pretty` flag does not modify the JSON output. The existing behavior is:
 | Safety invariant | How enforced |
 |-----------------|--------------|
 | No clinical diagnosis claims | Footer uses safe negation only: "Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment." |
-| No Aramis references | `demo_presentation.py` source has zero Aramis strings (verified by grep) |
+| No Aramina references | `demo_presentation.py` source has zero Aramina strings (verified by grep) |
 | `technical_demo_only` prominent | Appears in header: "Technical demo only — not a clinical result." |
 | Bremen identity | Header: "BREMEN PRODUCT DEMO", Overview: `Product: Bremen` |
 | No terminal codes | Plain ASCII text, no ANSI escape sequences (verified by test) |
@@ -98,7 +98,7 @@ Multi-tenancy, model profiles, and plugin configuration are intentionally deferr
 | No React/frontend | ✓ | No `frontend/**`, `web/**`, `ui/**`, or package-manager files changed. |
 | No docs/ROADMAP changes | ✓ | Docs and ROADMAP unchanged. |
 | No real patient data | ✓ | Pure formatting of existing synthetic data. |
-| No Aramis dependency | ✓ | Zero Aramis strings in `demo_presentation.py`. |
+| No Aramina dependency | ✓ | Zero Aramina strings in `demo_presentation.py`. |
 | No clinical/replacement claims | ✓ | Footer uses safe negation only. No clinical claims in output. |
 | No git mutation commands | ✓ | No `git add`, `git commit`, `git push`, or any mutating commands executed. |
 
@@ -127,7 +127,7 @@ Coverage summary for presentation tests (43 tests):
 - No terminal codes (no ANSI escapes, no control characters)
 - Deterministic (same input → same output, different inputs → different output)
 - Header/footer helpers (returns string, includes Bremen, includes safety, raises on non-mapping)
-- No Aramis references (output, module source)
+- No Aramina references (output, module source)
 - No clinical/replacement claims (no claims, safety footer uses negation)
 - Edge cases (empty evidence, empty checks, non-mapping raises, minimal dict, health error)
 - Import/dependency safety (no H5, no joblib, no boto3/requests)
@@ -154,8 +154,8 @@ Coverage summary for presentation tests (43 tests):
 | `python -m bremen demo-smoke --help` | ✓ Shows --base-url, --timeout, --skip-prediction |
 | `python -m bremen demo-run --help` | ✓ Shows `--pretty` flag |
 | `python -m bremen demo-run --pretty` | ✓ JSON + pretty output produced |
-| Aramis grep (`demo_presentation.py`) | ✓ Zero matches (required) |
-| Aramis grep (all demo files) | ✓ Safe-only (prohibition context in `demo_evidence.py`, test assertions) |
+| Aramina grep (`demo_presentation.py`) | ✓ Zero matches (required) |
+| Aramina grep (all demo files) | ✓ Safe-only (prohibition context in `demo_evidence.py`, test assertions) |
 | Clinical/replacement grep (`demo_presentation.py`) | ✓ Safety header comment + footer negation only |
 | Clinical/replacement grep (all demo files) | ✓ Safe negation / disclaimer / prohibition context only |
 | joblib/pickle grep (all demo files) | ✓ Only test assertions checking they DON'T appear |
@@ -251,7 +251,7 @@ The following is explicitly out of scope for PR0063 and deferred:
 - confirm: no unsafe model loading added: yes
 - confirm: no H5 mutation added: yes
 - confirm: no real patient data added: yes
-- confirm: no Aramis dependency added: yes
+- confirm: no Aramina dependency added: yes
 - confirm: no clinical diagnosis/replacement claims added: yes
 - confirm: Bremen safety identity preserved: yes
 - confirm: no H5/model/tfstate artifacts: yes

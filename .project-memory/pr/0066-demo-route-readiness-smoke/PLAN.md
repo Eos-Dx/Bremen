@@ -63,7 +63,7 @@ No new CLI command. No `--ui` flag. No service startup change. Backward-compatib
 - `tfstate`, `.terraform`
 - `config/training/**`, `src/bremen/training/**`
 - `docs/**`, `ROADMAP.md`
-- Aramis artifacts, model descriptions, feature schemas as dependency
+- Aramina artifacts, model descriptions, feature schemas as dependency
 
 ## Exact implementation scope
 
@@ -192,7 +192,7 @@ The route readiness checks flow through `run_demo_smoke()` → `run_demo()` → 
 - No clinical diagnosis claims.
 - `technical_demo_only` enforced in checks.
 - No real patient data.
-- No Aramis references.
+- No Aramina references.
 - No diagnosis/replacement language.
 
 ## Validation checklist
@@ -238,8 +238,8 @@ grep -R -I -n "https://\|http://.*cdn\|unpkg\|jsdelivr\|googleapis\|fontawesome"
   src/bremen/demo_ui.py tests/test_bremen_demo_ui.py || true
 # Expected: no output
 
-# No Aramis dependency or product labels
-grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" \
+# No Aramina dependency or product labels
+grep -R -I -n "Aramina\|aramina\|M2Q\|BENIGN vs CANCER" \
   src/bremen tests/test_bremen_demo_smoke.py tests/test_bremen_demo_ui.py || true
 # Expected: no output (test assertions verifying absence are allowed)
 
@@ -386,7 +386,7 @@ Block if:
 - confirm: no unsafe model loading planned: yes
 - confirm: no H5 mutation planned: yes
 - confirm: no real patient data planned: yes
-- confirm: no Aramis dependency planned: yes
+- confirm: no Aramina dependency planned: yes
 - confirm: no clinical diagnosis/replacement claims planned: yes
 - confirm: implementation assigned to Agent: coder / Mode: implementation: yes
 - confirm: no git mutation commands run: yes

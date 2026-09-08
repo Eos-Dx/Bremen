@@ -21,7 +21,7 @@ from typing import Any
 class WorkflowRun:
     """Independent execution record for a single workflow within a job.
 
-    A failed Aramis run must not erase a completed Bremen run, and
+    A failed Aramina run must not erase a completed Bremen run, and
     vice versa.
     """
 

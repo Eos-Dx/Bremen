@@ -181,7 +181,7 @@ All PLAN.md requirements implemented:
 - [x] No deployment mutation
 - [x] No new dependencies (boto3 already existed)
 - [x] No unsafe model loading
-- [x] No Aramis dependency
+- [x] No Aramina dependency
 - [x] No clinical diagnosis/replacement claims
 - [x] Existing behavior preserved
 

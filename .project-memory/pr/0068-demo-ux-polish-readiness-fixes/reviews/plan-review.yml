@@ -14,7 +14,7 @@ snapshot_delta:
 
 scope:
   verdict: pass
-  details: "PLAN.md focuses exclusively on demo UX polish and readiness fixes for /demo. No broad production frontend, deployment automation, multi-tenancy, model profiles, plugins, or Aramis alignment."
+  details: "PLAN.md focuses exclusively on demo UX polish and readiness fixes for /demo. No broad production frontend, deployment automation, multi-tenancy, model profiles, plugins, or Aramina alignment."
 
 files_read:
   - .project-memory/pr/0068-demo-ux-polish-readiness-fixes/PLAN.md
@@ -176,7 +176,7 @@ boundary_confirmations:
   - "no unsafe model loading planned: confirmed"
   - "no H5 mutation planned: confirmed"
   - "no committed H5/patient data planned: confirmed"
-  - "no Aramis dependency planned: confirmed"
+  - "no Aramina dependency planned: confirmed"
   - "no clinical diagnosis/replacement claims planned: confirmed"
   - "implementation assigned to Agent: coder / Mode: implementation: confirmed"
   - "no git mutation commands run: confirmed"

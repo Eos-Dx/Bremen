@@ -105,7 +105,7 @@ BOUNDARY CONFIRMATIONS:
 SCOPE CHECK: pass
 - PLAN is focused on demo readiness capture package (--capture-dir on demo-run producing 3 files)
 - Not docs-only (implementation plan with 6 files, 18+ tests)
-- Does not start frontend, deployment automation, training, multi-tenancy/model-profiles/plugins, or Aramis alignment
+- Does not start frontend, deployment automation, training, multi-tenancy/model-profiles/plugins, or Aramina alignment
 
 CAPTURE CHECK: pass
 - PLAN requires concrete capture option: `demo-run --capture-dir <directory>`
@@ -138,7 +138,7 @@ SAFETY CHECK: pass
 - No H5 mutation or access
 - No AWS/S3 SDK or network calls
 - No real patient data
-- No Aramis dependency
+- No Aramina dependency
 - No deployment mutation (Terraform, Docker, CI/CD, GitHub Actions)
 - No frontend
 - No new dependencies (stdlib only)
@@ -152,7 +152,7 @@ VALIDATION CHECK: pass
 - Full pytest run planned
 - python -m bremen --help and subcommand help tests
 - End-to-end capture smoke integration command
-- Forbidden-pattern grep checks (Aramis, clinical, deserialization, H5, AWS/network, web framework)
+- Forbidden-pattern grep checks (Aramina, clinical, deserialization, H5, AWS/network, web framework)
 - Forbidden path diff checks (.github, infra/terraform, Dockerfile, etc.)
 - .DS_Store check
 - Artifact scan for .h5/.hdf5/.joblib/.pkl etc.
@@ -194,7 +194,7 @@ BOUNDARY CONFIRMATIONS:
 - no unsafe model loading planned: confirmed
 - no H5 mutation planned: confirmed
 - no real patient data planned: confirmed
-- no Aramis dependency planned: confirmed
+- no Aramina dependency planned: confirmed
 - no clinical diagnosis/replacement claims planned: confirmed
 - Bremen safety identity preserved: confirmed
 - implementation assigned to coder: confirmed

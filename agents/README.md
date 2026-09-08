@@ -1,6 +1,6 @@
 # Bremen Agents v1
 
-This folder contains Bremen-specific replacements for copied Aramis/Ariadne agents.
+This folder contains Bremen-specific replacements for copied Aramina/Ariadne agents.
 
 ## Recommended active agent set
 

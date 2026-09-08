@@ -12,7 +12,7 @@
 | `src/bremen/report_ui.py` | Modified — CSS + JS layout upgrade |
 | `tests/test_bremen_report_ui.py` | Modified — updated + added tests |
 
-## Aramis Visual Lessons Used
+## Aramina Visual Lessons Used
 
 1. **Report masthead** with eyebrow label and structured metadata grid
 2. **Dark assessment hero** with kicker, title, subtitle, and metric cards
@@ -22,7 +22,7 @@
 6. **Supporting evidence section** with clear section headings
 7. **Paper-like print layout** with page-break-inside: avoid
 
-## Aramis Content Explicitly NOT Copied
+## Aramina Content Explicitly NOT Copied
 
 - Tissue Risk Assessment / TRA
 - biopsy recommended / biopsy not recommended
@@ -31,8 +31,8 @@
 - patient name / surname / age / operator / referring physician
 - raw per-measurement probabilities
 - raw symmetry feature values
-- Aramis algorithm names
-- Aramis colors or logo
+- Aramina algorithm names
+- Aramina colors or logo
 
 ## Bremen Terminology Preserved
 
@@ -77,7 +77,7 @@
 - No S3 paths, manifest keys, ARNs, H5 paths, PHI, model internals
 - Clinical wording: decision-support only, not diagnosis, not clinically validated
 - No sample values in live reports
-- No Aramis terminology
+- No Aramina terminology
 - Print: browser-native only, no server-side PDF
 
 ## Print / PDF Behavior

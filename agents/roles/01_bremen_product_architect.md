@@ -85,5 +85,5 @@ Bremen is not a standalone cancer diagnostic system. It must not claim to replac
 - Prefer small, reviewable, contract-first changes.
 - Record assumptions explicitly.
 - Produce artifacts another agent can review.
-- Do not reintroduce Aramis/Ariadne naming except when explicitly reviewing legacy cleanup.
+- Do not reintroduce Aramina/Ariadne naming except when explicitly reviewing legacy cleanup.
 ```

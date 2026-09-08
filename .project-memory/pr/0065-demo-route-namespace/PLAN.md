@@ -73,7 +73,7 @@ Demo is separated by path, not by startup command. Future removal is possible by
 - `tfstate`, `.terraform`
 - `config/training/**`, `src/bremen/training/**`
 - `docs/**`, `ROADMAP.md`
-- Aramis artifacts, model descriptions, feature schemas as dependency
+- Aramina artifacts, model descriptions, feature schemas as dependency
 
 ## Exact implementation scope
 
@@ -233,7 +233,7 @@ Test scenarios (12+):
 8. **`build_demo_evidence_json_response()` contains `technical_demo_only: true`** — Safety invariant.
 9. **`build_demo_evidence_json_response()` contains `product: "Bremen"`** — Identity.
 10. **`build_demo_evidence_json_response()` is deterministic** — Same input produces same output.
-11. **No Aramis references** — String scan on both HTML and JSON output.
+11. **No Aramina references** — String scan on both HTML and JSON output.
 12. **No clinical/replacement claims** — String scan (except safe negation in disclaimers).
 
 ### 4. `tests/test_bremen_api_server.py` — Add `/demo/*` HTTP tests
@@ -278,7 +278,7 @@ Use the same test infrastructure as existing server tests: `_find_free_port()`, 
 - No clinical diagnosis claims.
 - `technical_demo_only` prominent in HTML and JSON output.
 - No real patient data.
-- No Aramis references.
+- No Aramina references.
 - No diagnosis/replacement language (except safe negation in disclaimers).
 - No interactive/stateful UI that could leak data.
 
@@ -327,8 +327,8 @@ kill %1 2>/dev/null || true
 ### Forbidden-pattern grep checks
 
 ```bash
-# No Aramis dependency or product labels
-grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" \
+# No Aramina dependency or product labels
+grep -R -I -n "Aramina\|aramina\|M2Q\|BENIGN vs CANCER" \
   src/bremen/demo_ui.py src/bremen/api/server.py \
   tests/test_bremen_demo_ui.py tests/test_bremen_api_server.py || true
 # Expected: no output (test assertions verifying absence are allowed)
@@ -515,7 +515,7 @@ Block if:
 - confirm: no unsafe model loading planned: yes
 - confirm: no H5 mutation planned: yes
 - confirm: no real patient data planned: yes
-- confirm: no Aramis dependency planned: yes
+- confirm: no Aramina dependency planned: yes
 - confirm: no clinical diagnosis/replacement claims planned: yes
 - confirm: implementation assigned to Agent: coder / Mode: implementation: yes
 - confirm: no git mutation commands run: yes

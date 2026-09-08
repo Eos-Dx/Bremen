@@ -43,7 +43,7 @@ pending → running
   → report_failed
 ```
 
-Each workflow run is independent. A failed Aramis run does not affect
+Each workflow run is independent. A failed Aramina run does not affect
 a completed Bremen run.
 
 ## Event Schema
@@ -209,9 +209,9 @@ not_requested → pending → generating
 - Language: decision-support only; no diagnosis, no clinician-replacement
 - `scientifically_certified: false` visible in report
 
-## Aramis Unavailable Report Boundary
+## Aramina Unavailable Report Boundary
 
-When no authoritative Aramis report runtime is configured:
+When no authoritative Aramina report runtime is configured:
 - Status: `unavailable`
 - Reason code: `WORKFLOW_OR_REPORT_PROVIDER_NOT_CONFIGURED`
 - No fabricated TRA probabilities, reliability, or recommendations
@@ -262,7 +262,7 @@ The following must not appear in any API response or workspace HTML:
 - A job with mixed workflow outcomes is `partial_success`
 - Each workflow card displays its independent status
 - Report availability is per-workflow
-- A failed Aramis does not erase a completed Bremen result
+- A failed Aramina does not erase a completed Bremen result
 
 ## Scientific Certification Display
 
@@ -283,7 +283,7 @@ The following must not appear in any API response or workspace HTML:
 - Event storage is ephemeral (process-local, in-memory)
 - No persistent history across restarts
 - No multi-instance event durability
-- Aramis report provider is not configured (returns unavailable)
+- Aramina report provider is not configured (returns unavailable)
 - Bremen scientific certification is pending
 - P1/P2/P3 policy is not resolved
 - PDF generation is not implemented (JSON reports only)
@@ -323,9 +323,9 @@ normalization completed
 → no feature/inference/decision/report events
 ```
 
-### Aramis Unavailable Trace
+### Aramina Unavailable Trace
 
-When Aramis runtime is not configured:
+When Aramina runtime is not configured:
 ```
 workflow resolved
 → readiness evaluated (model_ready: false)
@@ -339,7 +339,7 @@ workflow resolved
 |----------|---------------|-------|
 | Bremen (normal) | ~22-26 | 11 stages × 2 events + request overhead |
 | Nova (early stop) | ~6 | Normalization + resolution + failed input preparation |
-| Aramis (unavailable) | ~4 | Normalization + resolution + readiness + failed |
+| Aramina (unavailable) | ~4 | Normalization + resolution + readiness + failed |
 | Per-job limit | 1000 | Well within workspace bounds |
 
 Supported assumption: one workflow per request (current orchestrator).
@@ -351,7 +351,7 @@ Multi-workflow jobs would multiply linearly but remain well under the
 The orchestrator uses a generic ``provider.readiness().model_ready`` check
 for ALL providers.  When ``model_ready`` is ``False``, the orchestrator
 returns ``workflow_unavailable`` early — no workflow-id-specific branches.
-This replaces the previous hardcoded ``provider.workflow_id == "aramis"``
+This replaces the previous hardcoded ``provider.workflow_id == "aramina"``
 check.  A synthetic unavailable-provider test proves the orchestrator
 handles unavailability generically without knowing the workflow ID.
 
@@ -385,7 +385,7 @@ Showcase mode provides:
 - **Nova presentation**: Configuration required on multi-position input.
   Six measurements retained, P1/P2/P3 positions visible. Inference not
   started. Decision not produced. Report unavailable.
-- **Aramis presentation**: Workflow unavailable. Model lifecycle not
+- **Aramina presentation**: Workflow unavailable. Model lifecycle not
   started. Report unavailable. No fabricated stages.
 - **Process-panel linkage**: Click a pipeline stage highlights matching
   process events. Stage selection scrolls process panel.
@@ -578,7 +578,7 @@ Future guarantees:
 - One variant cannot overwrite another
 - No combined verdict, no score averaging, no automatic promotion
 - Unavailable variants do not silently fall back
-- Bremen and Aramis remain separate providers
+- Bremen and Aramina remain separate providers
 
 
 ## PR0081 — Bremen Decision Vocabulary Reconciliation
@@ -646,9 +646,9 @@ Bremen remains controlled MRI continuation decision support.  No
 cancer diagnosis or rule-out claim is permitted.  scientifically_
 certified remains false.  technical_demo_only remains true.
 
-Bremen and Aramis remain scientifically separate.  Aramis decision
+Bremen and Aramina remain scientifically separate.  Aramina decision
 vocabulary is its own contract.  Bremen vocabulary does not affect
-Aramis decision codes, policy identity, threshold, reports, events,
+Aramina decision codes, policy identity, threshold, reports, events,
 readiness, or provider behavior.
 
 

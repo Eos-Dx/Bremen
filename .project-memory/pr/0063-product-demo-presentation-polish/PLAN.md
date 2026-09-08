@@ -150,7 +150,7 @@ Returns a multi-line string. Each section is a clearly labelled group of lines. 
 - `Technical demo only` or `technical_demo_only` must appear in the header and footer.
 - `Bremen` product identity must appear in the header.
 - No diagnosis, no "replaces MRI", no "replaces biopsy", no "replaces radiologist", no "replaces clinician" language (except in disclaimer/safety notes which use safe negation).
-- No Aramis references.
+- No Aramina references.
 - No terminal control codes or colors.
 - Stable, deterministic — same input always produces same output.
 - Handles `not_available` prediction state gracefully:
@@ -233,7 +233,7 @@ Test scenarios (12+):
 10. **`format_pretty()` handles fail status with warnings** — Warnings visible.
 11. **`format_pretty()` has no terminal control codes** — No ANSI escape sequences.
 12. **`format_pretty()` is deterministic** — Same input produces identical output.
-13. **No Aramis references** — String scan for prohibited patterns returns no matches.
+13. **No Aramina references** — String scan for prohibited patterns returns no matches.
 14. **No clinical/replacement language** — String scan for prohibited patterns returns no matches (except safe negation in disclaimer/safety_notes).
 
 ### 5. `tests/test_bremen_demo_run.py` — Add `--pretty` test
@@ -277,7 +277,7 @@ Add:
 - No clinical diagnosis claims.
 - `technical_demo_only` prominent in pretty output.
 - No real patient data.
-- No Aramis references.
+- No Aramina references.
 - No diagnosis/replacement language (except safe negation in disclaimers).
 
 ## Validation checklist
@@ -310,8 +310,8 @@ python -m bremen demo-run --help
 ### Forbidden-pattern grep checks
 
 ```bash
-# No Aramis dependency or product labels
-grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" \
+# No Aramina dependency or product labels
+grep -R -I -n "Aramina\|aramina\|M2Q\|BENIGN vs CANCER" \
   src/bremen/demo_presentation.py src/bremen/demo_run.py \
   src/bremen/demo_smoke.py src/bremen/demo_evidence.py \
   tests/test_bremen_demo_presentation.py tests/test_bremen_demo_run.py \
@@ -482,7 +482,7 @@ Block if:
 - confirm: no unsafe model loading planned: yes
 - confirm: no H5 mutation planned: yes
 - confirm: no real patient data planned: yes
-- confirm: no Aramis dependency planned: yes
+- confirm: no Aramina dependency planned: yes
 - confirm: no clinical diagnosis/replacement claims planned: yes
 - confirm: implementation assigned to Agent: coder / Mode: implementation: yes
 - confirm: no git mutation commands run: yes

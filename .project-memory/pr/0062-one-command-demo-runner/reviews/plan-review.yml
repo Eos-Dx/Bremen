@@ -24,7 +24,7 @@ None.
 
 1. PLAN.md uses `_make_handler()` from `src/bremen/api/server.py` which is a private function (underscore-prefixed). This is acceptable because (a) the existing test suite already uses the same pattern (`test_bremen_api_server.py`), (b) the function is re-exported within the module for testability, and (c) PR0062 follows the established convention. No change to server.py is required.
 
-2. PLAN.md "Required reads" gives Aramis a count of 4 grep matches but all appear to be in negation context or ADR title references. The implementation must ensure zero Aramis strings in the new `demo_run.py` module — the validation grep will enforce this.
+2. PLAN.md "Required reads" gives Aramina a count of 4 grep matches but all appear to be in negation context or ADR title references. The implementation must ensure zero Aramina strings in the new `demo_run.py` module — the validation grep will enforce this.
 
 ---
 
@@ -67,7 +67,7 @@ grep -n "shutdown\|cleanup\|timeout" PLAN.md
 # Lines 21, 129, 150, 155, 158, 160, 164, 168, 177, 185, 195, 207, 220, 227
 # server.shutdown(), thread.join(), bounded health-wait polling
 
-grep -n "Aramis\|aramis" PLAN.md
+grep -n "Aramina\|aramina" PLAN.md
 # 4 matches — all in negation/prohibition context
 
 grep -n "diagnosis\|replacement\|clinical" PLAN.md
@@ -131,7 +131,7 @@ date -u +%Y-%m-%dT%H:%M:%SZ
 PLAN.md is focused on the one-command Bremen demo runner (`python -m bremen demo-run`). Creates `src/bremen/demo_run.py`, modifies `__main__.py`, creates tests, updates CLI tests.
 
 - **Not docs-only**: creates new module, modifies existing module, creates tests.
-- **Not solving everything**: no frontend, deployment automation, config UI, clinical report template, training pipeline, or Aramis alignment.
+- **Not solving everything**: no frontend, deployment automation, config UI, clinical report template, training pipeline, or Aramina alignment.
 
 ---
 
@@ -187,8 +187,8 @@ PLAN.md is focused on the one-command Bremen demo runner (`python -m bremen demo
 
 **Result: pass**
 
-- Aramis appears only in negation/prohibition context (4 matches, all in the "Required reads" and validation sections as forbidden targets).
-- PLAN.md does not make Aramis a dependency, benchmark, source of truth, or alignment target.
+- Aramina appears only in negation/prohibition context (4 matches, all in the "Required reads" and validation sections as forbidden targets).
+- PLAN.md does not make Aramina a dependency, benchmark, source of truth, or alignment target.
 - Bremen remains independent with its own clinical question and evidence bundle.
 
 ---
@@ -246,7 +246,7 @@ PLAN.md is focused on the one-command Bremen demo runner (`python -m bremen demo
 | AWS/S3 SDK/network clients | "No AWS/S3 network calls — only stdlib `urllib.request` to localhost." Validation grep for boto3/botocore/requests/httpx. |
 | Matador resolver | Section "Non-goals": none. |
 | Real patient demo data | Section "Non-goals"/"Safety boundaries": none. |
-| Aramis dependency | Section "Non-goals": none. Validation grep for Aramis/M2Q/BENIGN vs CANCER. |
+| Aramina dependency | Section "Non-goals": none. Validation grep for Aramina/M2Q/BENIGN vs CANCER. |
 | Clinical/replacement claims | Section "Non-goals": none. `technical_demo_only: True`. Validation grep for diagnosis/replace patterns. |
 
 ---
@@ -266,7 +266,7 @@ PLAN.md is focused on the one-command Bremen demo runner (`python -m bremen demo
 | Dependency hygiene tests | Conditionally: `if test -f tests/test_bremen_dependency_hygiene.py; then ...` |
 | Full pytest | `python -m pytest -q` |
 | CLI help all commands | `python -m bremen --help`, `python -m bremen serve --help`, `python -m bremen demo-smoke --help`, `python -m bremen demo-run --help` |
-| Aramis dependency grep | `grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" src/bremen/demo_run.py src/bremen/demo_smoke.py ... || true` |
+| Aramina dependency grep | `grep -R -I -n "Aramina\|aramina\|M2Q\|BENIGN vs CANCER" src/bremen/demo_run.py src/bremen/demo_smoke.py ... || true` |
 | Clinical/replacement claim grep | `grep -R -I -n "diagnosis\|diagnose\|replaces MRI\|replace MRI\|..." || true` |
 | joblib/pickle grep | `grep -R -I -n "joblib\.load\|pickle\.load\|import pickle" src/bremen/demo_run.py ... || true` |
 | H5 grep | `grep -R -I -n "\.h5\|\.hdf5\|h5py" src/bremen/demo_run.py src/bremen/demo_evidence.py ... || true` |
@@ -338,7 +338,7 @@ PLAN.md Section "Implementation agent":
 | no unsafe model loading planned | pass | Reuses existing approved `_load_synthetic_model()` — creates temp joblib, calls `dump()` + `ModelState.load_at_startup()` |
 | no H5 mutation planned | pass | "No H5 reads — the demo-run does not read H5 files; the synthetic model path uses feature-artifact-style inference." |
 | no real patient data planned | pass | Non-goals: "No real patient data." All values synthetic. |
-| no Aramis dependency planned | pass | Zero tolerance. Validation grep enforces. Non-goals. |
+| no Aramina dependency planned | pass | Zero tolerance. Validation grep enforces. Non-goals. |
 | no clinical diagnosis/replacement claims planned | pass | `technical_demo_only: True`. Safety boundaries explicitly forbid. |
 | Bremen safety identity preserved | pass | Consistent with project_contract.yml and AGENTS.md |
 | implementation assigned to coder | pass | Section "Implementation agent": Agent: coder, Mode: implementation |

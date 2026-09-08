@@ -29,7 +29,7 @@ VALIDATION
 - `test -f agents/plan-review.yml` | exit 0 | `exists`
 - `test -f agents/coder.yml` | exit 0 | `exists`
 - `test -f agents/precommit-review.yml` | exit 0 | `exists`
-- `grep -R -n "Ariadne|Aramis|Bremen|PLAN.md|plan-review|precommit-review|target/control|H5|joblib|Matador" .project-memory agents docs 2>/dev/null || true` | exit 0 | `<no output>`
+- `grep -R -n "Ariadne|Aramina|Bremen|PLAN.md|plan-review|precommit-review|target/control|H5|joblib|Matador" .project-memory agents docs 2>/dev/null || true` | exit 0 | `<no output>`
 - `grep -R -n "PLACEHOLDER|TODO|FIXME" .project-memory agents docs 2>/dev/null || true` | exit 0 | `<no output>`
 - `grep -R -n "git add|git commit|git push|gh pr create|docker|docker compose|sudo|pip install|python -m pip install" agents docs .project-memory/pr/0001-bremen-agent-workflow 2>/dev/null || true` | exit 0 | `<no output>`
 - `date -u +%Y-%m-%dT%H:%M:%SZ` | exit 0 | `2026-07-02T06:42:12Z`
@@ -86,7 +86,7 @@ SOURCE MATERIAL CHECK
 - All required `agents/*` source-material files now exist and were read successfully.
 
 OLD-PROJECT-NAME CHECK
-- grep search for Ariadne/Aramis/Bremen/PLAN.md/plan-review/precommit-review/target/control/H5/joblib/Matador returned no results in searched files.
+- grep search for Ariadne/Aramina/Bremen/PLAN.md/plan-review/precommit-review/target/control/H5/joblib/Matador returned no results in searched files.
 
 DEPENDENCY CHECK
 - No dependency installation was attempted.

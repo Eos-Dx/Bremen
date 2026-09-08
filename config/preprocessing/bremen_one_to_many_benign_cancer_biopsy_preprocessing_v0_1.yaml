@@ -15,7 +15,7 @@ bremen_preprocessing:
 provenance:
   status: research draft product preprocessing config
   template: XRD-preprocessing/src/xrd_preprocessing/configs/preprocessing_branch_config_template.yaml
-  agbh_config: config/aramis_preprocessing_v0_1_config.json
+  agbh_config: config/aramina_preprocessing_v0_1_config.json
   canonical_location: config/preprocessing/bremen_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
   clinical_safety_note: Research draft decision-support preprocessing only; not for
     autonomous diagnosis.

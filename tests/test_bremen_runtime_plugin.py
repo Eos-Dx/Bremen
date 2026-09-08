@@ -9,7 +9,7 @@ Covers:
 - Privacy (extended prohibited keys)
 - Plugin isolation
 - Module-reload safety
-- Nova/Aramis early-stop behavior
+- Nova/Aramina early-stop behavior
 """
 
 from __future__ import annotations
@@ -301,8 +301,8 @@ class TestEventBudget:
         budget = measure_event_budget("bremen", [])
         assert budget <= 1000  # well within max_events_per_job
 
-    def test_aramis_budget_minimal(self):
-        budget = measure_event_budget("aramis", [])
+    def test_aramina_budget_minimal(self):
+        budget = measure_event_budget("aramina", [])
         assert budget <= 5
 
 

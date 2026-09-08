@@ -7,7 +7,7 @@ BLOCKERS
 WARNINGS
 - `ROADMAP.md` still contains the interim operational hardening note that ECR publish currently uses scoped IAM user credentials via GitHub Secrets (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`). This is acceptable because the roadmap explicitly frames it as interim debt and keeps G-DEP-1 OPEN.
 - `ROADMAP.md` preserves APRANA as App Runner shorthand and keeps App Runner deferred, which is correct for this rebaseline; however, the file still contains the earlier PR 0022/PR 0012 historical wording, so readers should treat the roadmap as a layered history rather than a single linear plan.
-- The repository still contains an existing H5 fixture at `./tests/data/aramis_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR.
+- The repository still contains an existing H5 fixture at `./tests/data/aramina_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR.
 
 VALIDATION
 - `git rev-parse --verify HEAD` ✅ `e830b450824d3b153cca857a442eeb91dcb885a1` on branch `0025-roadmap-platform-rebaseline`

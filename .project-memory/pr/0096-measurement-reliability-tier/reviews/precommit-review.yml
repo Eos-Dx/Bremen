@@ -154,7 +154,7 @@ review:
     measurement_reliability_in_report_ui: "Found at 6 locations (Python builders, JS builders, JS renderer)"
     confirmed: true
   scope_control:
-    aramis_touched: false
+    aramina_touched: false
     pr0092_touched: "Incidental passthrough only (JS signal builder line already present, not changed by PR0096)"
     request_schema_changed: false
     new_dependencies: false
@@ -180,7 +180,7 @@ review:
     git_diff_check_clean: true
     naming_guard_verified: true
     scope_control_verified: true
-    aramis_untouched: true
+    aramina_untouched: true
     pr0092_untouched: true
     no_new_dependencies: true
     no_clinical_wording: true

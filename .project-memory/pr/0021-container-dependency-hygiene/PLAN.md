@@ -21,7 +21,7 @@ numpy>=1.26,<3
 ...  (public PyPI packages)
 -e /Users/sad/dev/container
 -e /Users/sad/dev/XRD-preprocessing[dev]
--e /Users/sad/dev/Aramis[dev]
+-e /Users/sad/dev/Aramina[dev]
 ```
 
 Three local-machine editable install paths, none of which are reproducible for CI or deployment.
@@ -32,7 +32,7 @@ Three local-machine editable install paths, none of which are reproducible for C
 |---------|-----------|-------------------|
 | xrd-preprocessing | `git+https://github.com/Eos-Dx/XRD-preprocessing.git` | CI workflow runs `pip install "git+https://..."` AND it's in `pyproject.toml` as a git dependency |
 | container | `git+https://github.com/Eos-Dx/container.git@feat/v0_3-eoscan-session-container` | CI workflow runs `pip install "git+https://...@feat/v0_3-..."` |
-| Aramis | Not installed by CI | No longer an active dependency for Bremen |
+| Aramina | Not installed by CI | No longer an active dependency for Bremen |
 
 ### ADR-0005 commitment
 
@@ -90,7 +90,7 @@ Remove these three lines entirely:
 ```
 -e /Users/sad/dev/container
 -e /Users/sad/dev/XRD-preprocessing[dev]
--e /Users/sad/dev/Aramis[dev]
+-e /Users/sad/dev/Aramina[dev]
 ```
 
 Add this line to replace the container dependency:
@@ -104,7 +104,7 @@ container @ git+https://github.com/Eos-Dx/container.git@feat/v0_3-eoscan-session
 
 2. **`-e /Users/sad/dev/XRD-preprocessing[dev]`** — Removed entirely. `pyproject.toml` already lists `xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@v0.1.5-beta` as a core dependency. The CI workflow also installs it explicitly. The editable local path in `requirements.txt` is redundant and introduces local-machine drift.
 
-3. **`-e /Users/sad/dev/Aramis[dev]`** — Removed entirely. Aramis is not an active dependency for Bremen (per ADR-0002). This line was a stale artifact from the fork. No replacement needed.
+3. **`-e /Users/sad/dev/Aramina[dev]`** — Removed entirely. Aramina is not an active dependency for Bremen (per ADR-0002). This line was a stale artifact from the fork. No replacement needed.
 
 ### What does NOT change
 
@@ -233,7 +233,7 @@ The rollback preserves all API, model, and application code. Only dependency dec
 | Drift category | Check |
 |----------------|-------|
 | **File drift** | Only `requirements.txt` and `tests/test_bremen_dependency_hygiene.py` changed. ADR-0005 and ROADMAP.md optionally only if factually inconsistent. |
-| **Dependency drift** | Three local-path lines removed (`/Users/sad/dev/container`, `/Users/sad/dev/XRD-preprocessing[dev]`, `/Users/sad/dev/Aramis[dev]`). Container dependency replaced with same CI git URL pin at `feat/v0_3`. |
+| **Dependency drift** | Three local-path lines removed (`/Users/sad/dev/container`, `/Users/sad/dev/XRD-preprocessing[dev]`, `/Users/sad/dev/Aramina[dev]`). Container dependency replaced with same CI git URL pin at `feat/v0_3`. |
 | **G-DEP-1 boundary drift** | G-DEP-1 remains OPEN. No re-pin to `container` main. No change to VERSION_REGISTRY expectations. Event-triggered re-pin deferred. |
 | **Source/API drift** | No source code or API changes. No source files in `src/` modified. |
 | **CI/Docker drift** | No CI workflow or Dockerfile changes. The changed `requirements.txt` is compatible with both CI install commands and local `pip install -r requirements.txt`. |
@@ -270,10 +270,10 @@ Block if:
 - H5/HDF5, model artifacts, IaC files
 
 ### Dependency hygiene summary
-- Remove 3 local-path lines: `container`, `XRD-preprocessing[dev]`, `Aramis[dev]`.
+- Remove 3 local-path lines: `container`, `XRD-preprocessing[dev]`, `Aramina[dev]`.
 - Add `container @ git+https://github.com/Eos-Dx/container.git@feat/v0_3-eoscan-session-container` to keep the container dependency reproducible.
 - xrd-preprocessing is already in pyproject.toml as a git dependency — no replacement needed.
-- Aramis is not an active Bremen dependency — no replacement needed.
+- Aramina is not an active Bremen dependency — no replacement needed.
 
 ### G-DEP-1 boundary summary
 - G-DEP-1 remains OPEN.

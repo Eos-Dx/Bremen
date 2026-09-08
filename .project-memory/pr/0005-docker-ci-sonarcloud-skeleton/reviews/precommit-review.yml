@@ -94,7 +94,7 @@ review:
     - command: "find . -path \"./.git\" -prune -o -path \"./venv\" -prune -o -path \"./.venv\" -prune -o -type f \( -name \"*.h5\" -o -name \"*.hdf5\" \) -print"
       exit_code: 0
       output: |
-        ./tests/data/aramis_real_h5_subset_20260128_5_patients.h5
+        ./tests/data/aramina_real_h5_subset_20260128_5_patients.h5
     - command: "find . -name \".DS_Store\" -print"
       exit_code: 0
       output: |

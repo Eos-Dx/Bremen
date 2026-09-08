@@ -1036,8 +1036,8 @@ class TestClinicalGradeStructure:
         assert "report-footer" in page
         assert "Decision support only" in page
 
-    def test_no_aramis_terms(self):
-        """No Aramis-specific terms in report."""
+    def test_no_aramina_terms(self):
+        """No Aramina-specific terms in report."""
         page = build_report_page(job_id="test")
         assert "Tissue Risk Assessment" not in page
         assert "TRA level" not in page
@@ -1048,7 +1048,7 @@ class TestClinicalGradeStructure:
         assert "Method specificity" not in page
 
     def test_no_phi_fields(self):
-        """No PHI-style Aramis fields in report."""
+        """No PHI-style Aramina fields in report."""
         page = build_report_page(job_id="test")
         assert "Patient Surname" not in page
         assert "Patient Name" not in page

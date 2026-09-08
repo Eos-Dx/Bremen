@@ -712,7 +712,7 @@ No training.
 No H5 contract changes.
 No preprocessing or feature changes.
 No threshold or decision-vocabulary changes.
-No Aramis model discovery.
+No Aramina model discovery.
 No React, npm, frontend framework, or build step.
 No Docker, Terraform, AWS, or CI changes.
 

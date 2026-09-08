@@ -74,7 +74,7 @@ This completes the demo readiness pipeline:
 - `tfstate`, `.terraform`
 - `config/training/**`, `src/bremen/training/**`
 - `docs/**`, `ROADMAP.md`
-- Aramis artifacts, model descriptions, feature schemas as dependency
+- Aramina artifacts, model descriptions, feature schemas as dependency
 
 ## Exact implementation scope
 
@@ -162,7 +162,7 @@ Behavior:
 - No MRI/biopsy/radiologist replacement language.
 - No patient-specific claims.
 - No clinical performance claims.
-- No Aramis references.
+- No Aramina references.
 - `technical_demo_only: true` in every file.
 - Bremen product identity in every file.
 
@@ -269,7 +269,7 @@ if args.capture_dir:
 13. **`write_demo_capture()` creates missing directory** — Path doesn't exist yet.
 14. **`write_demo_capture()` raises `FileExistsError` when capture_dir is a file** — Path exists as a regular file.
 15. **`write_demo_capture()` raises `FileExistsError` when output files exist** — Controlled failure.
-16. **No Aramis references** — String scan on all capture files.
+16. **No Aramina references** — String scan on all capture files.
 17. **No clinical/replacement language** — String scan (except safe negation in disclaimers/safety_notes).
 18. **JSON serializable** — All capture files pass `json.loads()`.
 
@@ -309,7 +309,7 @@ Add:
 - No clinical diagnosis claims.
 - `technical_demo_only: true` in every capture file.
 - No real patient data.
-- No Aramis references.
+- No Aramina references.
 - No diagnosis/replacement language (except safe negation in disclaimers/safety_notes).
 
 ## Validation checklist
@@ -349,8 +349,8 @@ tmpdir="$(mktemp -d)" && \
 ### Forbidden-pattern grep checks
 
 ```bash
-# No Aramis dependency or product labels
-grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" \
+# No Aramina dependency or product labels
+grep -R -I -n "Aramina\|aramina\|M2Q\|BENIGN vs CANCER" \
   src/bremen/demo_capture.py src/bremen/demo_run.py src/bremen/demo_presentation.py \
   tests/test_bremen_demo_capture.py tests/test_bremen_demo_run.py tests/test_bremen_demo_presentation.py || true
 # Expected: no output
@@ -516,7 +516,7 @@ Block if:
 - confirm: no unsafe model loading planned: yes
 - confirm: no H5 mutation planned: yes
 - confirm: no real patient data planned: yes
-- confirm: no Aramis dependency planned: yes
+- confirm: no Aramina dependency planned: yes
 - confirm: no clinical diagnosis/replacement claims planned: yes
 - confirm: implementation assigned to Agent: coder / Mode: implementation: yes
 - confirm: no git mutation commands run: yes

@@ -43,7 +43,7 @@ confirmed:
   no_model_catalog_scope_creep: true
   future_model_variant_strategy_clear: true
   multiple_bremen_versions_supported_in_strategy: true
-  multiple_aramis_versions_supported_in_strategy: true
+  multiple_aramina_versions_supported_in_strategy: true
   no_combined_verdict: true
   pr0080_boundary_clear: true
   pr0081_boundary_clear: true

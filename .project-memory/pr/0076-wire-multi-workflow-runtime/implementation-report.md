@@ -120,7 +120,7 @@ Existing tests cover all required scenarios:
 ### Root Cause (integration gap)
 
 PR0075 implemented `WorkflowProvider`, `WorkflowRegistry`, `WorkflowBremenProvider`,
-`WorkflowAramisProvider`, `CanonicalXRDCase`, `normalize_to_canonical()` on all
+`WorkflowAraminaProvider`, `CanonicalXRDCase`, `normalize_to_canonical()` on all
 adapters — but did NOT wire any of these into public routes. The spike succeeded
 by exercising normalization and providers directly, not through the application
 HTTP routes.
@@ -204,10 +204,10 @@ inference_handler.py:run_inference (legacy wrapper)
 
 ## Registry Bootstrap
 
-- **`get_default_registry()`** — builds `WorkflowRegistry` with `bremen` and `aramis` providers
+- **`get_default_registry()`** — builds `WorkflowRegistry` with `bremen` and `aramina` providers
 - Registry rebuilt on every call to pick up current `ModelState` (test-friendly)
 - Bremen provider receives model from `ModelState.get_model()` with adaptation
-- Aramis provider registered as scaffold (unavailable)
+- Aramina provider registered as scaffold (unavailable)
 
 ---
 
@@ -263,12 +263,12 @@ inference_handler.py:run_inference (legacy wrapper)
 
 ---
 
-## Aramis Route
+## Aramina Route
 
-- `workflow_id="aramis"` → `WorkflowRegistry` → `AramisProvider`
+- `workflow_id="aramina"` → `WorkflowRegistry` → `AraminaProvider`
 - Returns `workflow_unavailable` when authoritative runtime not configured
 - No fallback to Bremen
-- No recreation of Aramis scientific logic
+- No recreation of Aramina scientific logic
 
 ---
 
@@ -302,8 +302,8 @@ Demo route returns HTTP 200 for all states (existing compatibility). Application
 
 ## Readiness
 
-- Bremen readiness independent of Aramis
-- Aramis unavailability does not block Bremen
+- Bremen readiness independent of Aramina
+- Aramina unavailability does not block Bremen
 - `WorkflowReadiness.scientifically_certified` remains False (parity TBD)
 - Existing `/health` and `/model/version` endpoints preserved
 

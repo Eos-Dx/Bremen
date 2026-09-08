@@ -14,7 +14,7 @@ review:
     - src/bremen/api/server.py (diff section for _ThreadingHTTPServer)
     - src/bremen/api/event_store.py
     - src/bremen/api/workflow_bremen.py
-    - src/bremen/api/workflow_aramis.py
+    - src/bremen/api/workflow_aramina_scaffold.py
     - src/bremen/api/workflow_provider.py
     - src/bremen/api/workflow_orchestrator.py
     - src/bremen/api/workflow_registry.py
@@ -27,7 +27,7 @@ review:
     - src/bremen/api/job_models.py
     - src/bremen/api/report_provider.py
     - src/bremen/api/report_bremen.py
-    - src/bremen/api/report_aramis.py
+    - src/bremen/api/report_aramina.py
     - src/bremen/workspace_ui.py
     - tests/test_bremen_concurrent_server.py
     - tests/test_bremen_event_stream.py

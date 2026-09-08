@@ -121,7 +121,7 @@ confirmed:
   no_model_variant_scope: true
   no_xrd_parity_scope: true
   no_auc_scope: true
-  bremen_aramis_separate: true
+  bremen_aramina_separate: true
   full_suite_executed: true
   full_suite_passed: true
   credentials_excluded: true
@@ -172,5 +172,5 @@ summary: |
   failures. No credentials, forbidden binary artifacts, or whitespace errors
   in the diff. No model selector, no frontend threshold comparison, no
   MRI_RULE_OUT public wording, no empty h5_path, no synthetic container_id.
-  BREMEN_STAGE_ORDER unchanged. Bremen and Aramis remain separate. No scope
+  BREMEN_STAGE_ORDER unchanged. Bremen and Aramina remain separate. No scope
   violations.

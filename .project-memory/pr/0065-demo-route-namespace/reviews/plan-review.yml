@@ -117,7 +117,7 @@ BOUNDARY CONFIRMATIONS:
 SCOPE CHECK: pass
 - PLAN is focused on `/demo/*` route namespace in the existing Bremen HTTP service
 - Not docs-only (implementation plan with 4 files, 12+ UI tests, 5+ server tests)
-- Does not start production frontend, React, deployment automation, training, multi-tenancy/model-profiles/plugins, or Aramis alignment
+- Does not start production frontend, React, deployment automation, training, multi-tenancy/model-profiles/plugins, or Aramina alignment
 
 ROUTE NAMESPACE CHECK: pass
 - PLAN requires demo under `/demo` and `/demo/api/evidence`
@@ -171,7 +171,7 @@ SAFETY CHECK: pass
 - No H5 mutation or access
 - No AWS/S3 SDK or network calls
 - No real patient data
-- No Aramis dependency
+- No Aramina dependency
 - No deployment mutation (Terraform, Docker, CI/CD, GitHub Actions)
 - No new dependencies (stdlib only)
 - No interactive/stateful UI that could leak data
@@ -183,7 +183,7 @@ VALIDATION CHECK: pass
 - Full pytest run planned
 - python -m bremen --help and subcommand help tests
 - End-to-end capture smoke and /demo route tests
-- Forbidden-pattern grep checks (Aramis, clinical, deserialization, H5, AWS/network, web framework, external assets, --ui flag)
+- Forbidden-pattern grep checks (Aramina, clinical, deserialization, H5, AWS/network, web framework, external assets, --ui flag)
 - Forbidden path diff checks (.github, infra/terraform, Dockerfile, etc.)
 - .DS_Store check
 - Artifact scan for .h5/.hdf5/.joblib/.pkl etc.
@@ -233,7 +233,7 @@ BOUNDARY CONFIRMATIONS:
 - no unsafe model loading planned: confirmed
 - no H5 mutation planned: confirmed
 - no real patient data planned: confirmed
-- no Aramis dependency planned: confirmed
+- no Aramina dependency planned: confirmed
 - no clinical diagnosis/replacement claims planned: confirmed
 - Bremen safety identity preserved: confirmed
 - implementation assigned to coder: confirmed

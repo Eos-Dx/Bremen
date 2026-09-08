@@ -15,9 +15,9 @@
 | B001 — broken `plugin_build_features` calling abstract base | Resolved | Removed dead method. Single authoritative `execute()` path with optional `WorkflowExecutionContext` |
 | B002 — showcase UI missing | Resolved | Showcase mode implemented in workspace_ui.py with CSS, JS, visual pipeline, stage drawer, decision viz, process linkage, accessibility |
 | W001 — showcase UI missing | Resolved | Showcase mode implemented |
-| W002 — Nova/Aramis not connected | Resolved | Nova detection in `validate_compatibility` (P-prefix positions); Aramis early-stop in orchestrator |
-| W003 — event budget not documented | Resolved | Documented in `docs/workspace_contract.md`: 22-26 Bremen, ~6 Nova, ~4 Aramis |
-| W004 — hardcoded Aramis check | Resolved | Replaced hardcoded `provider.workflow_id == "aramis"` with generic `provider.readiness().model_ready` check for ALL providers. Synthetic unavailable-provider test added. |
+| W002 — Nova/Aramina not connected | Resolved | Nova detection in `validate_compatibility` (P-prefix positions); Aramina early-stop in orchestrator |
+| W003 — event budget not documented | Resolved | Documented in `docs/workspace_contract.md`: 22-26 Bremen, ~6 Nova, ~4 Aramina |
+| W004 — hardcoded Aramina check | Resolved | Replaced hardcoded `provider.workflow_id == "aramina"` with generic `provider.readiness().model_ready` check for ALL providers. Synthetic unavailable-provider test added. |
 
 ---
 
@@ -40,7 +40,7 @@ to showcase mode.
   Model Contract → Features → Inference → Decision → Report.
 - **Dynamic workflow execution cards**: Data-driven common renderer with
   workflow name, stage progress, duration, decision status, report status,
-  scientifically_certified flag. No hardcoded Bremen/Aramis branching
+  scientifically_certified flag. No hardcoded Bremen/Aramina branching
   for the common shell.
 - **Stage detail drawer**: Click a completed/failed/blocked stage node to
   open a slide-in drawer with per-stage allowlisted metadata. Feature
@@ -54,7 +54,7 @@ to showcase mode.
 - **Nova presentation**: Configuration required message, six measurements
   retained, P1/P2/P3 positions visible. Inference not started, decision
   not produced, report unavailable.
-- **Aramis presentation**: Workflow unavailable. Model lifecycle not
+- **Aramina presentation**: Workflow unavailable. Model lifecycle not
   started. Report unavailable.
 - **Process-panel linkage**: Click a pipeline stage highlights matching
   process events in the right panel. Stage selection scrolls to matching
@@ -81,7 +81,7 @@ to showcase mode.
 
 ## W004 Resolution — Generic Unavailable-Provider Handling
 
-Replaced hardcoded `provider.workflow_id == "aramis"` in orchestrator with
+Replaced hardcoded `provider.workflow_id == "aramina"` in orchestrator with
 generic `provider.readiness().model_ready` check for ALL providers. When
 `model_ready` is `False`, the orchestrator returns `workflow_unavailable`
 early — no workflow-id-specific branches.
@@ -124,7 +124,7 @@ a `WorkflowRegistry`, and verifies the orchestrator returns
 - Normal workspace preservation (route, job list, process panel, audit)
 - Prohibited fields absent (no feature_value, coefficients, weights, h5_paths)
 - Generic unavailable-provider handling (synthetic third provider)
-- No hardcoded workflow_id === "aramis" in orchestrator source
+- No hardcoded workflow_id === "aramina" in orchestrator source
 - Job API has execution_traces, events endpoint reachable, storage metadata visible
 
 ### Full suite: 1625 passed, 0 failed, 11 skipped
@@ -154,4 +154,4 @@ None. All precommit findings resolved.
 - confirm: normal workspace mode preserved
 - confirm: no mock job data, fake timers, or random progress
 - confirm: generic provider handling — no workflow-id-specific branches
-- confirm: Nova/Aramis blocked states rendered honestly
+- confirm: Nova/Aramina blocked states rendered honestly

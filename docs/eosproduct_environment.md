@@ -71,7 +71,7 @@ pytest -q
 python -m marimo check examples/bremen_dataframe_one_to_one_v0_1.py examples/bremen_dataframe_one_to_many_v0_1.py
 ```
 
-> **Note:** This document was originally authored for the Aramis project.
+> **Note:** This document was originally authored for the Aramina project.
 > Active project references have been updated to Bremen. Historical dataset
-> paths and environment setup references to `/Users/sad/dev/Aramis` are
+> paths and environment setup references to `/Users/sad/dev/Aramina` are
 > preserved as legacy documentation.

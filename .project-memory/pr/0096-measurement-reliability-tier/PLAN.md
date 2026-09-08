@@ -21,7 +21,7 @@ None.
 - src/bremen/api/app.py (handle_submit_prediction(), how result_dict is built from WorkflowResult.payload, then passed to build_decision_support_report())
 - src/bremen/report_ui.py (build_external_report_json(), build_internal_report_json(), Python helpers, JS builders, JS renderers)
 - docs/design/BREMEN_DESIGN_SPEC_v1.md (design tokens, layout guidance)
-- AGENTS.md (Bremen/Aramis separation, safety constraints)
+- AGENTS.md (Bremen/Aramina separation, safety constraints)
 - .project-memory/project_contract.yml (Bremen safety invariants, source-of-truth order)
 
 ## COUNT COMPUTATION PLAN
@@ -271,7 +271,7 @@ The `_compute_measurement_reliability()` function in `decision_support.py` imple
 - **Prohibited terms**: "clinical reliability", "diagnostic reliability" must never appear.
 - **No prediction suppression**: LOW_TECHNICAL does NOT block prediction — it is informational only.
 - **No new request fields**: POST /predictions schema unchanged.
-- **No Aramis coupling**: All changes are Bremen-only.
+- **No Aramina coupling**: All changes are Bremen-only.
 - **No symmetry_signals changes**: PR0092 and PR0096 are independent.
 
 ## VALIDATION PLAN
@@ -302,7 +302,7 @@ Expected results:
 - Exact tier names (`HIGH_TECHNICAL`, `ACCEPTABLE_TECHNICAL`, `LOW_TECHNICAL`) present in `decision_support.py`.
 - Reason strings match training-side source verbatim.
 - No symmetry_signals or difference_level changes.
-- No Aramis coupling.
+- No Aramina coupling.
 - No new request schema fields.
 
 ## NAMING GUARD — HARD RULE
@@ -361,7 +361,7 @@ metadata, or a future explicitly named field such as
 
 - No symmetry_signals/difference_level work.
 - No reference-statistics work.
-- No Aramis coupling.
+- No Aramina coupling.
 - No new request fields (POST /predictions schema unchanged).
 - No fabricated counts (counts come from real measurement.side values).
 - No clinical reliability claims.
@@ -377,7 +377,7 @@ No stop conditions triggered:
 - No fabricated counts ✓
 - No tier name/threshold/reason changes ✓
 - No symmetry_signals (PR0092) scope touched ✓
-- No Aramis code touched ✓
+- No Aramina code touched ✓
 - No POST /predictions request schema changes ✓
 - No clinical reliability claims ✓
 - JSON placement decided (prediction_summary.measurement_reliability) ✓

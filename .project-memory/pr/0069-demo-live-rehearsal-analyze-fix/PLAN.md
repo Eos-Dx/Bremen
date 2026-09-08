@@ -85,7 +85,7 @@ No new features. No React. No UI redesign. No new dependencies.
 - `tfstate`, `.terraform`
 - `config/training/**`, `src/bremen/training/**`
 - `docs/**`, `ROADMAP.md`
-- Aramis artifacts, model descriptions, feature schemas as dependency
+- Aramina artifacts, model descriptions, feature schemas as dependency
 
 ## Exact implementation scope
 
@@ -251,7 +251,7 @@ The implementation agent must investigate and fix if the actual bug is code-leve
 3. If the pipeline fails with a code-level bug, fix it in `inference_handler.py` or `preprocessing_bridge.py` as needed.
 4. If the H5 is genuinely incompatible, ensure the API returns a safe actionable reason like `preprocessing_failed: H5 layout not supported` instead of generic "Unexpected inference error".
 
-**Success target**: For at least one demo H5 (e.g., `bremen/prediction-inputs/smoke/v0.1/aramis_real_h5_subset_20260128_5_patients.h5`), Analyse should return events including `model_inference_completed` and a result.
+**Success target**: For at least one demo H5 (e.g., `bremen/prediction-inputs/smoke/v0.1/aramina_real_h5_subset_20260128_5_patients.h5`), Analyse should return events including `model_inference_completed` and a result.
 
 ### 4. No changes to `demo_ui.py`
 
@@ -281,7 +281,7 @@ The UI already handles container display, selection, analyze, events, and result
 - `technical_demo_only: true` in all responses.
 - Exception logging is server-side only. API responses receive safe truncated exception class + message (≤200 chars), no traceback, no file paths, no secrets.
 - No clinical diagnosis/replacement claims.
-- No Aramis references.
+- No Aramina references.
 
 ## Validation checklist
 
@@ -342,8 +342,8 @@ grep -R -I -n "https://\|http://.*cdn\|unpkg\|jsdelivr\|googleapis\|fontawesome"
   src/bremen/demo_ui.py tests/test_bremen_demo_ui.py || true
 # Expected: no output
 
-# No Aramis dependency or product labels
-grep -R -I -n "Aramis\|aramis\|M2Q\|BENIGN vs CANCER" \
+# No Aramina dependency or product labels
+grep -R -I -n "Aramina\|aramina\|M2Q\|BENIGN vs CANCER" \
   src/bremen tests/test_bremen_demo_ui.py tests/test_bremen_api_server.py || true
 # Expected: no output
 
@@ -497,7 +497,7 @@ Block if:
 - confirm: no unsafe model loading planned: yes
 - confirm: no H5 mutation planned: yes
 - confirm: no committed H5/patient data planned: yes
-- confirm: no Aramis dependency planned: yes
+- confirm: no Aramina dependency planned: yes
 - confirm: no clinical diagnosis/replacement claims planned: yes
 - confirm: implementation assigned to Agent: coder / Mode: implementation: yes
 - confirm: no git mutation commands run: yes

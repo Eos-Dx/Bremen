@@ -4,7 +4,7 @@ Covers:
 - ``python -m bremen`` exits 0 and prints Bremen help
 - One real stub invocation preserves the subprocess exit-code contract
 - Main, stub, demo-run, and serve parser contracts
-- No active Aramis identity in help output
+- No active Aramina identity in help output
 - ``__main__.py`` has no heavy top-level imports
 
 Most checks load ``src/bremen/__main__.py`` directly by file path. This avoids
@@ -129,7 +129,7 @@ def test_python_m_bremen_no_args_smoke(parser: argparse.ArgumentParser):
             f"No-arg help output must list local command {command!r}"
         )
 
-    assert "aramis" not in result.stdout.lower()
+    assert "aramina" not in result.stdout.lower()
 
 
 def test_python_m_bremen_stub_smoke():
@@ -161,7 +161,7 @@ def test_main_help_contract(parser: argparse.ArgumentParser):
             f"Main help output must list required command {command!r}"
         )
 
-    assert "aramis" not in output.lower()
+    assert "aramina" not in output.lower()
 
 
 # ---------------------------------------------------------------------------

@@ -33,7 +33,7 @@ VALIDATION
 * grep "run_h5_preflight\|run_preprocessing_bridge\|run_inference": call chain: server.py:990 → inference_handler.py:92 → preflight.py:224; preflight uses detect_layout for ALL inputs
 * grep "preprocessing_started\|model_inference_started\|h5_preflight_failed\|preprocessing_failed": preprocessing_started/model_inference_started NOT found in server.py (removed by diff -14 lines); only h5_preflight_failed and preprocessing_failed remain as error classification
 * grep "xrd.preprocessing\|xrd_preprocessing\|integrat": xrd_preprocessing referenced in MatadorRawH5Adapter docstring (h5_layouts.py:627) as integration boundary for future bridge work; integration arrays read by session_layout adapter
-* grep "biopsy\|birads\|BENIGN\|CANCER\|Aramis\|aramis" in src/bremen/api/h5_layouts.py/preflight.py/preprocessing_bridge.py/server.py: only safe docstring prohibition language — NOT used as prediction targets
+* grep "biopsy\|birads\|BENIGN\|CANCER\|Aramina\|aramina" in src/bremen/api/h5_layouts.py/preflight.py/preprocessing_bridge.py/server.py: only safe docstring prohibition language — NOT used as prediction targets
 * grep "patient_name\|patientId\|specimenId\|sample_name" in src/bremen/api/h5_layouts.py/preflight.py/server.py: structural/path references only; no raw identifiers exposed in API/UI/logs
 * grep "joblib\.load\|pickle\.load\|import pickle": only in controlled boundaries (model_state.py, model_loader.py, modeling.py)
 * grep "React\|react\|package.json\|vite\|webpack": no matches

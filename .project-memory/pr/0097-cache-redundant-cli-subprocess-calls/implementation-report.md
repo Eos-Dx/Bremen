@@ -32,7 +32,7 @@ Added per-file module-scoped `_cli_result_cache` fixtures to three test files to
 
 | Group | Command | Count | Tests |
 |-------|---------|-------|-------|
-| 1 | `-m bremen --help` | 8 | test_python_m_bremen_help_exits_0, test_python_m_bremen_help_contains_bremen, test_python_m_bremen_help_contains_disclaimer, test_python_m_bremen_help_contains_stubs, test_python_m_bremen_help_contains_preprocess, TestDemoRunCli.test_demo_run_in_main_help, test_help_no_aramis, test_serve_in_main_help |
+| 1 | `-m bremen --help` | 8 | test_python_m_bremen_help_exits_0, test_python_m_bremen_help_contains_bremen, test_python_m_bremen_help_contains_disclaimer, test_python_m_bremen_help_contains_stubs, test_python_m_bremen_help_contains_preprocess, TestDemoRunCli.test_demo_run_in_main_help, test_help_no_aramina, test_serve_in_main_help |
 | 2 | `-m bremen` | 2 | test_python_m_bremen_no_args_exits_0, test_main_help_shows_serve |
 | 3 | `-m bremen demo-run --help` | 4 | TestDemoRunCli.test_demo_run_help_exits_0, test_demo_run_help_shows_options, test_demo_run_pretty_in_help, test_demo_run_capture_dir_in_help |
 | 4 | `-m bremen serve --help` | 2 | test_serve_help_exits_0, test_serve_help_contains_host_and_port |

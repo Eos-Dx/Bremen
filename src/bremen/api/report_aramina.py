@@ -1,10 +1,10 @@
-"""Aramis report provider boundary.
+"""Aramina report provider boundary.
 
 Scaffold that returns an authoritative ``unavailable`` typed response.
 Does not fabricate TRA probabilities, reliability, symmetry features,
 sensitivity/specificity, recommendations, or clinical content.
 
-When an authoritative Aramis report runtime is configured in the
+When an authoritative Aramina report runtime is configured in the
 future, this provider will delegate to it.
 
 PR0077 — multi-workflow analysis workspace, event stream, and reports.
@@ -26,24 +26,24 @@ from .report_provider import (
 # Constants
 # ---------------------------------------------------------------------------
 
-ARAMIS_UNAVAILABLE_REASON = "WORKFLOW_OR_REPORT_PROVIDER_NOT_CONFIGURED"
+ARAMINA_UNAVAILABLE_REASON = "WORKFLOW_OR_REPORT_PROVIDER_NOT_CONFIGURED"
 
-ARAMIS_UNAVAILABLE_MESSAGE = (
-    "The Aramis workflow report provider is not configured. "
-    "No authoritative Aramis report content is available."
+ARAMINA_UNAVAILABLE_MESSAGE = (
+    "The Aramina workflow report provider is not configured. "
+    "No authoritative Aramina report content is available."
 )
 
 
 # ---------------------------------------------------------------------------
-# Aramis report provider
+# Aramina report provider
 # ---------------------------------------------------------------------------
 
 
-class AramisReportProvider(ReportProvider):
-    """Aramis report provider boundary.
+class AraminaReportProvider(ReportProvider):
+    """Aramina report provider boundary.
 
     Returns ``unavailable`` with a typed reason code until an
-    authoritative Aramis report runtime is configured.
+    authoritative Aramina report runtime is configured.
 
     Does not fabricate:
     - TRA probabilities
@@ -54,7 +54,7 @@ class AramisReportProvider(ReportProvider):
     - clinical content
     """
 
-    workflow_id = "aramis"
+    workflow_id = "aramina"
 
     def generate_report(
         self,
@@ -75,11 +75,11 @@ class AramisReportProvider(ReportProvider):
             model_version=None,
             scientifically_certified=False,
             disclaimer=(
-                "No authoritative Aramis report is available. "
+                "No authoritative Aramina report is available. "
                 "This is a placeholder boundary only."
             ),
             payload={
-                "reason_code": ARAMIS_UNAVAILABLE_REASON,
-                "message": ARAMIS_UNAVAILABLE_MESSAGE,
+                "reason_code": ARAMINA_UNAVAILABLE_REASON,
+                "message": ARAMINA_UNAVAILABLE_MESSAGE,
             },
         )

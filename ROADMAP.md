@@ -112,7 +112,7 @@ Multi-Workflow Analysis Workspace:
 - Job status API, report metadata API
 - Workflow cards with independent status per workflow
 - Bremen report v0.2
-- Aramis report provider boundary
+- Aramina report provider boundary
 - Analysis Workspace frontend
 - Privacy/redaction controls
 - Audit metadata display
@@ -129,7 +129,7 @@ Multi-Workflow Analysis Workspace:
 - Job status API, report metadata API
 - Workflow cards with independent status per workflow
 - Bremen report v0.2 (extended from PR0053 decision_support_report)
-- Aramis report provider boundary (unavailable, typed reason code)
+- Aramina report provider boundary (unavailable, typed reason code)
 - Analysis Workspace frontend (timeline, process panel, report/audit tabs)
 - Privacy/redaction controls
 - Audit metadata display
@@ -140,8 +140,8 @@ Multi-Workflow Analysis Workspace:
 
 ## Next milestone
 
-- Authoritative Aramis runtime integration
-- Aramis report parity
+- Authoritative Aramina runtime integration
+- Aramina report parity
 - Persistent job/event history (database backend)
 - Report access controls
 - PDF/report artifact storage
@@ -165,7 +165,7 @@ Multi-Workflow Analysis Workspace:
 
 - PR-0001 — Agent workflow foundation
 - PR-0002 — Planning/identity cleanup
-- PR-0003 — Full Aramis-to-Bremen alignment
+- PR-0003 — Full Aramina-to-Bremen alignment
 - PR-0004 — Roadmap quality/docker/entrypoint planning
 - PR-0005 — Docker/CI/Sonar skeleton
 - PR-0006 — Coverage/cache

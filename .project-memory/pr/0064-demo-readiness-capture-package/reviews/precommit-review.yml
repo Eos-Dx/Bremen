@@ -33,7 +33,7 @@ python -m bremen demo-smoke --help: Shows --base-url, --timeout, --skip-predicti
 python -m bremen demo-run --help: Shows --base-url, --timeout, --skip-prediction, --pretty, --capture-dir
 python -m bremen demo-run --pretty: JSON output + formatted plain-text, both printed. Exit 0.
 End-to-end --capture-dir smoke test: 3 files created (bremen-demo-summary.txt, bremen-demo-evidence.json, bremen-demo-manifest.json)
-Aramis grep (demo_capture.py, demo_run.py, demo_presentation.py, tests): Zero matches in source code. Only test assertions testing absence.
+Aramina grep (demo_capture.py, demo_run.py, demo_presentation.py, tests): Zero matches in source code. Only test assertions testing absence.
 Clinical/replacement grep (same files): Only safety negation language in source and test assertions. No claims.
 joblib/pickle grep (same files): Only test assertions checking absence. Zero in source code.
 H5 grep (demo_capture.py, demo_run.py, tests): Zero in source code. Only test assertions checking absence.
@@ -141,7 +141,7 @@ pass: No new safety violations introduced:
   - No AWS/S3 SDK/network clients (no boto3, botocore, requests, httpx in source)
   - No Matador resolver implementation
   - No real patient demo data
-  - No Aramis dependency (zero Aramis strings in source)
+  - No Aramina dependency (zero Aramina strings in source)
   - No clinical/replacement claims (only safe negation)
   - No new dependencies (stdlib only for demo_capture.py)
   - Verified by direct grep of all changed and new source files
@@ -156,7 +156,7 @@ pass: Implementation report (.project-memory/pr/0064-demo-readiness-capture-pack
   - Manifest shape (all required fields)
   - Product-owner demo value (single command produces portable packet)
   - Preserved JSON/pretty behavior (additive, backward-compatible)
-  - Output safety (technical_demo_only, no clinical claims, no Aramis)
+  - Output safety (technical_demo_only, no clinical claims, no Aramina)
   - Tests run and results (37 capture tests, 41 demo-run tests, all pass)
   - Safety boundaries (no unsafe deserialization, no H5, no AWS, no new deps)
   - Multi-tenancy/model-profile/plugin deferral (explicitly deferred)
@@ -203,7 +203,7 @@ BOUNDARY CONFIRMATIONS
 - no unsafe model loading: yes
 - no H5 mutation: yes
 - no real patient data: yes
-- no Aramis dependency: yes
+- no Aramina dependency: yes
 - no clinical diagnosis/replacement claims: yes
 - Bremen safety identity preserved: yes
 - implementation report present: yes

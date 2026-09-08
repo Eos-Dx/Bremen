@@ -7,7 +7,7 @@ BLOCKERS
 WARNINGS
 - The new config module and tests are present and focused, but the module docstring includes the phrase "Not a diagnostic replacement," which is acceptable only as a safety disclaimer; no broader clinical claims were observed.
 - `tests/test_bremen_config_loading.py` contains assertions that reference the docstring text and safety boundaries; this is acceptable, but the test file also includes checks for H5/model/Matador references by scanning source text rather than exercising runtime behavior.
-- `find` surfaced an existing H5 fixture under `tests/data/aramis_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR, but it is present in the repo snapshot.
+- `find` surfaced an existing H5 fixture under `tests/data/aramina_real_h5_subset_20260128_5_patients.h5`; it was not modified by this PR, but it is present in the repo snapshot.
 
 VALIDATION
 - `git rev-parse --verify HEAD` ✅ `36c21c7652aea409817830843b552cb3a88bf7cc`
@@ -22,7 +22,7 @@ VALIDATION
 - `python -m pytest -q` ✅ 92 passed
 - `python -m bremen --help` ✅ help output shown; no config CLI surface added
 - `grep -R -I -n "BREMED_CONFIG" ...` ✅ no matches
-- `grep -R -I -n -E "Aramis|aramis" src/bremen/config.py tests/test_bremen_config_loading.py` ✅ only test assertions/comments referencing the forbidden term in negative checks
+- `grep -R -I -n -E "Aramina|aramina" src/bremen/config.py tests/test_bremen_config_loading.py` ✅ only test assertions/comments referencing the forbidden term in negative checks
 - `grep -R -I -n -E "diagnos|diagnostic|clinically validated|replace MRI|replace biopsy|replace radiologist|replace clinician|autonomous clinical" ...` ✅ only the intended safety disclaimer / negative checks
 - `grep -R -I -n -E "h5py|\.h5|\.hdf5|joblib|pickle|Matador|matador|predict|fit\(|train|load_model" ...` ✅ only negative checks / safety docstrings
 - `git diff --name-only -- README.md src/bremen/**main**.py src/bremen/cli.py tests/test_bremen_cli_entrypoint.py pyproject.toml .github Dockerfile .dockerignore sonar-project.properties AGENTS.md docs config examples environment.yml Makefile tests/data` ✅ no output
@@ -102,7 +102,7 @@ COMMIT READINESS
   - tests/test_bremen_config_loading.py
   - .project-memory/pr/0009-config-discovery-loading/reviews/precommit-review.yml
 - files to exclude:
-  - tests/data/aramis_real_h5_subset_20260128_5_patients.h5 (existing fixture, not modified)
+  - tests/data/aramina_real_h5_subset_20260128_5_patients.h5 (existing fixture, not modified)
 
 BOUNDARY CONFIRMATIONS
 - no implementation files edited by reviewer
