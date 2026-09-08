@@ -1722,3 +1722,173 @@ def test_discover_models_ignores_invalid_container_requirements_json():
 
     assert result.available_count == 1
     assert result.entries[0].get_container_requirements() is None
+
+
+# ---------------------------------------------------------------------------
+# PR0129 regression: artifact_type never unbound before use
+# ---------------------------------------------------------------------------
+
+
+class TestArtifactTypeNeverUnbound:
+    """Regression tests for PR0129 UnboundLocalError fix.
+
+    All rejection paths that happen before artifact_type is referenced
+    must produce safe unavailable/rejected behavior instead of crashing.
+    """
+
+    def test_oversized_manifest_no_unbound_error(self, tmp_path):
+        """Oversized manifest rejection must not raise UnboundLocalError."""
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        oversized = b"x" * 70000
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": oversized,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+
+    def test_invalid_json_no_unbound_error(self, tmp_path):
+        """Invalid JSON manifest rejection must not raise UnboundLocalError."""
+        pkg_bytes = _make_synthetic_package()
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": b"not json",
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+
+    def test_missing_base_fields_no_unbound_error(self, tmp_path):
+        """Missing base manifest fields rejection must not raise UnboundLocalError."""
+        pkg_bytes = _make_synthetic_package()
+        bad_manifest = json.dumps({"model_id": "bad"}).encode("utf-8")
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": bad_manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+
+    def test_missing_discovery_fields_no_unbound_error(self, tmp_path):
+        """Missing discovery fields rejection must not raise UnboundLocalError."""
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        bad_manifest = json.dumps({
+            "model_version": "v1.0",
+            "model_filename": "model.joblib",
+            "model_checksum": checksum,
+            "artifact_type": "bremen.joblib.model_package",
+            "feature_schema_version": "v0.1",
+            "threshold_version": "v0.1",
+            "threshold_value": 0.5,
+            "qc_criteria_version": "v0.1",
+        }).encode("utf-8")
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": bad_manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+
+    def test_checksum_mismatch_no_unbound_error(self, tmp_path):
+        """Checksum mismatch rejection must not raise UnboundLocalError."""
+        pkg_bytes = _make_synthetic_package()
+        wrong_checksum = "b" * 64
+        manifest = _make_manifest(model_checksum=wrong_checksum)
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+
+    def test_invalid_artifact_type_no_unbound_error(self, tmp_path):
+        """Invalid artifact_type rejection must not raise UnboundLocalError."""
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        bad_manifest = _make_manifest(
+            model_id="bad-art",
+            display_name="Bad Artifact",
+            model_checksum=checksum,
+            artifact_type="wrong.business.type",
+        )
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": bad_manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+
+    def test_invalid_workflow_id_no_unbound_error(self, tmp_path):
+        """Invalid workflow_id rejection must not raise UnboundLocalError."""
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        bad_manifest = _make_manifest(
+            model_id="bad-wf",
+            display_name="Bad Workflow",
+            model_checksum=checksum,
+            workflow_id="not-bremen-or-aramina",
+        )
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": bad_manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+
+    def test_missing_artifact_no_unbound_error(self, tmp_path):
+        """Missing artifact rejection must not raise UnboundLocalError."""
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(model_checksum=checksum)
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+
+    def test_phase3_package_failure_no_unbound_error(self, tmp_path):
+        """Phase 3 package validation failure must not raise UnboundLocalError."""
+        pkg_bytes = _make_root_level_package(
+            include_threshold=False, include_feature_columns=False,
+        )
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(
+            model_id="bad-pkg",
+            display_name="Bad Package",
+            model_checksum=checksum,
+            threshold_value=0.0,
+        )
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 0
+        assert result.rejected_count == 1
