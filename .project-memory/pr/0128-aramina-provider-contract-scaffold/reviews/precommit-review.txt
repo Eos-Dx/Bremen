@@ -1,0 +1,128 @@
+# PR0128 Precommit Review — Aramina Provider Contract Scaffold
+
+Branch: 0128-aramina-provider-contract-scaffold
+PR Goal: Add a safe Aramina provider contract scaffold in Bremen, without making Aramina runnable.
+
+## Files Changed
+
+1. `src/bremen/api/aramina_provider.py` (new, ~195 lines)
+   - AraminaProviderRequest (frozen dataclass)
+   - AraminaProviderResult (normalized result shape)
+   - AraminaProviderError (safe error wrapper)
+   - validate_aramina_provider_request() validation helper
+   - _safe_aramina_failure_stage() error mapping
+   - build_aramina_safe_error() safe error builder
+   - All imports are stdlib only (dataclass, logging, typing) — no new runtime dependencies
+
+2. `tests/test_aramina_provider_contract.py` (new, ~368 lines)
+   - 30 tests across 8 test classes
+
+3. `.project-memory/pr/0128-aramina-provider-contract-scaffold/PLAN.txt` (new)
+   - Records source repo, frozen artifact, API shape, routing invariants
+
+4. `.project-memory/pr/0128-aramina-provider-contract-scaffold/reviews/precommit-review.txt` (updated)
+
+## Test Commands and Pass Summaries
+
+```
+venv/bin/python -m compileall -q src tests                         → pass (no errors)
+venv/bin/pytest -q tests/test_aramina_provider_contract.py         → 30 passed (1.48s)
+venv/bin/pytest -q tests/test_bremen_model_requirements_api.py     → 35 passed (1.83s)
+venv/bin/pytest -q tests/test_bremen_model_catalog.py              → 14 passed
+venv/bin/pytest -q tests/test_model_registry.py                    → 36 passed
+venv/bin/pytest -q tests/test_catalog_api_multi_model.py           → 18 passed
+git diff --check                                                   → clean
+```
+
+Total: 30 + 35 + 14 + 36 + 18 = 133 tests passed, 0 failures.
+
+## Behavior Review
+
+- [x] Valid request with target_side "left" accepted and normalized
+- [x] Valid request with target_side "right" accepted and normalized
+- [x] target_side case normalization: "LEFT" → "left", "Right" → "right", "  left  " → "left"
+- [x] Missing container_id → ValueError with safe message
+- [x] Missing source_id → ValueError with safe message
+- [x] Missing patient_id → ValueError with safe message
+- [x] Missing target_side → ValueError with safe message
+- [x] Invalid target_side ("anterior") → ValueError with safe message
+- [x] Empty string target_side → treated as missing required field
+- [x] Optional analysis_author/prediction_comment accepted when present
+- [x] Optional fields default to "" when absent or None
+- [x] Optional fields whitespace-stripped
+- [x] AraminaProviderRequest is frozen (immutable after creation)
+- [x] AraminaProviderResult is frozen
+- [x] Request carries no private fields (no checksum/password/secret/token/path)
+- [x] Safe error mapping: ValueError → request_payload
+- [x] Safe error mapping: ConnectionError → aramina_service
+- [x] Safe error mapping: TimeoutError → aramina_service
+- [x] Safe error mapping: KeyError → result_normalization
+- [x] Safe error mapping: RuntimeError → unknown
+- [x] build_aramina_safe_error never exposes paths, secrets, or traceback
+- [x] _ARAMINA_SAFE_FAILURE_STAGES is a fixed closed set
+
+## Request Contract Review
+
+- [x] Required fields: container_id, source_id, patient_id, target_side
+- [x] Optional fields: analysis_author, prediction_comment
+- [x] target_side accepts "left" and "right" only
+- [x] target_side normalized to lowercase
+- [x] No raw h5_path in request or response
+- [x] No S3 bucket/key in request or response
+- [x] No filesystem path exposure
+- [x] No checksum exposure
+- [x] No _package exposure
+- [x] No portable_logreg internals exposure
+- [x] No traceback exposure
+- [x] No token/password/secret exposure
+
+## Routing Review
+
+- [x] `_ALLOWED_WORKFLOW_IDS = frozenset({"bremen"})` — aramina NOT present
+- [x] Test `test_aramina_not_in_allowed_workflow_ids` confirms aramina not in allow-list
+- [x] Test `test_aramina_not_in_bremen_executable_allow_list` confirms only "bremen" allowed
+- [x] Test `test_result_workflow_id_is_aramina_not_bremen` confirms result uses "aramina" as contract value only
+- [x] Test `test_aramina_workflow_id_remains_unavailable` (existing, in requirements API tests) confirms Aramina not executable
+- [x] No Bremen workflow routing changed
+- [x] No catalog routing changed
+
+## Security Review
+
+- [x] No raw h5_path echo
+- [x] No S3 bucket/key exposure
+- [x] No filesystem path exposure
+- [x] No checksum exposure
+- [x] No _package exposure
+- [x] No portable_logreg internals exposure
+- [x] No traceback exposure
+- [x] No token/password/secret exposure
+- [x] No clinical, diagnostic, CE, FDA, or regulatory claims
+- [x] clinical_stage="research draft" is a factual descriptor, not a claim
+- [x] technical_demo_only=true on result shape
+- [x] build_aramina_safe_error returns generic safe_reason only
+
+## Side-Effect Review
+
+- [x] No Aramina model called
+- [x] No model.joblib vendored or loaded
+- [x] No new runtime dependencies (only stdlib imports in aramina_provider.py)
+- [x] No existing Bremen behavior changed
+- [x] /api/models output for existing Bremen models unchanged
+- [x] /requirements behavior for Bremen models unchanged
+- [x] /requirements/validate behavior for Bremen models unchanged
+- [x] S3 model discovery executable allow-list unchanged
+- [x] required_fields/request_requirements semantics unchanged
+- [x] No production catalog routing changed
+
+## Explicit Invariants
+
+- [x] Aramina runnable routing remains CLOSED — workflow_id=aramina NOT in _ALLOWED_WORKFLOW_IDS
+- [x] No model.joblib was vendored or loaded
+- [x] No Aramina runtime dependency was added (stdlib-only imports)
+- [x] Existing Bremen behavior was unchanged (133 regression tests pass)
+- [x] required_fields/request_requirements semantics were unchanged
+- [x] No clinical/regulatory claims were added
+- [x] No probability/risk_score/decision values invented in result shape
+- [x] No Bremen model execution path touched
+
+## Verdict: READY FOR COMMIT

@@ -1,0 +1,71 @@
+PR0128 — Aramina Provider Contract Scaffold
+==========================================
+
+Status: Implementation plan
+
+Source repository reviewed: Eos-Dx/Aramina
+Frozen product artifact: aramina_target_breast_risk_0_2_12-beta_9bb911189af6
+
+Context
+-------
+Aramina is a separate model family from Bremen. It uses a local HTTP API
+(POST /predict with multipart input_h5 + request_json), requires
+analysis_author, patient_id, target_side, and has an optional
+prediction_comment field. Its clinical_stage is "research draft".
+
+This PR adds a safe provider contract scaffold in Bremen without making
+Aramina executable.
+
+What this PR does
+-----------------
+1. Adds src/bremen/api/aramina_provider.py with:
+   - AraminaProviderRequest (frozen dataclass)
+   - AraminaProviderResult (normalized result shape)
+   - AraminaProviderError (safe error wrapper)
+   - validate_aramina_provider_request() validation helper
+   - _safe_aramina_failure_stage() error mapping
+   - build_aramina_safe_error() safe error builder
+
+2. Adds tests/test_aramina_provider_contract.py with focused tests.
+
+3. Adds this PLAN.txt artifact.
+
+What this PR does NOT do
+-------------------------
+- Does NOT enable Aramina execution in Bremen catalog
+- Does NOT add workflow_id=aramina to executable allow-lists
+- Does NOT route Aramina through Bremen
+- Does NOT call the Aramina model
+- Does NOT vendor model.joblib
+- Does NOT add Aramina as a dependency
+- Does NOT use the Bremen model provider for Aramina
+- Does NOT make clinical or regulatory claims
+- Does NOT change existing Bremen model behavior
+- Does NOT change /api/models output for existing Bremen models
+- Does NOT change /requirements or /requirements/validate for Bremen models
+- Does NOT change S3 model discovery executable allow-list
+
+Contract shape
+--------------
+Required fields: container_id, source_id, patient_id, target_side
+Optional fields: analysis_author, prediction_comment
+target_side allowed values: left, right (normalized to lowercase)
+
+Result shape:
+  model_family="aramina"
+  workflow_id="aramina"
+  status: passed|failed
+  target_side
+  patient_id_supplied: true
+  technical_demo_only=true
+  clinical_stage="research draft"
+
+Safe failure stages:
+  request_payload, container_resolution, aramina_service,
+  aramina_preprocessing, aramina_model_execution,
+  result_normalization, unknown
+
+Routing invariant
+-----------------
+workflow_id=aramina is NOT in _ALLOWED_WORKFLOW_IDS.
+Aramina routing remains CLOSED.
