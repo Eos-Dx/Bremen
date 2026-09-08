@@ -19,6 +19,12 @@ from bremen.api.workflow_aramina import (
     _AraminaProviderConfig,
     _load_aramina_provider_config,
     _call_aramina_provider,
+    _build_aramina_request_json,
+    _resolve_aramina_provider_url,
+    _safe_model_id_env_key,
+    _normalize_aramina_provider_response,
+    _ARAMINA_OFFICIAL_REQUEST_FIELDS,
+    _ARAMINA_DEFAULT_ANALYSIS_AUTHOR,
 )
 from bremen.api.aramina_provider import (
     AraminaProviderRequest,
@@ -93,7 +99,13 @@ class TestAraminaWorkflowProvider:
             model_id="test-aramina",
             provider_url="http://localhost:8080",
         )
-        result = p.execute(MagicMock())
+        req = AraminaProviderRequest(
+            container_id="c1",
+            source_id="s1",
+            patient_id="p1",
+            target_side="left",
+        )
+        result = p.execute(MagicMock(), aramina_request=req)
         assert result.status == "completed"
         assert result.payload is not None
         assert result.payload["model_family"] == "aramina"
@@ -544,5 +556,408 @@ class TestAraminaProviderBoundary:
             # With empty package, model_ready should be False (unchanged)
             assert readiness.model_ready is False
             assert readiness.configured is True
+        finally:
+            reset_for_tests()
+
+
+# ---------------------------------------------------------------------------
+# PR0133 — Aramina provider adapter contract alignment
+# ---------------------------------------------------------------------------
+
+
+class TestAraminaRequestJson:
+    """Official Aramina /predict request_json builder."""
+
+    def test_request_json_contains_only_official_fields(self):
+        request_json = _build_aramina_request_json(
+            patient_id="p1",
+            target_side="left",
+            analysis_author="Dr. Smith",
+            prediction_comment="Routine",
+        )
+        assert set(request_json.keys()) == _ARAMINA_OFFICIAL_REQUEST_FIELDS
+
+    def test_blank_analysis_author_defaults_to_bremen_platform(self):
+        request_json = _build_aramina_request_json(
+            patient_id="p1",
+            target_side="left",
+            analysis_author="   ",
+        )
+        assert request_json["analysis_author"] == _ARAMINA_DEFAULT_ANALYSIS_AUTHOR
+
+    def test_missing_analysis_author_defaults_to_bremen_platform(self):
+        request_json = _build_aramina_request_json(
+            patient_id="p1",
+            target_side="left",
+        )
+        assert request_json["analysis_author"] == _ARAMINA_DEFAULT_ANALYSIS_AUTHOR
+
+    def test_patient_id_missing_raises(self):
+        with pytest.raises(ValueError, match="patient_id"):
+            _build_aramina_request_json(patient_id="", target_side="left")
+
+    def test_invalid_target_side_raises(self):
+        with pytest.raises(ValueError, match="target_side"):
+            _build_aramina_request_json(patient_id="p1", target_side="anterior")
+
+    def test_no_bremen_only_fields_forwarded(self):
+        request_json = _build_aramina_request_json(
+            patient_id="p1",
+            target_side="left",
+        )
+        for field in (
+            "container_id", "source_id", "workflow_id", "model_id",
+            "job_id", "request_id",
+        ):
+            assert field not in request_json
+
+
+class TestAraminaProviderUrlResolution:
+    """Per-model provider URL resolution."""
+
+    def test_safe_model_id_env_key(self):
+        assert _safe_model_id_env_key("model-a") == "MODEL_A"
+        assert _safe_model_id_env_key("Model.1") == "MODEL_1"
+
+    def test_falls_back_to_base_url(self, monkeypatch):
+        monkeypatch.setenv("BREMEN_ARAMINA_PROVIDER_URL", "http://base:8080")
+        monkeypatch.delenv(
+            "BREMEN_ARAMINA_PROVIDER_URL__MODEL_A", raising=False
+        )
+        assert _resolve_aramina_provider_url("model-a") == "http://base:8080"
+
+    def test_per_model_url_takes_precedence(self, monkeypatch):
+        monkeypatch.setenv("BREMEN_ARAMINA_PROVIDER_URL", "http://base:8080")
+        monkeypatch.setenv(
+            "BREMEN_ARAMINA_PROVIDER_URL__MODEL_A", "http://model-a:9090"
+        )
+        assert _resolve_aramina_provider_url("model-a") == "http://model-a:9090"
+
+    def test_two_model_ids_not_silently_shared(self, monkeypatch):
+        """Two model_ids must not silently share a per-model URL."""
+        monkeypatch.setenv("BREMEN_ARAMINA_PROVIDER_URL", "http://base:8080")
+        monkeypatch.setenv(
+            "BREMEN_ARAMINA_PROVIDER_URL__MODEL_A", "http://model-a:9090"
+        )
+        # model-a has an explicit per-model URL.
+        assert _resolve_aramina_provider_url("model-a") == "http://model-a:9090"
+        # model-b has no per-model URL and must fall back to the base URL.
+        assert _resolve_aramina_provider_url("model-b") == "http://base:8080"
+
+    def test_provider_init_resolves_per_model_url(self, monkeypatch):
+        monkeypatch.setenv(
+            "BREMEN_ARAMINA_PROVIDER_URL__MODEL_A", "http://model-a:9090"
+        )
+        p = AraminaWorkflowProvider(model_id="model-a")
+        assert p.readiness().configured is True
+
+    def test_provider_init_falls_back_to_base_url(self, monkeypatch):
+        monkeypatch.setenv("BREMEN_ARAMINA_PROVIDER_URL", "http://base:8080")
+        monkeypatch.delenv(
+            "BREMEN_ARAMINA_PROVIDER_URL__MODEL_A", raising=False
+        )
+        p = AraminaWorkflowProvider(model_id="model-a")
+        assert p.readiness().configured is True
+
+
+class TestAraminaProviderCallContract:
+    """_call_aramina_provider builds official request_json and calls the
+    monkeypatchable HTTP boundary.
+    """
+
+    def test_provider_url_missing_keeps_safe_failure(self):
+        req = AraminaProviderRequest(
+            container_id="c1", source_id="s1",
+            patient_id="p1", target_side="left",
+        )
+        with pytest.raises(AraminaProviderUnavailableError):
+            _call_aramina_provider(
+                _AraminaProviderConfig(provider_url=""),
+                req,
+            )
+
+    def test_patient_id_missing_fails_before_provider_call(self):
+        req = AraminaProviderRequest(
+            container_id="c1", source_id="s1",
+            patient_id="", target_side="left",
+        )
+        with patch(
+            "bremen.api.workflow_aramina._post_aramina_predict"
+        ) as mock_post:
+            with pytest.raises(ValueError, match="patient_id"):
+                _call_aramina_provider(
+                    _AraminaProviderConfig(provider_url="http://localhost:8080"),
+                    req,
+                )
+            mock_post.assert_not_called()
+
+    def test_invalid_target_side_fails_before_provider_call(self):
+        req = AraminaProviderRequest(
+            container_id="c1", source_id="s1",
+            patient_id="p1", target_side="anterior",
+        )
+        with patch(
+            "bremen.api.workflow_aramina._post_aramina_predict"
+        ) as mock_post:
+            with pytest.raises(ValueError, match="target_side"):
+                _call_aramina_provider(
+                    _AraminaProviderConfig(provider_url="http://localhost:8080"),
+                    req,
+                )
+            mock_post.assert_not_called()
+
+    def test_provider_url_present_calls_mocked_provider_with_official_request_json(self):
+        req = AraminaProviderRequest(
+            container_id="c1", source_id="s1",
+            patient_id="p1", target_side="left",
+            analysis_author="Dr. Smith",
+            prediction_comment="Routine",
+        )
+        with patch(
+            "bremen.api.workflow_aramina._post_aramina_predict",
+            return_value={
+                "external_report": {"summary": "ok"},
+                "internal_report": {"model": {"artifact_sha256": "abc"}},
+            },
+        ) as mock_post:
+            result = _call_aramina_provider(
+                _AraminaProviderConfig(provider_url="http://localhost:8080"),
+                req,
+                h5_path="/tmp/input.h5",
+            )
+            mock_post.assert_called_once()
+            args, kwargs = mock_post.call_args
+            assert args[0] == "http://localhost:8080"
+            assert kwargs["h5_path"] == "/tmp/input.h5"
+            request_json = kwargs["request_json"]
+            assert set(request_json.keys()) == _ARAMINA_OFFICIAL_REQUEST_FIELDS
+            assert request_json["analysis_author"] == "Dr. Smith"
+            assert request_json["patient_id"] == "p1"
+            assert request_json["target_side"] == "left"
+            # No Bremen-only fields are forwarded to Aramina request_json.
+            for field in (
+                "container_id", "source_id", "workflow_id", "model_id",
+                "job_id", "request_id",
+            ):
+                assert field not in request_json
+            assert result.status == "passed"
+
+    def test_normalized_payload_does_not_expose_internal_report_artifact_sha256(self):
+        response = {
+            "external_report": {"summary": "ok"},
+            "internal_report": {
+                "model": {"artifact_sha256": "abc123", "path": "/secret/model.joblib"},
+                "token": "secret-token",
+            },
+        }
+        report = _normalize_aramina_provider_response(response)
+        text = str(report)
+        assert "artifact_sha256" not in text
+        assert "abc123" not in text
+        assert "/secret/" not in text
+        assert "token" not in text.lower()
+        assert "internal_report" not in report
+        assert report["external_report"]["summary"] == "ok"
+
+    def test_execute_payload_does_not_expose_internal_report_artifact_sha256(self):
+        p = AraminaWorkflowProvider(
+            model_id="test-aramina",
+            provider_url="http://localhost:8080",
+        )
+        req = AraminaProviderRequest(
+            container_id="c1", source_id="s1",
+            patient_id="p1", target_side="left",
+        )
+        with patch(
+            "bremen.api.workflow_aramina._post_aramina_predict",
+            return_value={
+                "external_report": {"summary": "ok"},
+                "internal_report": {
+                    "model": {"artifact_sha256": "abc123"},
+                },
+            },
+        ):
+            result = p.execute(MagicMock(), aramina_request=req)
+        assert result.status == "completed"
+        text = str(result.payload)
+        assert "artifact_sha256" not in text
+        assert "abc123" not in text
+        assert "internal_report" not in text
+        assert result.payload["external_report"]["summary"] == "ok"
+
+
+# ---------------------------------------------------------------------------
+# PR0133 — Job summary/status consistency tests
+# ---------------------------------------------------------------------------
+
+
+
+class TestAraminaJobSummaryConsistency:
+    """Aramina missing provider URL must produce consistent job status
+    and execution trace, not misleading report_completed with 0 stages.
+    """
+
+
+    def test_job_status_matches_overall_status(self):
+        """When orchestrator returns workflow_configuration_required,
+        the job overall_status must match (not be overridden to 'failed')."""
+        from bremen.api.job_api_handler import create_analysis_job
+        from bremen.api.model_registry import (
+            RegistryModelEntry, ModelRegistry, initialize_registry,
+            reset_for_tests,
+        )
+        import os
+        import tempfile
+        import h5py
+        import numpy as np
+
+        try:
+            reset_for_tests()
+            entry = RegistryModelEntry(
+                model_id="aramina-status-test",
+                display_name="Aramina Status Test",
+                workflow_id="aramina",
+                model_version="1.0",
+                artifact_type="aramina.joblib.model_package",
+                feature_schema_version="v0.1",
+                decision_policy_id="",
+                decision_policy_version="",
+                technical_ready=True,
+                scientifically_certified=False,
+                technical_demo_only=True,
+                availability="available",
+                _package={},
+                _checksum="abc123",
+            )
+            reg = ModelRegistry(
+                entries=(entry,),
+                catalog_status="available",
+                available_count=1,
+            )
+            initialize_registry(reg)
+
+            # Create a valid Bremen XRD H5 layout so normalization succeeds
+            # and the workflow reaches the Aramina provider boundary.
+            q = np.linspace(2.0, 23.0, 100, dtype=np.float64)
+            with tempfile.NamedTemporaryFile(suffix=".h5", delete=False) as f:
+                h5_path = f.name
+            try:
+                with h5py.File(h5_path, "w") as h5:
+                    target = h5.create_group("/scans/target")
+                    target.create_dataset("measurements",
+                                          data=np.random.default_rng(42).normal(1.0, 0.1, (1, 100)))
+                    target.create_dataset("q", data=q)
+                    target.attrs["side"] = "LEFT"
+                    contra = h5.create_group("/scans/contralateral")
+                    contra.create_dataset("measurements",
+                                          data=np.random.default_rng(43).normal(0.8, 0.1, (1, 100)))
+                    contra.create_dataset("q", data=q)
+                    contra.attrs["side"] = "RIGHT"
+
+                job = create_analysis_job(
+                    container_id="test-container",
+                    workflow_id="aramina",
+                    h5_path=h5_path,
+                    model_id="aramina-status-test",
+                )
+
+                assert job.overall_status == "workflow_configuration_required"
+            finally:
+                os.unlink(h5_path)
+        finally:
+            reset_for_tests()
+
+    def test_events_no_workflow_unavailable(self):
+        """Events must not include workflow_unavailable or model_ready=false
+        for Aramina missing-provider case."""
+        from bremen.api.event_store import BoundedEventStore
+        from bremen.api.workflow_orchestrator import run_workflow_request
+        import os
+        import tempfile
+        import h5py
+        import numpy as np
+        from bremen.api.model_registry import (
+            RegistryModelEntry, ModelRegistry, initialize_registry,
+            reset_for_tests,
+        )
+        try:
+            reset_for_tests()
+            entry = RegistryModelEntry(
+                model_id="aramina-event-test",
+                display_name="Aramina Event Test",
+                workflow_id="aramina",
+                model_version="1.0",
+                artifact_type="aramina.joblib.model_package",
+                feature_schema_version="v0.1",
+                decision_policy_id="",
+                decision_policy_version="",
+                technical_ready=True,
+                scientifically_certified=False,
+                technical_demo_only=True,
+                availability="available",
+                _package={},
+                _checksum="abc123",
+            )
+            reg = ModelRegistry(
+                entries=(entry,),
+                catalog_status="available",
+                available_count=1,
+            )
+            initialize_registry(reg)
+
+            # Create a valid Bremen XRD H5 layout so normalization succeeds
+            # and the workflow reaches the Aramina provider boundary.
+            q = np.linspace(2.0, 23.0, 100, dtype=np.float64)
+            with tempfile.NamedTemporaryFile(suffix=".h5", delete=False) as f:
+                h5_path = f.name
+            try:
+                with h5py.File(h5_path, "w") as h5:
+                    target = h5.create_group("/scans/target")
+                    target.create_dataset("measurements",
+                                          data=np.random.default_rng(42).normal(1.0, 0.1, (1, 100)))
+                    target.create_dataset("q", data=q)
+                    target.attrs["side"] = "LEFT"
+                    contra = h5.create_group("/scans/contralateral")
+                    contra.create_dataset("measurements",
+                                          data=np.random.default_rng(43).normal(0.8, 0.1, (1, 100)))
+                    contra.create_dataset("q", data=q)
+                    contra.attrs["side"] = "RIGHT"
+
+                from bremen.api.workflow_aramina import AraminaWorkflowProvider
+                from bremen.api.workflow_registry import WorkflowRegistry
+
+                # Aramina must be registered in the workflow registry
+                # (get_default_registry does not include Aramina).
+                aramina_provider = AraminaWorkflowProvider(
+                    model_id="aramina-event-test",
+                    provider_url=None,  # no provider configured
+                )
+                wf_registry = WorkflowRegistry()
+                wf_registry.register(aramina_provider)
+
+                store = BoundedEventStore()
+                result = run_workflow_request(
+                    h5_path=h5_path,
+                    workflow_id="aramina",
+                    model_id="aramina-event-test",
+                    event_store=store,
+                    registry=wf_registry,
+                )
+
+                events = store.get_events(result.job_id, since_sequence=0)
+                event_types = [e.event_type for e in events]
+
+                assert "runtime.workflow.unavailable" not in event_types
+                for ev in events:
+                    if ev.details and "model_ready" in ev.details:
+                        assert ev.details["model_ready"] is not False
+
+                assert result.overall_status == "workflow_configuration_required"
+
+                completed_events = [e for e in events if e.event_type == "runtime.request.completed"]
+                assert len(completed_events) == 1
+                assert completed_events[0].details.get("overall_status") == "workflow_configuration_required"
+            finally:
+                os.unlink(h5_path)
         finally:
             reset_for_tests()

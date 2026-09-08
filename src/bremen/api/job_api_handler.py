@@ -535,7 +535,13 @@ def create_analysis_job(
             if wf_result.status == "completed":
                 job.overall_status = "completed"
             elif wf_result.status == "failed":
-                job.overall_status = "failed"
+                # Propagate orchestrator overall_status when it is more
+                # specific than plain "failed" (e.g. workflow_configuration
+                # for Aramina missing provider URL).
+                if mw_result.overall_status in ("workflow_configuration_required",):
+                    job.overall_status = mw_result.overall_status
+                else:
+                    job.overall_status = "failed"
 
             # Extract model identity from result payload if available
             result_model_id = model_id

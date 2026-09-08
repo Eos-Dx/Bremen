@@ -75,6 +75,9 @@ class AraminaProviderResult:
     clinical_stage: str = "research draft"
     failure_stage: str | None = None
     safe_reason: str = ""
+    # Safe public report derived from the provider response.  Never
+    # contains internal_report wholesale or sensitive keys.
+    report: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
