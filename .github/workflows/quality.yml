@@ -2,12 +2,18 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    # Feature branches are checked by pull_request to avoid duplicate runs.
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  # Only supersede PR checks; allow main publication to finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
