@@ -1,0 +1,140 @@
+# PR0133 Precommit Review — Aramina Provider Adapter Contract Alignment
+
+Branch: 0133-aramina-provider-adapter-contract-alignment
+PR Goal: Align Bremen's Aramina provider adapter with the official Eos-Dx/Aramina runtime contract.
+
+## Official Aramina Contract Checked
+
+- Aramina runtime is a separate FastAPI service
+- Uses ARAMINA_MODEL_PATH for model.joblib
+- /health returns ready when model artifact exists
+- /predict accepts multipart input_h5 + request_json
+- request_json: analysis_author, prediction_comment, patient_id, target_side
+- target_side normalizes to left/right
+- Returns external_report / internal_report
+
+## Production Evidence Addressed
+
+Before PR0133, Bremen had no actual Aramina /predict contract — `_call_aramina_provider` was a stub returning empty results. Now Bremen builds the official request_json with only the 4 allowed fields, validates patient_id and target_side before the provider call, and normalizes the provider response (external_report only, internal_report stripped).
+
+## Files Changed
+
+- `src/bremen/api/workflow_aramina.py` (+213/-11) — Per-model provider URL resolution, official request_json builder, response normalizer, sensitive-key sanitization, HTTP boundary (monkeypatchable)
+- `src/bremen/api/aramina_provider.py` (+3) — Added `report` field to AraminaProviderResult
+- `src/bremen/api/execution_trace.py` (+5) — Fix current_stage when no stages completed but workflow failed
+- `src/bremen/api/job_api_handler.py` (+8/-2) — Propagate workflow_configuration_required status
+- `tests/test_aramina_workflow_runtime.py` (+379/-3) — 18 new tests covering request_json contract, provider URL resolution, response normalization, job status consistency
+
+## Test Commands and Pass Summaries
+
+```
+python -m compileall -q src tests                             → pass
+pytest -q tests/test_aramina_workflow_runtime.py              → 50 passed (0.99s)
+pytest -q tests/test_aramina_provider_contract.py             → 30 passed
+pytest -q tests/test_bremen_model_requirements_api.py         → 35 passed
+pytest -q tests/test_bremen_model_catalog.py                  → 14 passed
+pytest -q tests/test_model_registry.py                        → 36 passed
+pytest -q tests/test_catalog_api_multi_model.py               → 18 passed
+pytest -q tests/test_bremen_access_logging.py                 → 20 passed
+pytest -q (full suite)                                        → 3826 passed, 11 skipped, 0 failures (39.29s)
+git diff --check                                              → clean
+```
+
+## Provider URL/Model Routing Review
+
+- [x] Per-model env var: `BREMEN_ARAMINA_PROVIDER_URL__<SAFE_MODEL_ID>` takes precedence
+- [x] Base fallback: `BREMEN_ARAMINA_PROVIDER_URL`
+- [x] Two model_ids cannot silently share a per-model URL
+- [x] Documented: per-model override first, base fallback second
+- [x] Tests verify: `test_two_model_ids_not_silently_shared`, `test_per_model_url_takes_precedence`, `test_falls_back_to_base_url`
+
+## Request_json Contract Review
+
+- [x] Only official fields sent: analysis_author, prediction_comment, patient_id, target_side
+- [x] Bremen-only identifiers NOT forwarded: container_id, source_id, workflow_id, model_id, job_id, request_id, h5_path, S3 bucket/key
+- [x] Verified by `test_request_json_contains_only_official_fields` and `test_no_bremen_only_fields_forwarded`
+- [x] Full provider call test verifies request_json keys and values
+
+## H5 Multipart Upload Review
+
+- [x] `_post_aramina_predict` is the only network boundary (monkeypatchable)
+- [x] Accepts `h5_path` and `request_json` as parameters
+- [x] Placeholder returns safe default response (no real network call in tests)
+- [x] Tests verify h5_path is passed through to the boundary
+
+## analysis_author/patient_id/target_side Review
+
+- [x] analysis_author defaults to "Bremen Platform" when blank/absent
+- [x] patient_id is required — raises ValueError if missing
+- [x] target_side validated as left/right — raises ValueError if invalid
+- [x] Both validated before any provider call (fail-fast)
+- [x] Tests verify: `test_blank_analysis_author_defaults_to_bremen_platform`, `test_patient_id_missing_raises`, `test_invalid_target_side_raises`, `test_patient_id_missing_fails_before_provider_call`, `test_invalid_target_side_fails_before_provider_call`
+
+## Provider Response Normalization Review
+
+- [x] Only external_report exposed in public payload
+- [x] internal_report never exposed wholesale
+- [x] Sensitive keys stripped recursively: artifact_sha256, model_checksum, checksum, path, s3, s3_key, bucket, token, ticket, traceback, password, secret, credential
+- [x] No probability/TRA/decision fields invented when absent
+- [x] technical_demo_only=true maintained
+- [x] clinical_stage="research draft" as factual metadata only
+- [x] Tests verify: `test_normalized_payload_does_not_expose_internal_report_artifact_sha256`, `test_execute_payload_does_not_expose_internal_report_artifact_sha256`
+
+## Error Mapping Review
+
+- [x] Missing provider_url → safe "Aramina provider service is not configured" error
+- [x] Missing patient_id → ValueError before provider call
+- [x] Invalid target_side → ValueError before provider call
+- [x] Provider errors map to safe stages via build_aramina_safe_error
+- [x] No traceback/raw exception text exposed
+- [x] Tests verify: `test_missing_provider_url_produces_provider_unavailable`, `test_missing_provider_url_does_not_leak_internals`
+
+## Event/Status Behavior Review
+
+- [x] Missing provider config: workflow_configuration_required (not workflow_unavailable)
+- [x] Events: request.accepted → normalization → workflow.started → provider boundary failure → request.completed
+- [x] No runtime.workflow.unavailable events for Aramina
+- [x] Execution trace sets current=workflow when no stages completed
+- [x] Tests verify: `test_job_status_matches_overall_status`, `test_events_no_workflow_unavailable`
+
+## Catalog/Manifest-Gating Review
+
+- [x] Aramina remains manifest-gated
+- [x] Valid Aramina manifests produce available catalog entries
+- [x] No manifest means no executable Aramina model
+- [x] Public catalog does not expose model_checksum
+
+## Bremen Regression Review
+
+- [x] Bremen workflow behavior unchanged
+- [x] Bremen provider readiness behavior unchanged
+- [x] Bremen model catalog behavior unchanged
+- [x] Full suite: 3826 passed, 11 skipped, 0 failures
+
+## Security Review
+
+- [x] No internal_report.model.artifact_sha256 exposed publicly
+- [x] No model_checksum/checksum in public response
+- [x] No S3/path/token/ticket/traceback in public response
+- [x] _sanitize_report_value recursively strips sensitive keys
+- [x] No auth ticket/token in request_json
+- [x] Staged H5 path not exposed in public response/events
+- [x] Tests verify all of the above
+
+## Product Safety Review
+
+- [x] No clinical, diagnostic, CE, FDA, or regulatory claims added
+- [x] clinical_stage="research draft" is factual metadata only
+- [x] technical_demo_only=true maintained
+
+## Explicit Invariants
+
+- [x] **Bremen calls official Aramina /predict contract** via `_post_aramina_predict` boundary
+- [x] **Only allowed request_json fields are sent** (analysis_author, prediction_comment, patient_id, target_side)
+- [x] **Model routing cannot silently send both model_ids to wrong one-model provider** — per-model env var override
+- [x] **internal_report/checksum/model artifact internals not exposed publicly**
+- [x] **Aramina remains dedicated and does not route through Bremen provider**
+- [x] **No model.joblib is vendored or loaded during discovery**
+- [x] **No clinical/regulatory claims were added**
+
+## Verdict: READY FOR COMMIT

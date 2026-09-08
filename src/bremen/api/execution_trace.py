@@ -142,6 +142,11 @@ def build_trace_from_events(
         trace_status = "completed"
     elif has_terminal_failed:
         trace_status = "failed"
+        # When no stages completed but the workflow failed, set current
+        # to the workflow stage rather than the last canonical stage
+        # (which would misleadingly be "report_completed").
+        if completed_count == 0:
+            current = "workflow"
     elif has_terminal_completed and completed_count > 0:
         # Terminal event signals workflow completed even if some
         # individual stages are missing events.
