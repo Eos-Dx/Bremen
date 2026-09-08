@@ -1,0 +1,153 @@
+PRECOMMIT REVIEW — PR0126
+Branch: 0126-model-dry-run-requirements-validation
+Commit: 2a5289994f1bb24bbab33db6d3e2a85570eca939
+Reviewed: 2026-09-08T12:07:58Z
+
+VERDICT: READY FOR COMMIT
+
+PR GOAL
+-------
+POST /demo/api/models/{model_id}/requirements/validate behaves like a
+read-only dry run of the real model pipeline when valid
+container_requirements.json exists. Previously it only checked request
+payload fields. Now it resolves the real source, normalizes H5, resolves
+the workflow provider, and executes the full pipeline in read-only mode.
+
+This catches input_preparation failures (e.g. Nova_103_.h5) that
+request-payload-only validation missed.
+
+FILES CHANGED
+-------------
+  src/bremen/api/model_requirements.py            | 326 ++++/- (676 total diff)
+  tests/test_bremen_model_requirements_api.py     | 369 ++++/- (676 total diff)
+  Total: 2 files changed, 676 insertions(+), 19 deletions(-)
+
+No other files were changed (job_api_handler.py, workflow_orchestrator.py,
+server.py — all untouched).
+
+BEHAVIOR REVIEW
+---------------
+
+1. No requirements manifest → no-op (PR0122/PR0125 behavior preserved)
+   CONFIRMED via test_post_validate_without_manifest_still_noop (unchanged):
+     validation_available=false
+     validation.status=not_available
+     validation.ready_to_run=null
+     validation.requirements_checked=false
+     validation.inference_job_created=false
+     validation.report_created=false
+     next_step.can_submit_job=null
+
+2. Manifest exists + missing required fields → failed at request_payload
+   CONFIRMED via test_post_validate_with_manifest_required_missing_returns_failed:
+     validation.status=failed
+     failure_stage=request_payload
+     next_step.can_submit_job=false
+
+3. Manifest exists + valid request payload → dry run attempted
+   CONFIRMED via test_post_validate_with_manifest_required_present_returns_passed:
+     With fake source_id → fails at container_resolution (expected)
+
+4. Fake source_id fails at container_resolution (NOT normalization)
+   CONFIRMED via test_dry_run_with_fake_source_fails_at_container_resolution:
+     failure_stage=container_resolution
+     "s3://" not in response
+     "traceback" not in response
+
+5. Real H5 + real model → full pipeline passes
+   CONFIRMED via test_dry_run_with_valid_source_passes:
+     validation.status=passed
+     validation.ready_to_run=true
+     validation.read_only=true
+     validation.dry_run_mode=model_pipeline
+     next_step.can_submit_job=true
+     failure_stage=None
+
+6. Dry run uses real production pipeline logic
+   CONFIRMED in run_model_pipeline_dry_run():
+     - Stage 1: get_model_entry + _resolve_source_for_dry_run (wraps production resolve_source)
+     - Stage 2: _normalize_h5 (production H5 normalization)
+     - Stage 3: get_provider_for_model (production workflow provider)
+     - Stage 4: provider.execute(canonical) (full pipeline: compatibility → features → inference)
+   The dry run is NOT a hand-written metadata checker — it reuses real production logic.
+
+7. required_fields / request_requirements preserved
+   CONFIRMED — _validate_request_payload still checks request_requirements.required_fields
+   before dry run. Default remains ["container_id"]. No manifest redesign.
+
+8. failure_stage mapping is correct
+   CONFIRMED — _safe_failure_stage maps exceptions to safe stage names from a frozenset
+   of allowed stages. Provider error messages are mapped to failure_stage in the
+   non-exception branch. No traceback or raw exception text is exposed in responses.
+
+SECURITY REVIEW
+---------------
+  [PASS] No raw h5_path echoed (h5_path_supplied boolean only)
+         Verified: test_dry_run_does_not_expose_h5_path
+  [PASS] No S3 bucket/key exposure
+         Verified: test_dry_run_with_fake_source_fails_at_container_resolution
+  [PASS] No filesystem path exposure in responses
+  [PASS] No checksum exposure
+  [PASS] No _package exposure
+  [PASS] No portable_logreg internals exposed
+  [PASS] No traceback in responses
+  [PASS] No token/password/secret in responses
+  [PASS] No clinical/regulatory claims
+  [PASS] technical_demo_only=true on all responses
+
+SIDE-EFFECT REVIEW
+------------------
+  [PASS] No persistent job created
+         Verified: test_dry_run_does_not_create_job (_jobs unchanged before/after)
+  [PASS] No patient report created
+  [PASS] No report payload created
+  [PASS] No workspace created
+  [PASS] No report/workspace/auth ticket minted
+  [PASS] No normal job events emitted
+  [PASS] No S3 writes (dry run is read-only)
+  [PASS] No mutation of H5 source
+  [PASS] No persisted score/decision/report output
+  [PASS] Staged H5 files cleaned up in finally block
+
+ARAMINA SAFETY
+--------------
+  [PASS] workflow_id=aramina was not enabled as executable
+         Verified: test_aramina_workflow_id_remains_unavailable
+  [PASS] Aramina model entry registered as availability=unavailable
+  [PASS] Aramina validate returns not_available (no-op, no dry run)
+  [PASS] No Aramina references in src/bremen/api/ source code
+  [PASS] Aramina not routed through Bremen
+
+TEST RESULTS
+------------
+
+Focused tests (28 passed, 0 failed):
+  pytest -q tests/test_bremen_model_requirements_api.py -v
+  28 passed, 59 warnings in 1.73s
+
+Regression tests (68 passed, 0 failed):
+  pytest -q tests/test_bremen_model_catalog.py tests/test_model_registry.py tests/test_catalog_api_multi_model.py
+  68 passed in 1.02s
+
+Compilation:
+  python -m compileall -q src tests — no errors
+
+Whitespace:
+  git diff --check — clean
+
+WARNINGS (non-blocking)
+------------------------
+  1. Unused import: `import traceback` on line 17 of model_requirements.py
+     is imported but never called. Dead code — safe to remove in follow-up.
+  2. Starlette TestClient httpx deprecation — existing code, out of scope.
+  3. FastAPI on_event("startup") deprecation — existing code, out of scope.
+
+REQUIRED FIXES
+--------------
+  None. All validations pass. The unused `traceback` import is non-blocking.
+
+COMMIT COMMANDS
+---------------
+git add src/bremen/api/model_requirements.py tests/test_bremen_model_requirements_api.py .project-memory/pr/0126-model-dry-run-requirements-validation/reviews/precommit-review.txt
+git diff --cached --check
+git commit -m "feat(api): dry run model pipeline for requirements validation"
