@@ -1,0 +1,85 @@
+PR0129 — Aramina manifest-gated workflow runtime
+
+Status: Implementation
+
+Goal
+----
+Add Aramina manifest-gated workflow runtime to Bremen.
+Aramina starts only when a valid manifest exists in the model catalog.
+Without a valid manifest, the model is not executable and jobs must not start.
+
+Manifest-gated decision
+-----------------------
+Aramina execution is gated by a valid manifest.json with:
+- artifact_type: "aramina.joblib.model_package"
+- workflow_id: "aramina"
+- provider_contract: "aramina_provider.v0.1"
+
+No manifest = not executable.  Jobs must not start.
+
+Aramina required fields
+-----------------------
+Required request fields:
+- container_id
+- source_id
+- patient_id
+- target_side
+
+Optional fields:
+- analysis_author
+- prediction_comment
+
+Provider boundary
+-----------------
+Aramina provider configured via:
+- BREMEN_ARAMINA_PROVIDER_URL (env var)
+- BREMEN_ARAMINA_TIMEOUT (env var, default 300s)
+
+If provider URL is not configured, Aramina job fails at stage:
+  aramina_service
+  safe reason: aramina_provider_unavailable
+
+Status/event mapping
+--------------------
+Aramina jobs emit Bremen-compatible events:
+- runtime.request.accepted
+- runtime.normalization.started/completed/failed
+- runtime.workflow.resolved/started/failed/completed
+- runtime.input.preparation.started/completed/failed
+- runtime.inference.started/completed/failed
+- runtime.output.validation.started/completed/failed
+- runtime.report.completed/failed
+
+Safe failure stages: request_payload, container_resolution,
+aramina_service, aramina_preprocessing, aramina_model_execution,
+result_normalization, unknown
+
+Security constraints
+--------------------
+- No raw h5_path exposed
+- No filesystem path exposed
+- No S3 bucket/key exposed
+- No checksum/token/password/secret exposed
+- No traceback/raw provider errors exposed
+- No _package or portable_logreg internals
+- No clinical/regulatory claims
+- technical_demo_only=true
+- clinical_stage="research draft"
+
+Files changed
+-------------
+src/bremen/api/aramina_provider.py       — Request/result/error contracts
+src/bremen/api/workflow_aramina.py       — Manifest-gated workflow provider
+src/bremen/api/s3_model_discovery.py     — Aramina manifest acceptance
+src/bremen/api/workflow_orchestrator.py  — Aramina routing
+src/bremen/api/model_requirements.py     — Aramina required fields
+tests/test_aramina_workflow_runtime.py   — New runtime tests
+tests/test_aramina_provider_contract.py  — Updated routing tests
+
+Tests run
+---------
+pytest -q tests/test_aramina_provider_contract.py
+pytest -q tests/test_bremen_model_requirements_api.py
+pytest -q tests/test_bremen_model_catalog.py tests/test_model_registry.py tests/test_catalog_api_multi_model.py
+python -m compileall -q src tests
+git diff --check

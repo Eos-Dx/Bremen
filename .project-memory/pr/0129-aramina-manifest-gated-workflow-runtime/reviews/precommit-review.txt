@@ -1,0 +1,131 @@
+# PR0129 Precommit Review — Aramina Manifest-Gated Workflow Runtime
+
+Branch: 0129-aramina-manifest-gated-workflow-runtime
+PR Goal: Add Aramina manifest-gated workflow runtime to Bremen. Aramina starts only when a valid manifest exists. Without a valid manifest, the model is not executable.
+
+## Files Changed
+
+1. `src/bremen/api/workflow_aramina.py` (new) — AraminaWorkflowProvider, provider config, provider call boundary
+2. `src/bremen/api/s3_model_discovery.py` (+90) — Aramina manifest acceptance, _validate_aramina_discovery_fields, Aramina entry creation in discover_models
+3. `src/bremen/api/workflow_orchestrator.py` (+36/-10) — Aramina routing in get_provider_for_model
+4. `src/bremen/api/model_requirements.py` (+8) — Aramina default required_fields (patient_id, target_side)
+5. `tests/test_aramina_workflow_runtime.py` (new) — 26 tests for Aramina workflow runtime
+6. `tests/test_aramina_provider_contract.py` (modified) — Updated routing tests (aramina now in allow-list)
+7. `.project-memory/pr/0129-aramina-manifest-gated-workflow-runtime/PLAN.txt` (new)
+
+## Test Commands and Pass Summaries
+
+```
+venv/bin/python -m compileall -q src tests                          → pass (no errors)
+venv/bin/pytest -q tests/test_aramina_provider_contract.py          → 30 passed (1.51s)
+venv/bin/pytest -q tests/test_aramina_workflow_runtime.py           → 26 passed (1.52s)
+venv/bin/pytest -q tests/test_bremen_model_requirements_api.py      → 35 passed (1.86s)
+venv/bin/pytest -q tests/test_bremen_model_catalog.py               → 14 passed
+venv/bin/pytest -q tests/test_model_registry.py                     → 36 passed
+venv/bin/pytest -q tests/test_catalog_api_multi_model.py            → 18 passed
+git diff --check                                                    → clean
+```
+
+Total: 30 + 26 + 35 + 14 + 36 + 18 = 159 tests passed, 0 failures.
+
+## Manifest-Gating Review
+
+- [x] Aramina artifact_type = "aramina.joblib.model_package" defined as _ARAMINA_ARTIFACT_TYPE
+- [x] Aramina workflow_id = "aramina" accepted in _ALLOWED_WORKFLOW_IDS (now frozenset({"bremen", "aramina"}))
+- [x] Aramina provider_contract must equal "aramina_provider.v0.1" (validated, rejected if wrong)
+- [x] Aramina manifest required fields: model_version, model_filename, model_checksum, feature_schema_version, clinical_stage, provider_contract
+- [x] Missing manifest fields cause manifest rejection → no executable Aramina model
+- [x] model_checksum NOT exposed publicly (stored as private _checksum on registry entry)
+- [x] model.joblib NOT loaded during Aramina catalog discovery (no joblib import for Aramina path)
+- [x] Aramina entries get _package={} (empty — no joblib contents stored)
+- [x] Valid Aramina manifest accepted and produces available RegistryModelEntry
+
+## Workflow Routing Review
+
+- [x] workflow_id=bremen path UNCHANGED — BremenProvider still constructed for bremen entries
+- [x] workflow_id=aramina has dedicated AraminaWorkflowProvider
+- [x] Aramina enabled ONLY for manifest-backed catalog entries (entry.workflow_id == "aramina")
+- [x] Unknown workflow_id raises ValueError (tested: test_unknown_workflow_id_not_routed)
+- [x] Aramina does NOT route through Bremen provider (AraminaWorkflowProvider does not import/use BremenProvider)
+- [x] BremenProvider only constructed for entry.workflow_id == "bremen"
+- [x] Bremen entry access to _package/_checksum unchanged (existing path preserved)
+
+## Provider Boundary Review
+
+- [x] Aramina uses _AraminaProviderConfig (provider_url, timeout_seconds)
+- [x] Config loaded from BREMEN_ARAMINA_PROVIDER_URL and BREMEN_ARAMINA_TIMEOUT env vars
+- [x] If provider_url absent, AraminaWorkflowProvider.execute returns status="failed" with safe error
+- [x] AraminaWorkflowProvider.readiness returns configured=False when no URL
+- [x] Tests do NOT call real external service (stub/mock only)
+- [x] No production credentials required in tests
+- [x] No direct joblib.load for Aramina inside Bremen
+- [x] No model.joblib vendored into Bremen
+- [x] build_features raises AraminaWorkflowError (Aramina does not use Bremen feature vectors)
+- [x] run_inference returns failed (Aramina inference not called via Bremen feature path)
+- [x] execute() delegates to _call_aramina_provider (future: multipart input_h5 + request_json)
+
+## Runtime Event/Status Review
+
+- [x] AraminaWorkflowProvider.execute returns WorkflowResult with workflow_id="aramina"
+- [x] On success: status="completed", payload includes model_family, model_id, clinical_stage, technical_demo_only, target_side, patient_id_supplied
+- [x] On provider unavailable: status="failed", error="Aramina provider service is not configured"
+- [x] On other exceptions: status="failed", error=safe_reason from build_aramina_safe_error
+- [x] No invented probability/decision/TRA/score values
+- [x] Safe public fields only in payload
+
+## Result Normalization Review
+
+- [x] model_family = "aramina"
+- [x] workflow_id = "aramina"
+- [x] model_id, model_version from manifest
+- [x] clinical_stage = "research draft" (factual descriptor, not a claim)
+- [x] technical_demo_only = true
+- [x] target_side from request (normalized)
+- [x] patient_id_supplied = true
+- [x] status = "passed" | "failed"
+- [x] No invented probability/risk_score/decision values
+
+## Requirements Behavior Review
+
+- [x] Aramina entries: default required_fields = [container_id, source_id, patient_id, target_side]
+- [x] Aramina entries: default optional_fields = [analysis_author, prediction_comment]
+- [x] Only applied when workflow_id == "aramina" AND required_fields not already set
+- [x] Bremen requirements behavior UNCHANGED (tested: test_bremen_requirements_unchanged)
+- [x] Bremen workflow_id still returns its own required_fields/optional_fields
+
+## Security Review
+
+- [x] No raw h5_path exposed in public responses/events
+- [x] No filesystem path exposed
+- [x] No S3 bucket/key exposed
+- [x] No checksum exposed publicly (stored privately on entry._checksum)
+- [x] No token/password/secret exposed
+- [x] No traceback/raw provider exception text exposed
+- [x] No _package internals exposed (Aramina gets _package={})
+- [x] No portable_logreg internals exposed
+- [x] build_aramina_safe_error returns generic safe_reason only
+- [x] _safe_aramina_failure_stage never exposes raw exception text
+- [x] clinical_stage="research draft" is a factual descriptor, not a clinical/regulatory claim
+- [x] No CE, FDA, or regulatory claims added
+
+## Regression Review
+
+- [x] existing Bremen POST /jobs unchanged
+- [x] existing Bremen /requirements unchanged
+- [x] existing Bremen /requirements/validate unchanged
+- [x] existing Bremen catalog behavior unchanged except explicit Aramina additions
+- [x] existing auth/ticket/report behavior unchanged
+- [x] Bremen model_state.py joblib.load only for Bremen models (not Aramina)
+
+## Explicit Invariants
+
+- [x] Aramina is manifest-gated — only activates with valid Aramina manifest.json
+- [x] Aramina does NOT route through Bremen provider — dedicated AraminaWorkflowProvider
+- [x] Bremen workflow behavior is unchanged — BremenProvider path preserved
+- [x] No model.joblib was vendored into Bremen
+- [x] model.joblib is NOT loaded during catalog discovery (Aramina path skips joblib)
+- [x] No checksum/path/S3/token/secret/traceback is exposed publicly
+- [x] No clinical/regulatory claims were added (clinical_stage="research draft" is factual)
+- [x] Unknown workflow_id fails safely (ValueError)
+
+## Verdict: READY FOR COMMIT

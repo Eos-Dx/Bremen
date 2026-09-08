@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import time as _time
 import uuid
 from datetime import datetime, timezone
@@ -38,11 +39,14 @@ from .execution_context import WorkflowExecutionContext
 _log = logging.getLogger(__name__)
 
 def get_provider_for_model(model_id: str) -> Any:
-    """Construct a BremenProvider for a specific model_id from the registry.
+    """Construct a workflow provider for a specific model_id from the registry.
 
     Reads the registry to get the entry's private package, checksum,
-    and version, then constructs a fresh BremenProvider with that
+    and version, then constructs a fresh provider with that
     package.  This is called per-job to bind the selected model.
+
+    For Aramina models (workflow_id='aramina'), constructs an
+    AraminaWorkflowProvider instead of a BremenProvider.
 
     Parameters
     ----------
@@ -50,23 +54,39 @@ def get_provider_for_model(model_id: str) -> Any:
 
     Returns
     -------
-    A configured BremenProvider instance.
+    A configured BremenProvider or AraminaWorkflowProvider instance.
 
     Raises
     ------
     ValueError
         If the model_id is not found in the registry.
     """
-    from .model_registry import get_model_entry, get_model_package, get_model_checksum  # noqa: PLC0415
-    from .workflow_bremen import BremenProvider  # noqa: PLC0415
-
+    from .model_registry import get_model_entry  # noqa: PLC0415
     entry = get_model_entry(model_id)
     if entry is None:
         raise ValueError(f"Model '{model_id}' not found in registry")
 
-    package = get_model_package(model_id)
-    checksum = get_model_checksum(model_id)
+    # Aramina manifest-gated routing
+    if entry.workflow_id == "aramina":
+        from .workflow_aramina import AraminaWorkflowProvider  # noqa: PLC0415
+        provider_url = os.environ.get("BREMEN_ARAMINA_PROVIDER_URL", "")
+        return AraminaWorkflowProvider(
+            model_id=entry.model_id,
+            model_version=entry.model_version,
+            provider_url=provider_url or None,
+        )
 
+    # Bremen routing (existing path)
+    if entry.workflow_id != "bremen":
+        raise ValueError(
+            f"Workflow '{entry.workflow_id}' is not supported. "
+            f"Only 'bremen' and 'aramina' are supported."
+        )
+
+    package = entry._package
+    checksum = entry._checksum
+
+    from .workflow_bremen import BremenProvider  # noqa: PLC0415
     return BremenProvider(
         model_package=package,
         model_checksum=checksum,
