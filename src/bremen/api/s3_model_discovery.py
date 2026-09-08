@@ -952,6 +952,11 @@ def discover_models(
             )
             continue
 
+        # Read artifact_type early so it is always bound before any
+        # branching.  Rejection paths that skip Phase 3 still reference
+        # this variable for safe logging, so it must never be unbound.
+        artifact_type = str(data.get("artifact_type", "portable_logreg"))
+
         # Aramina entries: manifest-gated, no joblib loading needed
         if artifact_type == _ARAMINA_ARTIFACT_TYPE:
             model_version = str(data.get("model_version", "unknown"))
@@ -1011,7 +1016,6 @@ def discover_models(
 
             # Build entry
             model_version = str(data.get("model_version", "unknown"))
-            artifact_type = str(data.get("artifact_type", "portable_logreg"))
             feature_schema_version = str(data.get("feature_schema_version", "v0.1"))
 
             entry = RegistryModelEntry(

@@ -5,28 +5,28 @@ PR Goal: Add Aramina manifest-gated workflow runtime to Bremen. Aramina starts o
 
 ## Files Changed
 
-1. `src/bremen/api/workflow_aramina.py` (new) — AraminaWorkflowProvider, provider config, provider call boundary
-2. `src/bremen/api/s3_model_discovery.py` (+90) — Aramina manifest acceptance, _validate_aramina_discovery_fields, Aramina entry creation in discover_models
+1. `src/bremen/api/workflow_aramina.py` (new) — AraminaWorkflowProvider, provider config/boundary
+2. `src/bremen/api/s3_model_discovery.py` (+90) — Aramina manifest acceptance + validation
 3. `src/bremen/api/workflow_orchestrator.py` (+36/-10) — Aramina routing in get_provider_for_model
-4. `src/bremen/api/model_requirements.py` (+8) — Aramina default required_fields (patient_id, target_side)
-5. `tests/test_aramina_workflow_runtime.py` (new) — 26 tests for Aramina workflow runtime
-6. `tests/test_aramina_provider_contract.py` (modified) — Updated routing tests (aramina now in allow-list)
+4. `src/bremen/api/model_requirements.py` (+8) — Aramina default required_fields
+5. `tests/test_aramina_workflow_runtime.py` (new) — 26 runtime tests
+6. `tests/test_aramina_provider_contract.py` (modified) — Updated routing tests
 7. `.project-memory/pr/0129-aramina-manifest-gated-workflow-runtime/PLAN.txt` (new)
 
 ## Test Commands and Pass Summaries
 
 ```
 venv/bin/python -m compileall -q src tests                          → pass (no errors)
-venv/bin/pytest -q tests/test_aramina_provider_contract.py          → 30 passed (1.51s)
-venv/bin/pytest -q tests/test_aramina_workflow_runtime.py           → 26 passed (1.52s)
-venv/bin/pytest -q tests/test_bremen_model_requirements_api.py      → 35 passed (1.86s)
+venv/bin/pytest -q tests/test_s3_model_discovery.py                 → 96 passed (1.68s)
+venv/bin/pytest -q tests/test_aramina_provider_contract.py          → 30 passed
+venv/bin/pytest -q tests/test_aramina_workflow_runtime.py           → 26 passed
+venv/bin/pytest -q tests/test_bremen_model_requirements_api.py      → 35 passed (1.98s)
 venv/bin/pytest -q tests/test_bremen_model_catalog.py               → 14 passed
 venv/bin/pytest -q tests/test_model_registry.py                     → 36 passed
 venv/bin/pytest -q tests/test_catalog_api_multi_model.py            → 18 passed
+venv/bin/pytest -q (full suite)                                     → 3788 passed, 11 skipped, 0 failures (40.05s)
 git diff --check                                                    → clean
 ```
-
-Total: 30 + 26 + 35 + 14 + 36 + 18 = 159 tests passed, 0 failures.
 
 ## Manifest-Gating Review
 
@@ -110,12 +110,14 @@ Total: 30 + 26 + 35 + 14 + 36 + 18 = 159 tests passed, 0 failures.
 
 ## Regression Review
 
+- [x] Full suite: 3788 passed, 11 skipped, 0 failures
 - [x] existing Bremen POST /jobs unchanged
 - [x] existing Bremen /requirements unchanged
 - [x] existing Bremen /requirements/validate unchanged
 - [x] existing Bremen catalog behavior unchanged except explicit Aramina additions
 - [x] existing auth/ticket/report behavior unchanged
 - [x] Bremen model_state.py joblib.load only for Bremen models (not Aramina)
+- [x] s3_model_discovery.py Bremen path unchanged (test_s3_model_discovery.py: 96 passed)
 
 ## Explicit Invariants
 
