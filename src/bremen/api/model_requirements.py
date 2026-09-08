@@ -112,6 +112,10 @@ def _safe_failure_stage(exc: Exception) -> str:
     if "BremenWorkflowError" in exc_name:
         return "model_execution"
 
+    # KeyError often indicates missing key in input data/metadata
+    if exc_name == "KeyError":
+        return "input_preparation"
+
     return "unknown"
 
 
@@ -363,8 +367,8 @@ def run_model_pipeline_dry_run(
     staged = False
 
     try:
-        # --- Stage 1: Container / source resolution ---
-        checked_stages.append("container_resolution")
+        # --- Stage 1: Model resolution ---
+        checked_stages.append("model_resolution")
 
         from .model_registry import get_model_entry  # noqa: PLC0415
         entry = get_model_entry(model_id)
@@ -373,20 +377,23 @@ def run_model_pipeline_dry_run(
                 status="failed",
                 ready_to_run=False,
                 checked_stages=checked_stages,
-                failure_stage="container_resolution",
+                failure_stage="model_resolution",
                 safe_reason="Model not found in registry",
             )
 
         h5_path = _resolve_source_for_dry_run(source_id)
         staged = True
 
-        # --- Stage 2: H5 normalization ---
+        # --- Stage 3: Container resolution confirmed ---
+        checked_stages.append("container_resolution")
+
+        # --- Stage 4: H5 normalization ---
         checked_stages.append("normalization")
 
         from .workflow_orchestrator import _normalize_h5  # noqa: PLC0415
         canonical = _normalize_h5(h5_path)
 
-        # --- Stage 3: Workflow resolution ---
+    # --- Stage 5: Workflow resolution ---
         checked_stages.append("workflow_resolution")
 
         from .workflow_orchestrator import get_provider_for_model  # noqa: PLC0415
@@ -401,7 +408,7 @@ def run_model_pipeline_dry_run(
                 safe_reason="Workflow provider not found for model",
             )
 
-        # --- Stage 4: Full provider execution ---
+        # --- Stage 6: Full provider execution ---
         # provider.execute runs: compatibility → artifact → features → inference
         checked_stages.append("input_preparation")
         checked_stages.append("feature_production")
@@ -434,7 +441,7 @@ def run_model_pipeline_dry_run(
                 ready_to_run=False,
                 checked_stages=checked_stages,
                 failure_stage=fs,
-                safe_reason="Pipeline dry run failed",
+                safe_reason="Selected container failed read-only pipeline dry run.",
                 error_class="workflow_failed",
             )
 
@@ -452,7 +459,7 @@ def run_model_pipeline_dry_run(
             ready_to_run=False,
             checked_stages=checked_stages,
             failure_stage=fs,
-            safe_reason="Pipeline dry run failed before a report could be generated.",
+            safe_reason="Selected container failed read-only pipeline dry run.",
             error_class=type(exc).__name__,
         )
     finally:
@@ -505,6 +512,7 @@ def build_model_requirements_validation_response(
     invalid_fields: list[str] = []
     can_submit_job: bool | None = None
     failure_stage: str | None = None
+    checked_stages: list[str] = []
     next_step_reason = (
         "Model-specific requirements validation is not implemented yet. "
         "Use POST /demo/api/jobs for the current production execution path."
@@ -531,6 +539,7 @@ def build_model_requirements_validation_response(
                 "Required request fields are missing. "
                 "Use POST /demo/api/jobs for execution."
             )
+            checked_stages = ["request_payload"]
         else:
             # Request payload OK — run the model pipeline dry run
             dry_run_mode = "model_pipeline"
@@ -555,11 +564,11 @@ def build_model_requirements_validation_response(
                     "Dry run passed. Use POST /demo/api/jobs for execution."
                 )
             else:
-                next_step_reason = (
-                    "Dry run failed before a report could be generated."
+                next_step_reason = dry_result.safe_reason or (
+                    "Selected container failed read-only pipeline dry run."
                 )
-                if dry_result.safe_reason:
-                    next_step_reason += f" {dry_result.safe_reason}."
+
+            checked_stages = ["request_payload"] + dry_result.checked_stages
 
     response: dict[str, Any] = {
         "schema_version": "bremen.model_requirements_validation.v1",
@@ -588,6 +597,7 @@ def build_model_requirements_validation_response(
             "dry_run_mode": dry_run_mode,
             "read_only": True,
         },
+        "checked_stages": checked_stages,
         "missing_required_fields": missing_required_fields,
         "invalid_fields": invalid_fields,
         "failure_stage": failure_stage,

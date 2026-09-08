@@ -732,6 +732,10 @@ def test_post_validate_with_manifest_required_present_returns_passed(monkeypatch
     assert data["invalid_fields"] == []
     assert data["next_step"]["can_submit_job"] is False
     assert data["failure_stage"] == "container_resolution"
+    # checked_stages must be a non-empty list
+    assert isinstance(data["checked_stages"], list)
+    assert "request_payload" in data["checked_stages"]
+    assert "model_resolution" in data["checked_stages"]
 
 
 def test_post_validate_with_manifest_required_missing_returns_failed(monkeypatch):
@@ -960,6 +964,14 @@ def test_dry_run_with_valid_source_passes(tmp_path, monkeypatch):
     assert data["next_step"]["can_submit_job"] is True
     assert data["failure_stage"] is None
     assert data["next_step"]["reason"] == "Dry run passed. Use POST /demo/api/jobs for execution."
+    # checked_stages must be a non-empty list for successful dry run
+    assert isinstance(data["checked_stages"], list)
+    assert len(data["checked_stages"]) > 0
+    assert "request_payload" in data["checked_stages"]
+    assert "model_resolution" in data["checked_stages"]
+    assert "normalization" in data["checked_stages"]
+    assert "input_preparation" in data["checked_stages"]
+    assert "model_execution" in data["checked_stages"]
 
 
 def test_dry_run_with_fake_source_fails_at_container_resolution(monkeypatch):
@@ -980,9 +992,15 @@ def test_dry_run_with_fake_source_fails_at_container_resolution(monkeypatch):
     assert data["validation"]["read_only"] is True
     assert data["failure_stage"] == "container_resolution"
     assert data["next_step"]["can_submit_job"] is False
-    # Must not expose traceback or internal paths
-    assert "traceback" not in str(data).lower()
-    assert "s3://" not in str(data)
+    # Failure reason must be clean, single sentence — no duplication
+    reason = data["next_step"]["reason"]
+    assert "Selected container failed read-only pipeline dry run." in reason
+    assert reason.count("failed") == 1, f"Duplicated 'failed' in reason: {reason!r}"
+    # checked_stages must be a non-empty list
+    assert isinstance(data["checked_stages"], list)
+    assert "request_payload" in data["checked_stages"]
+    assert "model_resolution" in data["checked_stages"]
+    assert "container_resolution" in data["checked_stages"]
 
 
 def test_dry_run_does_not_create_job(tmp_path, monkeypatch):
@@ -1150,3 +1168,229 @@ def test_aramina_workflow_id_remains_unavailable(monkeypatch):
     # Key invariant: Aramina is NOT runnable
     assert data["validation"]["inference_job_created"] is False
     assert data["validation"]["report_created"] is False
+
+
+# ---------------------------------------------------------------------------
+# PR0127: Response polish and Nova_103-like failure tests
+# ---------------------------------------------------------------------------
+
+
+def test_failed_dry_run_reason_not_duplicated(monkeypatch):
+    """Failure reason must be a clean single sentence with no duplication."""
+    _enable_auth(monkeypatch)
+    _install_test_registry_with_real_package_and_requirements()
+
+    response = TestClient(create_fastapi_app()).post(
+        "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
+        headers=_auth_headers(),
+        json={"container_id": "Nova_376.h5", "source_id": "nonexistent-source"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    reason = data["next_step"]["reason"]
+    # Must be a clean single sentence
+    assert "Selected container failed read-only pipeline dry run." in reason
+    # No duplication of "failed"
+    assert reason.count("failed") == 1, f"Duplicated 'failed' in reason: {reason!r}"
+    # No trailing period duplication
+    assert not reason.endswith(".."), f"Duplicated period in reason: {reason!r}"
+
+
+def test_checked_stages_not_null_on_pass(tmp_path, monkeypatch):
+    """checked_stages must be a non-empty list on successful dry run."""
+    _enable_auth(monkeypatch)
+    _install_test_registry_with_real_package_and_requirements()
+
+    h5_path = _create_real_h5_file(tmp_path)
+    source_id = _register_source_for_test(h5_path, "Nova_376.h5")
+
+    from bremen.api import model_requirements as _mr
+    monkeypatch.setattr(_mr, "_resolve_source_for_dry_run", lambda sid: h5_path)
+
+    response = TestClient(create_fastapi_app()).post(
+        "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
+        headers=_auth_headers(),
+        json={"container_id": "Nova_376.h5", "source_id": source_id},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    # checked_stages must be a non-null, non-empty list
+    assert data["checked_stages"] is not None
+    assert isinstance(data["checked_stages"], list)
+    assert len(data["checked_stages"]) > 0
+    # Preferred stages for successful Bremen dry run
+    expected_stages = [
+        "request_payload",
+        "model_resolution",
+        "container_resolution",
+        "normalization",
+        "workflow_resolution",
+        "input_preparation",
+        "model_execution",
+    ]
+    for stage in expected_stages:
+        assert stage in data["checked_stages"], f"Missing stage: {stage}"
+
+
+def test_checked_stages_not_null_on_failure(monkeypatch):
+    """checked_stages must be a non-empty list on failed dry run."""
+    _enable_auth(monkeypatch)
+    _install_test_registry_with_real_package_and_requirements()
+
+    response = TestClient(create_fastapi_app()).post(
+        "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
+        headers=_auth_headers(),
+        json={"container_id": "Nova_376.h5", "source_id": "nonexistent-source"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    # checked_stages must be a non-null list
+    assert data["checked_stages"] is not None
+    assert isinstance(data["checked_stages"], list)
+    # For container_resolution failure: request_payload, model_resolution, container_resolution
+    assert "request_payload" in data["checked_stages"]
+    assert "model_resolution" in data["checked_stages"]
+    assert "container_resolution" in data["checked_stages"]
+
+
+def test_checked_stages_empty_when_no_manifest(monkeypatch):
+    """When no manifest exists, checked_stages must be an empty list (not null)."""
+    _enable_auth(monkeypatch)
+    _install_test_registry()  # no container_requirements
+
+    response = TestClient(create_fastapi_app()).post(
+        "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
+        headers=_auth_headers(),
+        json={"container_id": "Nova_376.h5", "source_id": "fresh-source-id"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    # checked_stages must be an empty list, not null
+    assert data["checked_stages"] is not None
+    assert isinstance(data["checked_stages"], list)
+    assert len(data["checked_stages"]) == 0
+
+
+def test_nova_103_like_failure_maps_to_input_preparation(tmp_path, monkeypatch):
+    """A container that fails compatibility check maps to input_preparation stage."""
+    _enable_auth(monkeypatch)
+    _install_test_registry_with_real_package_and_requirements()
+
+    # Create an H5 with only LEFT side (incompatible — needs both sides)
+    import h5py
+    import numpy as np
+
+    h5_path = str(tmp_path / "nova_103_like.h5")
+    with h5py.File(h5_path, "w") as h5:
+        rng = np.random.default_rng(42)
+        q = np.linspace(2.0, 23.0, 100, dtype=np.float64)
+        target = h5.create_group("/scans/target")
+        target.create_dataset("measurements", data=rng.normal(1.0, 0.1, size=(1, 100)))
+        target.create_dataset("q", data=q)
+        target.attrs["side"] = "LEFT"
+        # No contralateral — only one side → incompatible
+
+    source_id = _register_source_for_test(h5_path, "Nova_103_.h5")
+
+    from bremen.api import model_requirements as _mr
+    monkeypatch.setattr(_mr, "_resolve_source_for_dry_run", lambda sid: h5_path)
+
+    response = TestClient(create_fastapi_app()).post(
+        "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
+        headers=_auth_headers(),
+        json={"container_id": "Nova_103_.h5", "source_id": source_id},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["validation"]["status"] == "failed"
+    assert data["validation"]["ready_to_run"] is False
+    assert data["validation"]["read_only"] is True
+    assert data["validation"]["dry_run_mode"] == "model_pipeline"
+    # Nova_103-like failure must map to input_preparation
+    assert data["failure_stage"] == "input_preparation"
+    assert data["next_step"]["can_submit_job"] is False
+    # checked_stages must include stages up to the failure point
+    assert "request_payload" in data["checked_stages"]
+    assert "model_resolution" in data["checked_stages"]
+    assert "container_resolution" in data["checked_stages"]
+    assert "normalization" in data["checked_stages"]
+    # workflow_resolution may or may not appear depending on failure timing
+    # No inference/report artifacts
+    assert data["validation"]["inference_job_created"] is False
+    assert data["validation"]["report_created"] is False
+
+
+def test_validate_does_not_create_inference_artifacts(tmp_path, monkeypatch):
+    """Validate endpoint never creates inference jobs, reports, or artifacts."""
+    _enable_auth(monkeypatch)
+    _install_test_registry_with_real_package_and_requirements()
+
+    h5_path = _create_real_h5_file(tmp_path)
+    source_id = _register_source_for_test(h5_path, "Nova_376.h5")
+
+    from bremen.api import model_requirements as _mr
+    monkeypatch.setattr(_mr, "_resolve_source_for_dry_run", lambda sid: h5_path)
+
+    from bremen.api.job_api_handler import _jobs, _jobs_lock
+    with _jobs_lock:
+        before_jobs = set(_jobs)
+
+    response = TestClient(create_fastapi_app()).post(
+        "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
+        headers=_auth_headers(),
+        json={"container_id": "Nova_376.h5", "source_id": source_id},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # No jobs created
+    with _jobs_lock:
+        after_jobs = set(_jobs)
+    assert after_jobs == before_jobs
+
+    # Validation explicitly confirms no artifacts
+    assert data["validation"]["inference_job_created"] is False
+    assert data["validation"]["report_created"] is False
+    assert data["validation"]["read_only"] is True
+    assert data["validation"]["dry_run_mode"] == "model_pipeline"
+    assert data["validation"]["ready_to_run"] is True
+
+
+def test_no_raw_paths_or_checksum_in_dry_run_response(tmp_path, monkeypatch):
+    """Dry run response must not expose raw paths, S3, checksums, or tokens."""
+    _enable_auth(monkeypatch)
+    _install_test_registry_with_real_package_and_requirements()
+
+    h5_path = _create_real_h5_file(tmp_path)
+    source_id = _register_source_for_test(h5_path, "Nova_376.h5")
+
+    from bremen.api import model_requirements as _mr
+    monkeypatch.setattr(_mr, "_resolve_source_for_dry_run", lambda sid: h5_path)
+
+    response = TestClient(create_fastapi_app()).post(
+        "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
+        headers=_auth_headers(),
+        json={"container_id": "Nova_376.h5", "source_id": source_id},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    text = str(data)
+    assert "_checksum" not in text
+    assert "_package" not in text
+    assert "portable_logreg" not in text
+    assert "test-checksum" not in text
+    assert "/Users/" not in text
+    assert "s3://" not in text
+    assert "boto" not in text.lower()
+    assert "password" not in text.lower()
+    assert "secret" not in text.lower()
+    assert "token" not in text.lower()
+    assert "traceback" not in text.lower()
+    assert "exception" not in text.lower()
