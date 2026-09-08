@@ -108,6 +108,32 @@ def _make_manifest(
     return json.dumps(manifest).encode("utf-8")
 
 
+def _make_aramina_manifest(
+    model_id: str = "aramina-test-model",
+    display_name: str = "Aramina Test Model",
+    model_version: str = "0.2.12",
+    model_filename: str = "model.joblib",
+    model_checksum: str | None = None,
+    feature_schema_version: str = "v0.1",
+    clinical_stage: str = "research draft",
+) -> bytes:
+    """Create a valid Aramina manifest JSON bytes."""
+    manifest = {
+        "schema_version": "bremen.manifest.v1",
+        "model_id": model_id,
+        "display_name": display_name,
+        "workflow_id": "aramina",
+        "model_version": model_version,
+        "model_filename": model_filename,
+        "model_checksum": model_checksum or "b" * 64,
+        "artifact_type": "aramina.joblib.model_package",
+        "feature_schema_version": feature_schema_version,
+        "clinical_stage": clinical_stage,
+        "provider_contract": "aramina_provider.v0.1",
+    }
+    return json.dumps(manifest).encode("utf-8")
+
+
 def _make_synthetic_package(
     coef: list[float] | None = None,
     threshold: float = 0.5,
@@ -1892,3 +1918,272 @@ class TestArtifactTypeNeverUnbound:
         )
         assert result.available_count == 0
         assert result.rejected_count == 1
+
+
+# ---------------------------------------------------------------------------
+# PR0130 — Aramina manifest validation hotfix tests
+# ---------------------------------------------------------------------------
+
+
+class TestAraminaManifestValidation:
+    """Tests that Aramina manifests are validated correctly.
+
+    PR0130 fix: Aramina manifests must NOT be sent through the Bremen-only
+    validate_model_manifest, which rejects them for missing Bremen-specific
+    fields (threshold_version, qc_criteria_version, etc.).
+    """
+
+    def test_aramina_manifest_not_sent_through_bremen_validator(self, tmp_path):
+        """Valid Aramina manifest passes Phase 1 validation (not rejected by Bremen validator).
+
+        A manifest-only directory (no .joblib) is identified not_compatible
+        in Phase 3, which is expected. The key assertion is that Phase 1
+        validation passes — it was NOT rejected by the Bremen artifact_type
+        validator.
+        """
+        manifest = _make_aramina_manifest(
+            model_id="aramina-target-breast-risk",
+            display_name="Aramina Target Breast Risk",
+        )
+        s3 = _make_s3_client({
+            "catalog/aramina/manifest.json": manifest,
+        })
+        result = discover_models(
+            "s3://bucket/catalog/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        # The manifest was parsed and passed Phase 1 validation.
+        # Phase 3 marks it as not_compatible (no .joblib) which is expected.
+        assert result.candidate_count == 1
+        # Verify it's identified as Aramina (not_compatible), not unregistered
+        assert len(result.unavailable_entries) == 1
+        assert result.unavailable_entries[0].model_id == "aramina-target-breast-risk"
+        assert result.unavailable_entries[0].workflow_id == "aramina"
+        assert result.unavailable_entries[0].reason_category == "not_compatible"
+
+    def test_aramina_with_joblib_accepted(self, tmp_path):
+        """Aramina manifest + .joblib -> available entry without joblib loading."""
+        manifest = _make_aramina_manifest(
+            model_id="aramina-breast-risk-0212",
+            display_name="Aramina Breast Risk 0.2.12",
+            model_filename="model.joblib",
+        )
+        # Fake .joblib content — not loaded for Aramina
+        fake_joblib = b"fake-aramina-model-data"
+        s3 = _make_s3_client({
+            "catalog/aramina/manifest.json": manifest,
+            "catalog/aramina/model.joblib": fake_joblib,
+        })
+        result = discover_models(
+            "s3://bucket/catalog/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.catalog_status == "available"
+        assert result.available_count == 1
+        assert result.rejected_count == 0
+        entry = result.entries[0]
+        assert entry.model_id == "aramina-breast-risk-0212"
+        assert entry.workflow_id == "aramina"
+        assert entry.artifact_type == "aramina.joblib.model_package"
+        assert entry.display_name == "Aramina Breast Risk 0.2.12"
+        # Checksum is stored privately, not exposed publicly
+        safe = entry.to_safe_dict()
+        assert "model_checksum" not in safe
+        assert "_checksum" not in safe
+
+    def test_invalid_aramina_checksum_rejected(self, tmp_path):
+        """Aramina manifest with invalid checksum is rejected."""
+        manifest = _make_aramina_manifest(
+            model_id="aramina-bad-checksum",
+            display_name="Bad Checksum",
+            model_checksum="not-a-valid-sha256",
+        )
+        s3 = _make_s3_client({
+            "catalog/aramina/manifest.json": manifest,
+            "catalog/aramina/model.joblib": b"fake",
+        })
+        result = discover_models(
+            "s3://bucket/catalog/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+
+    def test_invalid_aramina_provider_contract_rejected(self, tmp_path):
+        """Aramina manifest with wrong provider_contract is rejected."""
+        import io, joblib
+        pkg = {"portable_logreg": {"coef": [0.1]*15, "intercept": 0.0, "threshold": 0.5}}
+        buf = io.BytesIO()
+        joblib.dump(pkg, buf)
+        checksum = hashlib.sha256(buf.getvalue()).hexdigest()
+
+        manifest = _make_aramina_manifest(
+            model_id="aramina-bad-contract",
+            display_name="Bad Contract",
+            model_checksum=checksum,
+        )
+        # Tamper provider_contract
+        manifest_dict = json.loads(manifest)
+        manifest_dict["provider_contract"] = "wrong.contract.v1"
+        manifest_tampered = json.dumps(manifest_dict).encode("utf-8")
+
+        s3 = _make_s3_client({
+            "catalog/aramina/manifest.json": manifest_tampered,
+            "catalog/aramina/model.joblib": buf.getvalue(),
+        })
+        result = discover_models(
+            "s3://bucket/catalog/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+
+    def test_invalid_aramina_workflow_id_rejected(self, tmp_path):
+        """Aramina manifest with wrong workflow_id is rejected."""
+        import io, joblib
+        pkg = {"portable_logreg": {"coef": [0.1]*15, "intercept": 0.0, "threshold": 0.5}}
+        buf = io.BytesIO()
+        joblib.dump(pkg, buf)
+        checksum = hashlib.sha256(buf.getvalue()).hexdigest()
+
+        manifest_dict = json.loads(_make_aramina_manifest(
+            model_id="aramina-bad-workflow",
+            display_name="Bad Workflow",
+            model_checksum=checksum,
+        ))
+        manifest_dict["workflow_id"] = "not-aramina"
+        manifest_tampered = json.dumps(manifest_dict).encode("utf-8")
+
+        s3 = _make_s3_client({
+            "catalog/aramina/manifest.json": manifest_tampered,
+            "catalog/aramina/model.joblib": buf.getvalue(),
+        })
+        result = discover_models(
+            "s3://bucket/catalog/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+
+    def test_bremen_manifest_behavior_unchanged(self, tmp_path):
+        """Bremen manifest validation still uses Bremen-only validator."""
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(
+            model_id="bremen-unchanged",
+            display_name="Bremen Unchanged",
+            model_checksum=checksum,
+        )
+        s3 = _make_s3_client({
+            "catalog/bremen/manifest.json": manifest,
+            "catalog/bremen/model.joblib": pkg_bytes,
+        })
+        result = discover_models(
+            "s3://bucket/catalog/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.catalog_status == "available"
+        assert result.available_count == 1
+        assert result.rejected_count == 0
+        assert result.entries[0].model_id == "bremen-unchanged"
+        assert result.entries[0].workflow_id == "bremen"
+
+    def test_checksum_not_exposed_publicly(self, tmp_path):
+        """model_checksum must not appear in public catalog response."""
+        manifest = _make_aramina_manifest(
+            model_id="aramina-checksum-test",
+            display_name="Checksum Test",
+        )
+        fake_joblib = b"fake-aramina-model-data"
+        s3 = _make_s3_client({
+            "catalog/aramina/manifest.json": manifest,
+            "catalog/aramina/model.joblib": fake_joblib,
+        })
+        result = discover_models(
+            "s3://bucket/catalog/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.available_count == 1
+        entry = result.entries[0]
+        safe = entry.to_safe_dict()
+        text = json.dumps(safe)
+        assert "model_checksum" not in text
+        assert "b" * 64 not in text  # The checksum value must not appear
+        # Also check the raw entry
+        raw_dict = entry.to_dict()
+        assert "model_checksum" not in raw_dict
+        assert "_checksum" not in raw_dict
+
+    def test_no_joblib_load_during_aramina_discovery(self, tmp_path):
+        """Aramina discovery must NOT load model.joblib."""
+        import io, joblib
+        # Create a package that would fail Bremen validation if loaded
+        pkg = {"wrong_key": "noportable_logreg"}
+        buf = io.BytesIO()
+        joblib.dump(pkg, buf)
+        checksum = hashlib.sha256(buf.getvalue()).hexdigest()
+
+        manifest = _make_aramina_manifest(
+            model_id="aramina-no-load",
+            display_name="No Load",
+            model_checksum=checksum,
+        )
+        s3 = _make_s3_client({
+            "catalog/aramina/manifest.json": manifest,
+            "catalog/aramina/model.joblib": buf.getvalue(),
+        })
+        result = discover_models(
+            "s3://bucket/catalog/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        # Aramina must NOT load model.joblib, so it should be accepted
+        assert result.catalog_status == "available"
+        assert result.available_count == 1
+        assert result.rejected_count == 0
+        # The stored package is empty (no joblib loaded)
+        assert result.entries[0]._package == {}
+
+    def test_mixed_bremen_and_aramina_discovery(self, tmp_path):
+        """3 Bremen + 2 Aramina -> available_count=5 when all manifests are valid."""
+        pkg_bytes = _make_synthetic_package()
+        bremen_checksum = hashlib.sha256(pkg_bytes).hexdigest()
+
+        aramina_pkg = b"fake-aramina-model-data"
+        aram_checksum = hashlib.sha256(aramina_pkg).hexdigest()
+
+        s3 = _make_s3_client({
+            "catalog/bremen1/manifest.json": _make_manifest(
+                model_id="bremen-m1", display_name="Bremen 1",
+                model_checksum=bremen_checksum,
+            ),
+            "catalog/bremen1/model.joblib": pkg_bytes,
+            "catalog/bremen2/manifest.json": _make_manifest(
+                model_id="bremen-m2", display_name="Bremen 2",
+                model_checksum=bremen_checksum,
+            ),
+            "catalog/bremen2/model.joblib": pkg_bytes,
+            "catalog/bremen3/manifest.json": _make_manifest(
+                model_id="bremen-m3", display_name="Bremen 3",
+                model_checksum=bremen_checksum,
+            ),
+            "catalog/bremen3/model.joblib": pkg_bytes,
+            "catalog/aramina1/manifest.json": _make_aramina_manifest(
+                model_id="aramina-m1", display_name="Aramina 1",
+                model_checksum=aram_checksum,
+            ),
+            "catalog/aramina1/model.joblib": aramina_pkg,
+            "catalog/aramina2/manifest.json": _make_aramina_manifest(
+                model_id="aramina-m2", display_name="Aramina 2",
+                model_checksum=aram_checksum,
+            ),
+            "catalog/aramina2/model.joblib": aramina_pkg,
+        })
+        result = discover_models(
+            "s3://bucket/catalog/", staging_dir=str(tmp_path), _s3_client=s3,
+        )
+        assert result.catalog_status == "available"
+        assert result.candidate_count == 5
+        assert result.available_count == 5
+        assert result.rejected_count == 0
+        assert len(result.entries) == 5
+
+        # Verify Bremen entries are correct
+        bremen_entries = [e for e in result.entries if e.workflow_id == "bremen"]
+        aramina_entries = [e for e in result.entries if e.workflow_id == "aramina"]
+        assert len(bremen_entries) == 3
+        assert len(aramina_entries) == 2
+        for e in aramina_entries:
+            assert e.artifact_type == "aramina.joblib.model_package"
+            assert e._package == {}  # No joblib loaded for Aramina

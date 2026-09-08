@@ -469,9 +469,21 @@ def _validate_aramina_discovery_fields(data: dict[str, Any]) -> dict[str, Any]:
     if not model_filename:
         raise ValueError("Aramina manifest missing model_filename")
 
+    # Validate model_filename is a safe basename — no path traversal
+    if ".." in model_filename or "/" in model_filename or "\\" in model_filename:
+        raise ValueError("Aramina model_filename contains path traversal characters")
+
     model_checksum = str(data.get("model_checksum", "")).strip()
     if not model_checksum:
         raise ValueError("Aramina manifest missing model_checksum")
+
+    # Validate checksum is exactly 64-char lowercase SHA256 hex
+    import re as _re  # noqa: PLC0415
+    if not _re.fullmatch(r"[a-f0-9]{64}", model_checksum):
+        raise ValueError(
+            f"Aramina model_checksum must be 64-char lowercase hex SHA256, "
+            f"got {model_checksum[:8]}..."
+        )
 
     fs_version = str(data.get("feature_schema_version", "")).strip()
     if not fs_version:
@@ -813,11 +825,19 @@ def discover_models(
             if not isinstance(data, dict):
                 raise ValueError("manifest_not_object")
 
-            # Call the existing base manifest validator from model_package
-            from ..model_package import validate_model_manifest  # noqa: PLC0415
-            validate_model_manifest(data)
+            # Read artifact_type early to branch validation.
+            # Aramina manifests must NOT go through the Bremen-only
+            # validate_model_manifest, which rejects them for missing
+            # Bremen-specific fields (threshold_version, etc.).
+            artifact_type_raw = str(data.get("artifact_type", "portable_logreg"))
+            is_aramina = artifact_type_raw == _ARAMINA_ARTIFACT_TYPE
 
-            # Discovery-specific validation
+            if not is_aramina:
+                # Call the existing Bremen-only base manifest validator
+                from ..model_package import validate_model_manifest  # noqa: PLC0415
+                validate_model_manifest(data)
+
+            # Discovery-specific validation (handles both Bremen and Aramina)
             data = _validate_discovery_fields(data)
 
             phase1_data[pkg_dir.name] = data
