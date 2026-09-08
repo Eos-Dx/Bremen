@@ -61,6 +61,7 @@ _CONTAINER_REQUIREMENTS_ALLOWED_TOP_LEVEL = frozenset({
     "validation_behavior",
     "technical_demo_only",
     "clinical_stage",
+    "request_requirements",
     "notes",
 })
 

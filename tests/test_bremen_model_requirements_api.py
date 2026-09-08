@@ -700,7 +700,8 @@ def test_get_model_requirements_with_manifest_returns_declared(monkeypatch):
     assert "test-checksum" not in str(data)
 
 
-def test_post_validate_with_manifest_still_noop(monkeypatch):
+def test_post_validate_with_manifest_required_present_returns_passed(monkeypatch):
+    """When manifest exists and required fields are present, validation passes."""
     _enable_auth(monkeypatch)
     _install_test_registry_with_container_requirements()
 
@@ -714,9 +715,77 @@ def test_post_validate_with_manifest_still_noop(monkeypatch):
     data = response.json()
     assert data["requirements_available"] is True
     assert data["requirements_status"] == "requirements_declared"
+    assert data["validation_available"] is True
+    assert data["validation"]["status"] == "passed"
+    assert data["validation"]["ready_to_run"] is True
+    assert data["validation"]["requirements_checked"] is True
+    assert data["validation"]["inference_job_created"] is False
+    assert data["validation"]["report_created"] is False
+    assert data["missing_required_fields"] == []
+    assert data["invalid_fields"] == []
+    assert data["next_step"]["can_submit_job"] is True
+
+
+def test_post_validate_with_manifest_required_missing_returns_failed(monkeypatch):
+    """When manifest exists but required fields are missing, validation fails."""
+    _enable_auth(monkeypatch)
+    _install_test_registry_with_container_requirements()
+
+    response = TestClient(create_fastapi_app()).post(
+        "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
+        headers=_auth_headers(),
+        json={},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["requirements_available"] is True
+    assert data["requirements_status"] == "requirements_declared"
+    assert data["validation_available"] is True
+    assert data["validation"]["status"] == "failed"
+    assert data["validation"]["ready_to_run"] is False
+    assert data["validation"]["requirements_checked"] is True
+    assert data["validation"]["inference_job_created"] is False
+    assert data["validation"]["report_created"] is False
+    assert "container_id" in data["missing_required_fields"]
+    assert data["next_step"]["can_submit_job"] is False
+
+
+def test_post_validate_without_manifest_still_noop(monkeypatch):
+    """When no manifest exists, validate remains a no-op."""
+    _enable_auth(monkeypatch)
+    _install_test_registry()
+
+    response = TestClient(create_fastapi_app()).post(
+        "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
+        headers=_auth_headers(),
+        json={"container_id": "Nova_376.h5", "source_id": "fresh-source-id"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
     assert data["validation_available"] is False
     assert data["validation"]["status"] == "not_available"
+    assert data["validation"]["ready_to_run"] is None
     assert data["validation"]["requirements_checked"] is False
     assert data["validation"]["inference_job_created"] is False
     assert data["validation"]["report_created"] is False
     assert data["next_step"]["can_submit_job"] is None
+
+
+def test_post_validate_h5_path_not_echoed(monkeypatch):
+    """Validate must not echo raw h5_path, only h5_path_supplied boolean."""
+    _enable_auth(monkeypatch)
+    _install_test_registry_with_container_requirements()
+
+    response = TestClient(create_fastapi_app()).post(
+        "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
+        headers=_auth_headers(),
+        json={"container_id": "Nova_376.h5", "h5_path": "/tmp/private/Nova_376.h5"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "h5_path" not in data
+    assert data["h5_path_supplied"] is True
+    assert "/tmp/private/Nova_376.h5" not in str(data)
