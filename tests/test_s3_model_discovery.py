@@ -1965,6 +1965,7 @@ class TestAraminaManifestValidation:
         manifest = _make_aramina_manifest(
             model_id="aramina-breast-risk-0212",
             display_name="Aramina Breast Risk 0.2.12",
+            model_checksum=hashlib.sha256(b"fake-aramina-model-data").hexdigest(),
             model_filename="model.joblib",
         )
         # Fake .joblib content — not loaded for Aramina
@@ -2087,6 +2088,7 @@ class TestAraminaManifestValidation:
         manifest = _make_aramina_manifest(
             model_id="aramina-checksum-test",
             display_name="Checksum Test",
+            model_checksum=hashlib.sha256(b"fake-aramina-model-data").hexdigest(),
         )
         fake_joblib = b"fake-aramina-model-data"
         s3 = _make_s3_client({
@@ -2187,3 +2189,85 @@ class TestAraminaManifestValidation:
         for e in aramina_entries:
             assert e.artifact_type == "aramina.joblib.model_package"
             assert e._package == {}  # No joblib loaded for Aramina
+
+
+class TestAraminaPrivateArtifactStaging:
+    def test_download_verify_and_keep_private_without_deserializing(self, tmp_path, monkeypatch):
+        import joblib
+        content = b"deferred artifact bytes"
+        checksum = hashlib.sha256(content).hexdigest()
+        s3 = _make_s3_client({
+            "catalog/a/manifest.json": _make_aramina_manifest(model_checksum=checksum),
+            "catalog/a/model.joblib": content,
+        })
+        def forbidden_load(*args, **kwargs):
+            pytest.fail("discovery/catalog must not deserialize Aramina")
+        monkeypatch.setattr(joblib, "load", forbidden_load)
+        result = discover_models("s3://bucket/catalog/", str(tmp_path), _s3_client=s3)
+        entry = result.entries[0]
+        assert Path(entry._artifact_path).read_bytes() == content
+        assert entry._checksum == checksum
+        assert entry._clinical_stage == "research draft"
+        assert entry._package == {}
+        public = json.dumps(entry.to_safe_dict())
+        for value in (entry._artifact_path, checksum, "bucket", 'catalog/a', '"_artifact_path"', '"_package"'):
+            assert value not in public
+
+    @pytest.mark.parametrize("failure", ["wrong_checksum", "wrong_filename", "download_failed"])
+    def test_failed_staging_disables_entry(self, tmp_path, failure):
+        content = b"test"
+        checksum = hashlib.sha256(content).hexdigest()
+        files = {
+            "catalog/a/manifest.json": _make_aramina_manifest(
+                model_checksum="0" * 64 if failure == "wrong_checksum" else checksum,
+                model_filename="absent.joblib" if failure == "wrong_filename" else "model.joblib",
+            ),
+            "catalog/a/model.joblib": content,
+        }
+        client = _make_s3_client(files)
+        if failure == "download_failed":
+            def fail(*args, **kwargs):
+                raise RuntimeError("private S3 bucket/key secret traceback")
+            client.download_file = fail
+        result = discover_models("s3://bucket/catalog/", str(tmp_path), _s3_client=client)
+        assert not result.entries
+        assert result.rejected_count == 1
+        assert result.unavailable_entries[0].reason_category == "not_compatible"
+        assert not list(tmp_path.rglob("*.joblib"))
+
+    def test_same_basename_different_models_do_not_overwrite(self, tmp_path):
+        files = {}
+        for model_id in ("aramina-a", "aramina-b"):
+            data = model_id.encode()
+            files[f"catalog/{model_id}/manifest.json"] = _make_aramina_manifest(
+                model_id=model_id, model_checksum=hashlib.sha256(data).hexdigest(),
+            )
+            files[f"catalog/{model_id}/model.joblib"] = data
+        result = discover_models("s3://bucket/catalog/", str(tmp_path), _s3_client=_make_s3_client(files))
+        assert len(result.entries) == 2
+        assert len({e._artifact_path for e in result.entries}) == 2
+        for entry in result.entries:
+            assert Path(entry._artifact_path).read_bytes() == entry.model_id.encode()
+
+    def test_aramina_artifact_cannot_claim_bremen_workflow(self, tmp_path):
+        manifest = json.loads(_make_aramina_manifest())
+        manifest["workflow_id"] = "bremen"
+        client = _make_s3_client({
+            "catalog/a/manifest.json": json.dumps(manifest).encode(),
+            "catalog/a/model.joblib": b"x",
+        })
+        result = discover_models("s3://bucket/catalog/", str(tmp_path), _s3_client=client)
+        assert not result.entries
+
+    def test_local_artifact_needs_no_provider_contract(self, tmp_path):
+        content = b"deferred artifact"
+        manifest = json.loads(_make_aramina_manifest(
+            model_checksum=hashlib.sha256(content).hexdigest(),
+        ))
+        del manifest["provider_contract"]
+        client = _make_s3_client({
+            "catalog/a/manifest.json": json.dumps(manifest).encode(),
+            "catalog/a/model.joblib": content,
+        })
+        result = discover_models("s3://bucket/catalog/", str(tmp_path), _s3_client=client)
+        assert result.available_count == 1

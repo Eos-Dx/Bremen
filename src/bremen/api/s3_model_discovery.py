@@ -461,6 +461,9 @@ def _validate_aramina_discovery_fields(data: dict[str, Any]) -> dict[str, Any]:
     provider_contract, and optional container requirements.  No joblib
     is loaded during catalog discovery.
     """
+    if data.get("workflow_id") != "aramina":
+        raise ValueError("Artifact workflow_id mismatch")
+
     model_version = str(data.get("model_version", "")).strip()
     if not model_version:
         raise ValueError("Aramina manifest missing model_version")
@@ -494,7 +497,8 @@ def _validate_aramina_discovery_fields(data: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Aramina manifest missing clinical_stage")
 
     provider_contract = str(data.get("provider_contract", "")).strip()
-    if provider_contract != _ARAMINA_PROVIDER_CONTRACT:
+    # Historical metadata is accepted, but local execution needs no provider config.
+    if provider_contract and provider_contract != _ARAMINA_PROVIDER_CONTRACT:
         raise ValueError(
             f"Unsupported Aramina provider_contract: {provider_contract!r}. "
             f"Expected: {_ARAMINA_PROVIDER_CONTRACT!r}"
@@ -544,21 +548,29 @@ def _resolve_artifact_key(
 # ---------------------------------------------------------------------------
 
 
-def _stage_and_load_artifact(
+def _stage_artifact(
     s3_client: Any,
     bucket: str,
     artifact_key: str,
     expected_checksum: str,
     staging_dir: str,
-) -> dict[str, Any]:
-    """Download, verify checksum, and load a model artifact.
+) -> str:
+    """Download and verify a private artifact without deserializing it.
 
-    Returns the loaded model package dict.
+    Returns its private path; retained for runtime loading.
     Raises ValueError on failure.
     """
     # Download to staging
-    local_path = os.path.join(staging_dir, os.path.basename(artifact_key))
-    s3_client.download_file(bucket, artifact_key, local_path)
+    os.makedirs(staging_dir, exist_ok=True)
+    artifact_dir = tempfile.mkdtemp(prefix="artifact_", dir=staging_dir)
+    local_path = os.path.join(artifact_dir, "model.joblib")
+    try:
+        s3_client.download_file(bucket, artifact_key, local_path)
+    except Exception:
+        if os.path.exists(local_path):
+            os.unlink(local_path)
+        os.rmdir(artifact_dir)
+        raise
 
     # SHA-256 verification before deserialization
     sha256 = hashlib.sha256()
@@ -572,9 +584,46 @@ def _stage_and_load_artifact(
 
     if expected_checksum and actual_checksum != expected_checksum:
         os.unlink(local_path)
-        raise ValueError("Checksum mismatch: expected "
-                         f"{expected_checksum}, got {actual_checksum}")
+        os.rmdir(artifact_dir)
+        raise ValueError("Checksum mismatch")
 
+    return local_path
+
+
+def _load_staged_artifact(local_path: str, expected_checksum: str) -> Any:
+    """Runtime-only deferred loading, with checksum checked over the loaded bytes.
+
+    The discovery/catalog path never calls this function. Keeping controlled
+    deserialization here preserves the existing artifact-loading boundary.
+    """
+    import io
+    from joblib import load as joblib_load
+
+    try:
+        with open(local_path, "rb") as stream:
+            content = stream.read()
+        if (not re.fullmatch(r"[a-f0-9]{64}", expected_checksum)
+                or hashlib.sha256(content).hexdigest() != expected_checksum):
+            raise ValueError
+    except Exception:
+        raise ValueError("Artifact integrity failed") from None
+    try:
+        return joblib_load(io.BytesIO(content))
+    except Exception:
+        raise RuntimeError("Unsupported artifact") from None
+
+
+def _stage_and_load_artifact(
+    s3_client: Any,
+    bucket: str,
+    artifact_key: str,
+    expected_checksum: str,
+    staging_dir: str,
+) -> dict[str, Any]:
+    """Stage and deserialize a Bremen package during discovery."""
+    local_path = _stage_artifact(
+        s3_client, bucket, artifact_key, expected_checksum, staging_dir,
+    )
     # Controlled joblib loading
     try:
         from joblib import load as joblib_load  # noqa: PLC0415
@@ -585,6 +634,7 @@ def _stage_and_load_artifact(
     finally:
         if os.path.exists(local_path):
             os.unlink(local_path)
+        os.rmdir(os.path.dirname(local_path))
 
     if not isinstance(package, dict):
         raise ValueError("Loaded model package must be a dict")
@@ -977,36 +1027,6 @@ def discover_models(
         # this variable for safe logging, so it must never be unbound.
         artifact_type = str(data.get("artifact_type", "portable_logreg"))
 
-        # Aramina entries: manifest-gated, no joblib loading needed
-        if artifact_type == _ARAMINA_ARTIFACT_TYPE:
-            model_version = str(data.get("model_version", "unknown"))
-            feature_schema_version = str(data.get("feature_schema_version", "v0.1"))
-
-            entry = RegistryModelEntry(
-                model_id=model_id,
-                display_name=display_name,
-                workflow_id=workflow_id,
-                model_version=model_version,
-                artifact_type=artifact_type,
-                feature_schema_version=feature_schema_version,
-                decision_policy_id="",
-                decision_policy_version="",
-                technical_ready=True,
-                scientifically_certified=False,
-                technical_demo_only=True,
-                availability="available",
-                _package={},
-                _checksum=str(data.get("model_checksum", "")),
-                _container_requirements=container_requirements_data.get(dname),
-            )
-            entries.append(entry)
-            result.available_count += 1
-            _log.info(
-                "bremen.catalog.candidate.accepted\tmodel_id=%s\ttype=aramina",
-                model_id,
-            )
-            continue
-
         try:
             model_filename = str(data["model_filename"])
             expected_checksum = str(data["model_checksum"])
@@ -1015,6 +1035,40 @@ def discover_models(
             artifact_key = _resolve_artifact_key(
                 pkg_dir.manifest_key, model_filename, prefix,
             )
+
+            if artifact_type == _ARAMINA_ARTIFACT_TYPE:
+                artifact_path = _stage_artifact(
+                    _s3_client, bucket, artifact_key, expected_checksum, staging_dir,
+                )
+                model_version = str(data.get("model_version", "unknown"))
+                feature_schema_version = str(data.get("feature_schema_version", "v0.1"))
+
+                entry = RegistryModelEntry(
+                    model_id=model_id,
+                    display_name=display_name,
+                    workflow_id=workflow_id,
+                    model_version=model_version,
+                    artifact_type=artifact_type,
+                    feature_schema_version=feature_schema_version,
+                    decision_policy_id="",
+                    decision_policy_version="",
+                    technical_ready=True,
+                    scientifically_certified=False,
+                    technical_demo_only=True,
+                    availability="available",
+                    _package={},
+                    _checksum=expected_checksum,
+                    _artifact_path=artifact_path,
+                    _clinical_stage=str(data.get("clinical_stage", "")),
+                    _container_requirements=container_requirements_data.get(dname),
+                )
+                entries.append(entry)
+                result.available_count += 1
+                _log.info(
+                    "bremen.catalog.candidate.accepted\tmodel_id=%s\ttype=aramina",
+                    model_id,
+                )
+                continue
 
             # Stage and load artifact
             package = _stage_and_load_artifact(

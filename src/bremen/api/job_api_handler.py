@@ -345,6 +345,34 @@ def _get_report_provider(workflow_id: str) -> ReportProvider | None:
     return providers.get(workflow_id)
 
 
+class _AraminaLocalReportProvider(ReportProvider):
+    """Expose the local runner's numeric result through existing report APIs."""
+
+    workflow_id = "aramina"
+
+    def generate_report(
+        self, job_id: str, workflow_result: dict[str, Any], *,
+        model_identity: dict[str, str] | None = None,
+        readiness_snapshot: dict[str, bool] | None = None,
+    ) -> ReportEnvelope:
+        import math
+
+        external = workflow_result.get("external_report", {})
+        score = external.get("risk_score") if isinstance(external, dict) else None
+        valid = (type(score) in (int, float) and math.isfinite(score)
+                 and 0 <= score <= 1)
+        identity = model_identity or {}
+        return ReportEnvelope(
+            report_id=str(_uuid.uuid4()), workflow_id="aramina", job_id=job_id,
+            report_schema_version="v0.1",
+            workflow_status=REPORT_STATUS_AVAILABLE if valid else REPORT_STATUS_UNAVAILABLE,
+            model_id=identity.get("model_id"), model_version=identity.get("model_version"),
+            scientifically_certified=False,
+            disclaimer="Research draft. Requires clinical review.",
+            payload={"risk_score": float(score), "technical_demo_only": True} if valid else {},
+        )
+
+
 def _register_default_providers() -> None:
     """Register built-in report providers."""
     from .report_bremen import BremenReportProvider  # noqa: PLC0415
@@ -355,6 +383,8 @@ def _register_default_providers() -> None:
             _report_providers["bremen"] = BremenReportProvider()
         if "aramis" not in _report_providers:
             _report_providers["aramis"] = AramisReportProvider()
+        if "aramina" not in _report_providers:
+            _report_providers["aramina"] = _AraminaLocalReportProvider()
 
 
 def _utc_now() -> str:
@@ -409,6 +439,29 @@ def extract_patient_display_name(h5_path: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _selected_aramina_request(
+    model_id: str | None, workflow_id: str, payload: dict[str, Any],
+) -> tuple[str, Any]:
+    """Resolve selected model routing and validate only its local input fields."""
+    from .model_registry import get_model_entry
+    from .aramina_provider import AraminaProviderRequest
+    from .workflow_aramina import _build_aramina_request_json
+
+    entry = get_model_entry(model_id) if model_id else None
+    selected_workflow = entry.workflow_id if entry is not None else workflow_id
+    if selected_workflow != "aramina":
+        return workflow_id, None
+    fields = _build_aramina_request_json(
+        patient_id=payload.get("patient_id", ""),
+        target_side=payload.get("target_side", ""),
+        analysis_author=payload.get("analysis_author", ""),
+        prediction_comment=payload.get("prediction_comment", ""),
+    )
+    return "aramina", AraminaProviderRequest(
+        container_id="", source_id="", **fields,
+    )
+
+
 def create_analysis_job(
     container_id: str = "",
     workflow_id: str = "bremen",
@@ -418,6 +471,7 @@ def create_analysis_job(
     registry: WorkflowRegistry | None = None,
     source_key: str = "",
     patient_display_name: str = "",
+    aramina_request: Any = None,
 ) -> AnalysisJob:
     """Create and execute an analysis job synchronously.
 
@@ -463,6 +517,21 @@ def create_analysis_job(
                 _jobs[job_id] = job
             return job
 
+    from .model_registry import get_model_entry
+    selected_entry = get_model_entry(model_id) if model_id else None
+    if selected_entry is not None and selected_entry.workflow_id == "aramina":
+        workflow_id = "aramina"
+    if workflow_id == "aramina":
+        from .workflow_aramina import AraminaWorkflowError, _build_aramina_request_json
+        if aramina_request is None:
+            raise AraminaWorkflowError("ARAMINA_INVALID_REQUEST")
+        _build_aramina_request_json(
+            patient_id=aramina_request.patient_id,
+            target_side=aramina_request.target_side,
+            analysis_author=aramina_request.analysis_author,
+            prediction_comment=aramina_request.prediction_comment,
+        )
+
     input_summary = {
         "container_id": container_id or "",
         "workflow_id": workflow_id,
@@ -503,6 +572,7 @@ def create_analysis_job(
             event_store=_event_store,
             model_id=model_id,
             job_id=job_id,
+            **({"aramina_request": aramina_request} if workflow_id == "aramina" else {}),
         )
     else:
         mw_result = run_workflow_request(
@@ -512,6 +582,7 @@ def create_analysis_job(
             event_store=_event_store,
             model_id=model_id,
             job_id=job_id,
+            **({"aramina_request": aramina_request} if workflow_id == "aramina" else {}),
         )
 
     # Update job from result
@@ -537,7 +608,7 @@ def create_analysis_job(
             elif wf_result.status == "failed":
                 # Propagate orchestrator overall_status when it is more
                 # specific than plain "failed" (e.g. workflow_configuration
-                # for Aramina missing provider URL).
+                # required by existing Bremen configuration gates).
                 if mw_result.overall_status in ("workflow_configuration_required",):
                     job.overall_status = mw_result.overall_status
                 else:
@@ -956,6 +1027,17 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
     source_id = body.get("source_id")
     upload_id = body.get("upload_id")
 
+    try:
+        workflow_id, aramina_request = _selected_aramina_request(
+            model_id, workflow_id, body,
+        )
+    except Exception:
+        _send_json(handler, 400, {
+            "error": "Invalid Aramina request fields",
+            "error_code": "ARAMINA_INVALID_REQUEST",
+        })
+        return
+
     # Validate: exactly one of source_id or upload_id (or legacy h5_path)
     source_provided = bool(source_id)
     upload_provided = bool(upload_id)
@@ -1045,6 +1127,7 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
             model_id=model_id,
             source_key=source_key,
             patient_display_name=patient_display_name,
+            **({"aramina_request": aramina_request} if workflow_id == "aramina" else {}),
         )
 
         _send_json(handler, 201, {

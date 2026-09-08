@@ -1,0 +1,109 @@
+# PR0134 Precommit Review — Aramina In-Process Model Runner
+
+Branch: 0134-aramina-in-process-model-runner
+Date: 2026-09-08
+
+## VERDICT: READY FOR COMMIT
+
+## Main PR Goal
+Make the existing inference system execute BOTH Bremen and Aramina ML models from the same App Runner service via a single `POST /demo/api/jobs` endpoint, selected by `model_id`. Aramina becomes a catalog model artifact — not a package, not a service, not a dependency, not an external HTTP provider.
+
+## Architecture Confirmed
+- ONE service, ONE endpoint (`POST /demo/api/jobs`), model selection by `model_id`.
+- Bremen model: existing BremenProvider, unchanged.
+- Aramina model: `AraminaWorkflowProvider` executes in-process using staged artifact + local sklearn estimator.
+- No HTTP provider. No external service. No Aramina package dependency.
+- Aramina artifact staged during S3 discovery, deserialized on execution path via `_load_staged_artifact`.
+
+## Files Changed
+| File | Lines | Summary |
+|------|-------|---------|
+| `src/bremen/api/workflow_aramina.py` | -397/+242 | Rewrote from HTTP provider to in-process local runner |
+| `src/bremen/api/s3_model_discovery.py` | +132 | Aramina artifact staging, `_stage_artifact`, `_load_staged_artifact`, relaxed provider_contract |
+| `src/bremen/api/job_api_handler.py` | +85 | Aramina request routing, validation, report provider |
+| `src/bremen/api/workflow_orchestrator.py` | +47/-11 | Aramina execution dispatch, source validation |
+| `src/bremen/api/model_registry.py` | +5 | `_artifact_path`, `_clinical_stage` fields |
+| `tests/test_aramina_workflow_runtime.py` | ~1258 lines rewritten | Full in-process execution tests |
+| `tests/test_s3_model_discovery.py` | +84 | Aramina artifact staging tests |
+
+## Test Commands and Pass Summaries
+```
+python -m compileall -q src tests                                          → PASS (no errors)
+pytest -q tests/test_aramina_workflow_runtime.py                           → 51 passed
+pytest -q tests/test_s3_model_discovery.py                                 → 68 passed
+pytest -q tests/test_bremen_model_catalog.py tests/test_model_registry.py → 112 passed
+pytest -q tests/test_bremen_model_requirements_api.py                     → 35 passed
+pytest -q tests/test_aramina_provider_contract.py                         → 30 passed
+pytest -q tests/test_bremen_access_logging.py                             → 20 passed
+pytest -q (full suite)                                                     → 3834 passed, 11 skipped, 0 failures
+git diff --check                                                           → clean
+```
+
+## Catalog / Registry Review
+- [x] Aramina manifest entries remain accepted during S3 discovery
+- [x] Aramina model artifact is staged via `_stage_artifact` and verified by SHA-256 checksum
+- [x] Registry entry stores `_artifact_path`, `_checksum`, `_clinical_stage`, `_package={}`
+- [x] Public catalog does NOT expose: local path, S3 bucket, S3 key, checksum, _package internals
+- [x] `_artifact_path`, `_checksum`, `_clinical_stage` are private (`repr=False, compare=False`)
+- [x] No model artifact vendored into repo
+- [x] `provider_contract` validation relaxed — empty value accepted (no provider needed)
+
+## Runtime Routing Review
+- [x] `get_provider_for_model(model_id)` routes by registry entry `workflow_id` + `artifact_type`
+- [x] Bremen model_id → existing `BremenProvider` (unchanged)
+- [x] Aramina model_id → `AraminaWorkflowProvider(entry=entry)` (new in-process path)
+- [x] Aramina provider receives private artifact metadata from catalog/registry
+- [x] Aramina provider does NOT accept `provider_url`
+- [x] Aramina provider does NOT read any provider URL env vars
+- [x] `BREMEN_ARAMINA_PROVIDER_URL` completely removed from production code
+- [x] Workflow orchestration passes `aramina_request` + `h5_path` to Aramina execute path
+
+## Aramina In-Process Execution Review
+- [x] `_load_selected_artifact` loads artifact from staged path, verifies checksum
+- [x] `_validate_artifact` checks model_id, model_version, artifact_type, feature_contract, estimator
+- [x] `_prepare_features` uses existing XRD normalization, validates patient/source integrity
+- [x] `_run_local_artifact` calls `model.predict_proba()` locally — no HTTP
+- [x] Valid Aramina execution returns `WorkflowResult(status="completed")` with risk_score
+- [x] All failure codes are in allow-listed `_SAFE_FAILURES` set
+- [x] Tests exercise real in-process path (104 joblib warnings confirm actual model loading)
+- [x] 51 tests pass, including end-to-end execution, artifact validation, feature preparation
+
+## Bremen Regression Review
+- [x] Existing Bremen model execution unchanged — `BremenProvider` path untouched
+- [x] Existing Bremen catalog behavior unchanged
+- [x] Existing auth/ticket behavior unchanged
+- [x] Existing logging redaction unchanged
+- [x] `test_aramina_provider_contract.py` — 30 passed (contract tests still valid)
+- [x] `test_bremen_model_requirements_api.py` — 35 passed
+- [x] `test_bremen_access_logging.py` — 20 passed
+- [x] Full suite: 3834 passed, 11 skipped, 0 failures
+
+## Public Output Security Review
+- [x] Aramina result payload contains only: workflow_id, model_id, model_version, technical_demo_only, scientifically_certified, clinical_stage, external_report.risk_score
+- [x] Public output does NOT include: `_package`, local path, S3 bucket/key, `model_checksum`, `artifact_sha256`, traceback, raw exception, auth token/ticket, secrets
+- [x] Tests explicitly verify no private data leakage (test assertions check for absence of artifact_path, checksum, provider_url, _package in output)
+- [x] `AraminaWorkflowError` only exposes allow-listed stable failure codes — never raw exceptions
+
+## Dependency Boundary Review
+- [x] `pyproject.toml` — NO changes (no aramina dependency added)
+- [x] Zero `import aramina` or `from aramina` in any source file
+- [x] Zero `BREMEN_ARAMINA_PROVIDER_URL` references in production code
+- [x] Zero `provider_url` in workflow_aramina.py
+- [x] Zero `httpx` or `requests.post` in Aramina code
+- [x] Aramina execution uses only: numpy, joblib (on execution path), existing Bremen normalization/registry
+
+## Product Safety Review
+- [x] No diagnostic claims
+- [x] No clinical deployment claims
+- [x] No CE/FDA/regulatory claims
+- [x] Aramina remains technical demo / research draft metadata only
+- [x] `technical_demo_only=True`, `scientifically_certified=False`
+- [x] clinical_stage="research draft" as factual metadata only
+
+## Explicit Notes
+- **Aramina is a catalog model artifact, not a package/service/dependency/family.**
+- **Same `/demo/api/jobs` executes Bremen and Aramina by model_id.**
+- **No Aramina provider URL is required — execution is fully in-process.**
+- **No import or dependency for aramina was added.**
+- **No private artifact/path/S3/checksum/token/ticket/traceback leaks in public surfaces.**
+- **No clinical/regulatory claims were added.**

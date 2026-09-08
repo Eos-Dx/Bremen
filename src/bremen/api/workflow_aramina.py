@@ -1,397 +1,242 @@
-"""Aramina workflow provider.
+"""In-process execution of a selected, checksum-verified Aramina artifact.
 
-Manifest-gated Aramina workflow path.  Only activates when a valid
-Aramina model manifest is present in the catalog.  Does NOT route
-through the Bremen provider.
-
-PR0129 — Aramina manifest-gated workflow runtime.
+The supported local package contract is explicit: ``model_id``,
+``model_version``, ``feature_schema_version``, ``artifact_type``, ``model`` (predict_proba/classes_),
+``positive_class``, and ``feature_contract``. The latter declares
+``schema_version=aramina.canonical_intensity.v1``, ``position``, ``q_grid``,
+and ``normalization=none``. This contract consumes one canonical spectrum
+on the requested side, at exactly the declared q coordinates. No implicit
+resampling, aggregation, label mapping, or clinical threshold is applied.
+Other feature contracts fail with ARAMINA_UNSUPPORTED_ARTIFACT. This is a
+supported runtime contract, not a claim that an uninspected real artifact
+conforms to it. Preprocessing remains artifact-specific.
 """
 
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass
-from logging import getLogger as _getLogger
-from typing import Any, Mapping
+from typing import Any
 
-from .aramina_provider import (
-    AraminaProviderRequest,
-    AraminaProviderResult,
-    build_aramina_safe_error,
-)
+import numpy as np
+
+from .aramina_provider import AraminaProviderRequest
+from .model_registry import RegistryModelEntry
 from .workflow_provider import (
-    WorkflowProvider,
-    WorkflowFeatureVector,
-    WorkflowResult,
-    WorkflowReadiness,
     CompatibilityResult,
+    WorkflowFeatureVector,
+    WorkflowProvider,
+    WorkflowReadiness,
+    WorkflowResult,
 )
+from .xrd_normalization import CanonicalXRDCase, validate_canonical_case
 
-_log = _getLogger(__name__)
+ARTIFACT_TYPE = "aramina.joblib.model_package"
+_FEATURE_CONTRACT = "aramina.canonical_intensity.v1"
+_DEFAULT_AUTHOR = "Bremen Platform"
+_SAFE_FAILURES = frozenset({
+    "ARAMINA_INVALID_REQUEST", "ARAMINA_UNSUPPORTED_ARTIFACT",
+    "ARAMINA_ARTIFACT_INTEGRITY_FAILED", "ARAMINA_UNSUPPORTED_INPUT",
+    "ARAMINA_EXECUTION_FAILED", "ARAMINA_INVALID_RESULT",
+})
 
 
 class AraminaWorkflowError(Exception):
-    """Base exception for Aramina workflow errors."""
+    """An allow-listed stable failure code; never arbitrary exception text."""
 
-
-class AraminaProviderUnavailableError(AraminaWorkflowError):
-    """Aramina provider service is not reachable."""
-
-
-# ---------------------------------------------------------------------------
-# Official Aramina /predict contract
-# ---------------------------------------------------------------------------
-
-# The official Aramina /predict request_json may contain ONLY these fields.
-_ARAMINA_OFFICIAL_REQUEST_FIELDS = frozenset({
-    "analysis_author",
-    "prediction_comment",
-    "patient_id",
-    "target_side",
-})
-
-_ARAMINA_DEFAULT_ANALYSIS_AUTHOR = "Bremen Platform"
-_ARAMINA_ALLOWED_TARGET_SIDES = frozenset({"left", "right"})
-
-# Keys that must never appear in a public report payload.
-_ARAMINA_SENSITIVE_REPORT_KEYS = frozenset({
-    "artifact_sha256",
-    "model_checksum",
-    "checksum",
-    "path",
-    "s3",
-    "s3_key",
-    "bucket",
-    "token",
-    "ticket",
-    "traceback",
-    "password",
-    "secret",
-    "credential",
-})
-
-
-# ---------------------------------------------------------------------------
-# Aramina provider boundary (service adapter)
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class _AraminaProviderConfig:
-    """Configuration for the Aramina provider service boundary."""
-
-    provider_url: str = ""
-    timeout_seconds: int = 300
-
-
-def _load_aramina_provider_config() -> _AraminaProviderConfig:
-    """Load Aramina provider config from environment variables."""
-    return _AraminaProviderConfig(
-        provider_url=os.environ.get("BREMEN_ARAMINA_PROVIDER_URL", ""),
-        timeout_seconds=int(os.environ.get("BREMEN_ARAMINA_TIMEOUT", "300")),
-    )
-
-
-def _safe_model_id_env_key(model_id: str) -> str:
-    """Convert a model_id to a safe env-var suffix.
-
-    Uppercases the model_id and converts every non-alphanumeric character
-    to an underscore (e.g. ``model-a`` -> ``MODEL_A``).
-    """
-    return "".join(ch.upper() if ch.isalnum() else "_" for ch in model_id)
-
-
-def _resolve_aramina_provider_url(model_id: str = "") -> str:
-    """Resolve the Aramina provider URL for a model.
-
-    Prefers the per-model env var ``BREMEN_ARAMINA_PROVIDER_URL__<SAFE_MODEL_ID>``
-    when present; otherwise falls back to ``BREMEN_ARAMINA_PROVIDER_URL``.
-    """
-    if model_id:
-        per_model = os.environ.get(
-            f"BREMEN_ARAMINA_PROVIDER_URL__{_safe_model_id_env_key(model_id)}",
-            "",
-        )
-        if per_model:
-            return per_model
-    return os.environ.get("BREMEN_ARAMINA_PROVIDER_URL", "")
+    def __init__(self, code: str) -> None:
+        self.code = code if code in _SAFE_FAILURES else "ARAMINA_EXECUTION_FAILED"
+        super().__init__(self.code)
 
 
 def _build_aramina_request_json(
-    *,
-    patient_id: str,
-    target_side: str,
-    analysis_author: str = "",
-    prediction_comment: str = "",
+    *, patient_id: str, target_side: str,
+    analysis_author: str = "", prediction_comment: str = "",
 ) -> dict[str, str]:
-    """Build the official Aramina /predict request_json.
-
-    Only the official fields (analysis_author, prediction_comment,
-    patient_id, target_side) are included.  Bremen-only identifiers
-    (container_id, source_id, workflow_id, model_id, job_id, request_id)
-    are never forwarded.
-
-    ``analysis_author`` defaults to "Bremen Platform" when absent/blank.
-    ``target_side`` must be "left" or "right".  ``patient_id`` is required.
-
-    Raises
-    ------
-    ValueError
-        If patient_id is missing or target_side is invalid.
-    """
-    if not patient_id:
-        raise ValueError("patient_id is required for Aramina prediction")
-    side = str(target_side).strip().lower()
-    if side not in _ARAMINA_ALLOWED_TARGET_SIDES:
-        raise ValueError(
-            f"Invalid target_side: {target_side!r}. "
-            f"Allowed values: {', '.join(sorted(_ARAMINA_ALLOWED_TARGET_SIDES))}"
-        )
-    author = str(analysis_author).strip() if analysis_author else ""
-    if not author:
-        author = _ARAMINA_DEFAULT_ANALYSIS_AUTHOR
-    comment = str(prediction_comment).strip() if prediction_comment else ""
+    """Validate local model input; omit all platform/private identifiers."""
+    if not isinstance(patient_id, str) or not patient_id.strip():
+        raise AraminaWorkflowError("ARAMINA_INVALID_REQUEST")
+    if not isinstance(target_side, str) or target_side.strip().lower() not in {
+        "left", "right",
+    }:
+        raise AraminaWorkflowError("ARAMINA_INVALID_REQUEST")
+    if not isinstance(analysis_author, str) or not isinstance(prediction_comment, str):
+        raise AraminaWorkflowError("ARAMINA_INVALID_REQUEST")
     return {
-        "analysis_author": author,
-        "prediction_comment": comment,
-        "patient_id": str(patient_id),
-        "target_side": side,
+        "patient_id": patient_id.strip(),
+        "target_side": target_side.strip().lower(),
+        "analysis_author": analysis_author.strip() or _DEFAULT_AUTHOR,
+        "prediction_comment": prediction_comment.strip(),
     }
 
 
-def _sanitize_report_value(value: Any) -> Any:
-    """Recursively strip sensitive keys from a report value."""
-    if isinstance(value, Mapping):
-        return {
-            k: _sanitize_report_value(v)
-            for k, v in value.items()
-            if k.lower() not in _ARAMINA_SENSITIVE_REPORT_KEYS
-        }
-    if isinstance(value, list):
-        return [_sanitize_report_value(v) for v in value]
-    return value
+def _load_selected_artifact(entry: RegistryModelEntry) -> dict[str, Any]:
+    """Verify the same bytes we deserialize, only on the execution path."""
+    if entry.artifact_type != ARTIFACT_TYPE or not entry._artifact_path:
+        raise AraminaWorkflowError("ARAMINA_UNSUPPORTED_ARTIFACT")
+    from .s3_model_discovery import _load_staged_artifact
+    try:
+        package = _load_staged_artifact(entry._artifact_path, entry._checksum)
+    except ValueError:
+        raise AraminaWorkflowError("ARAMINA_ARTIFACT_INTEGRITY_FAILED") from None
+    except Exception:
+        raise AraminaWorkflowError("ARAMINA_UNSUPPORTED_ARTIFACT") from None
+    return _validate_artifact(package, entry)
 
 
-def _normalize_aramina_provider_response(
-    response: Mapping[str, Any],
-) -> dict[str, Any]:
-    """Normalize a raw Aramina provider response into a safe public report.
-
-    Accepts responses carrying external_report/internal_report.  The public
-    report exposes external_report but never internal_report wholesale.
-    Sensitive keys (artifact_sha256, model_checksum, path, S3, token,
-    ticket, traceback) are stripped.  No probability/TRA/decision fields
-    are invented when absent.
-    """
-    if not isinstance(response, Mapping):
-        raise AraminaWorkflowError(
-            "Aramina provider returned an invalid response"
-        )
-    report: dict[str, Any] = {}
-    external = response.get("external_report")
-    if external is not None:
-        report["external_report"] = _sanitize_report_value(external)
-    # internal_report is intentionally never exposed wholesale.
-    return report
-
-
-def _post_aramina_predict(
-    provider_url: str,
-    *,
-    h5_path: str,
-    request_json: Mapping[str, str],
-) -> dict[str, Any]:
-    """POST multipart input_h5 + request_json to Aramina /predict.
-
-    This is the only network boundary.  Tests monkeypatch this function.
-    No real external call is made here; no model.joblib is loaded or
-    vendored in Bremen.
-    """
-    # Placeholder — no real network call is made in this environment.
-    return {
-        "external_report": {},
-        "internal_report": {},
+def _validate_artifact(package: Any, entry: RegistryModelEntry) -> dict[str, Any]:
+    """Validate identity, feature contract and estimator without defaults."""
+    failure = "ARAMINA_UNSUPPORTED_ARTIFACT"
+    if not isinstance(package, dict):
+        raise AraminaWorkflowError(failure)
+    required = {
+        "model_id", "model_version", "artifact_type", "model",
+        "feature_contract", "positive_class", "feature_schema_version",
     }
+    if not required.issubset(package):
+        raise AraminaWorkflowError(failure)
+    if (package["model_id"] != entry.model_id
+            or package["model_version"] != entry.model_version
+            or package["artifact_type"] != ARTIFACT_TYPE
+            or package["feature_schema_version"] != entry.feature_schema_version):
+        raise AraminaWorkflowError(failure)
+    contract = package["feature_contract"]
+    if not isinstance(contract, dict) or set(contract) != {
+        "schema_version", "position", "q_grid", "normalization",
+    }:
+        raise AraminaWorkflowError(failure)
+    if (contract["schema_version"] != _FEATURE_CONTRACT
+            or contract["normalization"] != "none"
+            or not isinstance(contract["position"], str)
+            or not contract["position"]):
+        raise AraminaWorkflowError(failure)
+    try:
+        q = np.asarray(contract["q_grid"], dtype=float)
+        if q.ndim != 1 or not q.size or not np.isfinite(q).all():
+            raise ValueError
+        if not (np.diff(q) > 0).all():
+            raise ValueError
+        model = package["model"]
+        if not callable(getattr(model, "predict_proba", None)):
+            raise ValueError
+        classes = np.asarray(model.classes_)
+        if (classes.ndim != 1 or classes.size != 2
+                or len(set(classes.tolist())) != 2
+                or np.count_nonzero(classes == package["positive_class"]) != 1):
+            raise ValueError
+        if getattr(model, "n_features_in_", q.size) != q.size:
+            raise ValueError
+    except Exception:
+        raise AraminaWorkflowError(failure) from None
+    return package
 
 
-def _call_aramina_provider(
-    config: _AraminaProviderConfig,
-    request: AraminaProviderRequest,
-    *,
-    h5_path: str = "",
-) -> AraminaProviderResult:
-    """Call the Aramina provider service.
-
-    Validates that the provider is configured, builds the official
-    request_json, and calls the provider HTTP boundary.  The response is
-    normalized into a safe public report.
-    """
-    if not config.provider_url:
-        raise AraminaProviderUnavailableError(
-            "Aramina provider URL not configured. "
-            "Set BREMEN_ARAMINA_PROVIDER_URL."
-        )
-
-    # Build the official request_json — validates patient_id and
-    # target_side before any provider call.
-    request_json = _build_aramina_request_json(
-        patient_id=request.patient_id,
-        target_side=request.target_side,
-        analysis_author=request.analysis_author,
-        prediction_comment=request.prediction_comment,
-    )
-
-    _log.info(
-        "aramina.provider.call\tpatient_id=%s\ttarget_side=%s",
-        request.patient_id,
-        request.target_side,
-    )
-
-    response = _post_aramina_predict(
-        config.provider_url,
-        h5_path=h5_path,
-        request_json=request_json,
-    )
-    report = _normalize_aramina_provider_response(response)
-
-    return AraminaProviderResult(
-        model_family="aramina",
-        workflow_id="aramina",
-        model_id=request.patient_id,
-        model_version="",
-        status="passed",
-        target_side=request.target_side,
-        patient_id_supplied=True,
-        technical_demo_only=True,
-        clinical_stage="research draft",
-        report=report,
-    )
+def _prepare_features(
+    package: dict[str, Any], canonical: CanonicalXRDCase,
+    request_json: dict[str, str], h5_path: str,
+) -> np.ndarray:
+    """Use existing normalization and patient resolution; reject ambiguity."""
+    try:
+        validate_canonical_case(canonical)
+        from .workflow_orchestrator import _validate_aramina_source
+        _validate_aramina_source(h5_path, canonical, request_json["patient_id"])
+        contract = package["feature_contract"]
+        candidates = [m for m in canonical.measurements
+                      if m.side.lower() == request_json["target_side"]
+                      and m.position == contract["position"]]
+        if len(candidates) != 1:
+            raise ValueError
+        measurement = candidates[0]
+        if measurement.qc_flags:
+            raise ValueError
+        q = np.asarray(contract["q_grid"], dtype=float)
+        if not np.array_equal(measurement.q, q):
+            raise ValueError
+        features = np.asarray(measurement.intensity, dtype=float).reshape(1, -1)
+        if not np.isfinite(features).all():
+            raise ValueError
+        return features.copy()
+    except Exception:
+        raise AraminaWorkflowError("ARAMINA_UNSUPPORTED_INPUT") from None
 
 
-# ---------------------------------------------------------------------------
-# Workflow provider
-# ---------------------------------------------------------------------------
+def _run_local_artifact(
+    entry: RegistryModelEntry, canonical: CanonicalXRDCase,
+    request_json: dict[str, str], h5_path: str,
+) -> dict[str, float]:
+    """Execute the selected estimator and return only a validated numeric score."""
+    package = _load_selected_artifact(entry)
+    features = _prepare_features(package, canonical, request_json, h5_path)
+    model = package["model"]
+    try:
+        probabilities = np.asarray(model.predict_proba(features), dtype=float)
+    except Exception:
+        raise AraminaWorkflowError("ARAMINA_EXECUTION_FAILED") from None
+    if (probabilities.shape != (1, 2) or not np.isfinite(probabilities).all()
+            or (probabilities < 0).any() or (probabilities > 1).any()
+            or not np.isclose(probabilities.sum(), 1.0)):
+        raise AraminaWorkflowError("ARAMINA_INVALID_RESULT")
+    index = np.flatnonzero(np.asarray(model.classes_) == package["positive_class"])[0]
+    return {"risk_score": float(probabilities[0, index])}
 
 
 class AraminaWorkflowProvider(WorkflowProvider):
-    """Aramina workflow provider.
+    """Run one catalog-selected model locally, without environment/network config."""
 
-    Manifest-gated: only available when the catalog entry has a valid
-    Aramina manifest with provider_contract == "aramina_provider.v0.1".
+    workflow_id = "aramina"
 
-    Does NOT route through Bremen provider.  Does NOT call Bremen
-    model artifacts.
-    """
-
-    workflow_id: str = "aramina"
-
-    def __init__(
-        self,
-        *,
-        model_id: str = "",
-        model_version: str = "",
-        provider_url: str | None = None,
-    ) -> None:
-        self._model_id = model_id
-        self._model_version = model_version
-        # When no explicit provider_url is supplied, resolve it from the
-        # environment (per-model override first, then the base fallback).
-        resolved = (
-            provider_url
-            if provider_url is not None
-            else _resolve_aramina_provider_url(model_id)
-        )
-        self._provider_url = resolved
-        self._config = _AraminaProviderConfig(
-            provider_url=resolved,
-        )
+    def __init__(self, *, entry: RegistryModelEntry) -> None:
+        self._entry = entry
 
     def readiness(self) -> WorkflowReadiness:
-        configured = bool(self._provider_url)
-        # Manifest-backed Aramina instances are model_ready even without
-        # a provider URL.  The missing-URL case is handled inside
-        # execute() as a safe provider-boundary failure, not a generic
-        # workflow_unavailable gate.
+        # Discovery has staged the artifact. Structural/input failures are
+        # reported by execute with stable codes, not a generic readiness gate.
         return WorkflowReadiness(
-            workflow_id=self.workflow_id,
-            configured=configured,
-            model_ready=True,
+            workflow_id=self.workflow_id, configured=True, model_ready=True,
             scientifically_certified=False,
         )
 
-    def validate_compatibility(
-        self, canonical: Any,
-    ) -> CompatibilityResult:
-        return CompatibilityResult(
-            compatible=True,
-            reason="aramina_manifest_gated",
-        )
+    def validate_compatibility(self, canonical: Any) -> CompatibilityResult:
+        return CompatibilityResult(compatible=True, reason="artifact_contract_required")
 
-    def build_features(
-        self, canonical: Any,
-    ) -> WorkflowFeatureVector:
-        raise AraminaWorkflowError(
-            "Aramina does not use Bremen feature vectors"
-        )
+    def build_features(self, canonical: Any) -> WorkflowFeatureVector:
+        raise AraminaWorkflowError("ARAMINA_INVALID_REQUEST")
 
-    def run_inference(
-        self, features: WorkflowFeatureVector,
-    ) -> WorkflowResult:
+    def run_inference(self, features: WorkflowFeatureVector) -> WorkflowResult:
         return WorkflowResult(
-            workflow_id=self.workflow_id,
-            status="failed",
-            error="Aramina inference not called via Bremen feature path",
+            workflow_id=self.workflow_id, status="failed",
+            error="ARAMINA_INVALID_REQUEST",
         )
 
     def execute(
-        self,
-        canonical: Any,
-        *,
-        aramina_request: AraminaProviderRequest | None = None,
-        h5_path: str = "",
+        self, canonical: Any, context: Any = None, *,
+        aramina_request: AraminaProviderRequest | None = None, h5_path: str = "",
     ) -> WorkflowResult:
-        """Execute the Aramina workflow.
-
-        Validates provider availability and calls the Aramina provider service.
-        """
         try:
-            result = _call_aramina_provider(
-                self._config,
-                aramina_request or AraminaProviderRequest(
-                    container_id="",
-                    source_id="",
-                    patient_id="",
-                    target_side="left",
-                ),
-                h5_path=h5_path,
+            if aramina_request is None:
+                raise AraminaWorkflowError("ARAMINA_INVALID_REQUEST")
+            request_json = _build_aramina_request_json(
+                patient_id=aramina_request.patient_id,
+                target_side=aramina_request.target_side,
+                analysis_author=aramina_request.analysis_author,
+                prediction_comment=aramina_request.prediction_comment,
             )
-            payload: dict[str, Any] = {
-                "model_family": result.model_family,
-                "model_id": self._model_id,
-                "model_version": self._model_version,
-                "clinical_stage": result.clinical_stage,
-                "technical_demo_only": result.technical_demo_only,
-                "target_side": result.target_side,
-                "patient_id_supplied": result.patient_id_supplied,
+            report = _run_local_artifact(self._entry, canonical, request_json, h5_path)
+            payload = {
+                "workflow_id": self.workflow_id,
+                "model_id": self._entry.model_id,
+                "model_version": self._entry.model_version,
+                "technical_demo_only": True,
+                "scientifically_certified": False,
+                "external_report": report,
             }
-            # Merge the safe public report (external_report only) into the
-            # payload.  internal_report is never exposed wholesale.
-            payload.update(result.report)
+            if self._entry._clinical_stage == "research draft":
+                payload["clinical_stage"] = "research draft"
+            if context is not None:
+                context.emit("runtime.output.completed", "output", "completed")
             return WorkflowResult(
-                workflow_id=self.workflow_id,
-                status="completed",
-                payload=payload,
+                workflow_id=self.workflow_id, status="completed", payload=payload,
             )
-        except AraminaProviderUnavailableError:
-            return WorkflowResult(
-                workflow_id=self.workflow_id,
-                status="failed",
-                error="Aramina provider service is not configured",
-            )
-        except Exception as exc:
-            safe_err = build_aramina_safe_error(exc)
-            return WorkflowResult(
-                workflow_id=self.workflow_id,
-                status="failed",
-                error=safe_err.safe_reason,
-            )
+        except AraminaWorkflowError as exc:
+            code = exc.code
+        except Exception:
+            code = "ARAMINA_EXECUTION_FAILED"
+        return WorkflowResult(workflow_id=self.workflow_id, status="failed", error=code)
