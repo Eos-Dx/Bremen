@@ -1,0 +1,77 @@
+# PR0131 Precommit Review — Hotfix Uvicorn Access Log Redaction
+
+Branch: 0131-hotfix-uvicorn-access-redaction
+PR Goal: Fix uvicorn access log redaction so sensitive query params are redacted without breaking uvicorn AccessFormatter.
+
+## Production Evidence Addressed
+
+After Aramina job startup, production logs showed `ValueError: not enough values to unpack (expected 5, got 0)` from uvicorn AccessFormatter. Root cause: `SensitiveQueryRedactionFilter` called `record.getMessage()` first, which failed for plain messages with 5-tuple args (Python's `%` formatting raised TypeError). The except clause returned early, leaving `record.args` unredacted AND `record.msg` set to a plain string with `record.args` still a 5-tuple. When uvicorn's AccessFormatter later called `formatMessage()`, it broke.
+
+Fix applied: Handle uvicorn.access records (5-tuple args) FIRST, before calling `getMessage()`. Redact only `args[2]` (the request line) in-place, preserving the 5-tuple arity. Non-uvicorn records continue to use existing behavior.
+
+## Files Changed
+
+- `src/bremen/logging_config.py` (+25/-2) — Reordered filter logic to handle uvicorn.access 5-tuple args before getMessage(); redact args[2] in-place; preserve args arity
+- `tests/test_bremen_access_logging.py` (+70) — 6 new tests for uvicorn.access record handling
+
+## Test Commands and Pass Summaries
+
+```
+python -m compileall -q src tests                             → pass (no errors)
+pytest -q tests/test_bremen_access_logging.py                 → 20 passed (1.62s)
+pytest -q (full suite)                                        → 3802 passed, 11 skipped, 0 failures (41.32s)
+git diff --check                                              → clean
+```
+
+## Uvicorn Access Args Arity Review
+
+- [x] uvicorn.access records with 5-tuple args are detected BEFORE `getMessage()` is called
+- [x] `record.args[2]` (request line) is redacted in-place via `redact_sensitive_query_params()`
+- [x] 5-tuple arity is preserved: `(args[0], args[1], redacted_line, args[3], args[4])`
+- [x] AccessFormatter will NOT raise ValueError — args is still a 5-tuple with correct types
+- [x] If no sensitive params in args[2], args is returned unchanged (no unnecessary mutation)
+- [x] Verified by 6 new tests: `test_uvicorn_access_record_preserves_args_length`, `test_uvicorn_access_redacts_query_in_request_line`, `test_uvicorn_access_status_and_size_preserved`, `test_uvicorn_access_no_sensitive_params_preserves_args`, `test_uvicorn_access_all_sensitive_keys_redacted`
+
+## Ordinary App Log Redaction Review
+
+- [x] Non-uvicorn records (non-5-tuple args) continue to use existing behavior
+- [x] `record.getMessage()` is called, redacted, `record.msg` set, `record.args = ()`
+- [x] Sensitive query params still redacted from ordinary log messages
+- [x] Verified by existing tests: `test_filter_redacts_auth_ticket`, `test_filter_redacts_access_token`, etc.
+
+## /health Suppression Review
+
+- [x] Existing /health access-log suppression unchanged (in `fastapi_app.py` middleware)
+- [x] `fastapi_server.py` filter attachment to `uvicorn.access` and `uvicorn` loggers unchanged
+- [x] No health-related behavior modified
+
+## Security Review
+
+- [x] auth_ticket values not exposed in access logs (redacted to `<redacted>`)
+- [x] access_token values not exposed in access logs
+- [x] refresh_token values not exposed in access logs
+- [x] token values not exposed in access logs
+- [x] ticket values not exposed in access logs
+- [x] No traceback from logging formatter exposed
+- [x] No request secrets appear in formatted output
+- [x] `redact_sensitive_query_params()` is pure function — no side effects on request handling
+
+## Scope Review
+
+- [x] No Aramina runtime semantics changed
+- [x] No Bremen runtime semantics changed
+- [x] No auth ticket behavior changed
+- [x] No request handling changed
+- [x] No non-health access logs suppressed
+- [x] No sensitive query redaction removed
+- [x] Only `logging_config.py` (filter logic) and test file changed
+- [x] No other source files modified
+
+## Explicit Invariants
+
+- [x] **uvicorn.access args arity is preserved** — 5-tuple stays 5-tuple after redaction
+- [x] **Ticket/token values remain redacted** — `args[2]` redacted in-place for uvicorn; `record.msg` redacted for other records
+- [x] **AccessFormatter no longer raises ValueError** — args is always a proper 5-tuple when redaction occurs
+- [x] **Runtime/auth semantics are unchanged** — only logging output is affected
+
+## Verdict: READY FOR COMMIT
