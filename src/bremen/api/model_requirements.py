@@ -1,24 +1,123 @@
 """Model-specific container requirements API helpers.
 
 PR0122 implements the public API shape only.
+PR0124 adds manifest-backed validation awareness.
+PR0126 adds read-only model pipeline dry-run validation.
 
-The current runner/model stack does not yet declare raw H5/container
-requirement fields, so these helpers intentionally return honest
-not-available/no-op contracts.
-
-No H5 is opened here.
+No H5 is opened except during an authorized dry run.
 No inference job is created here.
 No report is created here.
+No persistent state is created during a dry run.
 """
 
 from __future__ import annotations
 
+import logging
+import os
+import traceback
+from dataclasses import dataclass, field
 from typing import Any
+
+_log = logging.getLogger(__name__)
 
 
 class ModelRequirementsNotFoundError(Exception):
     """Requested model_id does not exist in the current catalog."""
 
+
+# ---------------------------------------------------------------------------
+# Dry-run result
+# ---------------------------------------------------------------------------
+
+_DRY_RUN_SAFE_FAILURE_STAGES = frozenset({
+    "container_resolution",
+    "normalization",
+    "workflow_resolution",
+    "model_artifact",
+    "model_validation",
+    "input_preparation",
+    "feature_production",
+    "feature_validation",
+    "model_execution",
+    "unknown",
+})
+
+
+@dataclass
+class DryRunResult:
+    """Structured result of a read-only model pipeline dry run.
+
+    No job_id, no report_id, no score/decision payload.
+    """
+
+    status: str = "passed"  # "passed" | "failed"
+    ready_to_run: bool = True
+    checked_stages: list[str] = field(default_factory=list)
+    failure_stage: str | None = None
+    safe_reason: str = ""
+    error_class: str = ""
+
+
+def _safe_failure_stage(exc: Exception) -> str:
+    """Map an exception to a safe stage name for the API response.
+
+    Never exposes traceback, raw exception text, or internal paths.
+    """
+    msg = str(exc).lower()
+    exc_name = type(exc).__name__
+
+    # Container resolution failures
+    if "source" in msg or "upload" in msg or "h5_bucket" in msg:
+        return "container_resolution"
+    if "resolution" in msg:
+        return "container_resolution"
+
+    # Normalization failures
+    if "normaliz" in msg or "canonical" in msg or "layout" in msg:
+        return "normalization"
+    if "h5" in msg and ("open" in msg or "read" in msg or "file" in msg):
+        return "normalization"
+
+    # Workflow resolution
+    if "workflow" in msg and "not found" in msg:
+        return "workflow_resolution"
+
+    # Model artifact / validation
+    if "model" in msg and ("ready" in msg or "not" in msg or "valid" in msg):
+        return "model_artifact"
+    if "package" in msg or "checksum" in msg:
+        return "model_artifact"
+
+    # Input preparation / compatibility
+    if "incompatible" in msg or "sides" in msg or "measurements" in msg:
+        return "input_preparation"
+    if "input" in msg or "preparation" in msg:
+        return "input_preparation"
+
+    # Feature production / validation
+    if "feature" in msg:
+        return "feature_production"
+
+    # Model execution / inference
+    if "predict" in msg or "inference" in msg or "logit" in msg:
+        return "model_execution"
+
+    # Known exception classes
+    if "NormalizationError" in exc_name:
+        return "normalization"
+    if "WorkflowIncompatibleError" in exc_name:
+        return "input_preparation"
+    if "WorkflowConfigurationRequiredError" in exc_name:
+        return "input_preparation"
+    if "BremenWorkflowError" in exc_name:
+        return "model_execution"
+
+    return "unknown"
+
+
+# ---------------------------------------------------------------------------
+# Catalog row helpers
+# ---------------------------------------------------------------------------
 
 def find_model_catalog_row(
     model_id: str,
@@ -88,6 +187,10 @@ def _find_container_requirements(
         return None
     return dict(requirements)
 
+
+# ---------------------------------------------------------------------------
+# GET requirements response
+# ---------------------------------------------------------------------------
 
 def _build_declared_requirements_response(
     model_id: str,
@@ -180,6 +283,10 @@ def build_model_requirements_response(
     return response
 
 
+# ---------------------------------------------------------------------------
+# Request payload validation
+# ---------------------------------------------------------------------------
+
 def _validate_request_payload(
     request_payload: dict[str, Any],
     requirements: dict[str, Any],
@@ -206,6 +313,163 @@ def _validate_request_payload(
     return len(missing) == 0, missing, []
 
 
+# ---------------------------------------------------------------------------
+# Read-only model pipeline dry run (PR0126)
+# ---------------------------------------------------------------------------
+
+def _resolve_source_for_dry_run(source_id: str) -> str:
+    """Resolve a source_id to a local filesystem path for dry-run.
+
+    This is a thin wrapper around the production resolve_source so
+    tests can mock it without needing real S3 configuration.
+    """
+    from .job_api_handler import resolve_source  # noqa: PLC0415
+    return resolve_source(source_id=source_id, upload_id=None)
+
+
+def run_model_pipeline_dry_run(
+    model_id: str,
+    container_id: str,
+    source_id: str,
+    workflow_id: str,
+) -> DryRunResult:
+    """Execute a read-only dry run of the real model pipeline.
+
+    Reuses existing production logic:
+    - resolve_source for container/source resolution
+    - _normalize_h5 for H5 open/read/canonical normalization
+    - get_provider_for_model for workflow provider construction
+    - provider.execute for the full pipeline (compatibility, features, inference)
+
+    No persistent job state is created.
+    No report is generated.
+    No event store is written.
+    No S3 writes occur.
+    The H5 source is not mutated.
+
+    Parameters
+    ----------
+    model_id : The model to execute against.
+    container_id : The container display name (for provenance only).
+    source_id : The opaque catalog source reference.
+    workflow_id : The workflow to execute (e.g. "bremen").
+
+    Returns
+    -------
+    A DryRunResult with status, failure_stage, and checked_stages.
+    """
+    checked_stages: list[str] = []
+    h5_path: str = ""
+    staged = False
+
+    try:
+        # --- Stage 1: Container / source resolution ---
+        checked_stages.append("container_resolution")
+
+        from .model_registry import get_model_entry  # noqa: PLC0415
+        entry = get_model_entry(model_id)
+        if entry is None:
+            return DryRunResult(
+                status="failed",
+                ready_to_run=False,
+                checked_stages=checked_stages,
+                failure_stage="container_resolution",
+                safe_reason="Model not found in registry",
+            )
+
+        h5_path = _resolve_source_for_dry_run(source_id)
+        staged = True
+
+        # --- Stage 2: H5 normalization ---
+        checked_stages.append("normalization")
+
+        from .workflow_orchestrator import _normalize_h5  # noqa: PLC0415
+        canonical = _normalize_h5(h5_path)
+
+        # --- Stage 3: Workflow resolution ---
+        checked_stages.append("workflow_resolution")
+
+        from .workflow_orchestrator import get_provider_for_model  # noqa: PLC0415
+        try:
+            provider = get_provider_for_model(model_id)
+        except ValueError:
+            return DryRunResult(
+                status="failed",
+                ready_to_run=False,
+                checked_stages=checked_stages,
+                failure_stage="workflow_resolution",
+                safe_reason="Workflow provider not found for model",
+            )
+
+        # --- Stage 4: Full provider execution ---
+        # provider.execute runs: compatibility → artifact → features → inference
+        checked_stages.append("input_preparation")
+        checked_stages.append("feature_production")
+        checked_stages.append("model_execution")
+
+        wf_result = provider.execute(canonical)
+
+        if wf_result.status == "completed":
+            return DryRunResult(
+                status="passed",
+                ready_to_run=True,
+                checked_stages=checked_stages,
+            )
+        else:
+            # Map the provider error to a safe failure stage
+            error_msg = wf_result.error or ""
+            if "incompatible" in error_msg.lower() or "sides" in error_msg.lower():
+                fs = "input_preparation"
+            elif "feature" in error_msg.lower():
+                fs = "feature_production"
+            elif "model" in error_msg.lower() and "ready" in error_msg.lower():
+                fs = "model_artifact"
+            elif "configuration" in error_msg.lower():
+                fs = "input_preparation"
+            else:
+                fs = "model_execution"
+
+            return DryRunResult(
+                status="failed",
+                ready_to_run=False,
+                checked_stages=checked_stages,
+                failure_stage=fs,
+                safe_reason="Pipeline dry run failed",
+                error_class="workflow_failed",
+            )
+
+    except Exception as exc:
+        fs = _safe_failure_stage(exc)
+        checked_stages.append(fs) if fs not in checked_stages else None
+
+        _log.debug(
+            "bremen.dry_run.failed\tstage=%s\tmodel_id=%s\terror_class=%s",
+            fs, model_id, type(exc).__name__,
+        )
+
+        return DryRunResult(
+            status="failed",
+            ready_to_run=False,
+            checked_stages=checked_stages,
+            failure_stage=fs,
+            safe_reason="Pipeline dry run failed before a report could be generated.",
+            error_class=type(exc).__name__,
+        )
+    finally:
+        # Clean up staged H5 file if we downloaded one
+        if staged and h5_path:
+            try:
+                # Only clean up files in temp directories
+                if h5_path.startswith("/tmp/") or "staging" in h5_path:
+                    os.unlink(h5_path)
+            except OSError:
+                pass
+
+
+# ---------------------------------------------------------------------------
+# POST validate response builder
+# ---------------------------------------------------------------------------
+
 def build_model_requirements_validation_response(
     model_id: str,
     request_payload: dict[str, Any],
@@ -216,8 +480,11 @@ def build_model_requirements_validation_response(
     """Build model requirements validation response.
 
     When valid container_requirements exist with request_requirements,
-    performs request-payload-only validation (no H5, no S3, no inference).
+    performs a read-only model pipeline dry run after request payload validation.
     Otherwise returns the PR0122 no-op.
+
+    The dry run reuses production pipeline logic but creates no persistent
+    job state, no report, and no event store entries.
     """
     row = find_model_catalog_row(model_id, catalog=catalog)
     if row is None:
@@ -237,10 +504,12 @@ def build_model_requirements_validation_response(
     missing_required_fields: list[str] = []
     invalid_fields: list[str] = []
     can_submit_job: bool | None = None
+    failure_stage: str | None = None
     next_step_reason = (
         "Model-specific requirements validation is not implemented yet. "
         "Use POST /demo/api/jobs for the current production execution path."
     )
+    dry_run_mode = "request_payload"
 
     if requirements is not None:
         all_present, missing, invalid = _validate_request_payload(
@@ -251,22 +520,46 @@ def build_model_requirements_validation_response(
         missing_required_fields = missing
         invalid_fields = invalid
 
-        if all_present:
-            validation_status = "passed"
-            ready_to_run = True
-            can_submit_job = True
-            next_step_reason = (
-                "All required request fields are present. "
-                "Use POST /demo/api/jobs for execution."
-            )
-        else:
+        if not all_present:
+            # Request payload validation failed — do not attempt dry run
             validation_status = "failed"
             ready_to_run = False
             can_submit_job = False
+            failure_stage = "request_payload"
+            dry_run_mode = "request_payload"
             next_step_reason = (
                 "Required request fields are missing. "
                 "Use POST /demo/api/jobs for execution."
             )
+        else:
+            # Request payload OK — run the model pipeline dry run
+            dry_run_mode = "model_pipeline"
+            workflow_id = row.get("workflow_id", "bremen")
+            source_id = request_payload.get("source_id", "")
+            container_id = request_payload.get("container_id", "")
+
+            dry_result = run_model_pipeline_dry_run(
+                model_id=model_id,
+                container_id=container_id,
+                source_id=source_id,
+                workflow_id=workflow_id,
+            )
+
+            validation_status = dry_result.status
+            ready_to_run = dry_result.ready_to_run
+            failure_stage = dry_result.failure_stage
+            can_submit_job = dry_result.ready_to_run
+
+            if dry_result.status == "passed":
+                next_step_reason = (
+                    "Dry run passed. Use POST /demo/api/jobs for execution."
+                )
+            else:
+                next_step_reason = (
+                    "Dry run failed before a report could be generated."
+                )
+                if dry_result.safe_reason:
+                    next_step_reason += f" {dry_result.safe_reason}."
 
     response: dict[str, Any] = {
         "schema_version": "bremen.model_requirements_validation.v1",
@@ -292,9 +585,12 @@ def build_model_requirements_validation_response(
             "requirements_checked": requirements_checked,
             "inference_job_created": False,
             "report_created": False,
+            "dry_run_mode": dry_run_mode,
+            "read_only": True,
         },
         "missing_required_fields": missing_required_fields,
         "invalid_fields": invalid_fields,
+        "failure_stage": failure_stage,
         "next_step": {
             "can_submit_job": can_submit_job,
             "reason": next_step_reason,
