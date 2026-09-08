@@ -180,6 +180,32 @@ def build_model_requirements_response(
     return response
 
 
+def _validate_request_payload(
+    request_payload: dict[str, Any],
+    requirements: dict[str, Any],
+) -> tuple[bool, list[str], list[str]]:
+    """Validate request payload against request_requirements from manifest.
+
+    Returns (all_present, missing_required, invalid_fields).
+    """
+    req_reqs = requirements.get("request_requirements")
+    if not isinstance(req_reqs, dict):
+        # No request_requirements declared — default to requiring container_id
+        required_fields = ["container_id"]
+    else:
+        required_fields = _coerce_string_list(req_reqs.get("required_fields"))
+        if not required_fields:
+            required_fields = ["container_id"]
+
+    missing: list[str] = []
+    for field_name in required_fields:
+        value = request_payload.get(field_name)
+        if not value:
+            missing.append(field_name)
+
+    return len(missing) == 0, missing, []
+
+
 def build_model_requirements_validation_response(
     model_id: str,
     request_payload: dict[str, Any],
@@ -187,7 +213,12 @@ def build_model_requirements_validation_response(
     catalog: dict[str, Any] | None = None,
     request_id: str | None = None,
 ) -> dict[str, Any]:
-    """Build the current no-op model requirements validation response."""
+    """Build model requirements validation response.
+
+    When valid container_requirements exist with request_requirements,
+    performs request-payload-only validation (no H5, no S3, no inference).
+    Otherwise returns the PR0122 no-op.
+    """
     row = find_model_catalog_row(model_id, catalog=catalog)
     if row is None:
         raise ModelRequirementsNotFoundError(model_id)
@@ -197,6 +228,45 @@ def build_model_requirements_validation_response(
         row=row,
         catalog=catalog,
     )
+
+    # Determine validation behavior
+    validation_available = False
+    validation_status = "not_available"
+    ready_to_run: bool | None = None
+    requirements_checked = False
+    missing_required_fields: list[str] = []
+    invalid_fields: list[str] = []
+    can_submit_job: bool | None = None
+    next_step_reason = (
+        "Model-specific requirements validation is not implemented yet. "
+        "Use POST /demo/api/jobs for the current production execution path."
+    )
+
+    if requirements is not None:
+        all_present, missing, invalid = _validate_request_payload(
+            request_payload, requirements,
+        )
+        validation_available = True
+        requirements_checked = True
+        missing_required_fields = missing
+        invalid_fields = invalid
+
+        if all_present:
+            validation_status = "passed"
+            ready_to_run = True
+            can_submit_job = True
+            next_step_reason = (
+                "All required request fields are present. "
+                "Use POST /demo/api/jobs for execution."
+            )
+        else:
+            validation_status = "failed"
+            ready_to_run = False
+            can_submit_job = False
+            next_step_reason = (
+                "Required request fields are missing. "
+                "Use POST /demo/api/jobs for execution."
+            )
 
     response: dict[str, Any] = {
         "schema_version": "bremen.model_requirements_validation.v1",
@@ -215,22 +285,19 @@ def build_model_requirements_validation_response(
             if requirements is not None
             else "requirements_not_declared"
         ),
-        "validation_available": False,
+        "validation_available": validation_available,
         "validation": {
-            "status": "not_available",
-            "ready_to_run": None,
-            "requirements_checked": False,
+            "status": validation_status,
+            "ready_to_run": ready_to_run,
+            "requirements_checked": requirements_checked,
             "inference_job_created": False,
             "report_created": False,
         },
-        "missing_required_fields": [],
-        "invalid_fields": [],
+        "missing_required_fields": missing_required_fields,
+        "invalid_fields": invalid_fields,
         "next_step": {
-            "can_submit_job": None,
-            "reason": (
-                "Model-specific requirements validation is not implemented yet. "
-                "Use POST /demo/api/jobs for the current production execution path."
-            ),
+            "can_submit_job": can_submit_job,
+            "reason": next_step_reason,
         },
     }
     if request_id:

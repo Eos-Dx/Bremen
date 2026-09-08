@@ -1,0 +1,144 @@
+PR0125 PRECOMMIT REVIEW — FINAL
+
+Branch: 0125-manifest-backed-requirements-validation
+Commit: 7bcec5acc4b1eae745ccd703aea3c22b0e74775c
+Reviewed: 2026-09-08T07:10:39Z
+
+Verdict: READY FOR COMMIT
+
+SUMMARY
+-------
+PR0125 makes POST /demo/api/models/{model_id}/requirements/validate
+perform safe manifest-backed pre-submit request validation when valid
+container_requirements.json exists. Validation is request-payload-only:
+it checks that required request fields are present. It must not open H5,
+call S3, run inference, create jobs, or create reports.
+
+When no valid container_requirements exist, the existing PR0122 no-op
+behavior is preserved unchanged.
+
+FILES CHANGED
+-------------
+  src/bremen/api/model_requirements.py          +91 / -13
+  src/bremen/api/s3_model_discovery.py          +1
+  tests/test_bremen_model_requirements_api.py   +71 / -1
+
+Total: 3 files changed, 150 insertions, 13 deletions
+
+BEHAVIOR REVIEW
+---------------
+
+1. No-manifest no-op behavior
+   CONFIRMED — test_post_validate_without_manifest_still_noop:
+     validation_available=false
+     validation.status=not_available
+     validation.ready_to_run=null
+     validation.requirements_checked=false
+     validation.inference_job_created=false
+     validation.report_created=false
+     next_step.can_submit_job=null
+
+2. Manifest present, required fields present → passed
+   CONFIRMED — test_post_validate_with_manifest_required_present_returns_passed:
+     validation_available=true
+     validation.status=passed
+     validation.ready_to_run=true
+     validation.requirements_checked=true
+     validation.inference_job_created=false
+     validation.report_created=false
+     missing_required_fields=[]
+     invalid_fields=[]
+     next_step.can_submit_job=true
+
+3. Manifest present, required fields missing → failed
+   CONFIRMED — test_post_validate_with_manifest_required_missing_returns_failed:
+     validation_available=true
+     validation.status=failed
+     validation.ready_to_run=false
+     validation.requirements_checked=true
+     missing_required_fields contains "container_id"
+     next_step.can_submit_job=false
+
+4. request_requirements.required_fields usage
+   CONFIRMED in _validate_request_payload():
+     - When request_requirements is a dict with required_fields list → uses those
+     - When request_requirements is absent or empty → defaults to ["container_id"]
+     - Only string values in required_fields are considered (via _coerce_string_list)
+
+5. GET /requirements unchanged from PR0124
+   CONFIRMED — build_model_requirements_response was not modified by this PR;
+   diff context shift only. Test test_get_model_requirements_with_manifest_returns_declared
+   still passes.
+
+6. /api/models does not expose container_requirements
+   CONFIRMED — no changes to model_catalog.py; /api/models isolation maintained.
+
+7. h5_path not echoed
+   CONFIRMED — test_post_validate_h5_path_not_echoed:
+     - Sends h5_path="/tmp/private/Nova_376.h5"
+     - Asserts "h5_path" not in data
+     - Asserts h5_path_supplied=true (boolean only)
+     - Asserts "/tmp/private/Nova_376.h5" not in response string
+
+SECURITY REVIEW
+---------------
+  [PASS] validate does not open H5
+  [PASS] validate does not call S3
+  [PASS] validate does not create jobs
+  [PASS] validate does not run inference
+  [PASS] validate does not create reports
+  [PASS] no S3 bucket/key exposure
+  [PASS] no filesystem path exposure
+  [PASS] no checksum exposure
+  [PASS] no _package exposure
+  [PASS] no portable_logreg internals exposed
+  [PASS] no tokens/passwords/secrets exposed
+  [PASS] no raw h5_path echoed (only h5_path_supplied boolean)
+  [PASS] technical_demo_only=true on all responses
+  [PASS] no clinical/diagnostic claims introduced
+
+ARAMINA SAFETY
+--------------
+  [PASS] workflow_id=aramina was not enabled
+  [PASS] no Aramina catalog row added
+  [PASS] no Aramina routing through Bremen
+
+TEST RESULTS
+------------
+
+Focused tests (21 passed, 0 failed):
+  pytest -q tests/test_bremen_model_requirements_api.py
+  21 passed, 43 warnings in 1.93s
+
+Regression tests (68 passed, 0 failed):
+  pytest -q tests/test_bremen_model_catalog.py tests/test_model_registry.py tests/test_catalog_api_multi_model.py
+  68 passed in 1.03s
+
+Compilation:
+  python -m compileall -q src tests — no errors
+
+Whitespace:
+  git diff --check — clean
+
+IMPLEMENATION NOTES
+--------------------
+- _validate_request_payload is a pure function: no H5, no S3, no inference
+- It only reads string keys from the request payload dict
+- The s3_model_discovery.py change adds "request_requirements" to the
+  allowed top-level field set for container_requirements.json validation
+- inference_job_created and report_created are hardcoded False in all paths
+
+WARNINGS
+--------
+  1. Starlette TestClient httpx deprecation — existing code, out of scope
+  2. FastAPI on_event("startup") deprecation — existing code, out of scope
+
+REQUIRED FIXES
+--------------
+  None
+
+COMMIT COMMANDS
+---------------
+git add src/bremen/api/model_requirements.py src/bremen/api/s3_model_discovery.py tests/test_bremen_model_requirements_api.py .project-memory/pr/0125-manifest-backed-requirements-validation/reviews/precommit-review.txt
+git diff --cached --check
+git commit -m "feat(api): validate declared model request requirements"
