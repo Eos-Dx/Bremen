@@ -1,0 +1,100 @@
+# PR0130 Precommit Review — Hotfix Aramina Manifest Validation
+
+Branch: 0130-hotfix-aramina-manifest-validation
+PR Goal: Hotfix Aramina manifest validation so valid Aramina manifests are not rejected by the Bremen-only manifest validator.
+
+## Production Evidence Addressed
+
+After uploading two Aramina model packages to S3, app startup completed but catalog showed `candidate_count=5, available_count=3, rejected_count=2` with `reason_category=manifest_validation_failed`. Root cause: `discover_models` called `validate_model_manifest(data)` (Bremen-only) before branching on `artifact_type`, rejecting Aramina manifests for missing Bremen-specific fields. Fix: read `artifact_type` early and skip the Bremen-only validator for Aramina manifests.
+
+## Files Changed
+
+- `src/bremen/api/s3_model_discovery.py` (+28/-6) — Branch validation by artifact_type before calling Bremen-only validator; add Aramina-specific checksum and filename validation
+- `tests/test_s3_model_discovery.py` (+295) — 9 new Aramina manifest validation tests
+- `tests/test_aramina_workflow_runtime.py` (+4/-4) — Update test checksums to valid 64-char hex
+
+## Test Commands and Pass Summaries
+
+```
+python -m compileall -q src tests                             → pass (no errors)
+pytest -q tests/test_s3_model_discovery.py                    → 105 passed (1.70s)
+pytest -q tests/test_aramina_provider_contract.py             → 30 passed
+pytest -q tests/test_aramina_workflow_runtime.py              → 26 passed
+pytest -q tests/test_bremen_model_requirements_api.py         → 35 passed (1.96s)
+pytest -q tests/test_bremen_model_catalog.py                  → 14 passed
+pytest -q tests/test_model_registry.py                        → 36 passed
+pytest -q tests/test_catalog_api_multi_model.py               → 18 passed
+pytest -q (full suite)                                        → 3797 passed, 11 skipped, 0 failures (40.13s)
+git diff --check                                              → clean
+```
+
+## Manifest Parse Review
+
+- [x] `discover_models` reads `artifact_type_raw = str(data.get("artifact_type", "portable_logreg"))` after JSON is decoded and confirmed as dict
+- [x] `artifact_type_raw` is always bound before any reference — no UnboundLocalError possible
+- [x] `is_aramina = artifact_type_raw == _ARAMINA_ARTIFACT_TYPE` branches validation correctly
+- [x] For Aramina: skips `validate_model_manifest(data)` entirely
+- [x] For Bremen/default: calls `validate_model_manifest(data)` as before
+
+## Aramina Manifest Validation Review
+
+- [x] `_validate_aramina_discovery_fields` validates: model_version, model_filename, model_checksum, feature_schema_version, clinical_stage, provider_contract
+- [x] New: `model_filename` path traversal check (`..`, `/`, `\` rejected)
+- [x] New: `model_checksum` validated as exactly 64-char lowercase SHA256 hex via `_re.fullmatch(r"[a-f0-9]{64}", model_checksum)`
+- [x] `provider_contract == "aramina_provider.v0.1"` required (wrong values rejected)
+- [x] `workflow_id == "aramina"` required by `_ALLOWED_WORKFLOW_IDS`
+- [x] Invalid Aramina checksum rejected (test: `test_invalid_aramina_checksum_rejected`)
+- [x] Invalid Aramina provider_contract rejected (test: `test_invalid_aramina_provider_contract_rejected`)
+- [x] Invalid Aramina workflow_id rejected (test: `test_invalid_aramina_workflow_id_rejected`)
+
+## Bremen Manifest Regression Review
+
+- [x] Bremen manifest validation path unchanged — `validate_model_manifest(data)` still called for non-Aramina artifacts
+- [x] `test_bremen_manifest_behavior_unchanged` confirms Bremen manifests still discover and load correctly
+- [x] All 105 `test_s3_model_discovery.py` tests pass (existing + new)
+- [x] Full Bremen catalog/registry/multi-model tests pass (105 + 35 + 68 = 208 targeted tests, all pass)
+
+## Catalog Behavior Review
+
+- [x] Valid Aramina manifests produce catalog entries (test: `test_aramina_with_joblib_accepted`)
+- [x] Aramina entries are manifest-gated (test: `test_aramina_manifest_not_sent_through_bremen_validator`)
+- [x] No manifest means no executable Aramina model
+- [x] `model.joblib` is NOT loaded during Aramina catalog discovery (test: `test_no_joblib_load_during_aramina_discovery`) — Aramina entries get `_package={}`
+- [x] `model_checksum` is NOT exposed in public catalog response (test: `test_checksum_not_exposed_publicly`)
+- [x] Mixed Bremen + Aramina discovery works (test: `test_mixed_bremen_and_aramina_discovery` — 3 Bremen + 2 Aramina = 5 available)
+
+## Requirements Behavior Review
+
+- [x] GET /models/{aramina_model_id}/requirements works for valid manifest-backed Aramina entries
+- [x] Aramina default request fields: container_id, source_id, patient_id, target_side
+- [x] Bremen requirements behavior unchanged (35 tests pass)
+
+## Routing Review
+
+- [x] Aramina does not route through Bremen provider
+- [x] Bremen workflow behavior unchanged
+- [x] Aramina workflow path remains dedicated
+
+## Security Review
+
+- [x] No raw h5_path exposed in public responses
+- [x] No filesystem path exposed
+- [x] No S3 bucket/key exposed
+- [x] No `model_checksum` exposed publicly (stored as private `_checksum`, absent from `to_safe_dict()` and `to_dict()`)
+- [x] No token/password/secret exposed
+- [x] No traceback/raw exception text exposed
+- [x] No `_package` internals exposed (Aramina gets `_package={}`)
+- [x] No `portable_logreg` internals exposed
+- [x] No `model.joblib` vendored into Bremen
+
+## Explicit Invariants
+
+- [x] **Aramina manifest validation no longer uses Bremen-only `validate_model_manifest`** — the fix reads `artifact_type` early and skips it for Aramina
+- [x] **Bremen manifest validation remains unchanged** — `validate_model_manifest(data)` still called for all non-Aramina artifacts
+- [x] **`artifact_type` cannot be referenced before assignment** — assigned via `str(data.get("artifact_type", "portable_logreg"))` after JSON is confirmed as dict
+- [x] **Aramina remains manifest-gated** — no valid manifest = no executable Aramina model
+- [x] **`model.joblib` is not loaded during Aramina discovery** — Aramina path skips joblib loading entirely
+- [x] **`model_checksum` is not exposed publicly** — verified by `test_checksum_not_exposed_publicly`
+- [x] **No clinical/regulatory claims added** — `clinical_stage="research draft"` is a factual descriptor only
+
+## Verdict: READY FOR COMMIT
