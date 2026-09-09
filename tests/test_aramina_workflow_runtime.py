@@ -433,3 +433,177 @@ class TestAraminaRequirements:
 
 
 # ---------------------------------------------------------------------------
+
+
+# ===================================================================
+# FastAPI route-level Aramina request plumbing tests (PR0135)
+# ===================================================================
+
+try:
+    from fastapi.testclient import TestClient
+except ImportError:
+    TestClient = None  # type: ignore[assignment,misc]
+
+
+def _fastapi_client():
+    from bremen.api.fastapi_app import create_fastapi_app
+    return TestClient(create_fastapi_app())
+
+
+def _valid_aramina_body(*, source_id="fresh-src-001", **overrides):
+    """Build a valid Aramina request body."""
+    base = {
+        "container_id": "Nova_376.h5",
+        "source_id": source_id,
+        "workflow_id": "aramina",
+        "model_id": "aramina-a",
+        "patient_id": "Nova_376",
+        "target_side": "left",
+        "analysis_author": "Bremen Platform",
+        "prediction_comment": "",
+    }
+    base.update(overrides)
+    return base
+
+
+@pytest.mark.skipif(TestClient is None, reason="fastapi not installed")
+class TestFastAPIAraminaRoutePlumbing:
+    """PR0135: FastAPI POST /demo/api/jobs Aramina field plumbing."""
+
+    def test_valid_aramina_json_not_rejected(self, tmp_path, source, monkeypatch):
+        """Valid Aramina JSON must not return ARAMINA_INVALID_REQUEST."""
+        entry = _entry(tmp_path)
+        _install(entry)
+        monkeypatch.setattr(
+            "bremen.api.job_api_handler.resolve_source",
+            lambda sid, uid: source[0],
+        )
+        client = _fastapi_client()
+        body = _valid_aramina_body()
+        resp = client.post("/demo/api/jobs", json=body)
+        # Must not be 400 with ARAMINA_INVALID_REQUEST
+        assert resp.status_code != 400, (
+            f"Valid Aramina request rejected: {resp.json()}"
+        )
+        # Should succeed or fail for other reasons (e.g. missing h5) but
+        # not for missing patient_id/target_side
+        data = resp.json()
+        assert data.get("error_code") != "ARAMINA_INVALID_REQUEST"
+
+    def test_valid_aramina_reaches_execution_path(self, tmp_path, source, monkeypatch):
+        """Valid Aramina JSON must reach create_analysis_job with aramina_request.
+
+        The job may fail later (e.g. H5 content mismatch with artifact
+        feature contract), but it must not be rejected as
+        ARAMINA_INVALID_REQUEST at the request validation stage.
+        """
+        entry = _entry(tmp_path)
+        _install(entry)
+        monkeypatch.setattr(
+            "bremen.api.job_api_handler.resolve_source",
+            lambda sid, uid: source[0],
+        )
+        client = _fastapi_client()
+        body = _valid_aramina_body()
+        resp = client.post("/demo/api/jobs", json=body)
+        assert resp.status_code == 201
+        job_data = resp.json()["job"]
+        # Must NOT be rejected as invalid request
+        assert "ARAMINA_INVALID_REQUEST" not in json.dumps(job_data)
+        # Must reach aramina workflow (may succeed or fail at artifact
+        # level, but the request validation passed)
+        assert "aramina" in job_data["requested_workflows"]
+
+    def test_missing_patient_id_returns_400(self, monkeypatch):
+        """Missing patient_id must return 400, not 500."""
+        client = _fastapi_client()
+        body = _valid_aramina_body()
+        del body["patient_id"]
+        resp = client.post("/demo/api/jobs", json=body)
+        assert resp.status_code == 400
+        data = resp.json()
+        assert data.get("error_code") == "ARAMINA_INVALID_REQUEST"
+        assert data.get("technical_demo_only") is True
+
+    def test_missing_target_side_returns_400(self, monkeypatch):
+        """Missing target_side must return 400, not 500."""
+        client = _fastapi_client()
+        body = _valid_aramina_body()
+        del body["target_side"]
+        resp = client.post("/demo/api/jobs", json=body)
+        assert resp.status_code == 400
+        data = resp.json()
+        assert data.get("error_code") == "ARAMINA_INVALID_REQUEST"
+        assert data.get("technical_demo_only") is True
+
+    def test_invalid_target_side_returns_400(self, monkeypatch):
+        """Invalid target_side must return 400, not 500."""
+        client = _fastapi_client()
+        body = _valid_aramina_body(target_side="anterior")
+        resp = client.post("/demo/api/jobs", json=body)
+        assert resp.status_code == 400
+        data = resp.json()
+        assert data.get("error_code") == "ARAMINA_INVALID_REQUEST"
+        assert data.get("technical_demo_only") is True
+
+    def test_expected_validation_failure_no_traceback(self, monkeypatch, caplog):
+        """Expected Aramina validation failure must not log traceback."""
+        import logging
+        client = _fastapi_client()
+        body = _valid_aramina_body()
+        del body["patient_id"]
+        with caplog.at_level(logging.ERROR):
+            resp = client.post("/demo/api/jobs", json=body)
+        assert resp.status_code == 400
+        # Must not contain traceback in response text
+        assert "Traceback" not in resp.text
+        assert "File \"" not in resp.text
+        # Must not log traceback either (no .exception() call)
+        for record in caplog.records:
+            assert "Traceback" not in record.message
+
+    def test_source_id_not_consumed_by_invalid_request(self, monkeypatch):
+        """Fresh source_id must not be consumed by invalid Aramina request."""
+        resolve = MagicMock()
+        monkeypatch.setattr(
+            "bremen.api.job_api_handler.resolve_source", resolve,
+        )
+        client = _fastapi_client()
+        body = _valid_aramina_body()
+        del body["patient_id"]  # invalid
+        resp = client.post("/demo/api/jobs", json=body)
+        assert resp.status_code == 400
+        # resolve_source must NOT have been called
+        resolve.assert_not_called()
+
+    def test_bremen_workflow_unchanged(self, monkeypatch):
+        """Bremen workflow_id=bremen is unaffected by Aramina changes."""
+        client = _fastapi_client()
+        resp = client.post("/demo/api/jobs", json={
+            "workflow_id": "bremen",
+        })
+        # Should return 400 (missing source) — not a 500 or Aramina error
+        assert resp.status_code == 400
+        data = resp.json()
+        assert data.get("error_code") != "ARAMINA_INVALID_REQUEST"
+
+    def test_no_aramina_provider_url_or_http_dependency(self):
+        """No provider URL, HTTP, or aramina package dependency added."""
+        for name in ("workflow_aramina.py", "workflow_orchestrator.py",
+                      "fastapi_app.py", "job_api_handler.py"):
+            text = (Path("src/bremen/api") / name).read_text()
+            assert "BREMEN_ARAMINA_PROVIDER_URL" not in text
+            assert "provider_url" not in text
+
+    def test_no_raw_exception_in_aramina_error_response(self, monkeypatch):
+        """Aramina error response must not contain raw exception details."""
+        client = _fastapi_client()
+        body = _valid_aramina_body(patient_id="")
+        resp = client.post("/demo/api/jobs", json=body)
+        assert resp.status_code == 400
+        text = resp.text
+        assert "/Users/" not in text
+        assert "/home/" not in text
+        assert "Traceback" not in text
+        assert "bucket" not in text.lower()
+        assert "token" not in text.lower()
