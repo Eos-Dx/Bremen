@@ -525,6 +525,117 @@ def test_bremen_construction_unchanged(monkeypatch):
 # ===================================================================
 
 
+@pytest.fixture
+def catalog_provider_trace(monkeypatch):
+    """Observe real resolution/registration; fail if fallback is attempted."""
+    from bremen.api import workflow_orchestrator as orchestrator
+    from bremen.api.workflow_registry import WorkflowRegistry
+
+    resolve = MagicMock(wraps=orchestrator.get_provider_for_model)
+    register = MagicMock(side_effect=WorkflowRegistry.register)
+    default = MagicMock(side_effect=AssertionError("Unexpected default registry"))
+    scaffold = MagicMock(side_effect=AssertionError("Unexpected scaffold"))
+    monkeypatch.setattr(orchestrator, "get_provider_for_model", resolve)
+    monkeypatch.setattr(orchestrator, "get_default_registry", default)
+    monkeypatch.setattr(
+        "bremen.api.workflow_aramina_scaffold.AraminaProvider", scaffold,
+    )
+    monkeypatch.setattr(
+        WorkflowRegistry, "register", lambda self, provider: register(self, provider),
+    )
+    return resolve, register, default, scaffold
+
+
+def test_catalog_job_registers_real_aramina_provider(tmp_path, source, catalog_provider_trace):
+    entry = _entry(tmp_path)
+    _install(entry)
+    job = jobs.create_analysis_job(
+        model_id=entry.model_id, h5_path=source[0], aramina_request=_request(),
+    )
+    resolve, register, default, scaffold = catalog_provider_trace
+    resolve.assert_called_once_with(entry.model_id)
+    assert register.call_count == 1
+    workflow_registry, provider = register.call_args.args
+    assert type(provider) is AraminaWorkflowProvider
+    assert provider._entry is entry
+    assert workflow_registry.resolve("aramina") is provider
+    assert provider.readiness().model_ready is True
+    assert job.overall_status == "completed"
+    default.assert_not_called()
+    scaffold.assert_not_called()
+
+
+@pytest.mark.parametrize("bremen_loaded", [False, True])
+def test_default_registry_uses_real_aramina_and_preserves_bremen(
+    tmp_path, monkeypatch, bremen_loaded,
+):
+    from bremen.api.model_state import ModelState
+    from bremen.api.workflow_bremen import BremenProvider
+    from bremen.api.workflow_orchestrator import get_default_registry
+
+    entry = _entry(tmp_path)
+    bremen_entry = replace(
+        entry, model_id="bremen-a", workflow_id="bremen", artifact_type="portable_logreg",
+    )
+    _install(bremen_entry, entry)
+    package = {"portable_logreg": {}} if bremen_loaded else None
+    monkeypatch.setattr(ModelState, "get_model", lambda: package)
+    monkeypatch.setattr(ModelState, "get_instance", lambda: MagicMock(
+        _model_checksum="checksum", _model_version="version",
+    ))
+    constructor = MagicMock(wraps=BremenProvider)
+    monkeypatch.setattr("bremen.api.workflow_bremen.BremenProvider", constructor)
+    workflow_registry = get_default_registry()
+    provider = workflow_registry.resolve("aramina")
+    assert type(provider) is AraminaWorkflowProvider
+    assert provider._entry is entry
+    assert provider.readiness().model_ready is True
+    assert type(get_provider_for_model(entry.model_id)) is AraminaWorkflowProvider
+    constructor.assert_called_once_with(
+        model_package=package,
+        model_checksum="checksum" if bremen_loaded else "",
+        model_version="version" if bremen_loaded else "",
+    )
+    assert type(workflow_registry.resolve("bremen")) is BremenProvider
+
+
+@pytest.mark.parametrize("catalog", ["empty", "bremen", "unavailable", "wrong_type", "multiple"])
+def test_default_registry_leaves_aramina_unregistered(tmp_path, catalog):
+    from bremen.api.workflow_orchestrator import get_default_registry
+    from bremen.api.workflow_registry import WorkflowNotFoundError
+
+    if catalog != "empty":
+        entry = _entry(tmp_path)
+        entries = {
+            "bremen": (replace(entry, workflow_id="bremen"),),
+            "unavailable": (replace(entry, availability="unavailable"),),
+            "wrong_type": (replace(entry, artifact_type="portable_logreg"),),
+            "multiple": (entry, replace(entry, model_id="aramina-b")),
+        }[catalog]
+        _install(*entries)
+    workflow_registry = get_default_registry()
+    assert workflow_registry.list_workflow_ids() == ["bremen"]
+    with pytest.raises(WorkflowNotFoundError):
+        workflow_registry.resolve("aramina")
+
+
+def test_default_registry_never_imports_or_constructs_scaffold(tmp_path, monkeypatch):
+    import builtins
+
+    from bremen.api.workflow_orchestrator import get_default_registry
+
+    original_import = builtins.__import__
+
+    def reject_scaffold(name, *args, **kwargs):
+        assert "workflow_aramina_scaffold" not in name
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", reject_scaffold)
+    assert get_default_registry().list_workflow_ids() == ["bremen"]
+    _install(_entry(tmp_path))
+    assert type(get_default_registry().resolve("aramina")) is AraminaWorkflowProvider
+
+
 def test_public_job_runs_normalization_artifact_events_and_report(tmp_path, source, monkeypatch):
     """Full public job path must emit expected events and produce a report."""
     entry = _entry(tmp_path)
@@ -695,6 +806,36 @@ def _valid_aramina_body(*, source_id="fresh-src-001", **overrides):
 @pytest.mark.skipif(TestClient is None, reason="fastapi not installed")
 class TestFastAPIAraminaRoutePlumbing:
     """PR0135: FastAPI POST /demo/api/jobs Aramina field plumbing."""
+
+    @pytest.mark.parametrize("unsupported", [False, True])
+    def test_model_id_post_uses_real_provider_without_scaffold(
+        self, tmp_path, source, monkeypatch, catalog_provider_trace, unsupported,
+    ):
+        package = {"kind": "unsupported"} if unsupported else _package()
+        entry = _entry(tmp_path, package)
+        _install(entry)
+        monkeypatch.setattr(jobs, "resolve_source", lambda sid, uid: source[0])
+        response = _fastapi_client().post(
+            "/demo/api/jobs", json=_valid_aramina_body(patient_id="p1"),
+        )
+        assert response.status_code == 201
+        resolve, register, default, scaffold = catalog_provider_trace
+        resolve.assert_called_once_with(entry.model_id)
+        assert register.call_count == 1
+        workflow_registry, provider = register.call_args.args
+        assert type(provider) is AraminaWorkflowProvider
+        assert provider._entry is entry
+        assert workflow_registry.resolve("aramina") is provider
+        default.assert_not_called()
+        scaffold.assert_not_called()
+        job = jobs.get_analysis_job(response.json()["job"]["job_id"])
+        assert job.overall_status == ("failed" if unsupported else "completed")
+        event_types = [e["event_type"] for e in jobs.get_job_events(job.job_id)]
+        assert "runtime.normalization.completed" in event_types
+        assert "runtime.workflow.started" in event_types
+        if unsupported:
+            assert job.workflow_runs["aramina"].failure == "ARAMINA_UNSUPPORTED_ARTIFACT"
+            assert "runtime.workflow.failed" in event_types
 
     def test_valid_aramina_json_not_rejected(self, tmp_path, source, monkeypatch):
         entry = _entry(tmp_path)
