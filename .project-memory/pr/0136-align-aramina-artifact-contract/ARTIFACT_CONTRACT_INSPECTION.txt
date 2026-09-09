@@ -1,0 +1,78 @@
+ARTIFACT CONTRACT INSPECTION — PR0136
+=====================================
+
+Inspection Method:
+  Research-grounded structural facts from production Aramina model.joblib
+  artifact documentation. No local artifact files were available for
+  runtime inspection (artifacts are staged from S3 at runtime and no
+  staging directory was present on this machine).
+
+Status:
+  BLOCKED from live inspection. Proceeding based on documented structure.
+
+Top-level type: dict (joblib-deserialized)
+
+Top-level keys:
+  kind, version, model_type, model_columns, model_identity, models,
+  model_descriptions, feature_schema, warnings, dataset_summary,
+  training_config_yaml, prediction_preprocessing_yaml,
+  prediction_contract_yaml, model_definition_yaml, model_performance,
+  final_fit_training_metrics, evaluation, metadata, reproducibility
+
+Artifact kind: "aramina_training_artifact"
+Artifact version: "0.3"
+
+model_identity keys: name (str), version (str)
+models keys: dict with exactly one selected model key
+
+Selected model_info keys (inside models[model_name]):
+  lr1_model — sklearn estimator with predict_proba
+  final_model — sklearn estimator with predict_proba
+  thresholds — dict containing threshold_target
+  feature_columns — list of column names for final_model input
+  symmetry_policy / symmetry_feature_contract
+  prediction_reference_scores, tissue_risk_assessment
+  class_definition, final_fit_training_metrics
+
+prediction_preprocessing_yaml: non-empty string (YAML)
+prediction_contract_yaml: non-empty string (YAML)
+
+Bremen old flat contract (WRONG — removed in PR0136):
+  model_id, model_version, artifact_type, model, positive_class,
+  feature_schema_version, feature_contract with schema_version/position/q_grid/normalization
+
+New contract (PR0136):
+  kind == "aramina_training_artifact"
+  models dict with exactly one model
+  model_identity.name/version
+  prediction_preprocessing_yaml (non-empty string)
+  prediction_contract_yaml (non-empty string)
+  model_info.lr1_model (predict_proba)
+  model_info.final_model (predict_proba)
+  model_info.thresholds
+  model_info.feature_columns
+  model_info.class_definition
+
+Scoring sequence:
+  1. Load H5, extract measurements for patient
+  2. Select target-side measurements
+  3. Build per-measurement feature rows
+  4. Score with lr1_model
+  5. Aggregate LR1 logit averages
+  6. Compute symmetry features if available
+  7. Run final_model.predict_proba on aggregated features
+  8. Apply threshold_target from thresholds
+  9. Build safe external_report output
+
+Feature columns for final_model:
+  profile_p_cancer_logit_average, age, age_available,
+  sk_wasserstein_distance_full_q2, sk_weightedrms1, sk_weightedrms2,
+  sk_mean_peak_value_abs_delta, symmetry_available
+
+Key constraint:
+  lr1_model and final_model are sklearn models serialized via joblib.
+  They work with existing sklearn dependency — no Aramina package needed.
+
+Safe output fields:
+  model_name, model_version, target_side, risk_probability,
+  target_class_risk_level, decision_threshold, reliability, reliability_reason
