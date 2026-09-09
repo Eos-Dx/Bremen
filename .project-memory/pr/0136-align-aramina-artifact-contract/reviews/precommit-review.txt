@@ -1,0 +1,149 @@
+# PR0136 Precommit Review — Align Aramina Artifact Contract
+
+Branch: 0136-align-aramina-artifact-contract
+Reviewed: 2026-09-08
+Verdict: READY FOR COMMIT
+
+## Production Bug Summary
+After PR0135, valid Aramina POST /demo/api/jobs reached the in-process
+execution path but failed with ARAMINA_UNSUPPORTED_ARTIFACT. The old
+workflow_aramina.py expected an invented flat artifact structure
+(model_id, positive_class, feature_contract with schema_version/position/q_grid)
+that does not match the real Aramina model.joblib production contract.
+
+## Exact Architecture Confirmed
+- Bremen and Aramina are two separate model artifact contracts.
+- Bremen artifact_type: portable_logreg, runtime: BremenProvider.
+- Aramina artifact_type: aramina.joblib.model_package, runtime: AraminaWorkflowProvider.
+- All PR0136 code changes are guarded by artifact_type == "aramina.joblib.model_package" or workflow_id == "aramina".
+- No dependency merging. No contract weakening.
+
+## Files Changed
+  src/bremen/api/workflow_aramina.py         +476/-130  (artifact contract, scoring pipeline)
+  tests/test_aramina_workflow_runtime.py     +487/-234  (production-shaped tests)
+  .project-memory/.../ARTIFACT_CONTRACT_INSPECTION.txt  (new — inspection record)
+
+## Test Commands and Pass Summaries
+  python -m compileall -q src tests                → PASS (no errors)
+  pytest tests/test_aramina_workflow_runtime.py     → 57 passed, 0 failed
+  pytest tests/test_s3_model_discovery.py + model_catalog + model_registry + catalog_api_multi_model + model_requirements_api + access_logging → 235 passed, 0 failed
+  pytest -q (full suite)                            → 3840 passed, 11 skipped, 0 failures
+  git diff --check                                  → clean
+
+## Artifact Inspection Summary
+  ARTIFACT_CONTRACT_INSPECTION.txt exists.
+  Documents real Aramina model.joblib structure vs old Bremen-expected Aramina shape.
+  Real contract: kind=="aramina_training_artifact", models dict with one model,
+  model_identity{name,version}, lr1_model/final_model/thresholds/feature_columns,
+  prediction_preprocessing_yaml, prediction_contract_yaml.
+  Old wrong contract: top-level model, positive_class, feature_contract with
+  schema_version/position/q_grid/normalization — removed in this PR.
+
+## Real Aramina Artifact Contract (implemented)
+  _validate_artifact checks:
+    1. package is dict
+    2. kind == "aramina_training_artifact"
+    3. models is dict with exactly one model
+    4. model_identity has name and version
+    5. prediction_preprocessing_yaml is non-empty string
+    6. prediction_contract_yaml is non-empty string
+    7. model_info has lr1_model, final_model, thresholds, feature_columns, class_definition
+    8. lr1_model and final_model support predict_proba
+    9. model_identity.version matches entry.model_version (mismatch → ARAMINA_MODEL_IDENTITY_MISMATCH)
+
+## Old Wrong Bremen Aramina-Runner Expectation (removed)
+  Previously required: top-level model, positive_class, feature_contract with
+  schema_version="aramina.canonical_intensity.v1", position, q_grid, normalization.
+  These assumptions no longer block the real production Aramina artifact.
+
+## Adapter Implemented
+  _validate_artifact: validates real production artifact structure
+  _select_measurements: selects target-side measurements from canonical H5
+  _compute_measurement_features: per-measurement statistical features
+  _build_lr1_features: feature array for lr1_model from single measurement
+  _prepare_features: builds target_features, control_measurements from H5
+  _run_local_artifact: full scoring pipeline (lr1 → logit aggregate → final_model → threshold)
+
+## Bremen Contract Preservation
+  [PASS] Bremen portable_logreg contract unchanged
+  [PASS] BremenProvider behavior unchanged
+  [PASS] adapt_model_package behavior unchanged
+  [PASS] _validate_loaded_package behavior unchanged
+  [PASS] Bremen threshold fallback behavior unchanged
+  [PASS] git diff shows NO changes to workflow_bremen.py, model_package.py,
+         inference.py, job_api_handler.py, workflow_orchestrator.py,
+         s3_model_discovery.py, model_registry.py
+  [PASS] test_bremen_construction_unchanged verifies BremenProvider constructor call
+
+## Valid Aramina Artifact Review
+  [PASS] Production-shaped Aramina artifact accepted (test_valid_production_artifact_accepted)
+  [PASS] No longer returns ARAMINA_UNSUPPORTED_ARTIFACT for valid production shape
+  [PASS] model_version not empty in payload (test_model_version_not_empty)
+  [PASS] model_version from model_identity propagated to external_report
+  [PASS] model_identity.version validated against registry/manifest version
+  [PASS] Mismatch fails safely with ARAMINA_MODEL_IDENTITY_MISMATCH
+
+## Invalid Aramina Artifact Safe-Failure Review
+  [PASS] missing kind → ARAMINA_UNSUPPORTED_ARTIFACT
+  [PASS] wrong kind → ARAMINA_UNSUPPORTED_ARTIFACT
+  [PASS] missing models → ARAMINA_UNSUPPORTED_ARTIFACT
+  [PASS] empty models → ARAMINA_UNSUPPORTED_ARTIFACT
+  [PASS] multiple models → ARAMINA_UNSUPPORTED_ARTIFACT
+  [PASS] missing lr1_model → ARAMINA_UNSUPPORTED_ARTIFACT
+  [PASS] missing final_model → ARAMINA_UNSUPPORTED_ARTIFACT
+  [PASS] missing thresholds → ARAMINA_UNSUPPORTED_ARTIFACT
+  [PASS] missing feature_columns → ARAMINA_UNSUPPORTED_ARTIFACT
+  [PASS] missing prediction_preprocessing_yaml → ARAMINA_UNSUPPORTED_ARTIFACT
+  [PASS] empty prediction_preprocessing_yaml → ARAMINA_UNSUPPORTED_ARTIFACT
+  [PASS] missing prediction_contract_yaml → ARAMINA_UNSUPPORTED_ARTIFACT
+  [PASS] missing model_identity → ARAMINA_UNSUPPORTED_ARTIFACT
+  [PASS] empty model_identity.version → ARAMINA_UNSUPPORTED_ARTIFACT
+  [PASS] version mismatch → ARAMINA_MODEL_IDENTITY_MISMATCH
+  All failures use stable allow-listed codes, no raw exceptions.
+
+## model_version Propagation Review
+  [PASS] entry.model_version used for registry validation
+  [PASS] model_identity.version from artifact validated against entry
+  [PASS] model_version propagated to payload and external_report
+  [PASS] model_version not empty for valid artifact (test_model_version_not_empty)
+
+## In-Process Execution Review
+  [PASS] Artifact loaded from staged path at execution time only
+  [PASS] lr1_model and final_model executed via predict_proba (sklearn)
+  [PASS] No external HTTP call, no provider URL
+  [PASS] No import aramina
+  [PASS] No aramina pyproject dependency
+  [PASS] Deterministic: same inputs → same output (test_deterministic_execution)
+  [PASS] Different artifacts → different scores (test_model_selection_uses_distinct_artifacts)
+
+## Public Output/Log Safety Review
+  [PASS] No internal_report, artifact_sha256, model_checksum in public output
+  [PASS] No local_path, S3 bucket/key in output
+  [PASS] No traceback, raw exception text in output
+  [PASS] No _package, secret, token in serialized payload
+  [PASS] Exceptions caught → stable ARAMINA_* error codes
+  [PASS] test_exception_and_private_metadata_never_exposed confirms no leak
+
+## Product Safety Review
+  [PASS] No diagnostic claims
+  [PASS] No clinical deployment claims
+  [PASS] No FDA/CE/regulatory claims
+  [PASS] technical_demo_only = True
+  [PASS] scientifically_certified = False
+  [PASS] clinical_stage = "research draft"
+  [PASS] reliability = "research_draft"
+  [PASS] reliability_reason = "Technical demo only. Requires clinical review."
+
+## Explicit Notes
+  - Aramina is a catalog model artifact, not package/service/dependency/Aramis.
+  - Same /demo/api/jobs executes Bremen and Aramina by model_id.
+  - No Aramina provider URL is required.
+  - No import/dependency for aramina was added.
+  - Expected validation failures do not produce traceback/500.
+  - No private artifact/path/S3/checksum/token/ticket/traceback leaks.
+  - No clinical/regulatory claims were added.
+  - Bremen portable_logreg contract unchanged.
+  - BremenProvider unchanged.
+  - adapt_model_package unchanged.
+  - _validate_loaded_package unchanged.
+  - Aramina added as separate artifact contract branch only.
