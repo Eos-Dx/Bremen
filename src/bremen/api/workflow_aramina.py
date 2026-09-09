@@ -14,7 +14,7 @@ model.joblib structure:
 Scoring pipeline:
   1. Load artifact (with compatibility bridge for pickle stubs).
   2. Validate artifact contract.
-  3. Build profile_matrix from H5 canonical measurements.
+  3. Execute artifact-owned raw H5 preprocessing and build profile_matrix.
   4. Score target-side measurements with lr1_model using profile_matrix.
   5. Aggregate LR1 measurement probabilities by logit average.
   6. Compute symmetry features from target/contralateral.
@@ -31,6 +31,10 @@ PR0137 — remove fake PR0136 features, implement real Aramina scoring.
 
 from __future__ import annotations
 
+import json
+import logging
+import os
+from contextlib import contextmanager
 from typing import Any
 
 import numpy as np
@@ -73,6 +77,81 @@ _SAFE_FAILURES = frozenset({
     "ARAMINA_INVALID_RESULT",
     "ARAMINA_MODEL_IDENTITY_MISMATCH",
 })
+
+
+_TRACE_LABELS = frozenset(_FINAL_FEATURE_COLUMNS) | {
+    "lr1_model", "final_model", "thresholds", "feature_columns", "class_definition",
+    "symmetry_policy", "prediction_reference_scores", "tissue_risk_assessment",
+    "final_fit_training_metrics", "threshold_target", "threshold_control",
+    "Pipeline", "StandardScaler", "LogisticRegression", "GatedSymmetryLogistic",
+    "ValueError", "TypeError", "KeyError", "IndexError", "AttributeError",
+    "RuntimeError", "AraminaWorkflowError", "left", "right", "ModuleNotFoundError",
+    "TargetBreastGatedSymmetryLogistic", "aramina_training_artifact",
+    "aramina_target_breast_risk", "0.2.12-beta", "0.2.13-beta", "0.3",
+    "kind", "version", "model_identity", "name", "models", "model_type",
+    "model_columns", "feature_schema", "prediction_preprocessing_yaml",
+    "prediction_contract_yaml", "model_descriptions", "warnings", "dataset_summary",
+    "training_config_yaml", "historical_preprocessing_yaml", "model_definition_yaml",
+    "model_performance", "evaluation", "preprocessing_metadata", "metadata", "reproducibility",
+    "symmetry_gate", "symmetry_feature_contract", "threshold_youden", "target_sensitivity",
+    "target_reached", "success", "failed", "dict", "str", "list", "NoneType",
+    "package_type", "artifact_kind", "single_model", "model_info_type",
+    "identity_type", "identity_fields", "preprocessing_yaml", "contract_yaml",
+    "required_model_keys", "lr1_predict_method", "final_predict_method", "threshold_type",
+    "model_version_match", "entry_contract",
+
+}
+_TRACE_STAGES = frozenset({
+    "artifact_load", "artifact_loaded", "artifact_validation", "compatibility_bridge", "joblib_load", "canonical_validation", "source_validation",
+    "target_selection", "target_qc", "profile_matrix", "lr1_predict_proba",
+    "lr1_output_validation", "lr1_aggregation", "symmetry_features",
+    "final_dataframe", "final_predict_proba", "final_output_validation",
+    "threshold", "report", "artifact_preprocessing",
+})
+
+
+def _debug_checkpoint(stage: str, **fields: Any) -> None:
+    """Opt-in private diagnostics: never format objects or exception messages.
+
+    Only fixed metadata labels and numeric shapes/counts survive. Unknown
+    artifact keys, columns, class names, and sides are redacted. Nothing is
+    attached to public events, reports, or API responses.
+    """
+    if os.environ.get("BREMEN_ARAMINA_DEBUG_TRACE") != "1" or stage not in _TRACE_STAGES:
+        return
+    try:
+        safe = {}
+        for key, value in fields.items():
+            if value is None or type(value) in (bool, int):
+                safe[key] = value
+            elif isinstance(value, str):
+                safe[key] = value if value in _TRACE_LABELS | _TRACE_STAGES else "redacted"
+            elif isinstance(value, (list, tuple)):
+                safe[key] = [
+                    item if type(item) is int or (
+                        isinstance(item, str) and item in _TRACE_LABELS
+                    ) else "redacted" for item in value
+                ]
+        logging.getLogger(__name__).warning(
+            "aramina.debug_trace %s", json.dumps({"stage": stage, **safe}),
+        )
+    except Exception:  # noqa: BLE001, S110 -- logging failures must not affect inference
+        # Diagnostics must never change inference or public failure behavior.
+        pass
+
+
+@contextmanager
+def _debug_stage(stage: str, group: str = "execution"):
+    """Record the original exception class before public error translation."""
+    try:
+        yield
+    except Exception as exc:
+        _debug_checkpoint(stage, **{
+            f"{group}_exception_class": type(exc).__name__,
+            f"{group}_exception_stage": stage,
+        })
+        # Stage comes from a fixed call-site literal, not exception contents.
+        raise
 
 
 class AraminaWorkflowError(Exception):
@@ -123,25 +202,35 @@ def _load_selected_artifact(entry: RegistryModelEntry) -> dict[str, Any]:
     Aramina package dependency.
     """
     if entry.artifact_type != ARTIFACT_TYPE or not entry._artifact_path:
-        raise AraminaWorkflowError("ARAMINA_UNSUPPORTED_ARTIFACT")
+        _reject_artifact("entry_contract", entry.artifact_type)
 
     # Install compatibility bridge before deserialization
     from .aramina_artifact_compat import ensure_compatibility_bridge
-    ensure_compatibility_bridge()
+    with _debug_stage("compatibility_bridge"):
+        ensure_compatibility_bridge()
+    _debug_checkpoint("compatibility_bridge", compatibility_bridge_status="success")
 
     from .s3_model_discovery import _load_staged_artifact
     try:
         package = _load_staged_artifact(entry._artifact_path, entry._checksum)
     except ValueError:
         raise AraminaWorkflowError("ARAMINA_ARTIFACT_INTEGRITY_FAILED") from None
-    except Exception:
+    except Exception as exc:
+        _debug_checkpoint("joblib_load", joblib_load_status="failed", execution_exception_class=type(exc).__name__)
         raise AraminaWorkflowError("ARAMINA_UNSUPPORTED_ARTIFACT") from None
+    _debug_checkpoint("joblib_load", joblib_load_status="success", artifact_loaded=True)
     return _validate_artifact(package, entry)
 
 
 # ---------------------------------------------------------------------------
 # Real artifact contract validation (PR0136/PR0137)
 # ---------------------------------------------------------------------------
+
+
+def _reject_artifact(check: str, value: Any, missing_keys: list[str] | None = None) -> None:
+    _debug_checkpoint("artifact_validation", artifact_validated=False, validation_check=check,
+                      actual_type=type(value).__name__, missing_keys=missing_keys)
+    raise AraminaWorkflowError("ARAMINA_UNSUPPORTED_ARTIFACT")
 
 
 def _validate_artifact(package: Any, entry: RegistryModelEntry) -> dict[str, Any]:
@@ -163,40 +252,43 @@ def _validate_artifact(package: Any, entry: RegistryModelEntry) -> dict[str, Any
     for structural failures, or ARAMINA_MODEL_IDENTITY_MISMATCH
     for version mismatches.
     """
-    failure = "ARAMINA_UNSUPPORTED_ARTIFACT"
 
     # 1. Must be dict-like
     if not isinstance(package, dict):
-        raise AraminaWorkflowError(failure)
+        _reject_artifact("package_type", package)
 
+    _debug_checkpoint("artifact_validation", artifact_top_level_keys=list(package),
+                      kind=package.get("kind"), version=package.get("version"))
     # 2. Must be real Aramina training artifact
     if package.get("kind") != _ARTIFACT_KIND:
-        raise AraminaWorkflowError(failure)
+        _reject_artifact("artifact_kind", package.get("kind"))
 
     # 3. models must be a dict with exactly one model
     models = package.get("models")
     if not isinstance(models, dict) or len(models) != 1:
-        raise AraminaWorkflowError(failure)
+        _reject_artifact("single_model", models)
 
+    _debug_checkpoint("artifact_validation", models_keys=list(models))
     selected_model_name = next(iter(models))
     model_info = models[selected_model_name]
     if not isinstance(model_info, dict):
-        raise AraminaWorkflowError(failure)
+        _reject_artifact("model_info_type", model_info)
 
     # 4. model_identity must have name and version
     model_identity = package.get("model_identity")
     if not isinstance(model_identity, dict):
-        raise AraminaWorkflowError(failure)
+        _reject_artifact("identity_type", model_identity)
     if not model_identity.get("name") or not model_identity.get("version"):
-        raise AraminaWorkflowError(failure)
+        _reject_artifact("identity_fields", model_identity)
 
+    _debug_checkpoint("artifact_validation", model_identity=[model_identity["name"], model_identity["version"]])
     # 5-6. preprocessing and contract YAMLs
     if not isinstance(package.get("prediction_preprocessing_yaml"), str) or \
             not package["prediction_preprocessing_yaml"].strip():
-        raise AraminaWorkflowError(failure)
+        _reject_artifact("preprocessing_yaml", package.get("prediction_preprocessing_yaml"))
     if not isinstance(package.get("prediction_contract_yaml"), str) or \
             not package["prediction_contract_yaml"].strip():
-        raise AraminaWorkflowError(failure)
+        _reject_artifact("contract_yaml", package.get("prediction_contract_yaml"))
 
     # 7. model_info required runtime pieces
     required_model_keys = {
@@ -204,28 +296,30 @@ def _validate_artifact(package: Any, entry: RegistryModelEntry) -> dict[str, Any
         "feature_columns", "class_definition",
     }
     if not required_model_keys.issubset(model_info.keys()):
-        raise AraminaWorkflowError(failure)
+        _reject_artifact("required_model_keys", model_info, sorted(required_model_keys - model_info.keys()))
 
     # 8. lr1_model and final_model must support predict_proba
     lr1_model = model_info["lr1_model"]
     final_model = model_info["final_model"]
     if not callable(getattr(lr1_model, "predict_proba", None)):
-        raise AraminaWorkflowError(failure)
+        _reject_artifact("lr1_predict_method", lr1_model)
     if not callable(getattr(final_model, "predict_proba", None)):
-        raise AraminaWorkflowError(failure)
+        _reject_artifact("final_predict_method", final_model)
 
     # 9. thresholds must be a dict
     thresholds = model_info.get("thresholds")
     if not isinstance(thresholds, dict):
-        raise AraminaWorkflowError(failure)
+        _reject_artifact("threshold_type", thresholds)
 
     # Validate model identity version against registry
     entry_version = entry.model_version
     if entry_version and entry_version != "unknown":
         artifact_version = model_identity["version"]
         if artifact_version != entry_version:
+            _debug_checkpoint("artifact_validation", validation_check="model_version_match", artifact_validated=False)
             raise AraminaWorkflowError("ARAMINA_MODEL_IDENTITY_MISMATCH")
 
+    _debug_checkpoint("artifact_validation", artifact_validated=True)
     return package
 
 
@@ -249,8 +343,8 @@ def _select_measurements(
 def _build_profile_matrix(measurements: list) -> np.ndarray:
     """Build a profile matrix from a list of canonical measurements.
 
-    Each measurement's intensity array becomes one row of the matrix.
-    All rows must have the same length (validated by canonical case).
+    Each preprocessed measurement's intensity array becomes one matrix row.
+    Stacking enforces equal row lengths; all values must be finite.
     Returns shape (n_measurements, n_points).
     """
     if not measurements:
@@ -273,18 +367,21 @@ def _prepare_features(
     request_json: dict[str, str],
     h5_path: str,
 ) -> dict[str, Any]:
-    """Build prediction features from H5 canonical data.
+    """Validate the case, then execute the artifact-owned raw H5 preprocessing.
 
-    Returns a dict with:
-    - profile_matrix: np.ndarray of shape (n_target_measurements, n_points)
-    - target_measurements: list of target-side measurements
-    - control_measurements: list of contralateral measurements
-    - model_info: the selected model_info dict
+    Return the target profile matrix, patient measurement DataFrame, selected
+    model information, and measured age/availability for final features.
     """
     try:
-        validate_canonical_case(canonical)
+        _debug_checkpoint(
+            "canonical_validation", canonical_measurement_count=len(canonical.measurements),
+            target_side=request_json["target_side"],
+        )
+        with _debug_stage("canonical_validation"):
+            validate_canonical_case(canonical)
         from .workflow_orchestrator import _validate_aramina_source
-        _validate_aramina_source(h5_path, canonical, request_json["patient_id"])
+        with _debug_stage("source_validation"):
+            _validate_aramina_source(h5_path, canonical, request_json["patient_id"])
 
         models = package["models"]
         selected_model_name = next(iter(models))
@@ -292,26 +389,45 @@ def _prepare_features(
 
         target_side = request_json["target_side"]
         target_measurements = _select_measurements(canonical, target_side)
-        if not target_measurements:
-            raise ValueError("No target-side measurements found")
+        _debug_checkpoint(
+            "target_selection", canonical_measurement_count=len(canonical.measurements),
+            target_side=target_side, target_measurement_count=len(target_measurements),
+            target_profile_lengths=[len(m.intensity) for m in target_measurements],
+        )
+        with _debug_stage("target_selection"):
+            if not target_measurements:
+                raise ValueError("No target-side measurements found")
 
         # Check QC flags on target measurements
-        for m in target_measurements:
-            if m.qc_flags:
-                raise ValueError(f"QC flags on measurement: {m.qc_flags}")
+        with _debug_stage("target_qc"):
+            for m in target_measurements:
+                if m.qc_flags:
+                    raise ValueError(f"QC flags on measurement: {m.qc_flags}")
 
-        # Build profile matrix from target measurements
-        profile_matrix = _build_profile_matrix(target_measurements)
+        from types import SimpleNamespace
 
-        # Get contralateral measurements for symmetry
-        control_side = "right" if target_side == "left" else "left"
-        control_measurements = _select_measurements(canonical, control_side)
+        from .aramina_preprocessing import preprocess_aramina
 
+        with _debug_stage("artifact_preprocessing", "lr1"):
+            frame = preprocess_aramina(h5_path, package["prediction_preprocessing_yaml"])
+            # A job is bound to exactly one requested patient; never mix rows.
+            if set(frame["patientId"].astype(str)) != {request_json["patient_id"]}:
+                raise ValueError("Preprocessed patient mismatch")
+            sides = frame["side"].astype(str).str.strip().str.lower()
+            target_frame = frame.loc[sides == target_side]
+            if target_frame.empty:
+                raise ValueError("No preprocessed target measurements")
+            measurements = [SimpleNamespace(intensity=row) for row in target_frame["radial_profile_data"]]
+        with _debug_stage("profile_matrix", "lr1"):
+            profile_matrix = _build_profile_matrix(measurements)
+        _debug_checkpoint("profile_matrix", target_measurement_count=len(measurements),
+                          target_profile_lengths=[len(m.intensity) for m in measurements])
+        ages = pd.to_numeric(frame.get("age", pd.Series(dtype=float)), errors="coerce")
         return {
-            "profile_matrix": profile_matrix,
-            "target_measurements": target_measurements,
-            "control_measurements": control_measurements,
+            "profile_matrix": profile_matrix, "dataframe": frame,
             "model_info": model_info,
+            "age": float(ages.median()) if ages.notna().any() else 0.0,
+            "age_available": float(ages.notna().any()),
         }
 
     except AraminaWorkflowError:
@@ -325,40 +441,6 @@ def _prepare_features(
 # ---------------------------------------------------------------------------
 
 
-def _compute_symmetry_features(
-    target_measurements: list,
-    control_measurements: list,
-) -> dict[str, float]:
-    """Compute symmetry features from target/contralateral measurements.
-
-    Returns a dict with symmetry-derived features for the final model.
-    """
-    symmetry_available = 1.0 if len(control_measurements) > 0 else 0.0
-
-    # Compute basic statistics from target-side intensities
-    all_target = np.concatenate([
-        np.asarray(m.intensity, dtype=float) for m in target_measurements
-    ])
-
-    # Wasserstein-like distance (std as proxy)
-    wasserstein_dist = float(np.std(all_target)) if len(all_target) > 1 else 0.0
-
-    # Weighted RMS features
-    weighted_rms1 = float(np.sqrt(np.mean(all_target ** 2))) if len(all_target) > 0 else 0.0
-    weighted_rms2 = float(np.percentile(all_target, 75)) if len(all_target) > 0 else 0.0
-
-    # Peak value absolute delta
-    peak_delta = float(np.max(all_target) - np.min(all_target)) if len(all_target) > 1 else 0.0
-
-    return {
-        "sk_wasserstein_distance_full_q2": wasserstein_dist,
-        "sk_weightedrms1": weighted_rms1,
-        "sk_weightedrms2": weighted_rms2,
-        "sk_mean_peak_value_abs_delta": peak_delta,
-        "symmetry_available": symmetry_available,
-    }
-
-
 def _run_local_artifact(
     entry: RegistryModelEntry,
     canonical: CanonicalXRDCase,
@@ -368,7 +450,7 @@ def _run_local_artifact(
     """Execute the real Aramina training artifact scoring pipeline.
 
     1. Load and validate artifact (with compatibility bridge).
-    2. Build profile_matrix from H5 canonical data.
+    2. Preprocess raw H5 using the artifact pipeline and build profile_matrix.
     3. Score target-side measurements with lr1_model using profile_matrix.
     4. Aggregate LR1 logit averages.
     5. Compute symmetry features from target/contralateral.
@@ -377,7 +459,26 @@ def _run_local_artifact(
     8. Apply threshold.
     9. Build safe output.
     """
-    package = _load_selected_artifact(entry)
+    _debug_checkpoint(
+        "artifact_load", artifact_loaded=False, artifact_validated=False, lr1_input_shape=None,
+        lr1_exception_class=None, lr1_exception_stage=None,
+        final_feature_columns=None, final_input_shape=None,
+        final_exception_class=None, final_exception_stage=None,
+        report_build_exception_class=None, report_build_exception_stage=None,
+    )
+    with _debug_stage("artifact_load"):
+        package = _load_selected_artifact(entry)
+    if os.environ.get("BREMEN_ARAMINA_DEBUG_TRACE") == "1":
+        info = next(iter(package["models"].values()))
+        _debug_checkpoint(
+            "artifact_loaded", artifact_loaded=True,
+            selected_model_info_keys=list(info),
+            lr1_model_type=type(info["lr1_model"]).__name__,
+            lr1_expected_feature_count=getattr(info["lr1_model"], "n_features_in_", None),
+            final_model_type=type(info["final_model"]).__name__,
+            feature_columns=info.get("feature_columns"),
+            threshold_keys=list(info["thresholds"]),
+        )
     features_data = _prepare_features(package, canonical, request_json, h5_path)
 
     model_info = features_data["model_info"]
@@ -392,69 +493,86 @@ def _run_local_artifact(
 
         for i in range(profile_matrix.shape[0]):
             profile_row = profile_matrix[i:i+1, :]  # shape (1, n_points)
-            probs = np.asarray(lr1_model.predict_proba(profile_row), dtype=float)
-            if probs.shape != (1, 2) or not np.isfinite(probs).all():
-                raise ValueError("Invalid lr1 output")
-            if (probs < 0).any() or (probs > 1).any():
-                raise ValueError("lr1 probabilities out of range")
+            _debug_checkpoint("lr1_predict_proba", lr1_input_shape=list(profile_row.shape))
+            with _debug_stage("lr1_predict_proba", "lr1"):
+                probs = np.asarray(lr1_model.predict_proba(profile_row), dtype=float)
+            with _debug_stage("lr1_output_validation", "lr1"):
+                if probs.shape != (1, 2) or not np.isfinite(probs).all():
+                    raise ValueError("Invalid lr1 output")
+                if (probs < 0).any() or (probs > 1).any():
+                    raise ValueError("lr1 probabilities out of range")
+
             lr1_probabilities.append(probs[0])
 
-        if not lr1_probabilities:
-            raise ValueError("No LR1 scores to aggregate")
+        with _debug_stage("lr1_aggregation", "lr1"):
+            if not lr1_probabilities:
+                raise ValueError("No LR1 scores to aggregate")
 
-        # Step 2: Aggregate by logit average
-        lr1_arr = np.array(lr1_probabilities, dtype=float)
-        pos_probs = np.clip(lr1_arr[:, 1], 1e-15, 1 - 1e-15)
-        logits = np.log(pos_probs / (1 - pos_probs))
-        mean_logit = float(np.mean(logits))
+            # Step 2: Aggregate by logit average
+            lr1_arr = np.array(lr1_probabilities, dtype=float)
+            pos_probs = np.clip(lr1_arr[:, 1], 1e-6, 1 - 1e-6)
+            logits = np.log(pos_probs / (1 - pos_probs))
+            mean_logit_probability = float(1.0 / (1.0 + np.exp(-float(np.mean(logits)))))
 
         # Step 3: Compute symmetry features
-        sym_features = _compute_symmetry_features(
-            features_data["target_measurements"],
-            features_data["control_measurements"],
-        )
+        with _debug_stage("symmetry_features", "execution"):
+            from .aramina_symmetry import symmetry_features
+            sym_features = symmetry_features(
+                features_data["dataframe"], request_json["target_side"],
+                model_info.get("symmetry_feature_contract", "aramina_sk_symmetry_v0_1"),
+            )
 
         # Step 4: Build feature dict with all required columns
         feature_dict = {
-            "profile_p_cancer_logit_average": mean_logit,
-            "age": 0.0,  # Not available from XRD-only H5
-            "age_available": 0.0,
+            "profile_p_cancer_logit_average": mean_logit_probability,
+            "age": features_data["age"],
+            "age_available": features_data["age_available"],
             **sym_features,
         }
 
         # Step 5: Build pandas DataFrame with model_info["feature_columns"]
-        feature_columns = model_info.get("feature_columns", [])
-        final_features_df = pd.DataFrame(
-            [{col: feature_dict.get(col, 0.0) for col in feature_columns}]
-        )
+        with _debug_stage("final_dataframe", "final"):
+            feature_columns = model_info.get("feature_columns", [])
+            final_features_df = pd.DataFrame(
+                [{col: feature_dict[col] for col in feature_columns}]
+            )
 
-        # Step 6: Run final_model.predict_proba on DataFrame
-        final_probs = np.asarray(
-            final_model.predict_proba(final_features_df), dtype=float
+        _debug_checkpoint(
+            "final_dataframe", final_feature_columns=list(final_features_df.columns),
+            final_input_shape=list(final_features_df.shape),
         )
-        if final_probs.shape != (1, 2) or not np.isfinite(final_probs).all():
-            raise ValueError("Invalid final_model output")
-        if (final_probs < 0).any() or (final_probs > 1).any():
-            raise ValueError("final_model probabilities out of range")
+        # Step 6: Run final_model.predict_proba on DataFrame
+        with _debug_stage("final_predict_proba", "final"):
+            final_probs = np.asarray(
+                final_model.predict_proba(final_features_df), dtype=float
+            )
+
+        with _debug_stage("final_output_validation", "final"):
+            if final_probs.shape != (1, 2) or not np.isfinite(final_probs).all():
+                raise ValueError("Invalid final_model output")
+            if (final_probs < 0).any() or (final_probs > 1).any():
+                raise ValueError("final_model probabilities out of range")
 
         # Step 7: Apply threshold
-        threshold_target = thresholds.get("threshold_target", 0.5)
-        risk_probability = float(final_probs[0, 1])
-        target_class = 1 if risk_probability >= threshold_target else 0
+        with _debug_stage("threshold", "final"):
+            threshold_target = thresholds["threshold_target"]
+            risk_probability = float(final_probs[0, 1])
+            target_class = 1 if risk_probability >= threshold_target else 0
 
         # Step 8: Build safe output
-        model_identity = package.get("model_identity", {})
-        return {
-            "risk_probability": risk_probability,
-            "risk_score": risk_probability,  # backward-compatible alias for report provider
-            "target_class_risk_level": target_class,
-            "decision_threshold": float(threshold_target),
-            "target_side": request_json["target_side"],
-            "model_name": model_identity.get("name", ""),
-            "model_version": model_identity.get("version", ""),
-            "reliability": "research_draft",
-            "reliability_reason": "Technical demo only. Requires clinical review.",
-        }
+        with _debug_stage("report", "report_build"):
+            model_identity = package.get("model_identity", {})
+            return {
+                "risk_probability": risk_probability,
+                "risk_score": risk_probability,  # backward-compatible alias for report provider
+                "target_class_risk_level": target_class,
+                "decision_threshold": float(threshold_target),
+                "target_side": request_json["target_side"],
+                "model_name": model_identity.get("name", ""),
+                "model_version": model_identity.get("version", ""),
+                "reliability": "research_draft",
+                "reliability_reason": "Technical demo only. Requires clinical review.",
+            }
 
     except AraminaWorkflowError:
         raise

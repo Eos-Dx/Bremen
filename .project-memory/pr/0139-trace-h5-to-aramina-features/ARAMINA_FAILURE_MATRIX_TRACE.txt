@@ -1,0 +1,145 @@
+PR0139 — Aramina model-specific failure matrix and repair
+Research draft / technical verification only; requires radiologist review.
+
+BEFORE: 0.2.12-beta
+Exact stage: _run_local_artifact -> LR1 Pipeline.predict_proba ->
+StandardScaler.transform -> feature-count validation.
+Exception: ValueError. Received unnamed numpy array (1, 2000); fitted scaler
+and LR1 estimator both require 100 features. Artifact loading/validation passed.
+Category B (pipeline input mismatch), with category A (profile width mismatch).
+The artifact owns raw-detector preprocessing, integration.npt=100, and XRD
+v0.1.7-beta. The previous path bypassed that preprocessing. Resizing or slicing
+canonical profiles would not implement this contract and was not used.
+
+BEFORE: 0.2.13-beta
+Exact stage: joblib deserialization before _validate_artifact.
+Exception: ModuleNotFoundError for aramina.target_breast_model.
+Exact observed missing symbol: aramina.target_breast_model.GatedSymmetryLogistic.
+The original bridge supplied only aramina.m2q_model.GatedSymmetryLogistic.
+No missing structural key or kind/type mismatch caused this original failure:
+after installing the exact Bremen-owned compatibility class, the actual artifact
+loads and validates. kind=aramina_training_artifact; artifact version=0.3;
+model_identity=[aramina_target_breast_risk, 0.2.13-beta]; one selected model.
+The actual fitted LR1 is StandardScaler -> LogisticRegression, both with 100
+features. It is NOT the 256-bin FPCA design present in newer producer source.
+The embedded prediction preprocessing specifies XRD v0.1.9-beta and npt=100.
+
+REPAIR
+Both models execute their own full artifact-declared raw H5 preprocessing.
+Dedicated local XRD workers isolate v0.1.7-beta and v0.1.9-beta from Bremen's
+unchanged v0.1.5-beta dependency. A shared upgrade was tested and rejected
+because it removed SelectColumnsTransformer, which Bremen imports.
+No external Aramina package, external Aramina import, provider URL, or HTTP
+provider is introduced. Only local preprocessing uses a subprocess; fitted
+estimators stay in the main process. No model weights or thresholds change.
+
+The final feature contract is preserved: sigmoid of mean clipped LR1 logits,
+measured age/availability, and the producer's versioned Core4 paired symmetry
+calculations. This replaces the old proxy statistics. Missing-pair symmetry is
+handled by the model's trained gate, not by a probability fallback. Unknown
+final columns or missing thresholds fail instead of receiving invented defaults.
+The 0.2.13 compatibility class preserves its fitted numeric coercion, imputation,
+scaling and gating behavior; the legacy 0.2.12 compatibility class is unchanged.
+
+AFTER: local FastAPI POST /demo/api/jobs equivalent
+Real local model artifacts and raw H5 files; explicit model IDs; only source
+resolution mapped to the local files. Normalization, catalog provider selection,
+preprocessing, LR1, final-model inference, and report construction are real.
+No inference or probability mocks were used. Successful workflow/report model
+versions were asserted non-empty and equal to the selected artifact version.
+Public responses/events were checked for diagnostic leakage.
+Production input byte identity, deployed dependencies, and a production rollout
+were not verified. Other production matrix patients were not rerun locally.
+
+0.2.12-beta | Nova_214 | left | HTTP 201 | completed | failure=none
+0.2.13-beta | Nova_214 | right | HTTP 201 | completed | failure=none
+0.2.12-beta | Nova_227 | left | HTTP 201 | completed | failure=none
+0.2.13-beta | Nova_227 | right | HTTP 201 | completed | failure=none
+
+Sanitized checkpoints (null exception fields mean no exception observed):
+
+Sample Nova_214, model 0.2.12-beta, target left:
+aramina.debug_trace {"stage": "artifact_load", "artifact_loaded": false, "lr1_input_shape": null, "lr1_exception_class": null, "lr1_exception_stage": null, "final_feature_columns": null, "final_input_shape": null, "final_exception_class": null, "final_exception_stage": null}
+aramina.debug_trace {"stage": "compatibility_bridge", "compatibility_bridge_status": "success"}
+aramina.debug_trace {"stage": "joblib_load", "joblib_load_status": "success", "artifact_loaded": true}
+aramina.debug_trace {"stage": "artifact_validation", "artifact_top_level_keys": ["kind", "version", "model_type", "model_columns", "model_identity", "models", "model_descriptions", "feature_schema", "warnings", "dataset_summary", "training_config_yaml", "historical_preprocessing_yaml", "prediction_preprocessing_yaml", "prediction_contract_yaml", "model_definition_yaml", "model_performance", "final_fit_training_metrics", "evaluation", "redacted", "preprocessing_metadata", "metadata", "reproducibility"], "kind": "aramina_training_artifact", "version": "0.3"}
+aramina.debug_trace {"stage": "artifact_validation", "models_keys": ["aramina_target_breast_risk"]}
+aramina.debug_trace {"stage": "artifact_validation", "model_identity": ["aramina_target_breast_risk", "0.2.12-beta"]}
+aramina.debug_trace {"stage": "artifact_validation", "artifact_validated": true}
+aramina.debug_trace {"stage": "artifact_loaded", "artifact_loaded": true, "selected_model_info_keys": ["name", "lr1_model", "final_model", "feature_columns", "symmetry_policy", "symmetry_gate", "symmetry_feature_contract", "thresholds", "final_fit_training_metrics", "prediction_reference_scores", "class_definition", "tissue_risk_assessment"], "lr1_model_type": "Pipeline", "lr1_expected_feature_count": 100, "final_model_type": "GatedSymmetryLogistic", "feature_columns": ["profile_p_cancer_logit_average", "age", "age_available", "sk_wasserstein_distance_full_q2", "sk_weightedrms1", "sk_weightedrms2", "sk_mean_peak_value_abs_delta", "symmetry_available"], "threshold_keys": ["threshold_youden", "threshold_target", "target_sensitivity", "target_reached"]}
+aramina.debug_trace {"stage": "canonical_validation", "canonical_measurement_count": 2, "target_side": "left"}
+aramina.debug_trace {"stage": "target_selection", "canonical_measurement_count": 2, "target_side": "left", "target_measurement_count": 1, "target_profile_lengths": [2000]}
+aramina.debug_trace {"stage": "profile_matrix", "target_measurement_count": 3, "target_profile_lengths": [100, 100, 100]}
+aramina.debug_trace {"stage": "lr1_predict_proba", "lr1_input_shape": [1, 100]}
+aramina.debug_trace {"stage": "lr1_predict_proba", "lr1_input_shape": [1, 100]}
+aramina.debug_trace {"stage": "lr1_predict_proba", "lr1_input_shape": [1, 100]}
+aramina.debug_trace {"stage": "final_dataframe", "final_feature_columns": ["profile_p_cancer_logit_average", "age", "age_available", "sk_wasserstein_distance_full_q2", "sk_weightedrms1", "sk_weightedrms2", "sk_mean_peak_value_abs_delta", "symmetry_available"], "final_input_shape": [1, 8]}
+
+Sample Nova_214, model 0.2.13-beta, target right:
+aramina.debug_trace {"stage": "artifact_load", "artifact_loaded": false, "lr1_input_shape": null, "lr1_exception_class": null, "lr1_exception_stage": null, "final_feature_columns": null, "final_input_shape": null, "final_exception_class": null, "final_exception_stage": null}
+aramina.debug_trace {"stage": "compatibility_bridge", "compatibility_bridge_status": "success"}
+aramina.debug_trace {"stage": "joblib_load", "joblib_load_status": "success", "artifact_loaded": true}
+aramina.debug_trace {"stage": "artifact_validation", "artifact_top_level_keys": ["kind", "version", "model_type", "model_columns", "model_identity", "models", "model_descriptions", "feature_schema", "warnings", "dataset_summary", "training_config_yaml", "historical_preprocessing_yaml", "prediction_preprocessing_yaml", "prediction_contract_yaml", "model_definition_yaml", "model_performance", "final_fit_training_metrics", "evaluation", "redacted", "preprocessing_metadata", "metadata", "reproducibility"], "kind": "aramina_training_artifact", "version": "0.3"}
+aramina.debug_trace {"stage": "artifact_validation", "models_keys": ["aramina_target_breast_risk"]}
+aramina.debug_trace {"stage": "artifact_validation", "model_identity": ["aramina_target_breast_risk", "0.2.13-beta"]}
+aramina.debug_trace {"stage": "artifact_validation", "artifact_validated": true}
+aramina.debug_trace {"stage": "artifact_loaded", "artifact_loaded": true, "selected_model_info_keys": ["name", "lr1_model", "final_model", "feature_columns", "symmetry_policy", "symmetry_gate", "symmetry_feature_contract", "thresholds", "final_fit_training_metrics", "prediction_reference_scores", "class_definition", "tissue_risk_assessment"], "lr1_model_type": "Pipeline", "lr1_expected_feature_count": 100, "final_model_type": "TargetBreastGatedSymmetryLogistic", "feature_columns": ["profile_p_cancer_logit_average", "age", "age_available", "sk_wasserstein_distance_full_q2", "sk_weightedrms1", "sk_weightedrms2", "sk_mean_peak_value_abs_delta", "symmetry_available"], "threshold_keys": ["threshold_youden", "threshold_target", "target_sensitivity", "target_reached"]}
+aramina.debug_trace {"stage": "canonical_validation", "canonical_measurement_count": 2, "target_side": "right"}
+aramina.debug_trace {"stage": "target_selection", "canonical_measurement_count": 2, "target_side": "right", "target_measurement_count": 1, "target_profile_lengths": [2000]}
+aramina.debug_trace {"stage": "profile_matrix", "target_measurement_count": 3, "target_profile_lengths": [100, 100, 100]}
+aramina.debug_trace {"stage": "lr1_predict_proba", "lr1_input_shape": [1, 100]}
+aramina.debug_trace {"stage": "lr1_predict_proba", "lr1_input_shape": [1, 100]}
+aramina.debug_trace {"stage": "lr1_predict_proba", "lr1_input_shape": [1, 100]}
+aramina.debug_trace {"stage": "final_dataframe", "final_feature_columns": ["profile_p_cancer_logit_average", "age", "age_available", "sk_wasserstein_distance_full_q2", "sk_weightedrms1", "sk_weightedrms2", "sk_mean_peak_value_abs_delta", "symmetry_available"], "final_input_shape": [1, 8]}
+
+Sample Nova_227, model 0.2.12-beta, target left:
+aramina.debug_trace {"stage": "artifact_load", "artifact_loaded": false, "artifact_validated": false, "lr1_input_shape": null, "lr1_exception_class": null, "lr1_exception_stage": null, "final_feature_columns": null, "final_input_shape": null, "final_exception_class": null, "final_exception_stage": null, "report_build_exception_class": null, "report_build_exception_stage": null}
+aramina.debug_trace {"stage": "compatibility_bridge", "compatibility_bridge_status": "success"}
+aramina.debug_trace {"stage": "joblib_load", "joblib_load_status": "success", "artifact_loaded": true}
+aramina.debug_trace {"stage": "artifact_validation", "artifact_top_level_keys": ["kind", "version", "model_type", "model_columns", "model_identity", "models", "model_descriptions", "feature_schema", "warnings", "dataset_summary", "training_config_yaml", "historical_preprocessing_yaml", "prediction_preprocessing_yaml", "prediction_contract_yaml", "model_definition_yaml", "model_performance", "final_fit_training_metrics", "evaluation", "redacted", "preprocessing_metadata", "metadata", "reproducibility"], "kind": "aramina_training_artifact", "version": "0.3"}
+aramina.debug_trace {"stage": "artifact_validation", "models_keys": ["aramina_target_breast_risk"]}
+aramina.debug_trace {"stage": "artifact_validation", "model_identity": ["aramina_target_breast_risk", "0.2.12-beta"]}
+aramina.debug_trace {"stage": "artifact_validation", "artifact_validated": true}
+aramina.debug_trace {"stage": "artifact_loaded", "artifact_loaded": true, "selected_model_info_keys": ["name", "lr1_model", "final_model", "feature_columns", "symmetry_policy", "symmetry_gate", "symmetry_feature_contract", "thresholds", "final_fit_training_metrics", "prediction_reference_scores", "class_definition", "tissue_risk_assessment"], "lr1_model_type": "Pipeline", "lr1_expected_feature_count": 100, "final_model_type": "GatedSymmetryLogistic", "feature_columns": ["profile_p_cancer_logit_average", "age", "age_available", "sk_wasserstein_distance_full_q2", "sk_weightedrms1", "sk_weightedrms2", "sk_mean_peak_value_abs_delta", "symmetry_available"], "threshold_keys": ["threshold_youden", "threshold_target", "target_sensitivity", "target_reached"]}
+aramina.debug_trace {"stage": "canonical_validation", "canonical_measurement_count": 2, "target_side": "left"}
+aramina.debug_trace {"stage": "target_selection", "canonical_measurement_count": 2, "target_side": "left", "target_measurement_count": 1, "target_profile_lengths": [2000]}
+aramina.debug_trace {"stage": "profile_matrix", "target_measurement_count": 3, "target_profile_lengths": [100, 100, 100]}
+aramina.debug_trace {"stage": "lr1_predict_proba", "lr1_input_shape": [1, 100]}
+aramina.debug_trace {"stage": "lr1_predict_proba", "lr1_input_shape": [1, 100]}
+aramina.debug_trace {"stage": "lr1_predict_proba", "lr1_input_shape": [1, 100]}
+aramina.debug_trace {"stage": "final_dataframe", "final_feature_columns": ["profile_p_cancer_logit_average", "age", "age_available", "sk_wasserstein_distance_full_q2", "sk_weightedrms1", "sk_weightedrms2", "sk_mean_peak_value_abs_delta", "symmetry_available"], "final_input_shape": [1, 8]}
+
+Sample Nova_227, model 0.2.13-beta, target right:
+aramina.debug_trace {"stage": "artifact_load", "artifact_loaded": false, "artifact_validated": false, "lr1_input_shape": null, "lr1_exception_class": null, "lr1_exception_stage": null, "final_feature_columns": null, "final_input_shape": null, "final_exception_class": null, "final_exception_stage": null, "report_build_exception_class": null, "report_build_exception_stage": null}
+aramina.debug_trace {"stage": "compatibility_bridge", "compatibility_bridge_status": "success"}
+aramina.debug_trace {"stage": "joblib_load", "joblib_load_status": "success", "artifact_loaded": true}
+aramina.debug_trace {"stage": "artifact_validation", "artifact_top_level_keys": ["kind", "version", "model_type", "model_columns", "model_identity", "models", "model_descriptions", "feature_schema", "warnings", "dataset_summary", "training_config_yaml", "historical_preprocessing_yaml", "prediction_preprocessing_yaml", "prediction_contract_yaml", "model_definition_yaml", "model_performance", "final_fit_training_metrics", "evaluation", "redacted", "preprocessing_metadata", "metadata", "reproducibility"], "kind": "aramina_training_artifact", "version": "0.3"}
+aramina.debug_trace {"stage": "artifact_validation", "models_keys": ["aramina_target_breast_risk"]}
+aramina.debug_trace {"stage": "artifact_validation", "model_identity": ["aramina_target_breast_risk", "0.2.13-beta"]}
+aramina.debug_trace {"stage": "artifact_validation", "artifact_validated": true}
+aramina.debug_trace {"stage": "artifact_loaded", "artifact_loaded": true, "selected_model_info_keys": ["name", "lr1_model", "final_model", "feature_columns", "symmetry_policy", "symmetry_gate", "symmetry_feature_contract", "thresholds", "final_fit_training_metrics", "prediction_reference_scores", "class_definition", "tissue_risk_assessment"], "lr1_model_type": "Pipeline", "lr1_expected_feature_count": 100, "final_model_type": "TargetBreastGatedSymmetryLogistic", "feature_columns": ["profile_p_cancer_logit_average", "age", "age_available", "sk_wasserstein_distance_full_q2", "sk_weightedrms1", "sk_weightedrms2", "sk_mean_peak_value_abs_delta", "symmetry_available"], "threshold_keys": ["threshold_youden", "threshold_target", "target_sensitivity", "target_reached"]}
+aramina.debug_trace {"stage": "canonical_validation", "canonical_measurement_count": 2, "target_side": "right"}
+aramina.debug_trace {"stage": "target_selection", "canonical_measurement_count": 2, "target_side": "right", "target_measurement_count": 1, "target_profile_lengths": [2000]}
+aramina.debug_trace {"stage": "profile_matrix", "target_measurement_count": 3, "target_profile_lengths": [100, 100, 100]}
+aramina.debug_trace {"stage": "lr1_predict_proba", "lr1_input_shape": [1, 100]}
+aramina.debug_trace {"stage": "lr1_predict_proba", "lr1_input_shape": [1, 100]}
+aramina.debug_trace {"stage": "lr1_predict_proba", "lr1_input_shape": [1, 100]}
+aramina.debug_trace {"stage": "final_dataframe", "final_feature_columns": ["profile_p_cancer_logit_average", "age", "age_available", "sk_wasserstein_distance_full_q2", "sk_weightedrms1", "sk_weightedrms2", "sk_mean_peak_value_abs_delta", "symmetry_available"], "final_input_shape": [1, 8]}
+
+FINAL VALIDATION
+python -m compileall -q src tests scripts: passed.
+pytest -q tests/test_aramina_workflow_runtime.py: 89 passed.
+pytest -q tests -k "aramina or orchestrator or registry": 258 passed.
+pytest -q: 3872 passed, 11 skipped.
+git diff --check: passed.
+ruff check .: 1483 remaining repository findings; new preprocessing/worker/symmetry
+modules and the modified runtime test file pass their focused Ruff checks.
+
+Bremen's existing provider, portable-logreg contract, package adapter/validation,
+threshold fallback, registry wiring, and shared XRD dependency were not edited.
+The full regression suite passes with its original XRD v0.1.5-beta installed.
+No fake/uniform probability fallback is present. No training artifacts changed.
+
+LOCAL READY CRITERIA: satisfied for both real artifacts on Nova_214 and Nova_227.
+The production image must be rebuilt with both isolated preprocessing environments.
+A container build/deployment and production curl rerun were not performed here.

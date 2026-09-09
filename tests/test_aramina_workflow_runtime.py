@@ -22,6 +22,7 @@ from unittest.mock import MagicMock
 import h5py
 import joblib
 import numpy as np
+import pandas as pd
 import pytest
 from sklearn.linear_model import LogisticRegression
 
@@ -29,11 +30,11 @@ from bremen.api import job_api_handler as jobs
 from bremen.api import model_registry as registry
 from bremen.api.aramina_provider import AraminaProviderRequest
 from bremen.api.workflow_aramina import (
+    _FINAL_FEATURE_COLUMNS,
     ARTIFACT_TYPE,
     AraminaWorkflowError,
     AraminaWorkflowProvider,
     _build_aramina_request_json,
-    _FINAL_FEATURE_COLUMNS,
 )
 from bremen.api.workflow_orchestrator import _normalize_h5, get_provider_for_model
 
@@ -47,6 +48,22 @@ def reset_state():
     registry.reset_for_tests()
     jobs._event_store.reset_for_tests()
     jobs._jobs.clear()
+
+
+@pytest.fixture(autouse=True)
+def synthetic_preprocessing(monkeypatch):
+    """Unit-test H5 adapter only; integration tests exercise the real worker separately."""
+    def preprocess(h5_path, config_yaml):
+        canonical = _normalize_h5(h5_path)
+        return pd.DataFrame([
+            {"patientId": "p1", "side": m.side, "age": None,
+             "radial_profile_data": list(m.intensity),
+             "q_range": list(np.linspace(2., 23., len(m.intensity)))}
+            for m in canonical.measurements
+        ])
+    from bremen.api.aramina_preprocessing import preprocess_aramina
+    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", preprocess)
+    return preprocess_aramina
 
 
 # ---------------------------------------------------------------------------
@@ -192,7 +209,13 @@ def test_no_external_dependency_or_execution_configuration():
         assert "BREMEN_ARAMINA_PROVIDER_URL" not in text
         assert "provider_url" not in text
     text = Path("src/bremen/api/workflow_aramina.py").read_text()
-    assert "os.environ" not in text
+    # PR0139 permits only the opt-in private diagnostic switch.
+    env_calls = [node for node in ast.walk(ast.parse(text))
+                 if isinstance(node, ast.Call)
+                 and ast.unparse(node.func) == "os.environ.get"]
+    assert env_calls
+    assert all(ast.literal_eval(node.args[0]) == "BREMEN_ARAMINA_DEBUG_TRACE"
+               for node in env_calls)
     assert "_post_aramina_predict" not in text
 
 
@@ -946,3 +969,300 @@ class TestFastAPIAraminaRoutePlumbing:
         assert "Traceback" not in text
         assert "bucket" not in text.lower()
         assert "token" not in text.lower()
+
+
+# PR0139: Opt-in private runtime checkpoints; public errors stay unchanged.
+
+def _trace_records(caplog):
+    return [json.loads(record.getMessage().split("aramina.debug_trace ", 1)[1])
+            for record in caplog.records
+            if record.getMessage().startswith("aramina.debug_trace ")]
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+def test_debug_trace_lr1_pipeline_feature_mismatch(tmp_path, source, monkeypatch, caplog, enabled):
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
+
+    pkg = _package()
+    rng = np.random.RandomState(7)
+    pipeline = make_pipeline(StandardScaler(), LogisticRegression())
+    pipeline.fit(rng.rand(4, 100), [0, 0, 1, 1])
+    pkg["models"]["selected_model"]["lr1_model"] = pipeline
+    monkeypatch.setenv("BREMEN_ARAMINA_DEBUG_TRACE", "1" if enabled else "0")
+    result = _execute(_entry(tmp_path, pkg), source)
+    assert result.error == "ARAMINA_EXECUTION_FAILED"
+    assert result.payload is None
+    records = _trace_records(caplog)
+    if not enabled:
+        assert records == []
+        return
+    merged = {key: value for record in records for key, value in record.items()}
+    assert merged["artifact_loaded"] is True
+    assert merged["lr1_model_type"] == "Pipeline"
+    assert merged["lr1_expected_feature_count"] == 100
+    assert merged["canonical_measurement_count"] == 2
+    assert merged["target_side"] == "left"
+    assert merged["target_measurement_count"] == 1
+    assert merged["target_profile_lengths"] == [10]
+    assert merged["lr1_input_shape"] == [1, 10]
+    assert merged["lr1_exception_class"] == "ValueError"
+    assert merged["lr1_exception_stage"] == "lr1_predict_proba"
+    assert merged["final_input_shape"] is None
+    assert merged["final_exception_class"] is None
+
+
+@pytest.mark.parametrize("failure,stage,exception", [
+    ("final", "final_predict_proba", "ValueError"),
+    ("threshold", "threshold", "TypeError"),
+])
+def test_debug_trace_final_stages(tmp_path, source, monkeypatch, caplog, failure, stage, exception):
+    monkeypatch.setenv("BREMEN_ARAMINA_DEBUG_TRACE", "1")
+    pkg = _package()
+    info = pkg["models"]["selected_model"]
+    if failure == "final":
+        info["final_model"] = _lr1_model(n_features=9)
+    else:
+        info["thresholds"]["threshold_target"] = "invalid"
+    result = _execute(_entry(tmp_path, pkg), source)
+    assert result.error == "ARAMINA_EXECUTION_FAILED"
+    merged = {key: value for record in _trace_records(caplog) for key, value in record.items()}
+    assert merged["final_input_shape"] == [1, 8]
+    assert merged["final_feature_columns"] == list(_FINAL_FEATURE_COLUMNS)
+    assert merged["final_exception_class"] == exception
+    assert merged["final_exception_stage"] == stage
+
+
+def test_debug_trace_success_is_private(tmp_path, source, monkeypatch, caplog):
+    monkeypatch.setenv("BREMEN_ARAMINA_DEBUG_TRACE", "1")
+    result = _execute(_entry(tmp_path), source)
+    assert result.status == "completed"
+    assert "debug_trace" not in json.dumps(result.payload)
+    merged = {key: value for record in _trace_records(caplog) for key, value in record.items()}
+    assert merged["selected_model_info_keys"]
+    assert merged["feature_columns"] == list(_FINAL_FEATURE_COLUMNS)
+    assert merged["threshold_keys"] == ["threshold_target"]
+    assert merged["final_input_shape"] == [1, 8]
+    assert merged["lr1_exception_class"] is None
+    assert merged["final_exception_class"] is None
+
+
+def test_debug_trace_redacts_untrusted_metadata_and_exception(tmp_path, source, monkeypatch, caplog):
+    monkeypatch.setenv("BREMEN_ARAMINA_DEBUG_TRACE", "1")
+    secret = "s3://private/key /tmp/private token=secret ticket=secret patient-private"
+    error_type = type(secret, (RuntimeError,), {})
+    model_type = type(secret, (), {
+        "predict_proba": lambda self, values: (_ for _ in ()).throw(error_type(secret)),
+        "__repr__": lambda self: secret,
+    })
+    pkg = _package()
+    info = pkg["models"]["selected_model"]
+    info[secret] = secret
+    info["thresholds"][secret] = secret
+    info["feature_columns"].append(secret)
+    info["lr1_model"] = model_type()
+    entry = _entry(tmp_path)
+    monkeypatch.setattr("bremen.api.workflow_aramina._load_selected_artifact", lambda entry: pkg)
+    result = _execute(entry, source)
+    assert result.error == "ARAMINA_EXECUTION_FAILED"
+    text = json.dumps(_trace_records(caplog))
+    for forbidden in (secret, entry._artifact_path, entry._checksum, "Traceback", "patient-private"):
+        assert forbidden not in text
+    assert '"lr1_exception_class": "redacted"' in text
+    assert all(record.exc_info is None for record in caplog.records)
+
+
+def test_debug_trace_logging_failure_does_not_change_result(tmp_path, source, monkeypatch):
+    monkeypatch.setenv("BREMEN_ARAMINA_DEBUG_TRACE", "1")
+    monkeypatch.setattr("logging.Logger.warning", MagicMock(side_effect=RuntimeError("log failed")))
+    assert _execute(_entry(tmp_path), source).status == "completed"
+
+
+def test_debug_trace_failure_stays_out_of_public_job(tmp_path, source, monkeypatch, caplog):
+    monkeypatch.setenv("BREMEN_ARAMINA_DEBUG_TRACE", "1")
+    pkg = _package()
+    pkg["models"]["selected_model"]["lr1_model"] = _lr1_model(n_features=11)
+    entry = _entry(tmp_path, pkg)
+    _install(entry)
+    job = jobs.create_analysis_job(
+        model_id=entry.model_id, h5_path=source[0], aramina_request=_request(),
+    )
+    assert job.workflow_runs["aramina"].failure == "ARAMINA_EXECUTION_FAILED"
+    assert _trace_records(caplog)[-1]["lr1_exception_class"] == "ValueError"
+    public = json.dumps([job.to_dict(), jobs.get_job_events(job.job_id)])
+    for forbidden in ("lr1_input_shape", "lr1_exception_class", "debug_trace", "ValueError"):
+        assert forbidden not in public
+
+
+@pytest.mark.parametrize("release,variable", [
+    ("v0.1.7-beta", "BREMEN_ARAMINA_PREPROCESS_PYTHON"),
+    ("v0.1.9-beta", "BREMEN_ARAMINA_PREPROCESS_019_PYTHON"),
+])
+def test_artifact_preprocessing_uses_isolated_version(synthetic_preprocessing, monkeypatch, release, variable):
+    import subprocess
+
+    import yaml
+
+    config = {"xrd_preprocessing": {"release_tag": release}, "pipeline": {"steps": [{"name": "raw"}]}}
+    monkeypatch.setenv(variable, "/test/python")
+    run = MagicMock(return_value=subprocess.CompletedProcess([], 0, json.dumps({"rows": [{
+        "patientId": "p1", "side": "left", "age": None,
+        "radial_profile_data": [2., 3.], "q_range": [2., 23.],
+    }]}), ""))
+    monkeypatch.setattr("bremen.api.aramina_preprocessing.subprocess.run", run)
+    result = synthetic_preprocessing("private-input", yaml.safe_dump(config))
+    assert result.iloc[0].radial_profile_data == [2., 3.]
+    assert run.call_args.args[0][:2] == ["/test/python", "-I"]
+    assert json.loads(run.call_args.kwargs["input"])["config_yaml"] == yaml.safe_dump(config)
+    assert run.call_args.kwargs["capture_output"] is True
+
+
+def test_preprocessing_worker_errors_are_safe(synthetic_preprocessing, monkeypatch):
+    import subprocess
+    run = MagicMock(return_value=subprocess.CompletedProcess([], 1, "secret", "private path"))
+    monkeypatch.setattr("bremen.api.aramina_preprocessing.subprocess.run", run)
+    with pytest.raises(ValueError, match="^Aramina preprocessing failed$"):
+        synthetic_preprocessing("private", "xrd_preprocessing: {release_tag: v0.1.7-beta}\npipeline: {steps: [raw]}")
+    with pytest.raises(ValueError, match="Missing artifact preprocessing pipeline"):
+        synthetic_preprocessing("private", "{}")
+
+
+def test_real_profile_matrix_and_named_final_features(tmp_path, source, monkeypatch):
+    pkg = _package()
+    info = pkg["models"]["selected_model"]
+    info["lr1_model"] = _lr1_model(n_features=100)
+    lr1 = MagicMock(wraps=info["lr1_model"].predict_proba)
+    final = MagicMock(wraps=info["final_model"].predict_proba)
+    info["lr1_model"].predict_proba = lr1
+    info["final_model"].predict_proba = final
+    profile = np.linspace(2., 6., 100)
+    frame = pd.DataFrame([{"patientId": "p1", "side": "left", "age": 42.,
+                           "radial_profile_data": profile, "q_range": np.linspace(2., 23., 100)}])
+    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", lambda *args: frame)
+    monkeypatch.setattr("bremen.api.workflow_aramina._load_selected_artifact", lambda entry: pkg)
+    result = _execute(_entry(tmp_path), source)
+    assert result.status == "completed"
+    np.testing.assert_array_equal(lr1.call_args.args[0], profile.reshape(1, 100))
+    received = final.call_args.args[0]
+    assert isinstance(received, pd.DataFrame)
+    assert list(received.columns) == list(_FINAL_FEATURE_COLUMNS)
+    assert received["age"].iloc[0] == 42.
+    assert received["age_available"].iloc[0] == 1.
+    assert 0 <= received["profile_p_cancer_logit_average"].iloc[0] <= 1
+    assert received["symmetry_available"].iloc[0] == 0
+
+
+def test_observed_0213_pickle_symbol_and_old_bridge_unchanged(monkeypatch):
+    import pickle
+    import sys
+
+    from bremen.api.aramina_artifact_compat import (
+        GatedSymmetryLogistic,
+        TargetBreastGatedSymmetryLogistic,
+        ensure_compatibility_bridge,
+    )
+    monkeypatch.delitem(sys.modules, "aramina.target_breast_model", raising=False)
+    ensure_compatibility_bridge()
+    assert pickle.loads(b"caramina.target_breast_model\nGatedSymmetryLogistic\n.") is TargetBreastGatedSymmetryLogistic
+    assert pickle.loads(b"caramina.m2q_model\nGatedSymmetryLogistic\n.") is GatedSymmetryLogistic
+
+
+def test_0213_compatibility_scores_fitted_state(tmp_path, source):
+    from sklearn.preprocessing import StandardScaler
+
+    from bremen.api.aramina_artifact_compat import TargetBreastGatedSymmetryLogistic
+
+    model = TargetBreastGatedSymmetryLogistic()
+    model.base_fill_values_ = pd.Series([0., 0., 0.], index=_FINAL_FEATURE_COLUMNS[:3])
+    model.base_scaler_ = StandardScaler().fit(np.array([[0., 0., 0.], [1., 1., 1.]]))
+    model.symmetry_means_ = pd.Series([0., 0., 0., 0.], index=_FINAL_FEATURE_COLUMNS[3:7])
+    model.symmetry_scales_ = pd.Series([1., 1., 1., 1.], index=_FINAL_FEATURE_COLUMNS[3:7])
+    model.logreg_ = _lr1_model(n_features=7)
+    pkg = _package(model_version="0.2.13-beta")
+    pkg["models"]["selected_model"]["final_model"] = model
+    result = _execute(_entry(tmp_path, pkg, model_version="0.2.13-beta"), source)
+    assert result.status == "completed"
+    assert result.payload["model_version"] == "0.2.13-beta"
+    x = pd.DataFrame([[None, 1., 1., None, 1., 2., 3., 0.]], columns=_FINAL_FEATURE_COLUMNS)
+    matrix = model._matrix(x)
+    np.testing.assert_array_equal(matrix[:, 3:], np.zeros((1, 4)))
+    assert np.isfinite(matrix).all()
+
+
+@pytest.mark.parametrize("change,check", [("kind", "artifact_kind"), ("missing", "required_model_keys")])
+def test_artifact_validation_trace_names_exact_check(tmp_path, source, monkeypatch, caplog, change, check):
+    monkeypatch.setenv("BREMEN_ARAMINA_DEBUG_TRACE", "1")
+    pkg = _package()
+    if change == "kind":
+        pkg["kind"] = "private-value"
+    else:
+        del pkg["models"]["selected_model"]["lr1_model"]
+    assert _execute(_entry(tmp_path, pkg), source).error == "ARAMINA_UNSUPPORTED_ARTIFACT"
+    assert any(record.get("validation_check") == check for record in _trace_records(caplog))
+    assert "private-value" not in json.dumps(_trace_records(caplog))
+
+
+def test_symmetry_uses_paired_profiles_and_declared_gate():
+    from bremen.api.aramina_symmetry import CORE4, symmetry_features
+    q = np.linspace(2., 23., 100)
+    rows = [{"side": side, "q_range": q, "radial_profile_data": 2 + factor * np.exp(-(q - 14.) ** 2)}
+            for side, factor in [("left", 2.), ("left", 3.), ("right", 1.), ("right", 1.5)]]
+    frame = pd.DataFrame(rows)
+    for contract in ("aramina_sk_symmetry_v0_1", "aramina_sk_symmetry_v0_2"):
+        features = symmetry_features(frame, "left", contract)
+        assert features["symmetry_available"] == 1
+        assert all(np.isfinite(features[k]) for k in CORE4)
+        assert features["sk_weightedrms1"] > 0
+    gate = symmetry_features(frame.iloc[[0, 2]], "left", "aramina_sk_symmetry_v0_2")
+    assert gate["symmetry_available"] == 0
+    assert all(gate[k] == 0 for k in CORE4)
+    with pytest.raises(ValueError, match="Unsupported symmetry contract"):
+        symmetry_features(frame, "left", "unknown")
+
+
+@pytest.mark.parametrize("fails", [False, True])
+def test_isolated_worker_protocol(monkeypatch, capsys, fails):
+    import io
+    import logging
+    import runpy
+    import sys
+
+    import xrd_preprocessing
+
+    worker = runpy.run_path("src/bremen/api/aramina_preprocess_worker.py")
+    monkeypatch.setattr("importlib.metadata.version", lambda name: "0.1.7b0")
+    frame = pd.DataFrame([{"patientId": "p1", "side": "left", "age": None,
+                           "radial_profile_data": [1., 2.], "q_range": [2., 23.]}])
+    pipeline = MagicMock()
+    pipeline.fit_transform.side_effect = ValueError("private-source") if fails else None
+    pipeline.fit_transform.return_value = frame
+    monkeypatch.setattr(xrd_preprocessing, "build_pipeline_from_config", lambda *a, **k: pipeline, raising=False)
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({
+        "h5": "private-source", "config_yaml": "xrd_preprocessing: {release_tag: v0.1.7-beta}",
+    })))
+    disabled = logging.root.manager.disable
+    try:
+        if fails:
+            with pytest.raises(SystemExit):
+                worker["main"]()
+        else:
+            worker["main"]()
+    finally:
+        logging.disable(disabled)
+    out = capsys.readouterr().out
+    assert "private-source" not in out
+    payload = json.loads(out)
+    assert payload == {"error": "ARAMINA_PREPROCESSING_FAILED"} if fails else payload["rows"][0]["radial_profile_data"] == [1., 2.]
+
+
+@pytest.mark.parametrize("missing", ["final_column", "threshold"])
+def test_no_missing_feature_or_threshold_fallback(tmp_path, source, missing):
+    pkg = _package()
+    info = pkg["models"]["selected_model"]
+    if missing == "final_column":
+        info["feature_columns"].append("unknown_feature")
+    else:
+        del info["thresholds"]["threshold_target"]
+    result = _execute(_entry(tmp_path, pkg), source)
+    assert result.error == "ARAMINA_EXECUTION_FAILED"
+    assert result.payload is None

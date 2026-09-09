@@ -18,7 +18,6 @@ import sys
 import types
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Real GatedSymmetryLogistic implementation
 # ---------------------------------------------------------------------------
@@ -133,6 +132,30 @@ class GatedSymmetryLogistic:
 # ---------------------------------------------------------------------------
 
 
+class TargetBreastGatedSymmetryLogistic(GatedSymmetryLogistic):
+    """0.2.13 state-compatible numeric conversion and fitted missing-value handling."""
+
+    def _matrix(self, X: Any) -> Any:
+        import numpy as np
+        import pandas as pd
+
+        base = X.loc[:, ["profile_p_cancer_logit_average", "age", "age_available"]].apply(
+            pd.to_numeric, errors="coerce",
+        )
+        scaled = self.base_scaler_.transform(
+            base.fillna(self.base_fill_values_).to_numpy(dtype=float),
+        )
+        columns = ["sk_wasserstein_distance_full_q2", "sk_weightedrms1",
+                   "sk_weightedrms2", "sk_mean_peak_value_abs_delta"]
+        symmetry = X.loc[:, columns].apply(pd.to_numeric, errors="coerce").fillna(
+            self.symmetry_means_,
+        )
+        values = (symmetry.to_numpy(dtype=float) - self.symmetry_means_.to_numpy(dtype=float))
+        values /= self.symmetry_scales_.to_numpy(dtype=float)
+        values[~X["symmetry_available"].astype(bool).to_numpy(), :] = 0.0
+        return np.hstack([scaled, values])
+
+
 def ensure_compatibility_bridge() -> None:
     """Register the real GatedSymmetryLogistic in sys.modules.
 
@@ -145,3 +168,7 @@ def ensure_compatibility_bridge() -> None:
         mod = types.ModuleType("aramina.m2q_model")
         sys.modules["aramina.m2q_model"] = mod
     sys.modules["aramina.m2q_model"].GatedSymmetryLogistic = GatedSymmetryLogistic
+    if "aramina.target_breast_model" not in sys.modules:
+        sys.modules["aramina.target_breast_model"] = types.ModuleType("aramina.target_breast_model")
+    target = sys.modules["aramina.target_breast_model"]
+    target.GatedSymmetryLogistic = TargetBreastGatedSymmetryLogistic

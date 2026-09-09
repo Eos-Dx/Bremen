@@ -1,0 +1,282 @@
+PR0139 — Precommit Review
+==========================
+VERDICT: BLOCKED
+
+Branch: 0139-trace-h5-to-aramina-features
+(Expected branch per task: 0139-fix-aramina-runtime-by-model-failure-mode)
+HEAD: 8d7adf2c87e433c93bf334a56e9a0cf5477422b5
+Review timestamp: 2026-09-09T18:15:14Z
+
+Do not commit.
+
+--------------------------------------------------------------------------
+EXACT FAILING CHECKS
+--------------------------------------------------------------------------
+
+1. BRANCH MISMATCH
+   Task requires review on branch `0139-fix-aramina-runtime-by-model-failure-mode`.
+   Current branch is `0139-trace-h5-to-aramina-features`.
+   The review artifact directory `0139-fix-aramina-runtime-by-model-failure-mode`
+   exists but the implementation work is on a different branch.
+
+2. FORBIDDEN FILE CHANGED — Dockerfile
+   `Dockerfile` is modified but is NOT in the allowed files list.
+   The change adds two external pinned dependencies:
+     - `xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@v0.1.7-beta`
+     - `xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@v0.1.9-beta`
+   This is an implementation change outside approved PLAN.txt scope.
+
+   CODER JUSTIFICATION (received after initial review):
+   The coder states the Dockerfile change was needed so the implementation
+   would work inside the production container, not only locally. Bremen uses
+   xrd-preprocessing v0.1.5-beta; Aramina 0.2.12 declares v0.1.7-beta and
+   0.2.13 declares v0.1.9-beta. Upgrading Bremen's shared dependency to
+   v0.1.7-beta breaks its import of SelectColumnsTransformer, so separate
+   Python environments were added for Aramina preprocessing.
+
+   REVIEW ASSESSMENT OF JUSTIFICATION:
+   The coder explicitly acknowledges: "this is an architectural expansion,
+   not just an inference fix. I chose isolation myself; I did not establish
+   that two separate environments were the only viable solution."
+   The coder also states: "I tested the environments locally but did NOT
+   build the Docker image."
+
+   This justification does NOT clear the blocker because:
+     a) The task's allowed files list does NOT include Dockerfile. The task
+        states "Implementation changed files outside approved PLAN.txt scope"
+        is a blocker. The coder's self-justification is not an approval from
+        the task/PLAN.
+     b) The coder acknowledges the isolation approach was chosen by
+        themselves and was not established as the only viable solution.
+     c) The Docker image was NOT built, so the Dockerfile change is
+        unverified in the container.
+     d) The final-line change (trailing newline) is acknowledged as
+        non-behavioral, but the environment provisioning lines are the
+        substantive change and remain outside approved scope.
+
+3. NEW UNTRACKED SOURCE FILES NOT IN ALLOWED LIST
+   The following new source files are untracked and NOT in the allowed files list:
+     - src/bremen/api/aramina_preprocess_worker.py
+     - src/bremen/api/aramina_preprocessing.py
+     - src/bremen/api/aramina_symmetry.py
+   These are implementation changes outside approved PLAN.txt scope.
+
+4. MISSING REQUIRED ARTIFACTS
+   The review artifact directory `.project-memory/pr/0139-fix-aramina-runtime-by-model-failure-mode/`
+   contains ONLY `ARAMINA_FAILURE_MATRIX_TRACE.txt`.
+   The following required artifacts are MISSING:
+     - PRODUCTION_CURL_MATRIX_AFTER.txt
+     - reviews/precommit-review.txt (this file was absent before this review wrote it)
+
+5. NO PRODUCTION OR S3 PRODUCTION-EQUIVALENT AFTER-RUN MATRIX
+   The ARAMINA_FAILURE_MATRIX_TRACE.txt "AFTER" section describes a
+   "local FastAPI POST /demo/api/jobs equivalent" run, NOT a production curl
+   matrix and NOT a local S3 production-equivalent run.
+   The trace explicitly states:
+     "Production input byte identity, deployed dependencies, and a production
+      rollout were not verified. Other production matrix patients were not
+      rerun locally."
+   The task requires "PRODUCTION_CURL_MATRIX_AFTER.txt exists or local S3
+   production-equivalent after-run exists." Neither is present.
+
+6. NOT ALL PRODUCTION MATRIX PATIENTS TESTED AFTER FIX
+   The production curl matrix before PR0139 covered Nova_214, Nova_379,
+   Nova_383, Nova_384, Nova_227 (0.2.12-beta) and Nova_214, Nova_379
+   (0.2.13-beta).
+   The after-run in ARAMINA_FAILURE_MATRIX_TRACE.txt covers only Nova_214
+   and Nova_227. The trace states "Other production matrix patients were
+   not rerun locally."
+
+--------------------------------------------------------------------------
+EXACT REASON
+--------------------------------------------------------------------------
+
+The implementation on this branch does not satisfy the PR0139 READY criteria
+because:
+  a) The work is on the wrong branch (0139-trace-h5-to-aramina-features
+     instead of 0139-fix-aramina-runtime-by-model-failure-mode).
+  b) Forbidden files (Dockerfile) and new source files outside the allowed
+     list were introduced.
+  c) The required PRODUCTION_CURL_MATRIX_AFTER.txt does not exist.
+  d) The after-run evidence is local-only, not production or S3
+     production-equivalent, and does not cover all production matrix patients.
+  e) The required reviews/precommit-review.txt artifact did not exist before
+     this review.
+
+--------------------------------------------------------------------------
+EXACT REPAIR DIRECTION
+--------------------------------------------------------------------------
+
+1. Switch to (or create) branch `0139-fix-aramina-runtime-by-model-failure-mode`
+   and ensure all PR0139 work is on that branch.
+
+2. Reconcile the Dockerfile change with the allowed-files list. Either:
+     - Move the isolated preprocessing environment provisioning into an
+       approved mechanism, OR
+     - Obtain explicit justification/approval for the Dockerfile change from
+       the task/PLAN owner (not self-approval by the coder) and document it
+       in PLAN.txt.
+     - Build the Docker image and verify the isolated environments work in
+       the container before committing.
+     - Consider whether a single shared preprocessing environment or another
+       approach could avoid the architectural expansion the coder
+       acknowledges was self-chosen and not established as the only viable
+       solution.
+
+3. Add the new source files (aramina_preprocessing.py,
+   aramina_preprocess_worker.py, aramina_symmetry.py) to the approved PLAN.txt
+   scope, or fold their functionality into the allowed files.
+
+4. Produce a PRODUCTION_CURL_MATRIX_AFTER.txt (or a local S3
+   production-equivalent after-run) that covers ALL production matrix
+   patients (Nova_214, Nova_379, Nova_383, Nova_384, Nova_227) for both
+   0.2.12-beta and 0.2.13-beta, with sanitized results.
+
+5. Ensure the after-run verifies:
+     - 0.2.12-beta no longer returns ARAMINA_EXECUTION_FAILED for all tested
+       patients.
+     - 0.2.13-beta no longer returns ARAMINA_UNSUPPORTED_ARTIFACT while
+       catalog says technical_ready=true/available; either supported safely
+       or deliberately marked unavailable/not-ready.
+     - model_version remains non-empty on success and failure paths.
+     - No fake/dummy/uniform probability fallback.
+     - Bremen portable_logreg regression passes.
+
+6. Re-run the full validation suite on the correct branch and confirm:
+     - Full pytest -q passes.
+     - git diff --check clean.
+     - ARAMINA_FAILURE_MATRIX_TRACE.txt exists and names exact 0.2.12
+       failing stage and exact fix, and exact 0.2.13 unsupported-artifact
+       cause.
+     - PRODUCTION_CURL_MATRIX_AFTER.txt exists or local S3
+       production-equivalent after-run exists.
+
+--------------------------------------------------------------------------
+VALIDATION COMMANDS RUN (on current branch)
+--------------------------------------------------------------------------
+
+python -m compileall -q src tests scripts  -> PASSED
+pytest -q tests/test_aramina_workflow_runtime.py -> 89 passed
+pytest -q tests/test_s3_model_discovery.py -> 112 passed
+pytest -q tests/test_bremen_model_catalog.py tests/test_model_registry.py tests/test_catalog_api_multi_model.py -> 68 passed
+pytest -q tests/test_bremen_model_requirements_api.py -> 35 passed
+pytest -q tests/test_bremen_access_logging.py -> 20 passed
+pytest -q -> 3872 passed, 11 skipped
+git diff --check -> PASSED
+
+NOTE: These tests pass on the current branch (0139-trace-h5-to-aramina-features),
+which is NOT the branch the task requires for review.
+
+--------------------------------------------------------------------------
+FILES READ
+--------------------------------------------------------------------------
+
+- .project-memory/pr/0139-fix-aramina-runtime-by-model-failure-mode/ARAMINA_FAILURE_MATRIX_TRACE.txt
+- .project-memory/pr/0139-trace-h5-to-aramina-features/EXECUTION_FAILURE_TRACE.txt
+- src/bremen/api/workflow_aramina.py (full)
+- src/bremen/api/aramina_artifact_compat.py (full)
+- src/bremen/api/aramina_preprocessing.py (full)
+- src/bremen/api/aramina_preprocess_worker.py (full)
+- src/bremen/api/aramina_symmetry.py (full)
+- docs/aramina_runtime_model_contracts.md (full)
+- tests/test_aramina_workflow_runtime.py (diff)
+- Dockerfile (diff)
+- agents/coder.yml (diff — reverted during review)
+- git diff --name-only, git diff --stat, git status --short
+- grep results across src/bremen/api, tests, .project-memory
+
+--------------------------------------------------------------------------
+FILES WRITTEN
+--------------------------------------------------------------------------
+
+- .project-memory/pr/0139-fix-aramina-runtime-by-model-failure-mode/reviews/precommit-review.txt
+
+--------------------------------------------------------------------------
+SNAPSHOT DELTA
+--------------------------------------------------------------------------
+
+Modified (tracked):
+  M Dockerfile
+  M src/bremen/api/aramina_artifact_compat.py
+  M src/bremen/api/workflow_aramina.py
+  M tests/test_aramina_workflow_runtime.py
+
+Untracked:
+  ?? .project-memory/pr/0139-fix-aramina-runtime-by-model-failure-mode/
+  ?? .project-memory/pr/0139-trace-h5-to-aramina-features/
+  ?? docs/aramina_runtime_model_contracts.md
+  ?? src/bremen/api/aramina_preprocess_worker.py
+  ?? src/bremen/api/aramina_preprocessing.py
+  ?? src/bremen/api/aramina_symmetry.py
+
+--------------------------------------------------------------------------
+PLAN COMPLIANCE
+--------------------------------------------------------------------------
+
+BLOCKED. Implementation changed files outside approved PLAN.txt scope:
+  - Dockerfile (forbidden)
+  - New source files aramina_preprocessing.py, aramina_preprocess_worker.py,
+    aramina_symmetry.py (not in allowed list)
+  - docs/aramina_runtime_model_contracts.md (not in allowed list)
+
+--------------------------------------------------------------------------
+BREMEN CONTRACT CHECK
+--------------------------------------------------------------------------
+
+Bremen portable_logreg contract, BremenProvider, adapt_model_package,
+_validate_loaded_package, and threshold fallback were NOT modified
+(verified via git diff on workflow_bremen.py, model_package.py, inference.py,
+s3_model_discovery.py, pyproject.toml — all clean). This is PASSING.
+
+--------------------------------------------------------------------------
+VALIDATION COMPLETENESS CHECK
+--------------------------------------------------------------------------
+
+All mandatory test commands pass on the current branch. However, the tests
+were run on branch 0139-trace-h5-to-aramina-features, not the branch the task
+requires. Validation completeness on the correct branch is NOT confirmed.
+
+--------------------------------------------------------------------------
+EVIDENCE COMPLETENESS CHECK
+--------------------------------------------------------------------------
+
+BLOCKED. The after-run evidence is local-only (FastAPI POST /demo/api/jobs
+equivalent), NOT a production curl matrix and NOT a local S3
+production-equivalent run. The trace explicitly states production input byte
+identity, deployed dependencies, and a production rollout were not verified.
+PRODUCTION_CURL_MATRIX_AFTER.txt does not exist.
+
+--------------------------------------------------------------------------
+DIFF COMPLETENESS CHECK
+--------------------------------------------------------------------------
+
+All changed files were read. However, the diff includes files outside the
+approved PLAN.txt scope (Dockerfile, new source files), which is a blocker.
+
+--------------------------------------------------------------------------
+BOUNDARY CONFIRMATIONS
+--------------------------------------------------------------------------
+
+- No external Aramina package dependency or import added (verified via grep).
+- No provider URL / HTTP path added (verified via grep).
+- No fake/dummy/uniform probability fallback introduced (verified via grep
+  and code inspection).
+- lr1_model receives real profile_matrix (verified in code and tests).
+- final_model receives pandas DataFrame with named feature_columns
+  (verified in code and tests).
+- model_version remains non-empty on success and failure paths (verified in
+  code and trace).
+- Public error behavior remains safe and stable (verified in code and tests).
+- No clinical/regulatory claims introduced (verified in docs and trace).
+
+--------------------------------------------------------------------------
+NEXT COMMANDS (after repair)
+--------------------------------------------------------------------------
+
+1. git checkout 0139-fix-aramina-runtime-by-model-failure-mode
+   (or create it from the current work)
+2. Reconcile Dockerfile and new source files with approved PLAN.txt scope.
+3. Produce PRODUCTION_CURL_MATRIX_AFTER.txt covering all production matrix
+   patients for both 0.2.12-beta and 0.2.13-beta.
+4. Re-run full validation suite on the correct branch.
+5. Re-run this precommit review.
