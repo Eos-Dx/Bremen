@@ -103,12 +103,14 @@ _DEFAULT_REGISTRY: WorkflowRegistry | None = None
 def get_default_registry() -> WorkflowRegistry:
     """Return the default workflow registry with all configured providers.
 
-    Registers ``bremen`` and ``aramina``.  The registry is rebuilt
-    on every call to pick up current ``ModelState`` (needed for
-    test suites where model state changes between tests).
+    Registers ``bremen`` and, when exactly one compatible Aramina model
+    is available, ``aramina``. Multiple Aramina models require explicit
+    model selection through ``get_provider_for_model``. Rebuilt on every
+    call to pick up current ``ModelState`` and model registry entries.
     """
     from .workflow_bremen import BremenProvider  # noqa: PLC0415
-    from .workflow_aramina_scaffold import AraminaProvider  # noqa: PLC0415
+    from .workflow_aramina import AraminaWorkflowProvider  # noqa: PLC0415
+    from .model_registry import get_registry
     from .model_state import ModelState  # noqa: PLC0415
 
     registry = WorkflowRegistry()
@@ -129,9 +131,14 @@ def get_default_registry() -> WorkflowRegistry:
     )
     registry.register(bremen_provider)
 
-    # --- Aramina provider (scaffold) ---
-    aramina_provider = AraminaProvider()
-    registry.register(aramina_provider)
+    # --- Aramina provider bound to an unambiguous available model ---
+    aramina_entries = [
+        entry for entry in get_registry().available_entries
+        if entry.workflow_id == "aramina"
+        and entry.artifact_type == "aramina.joblib.model_package"
+    ]
+    if len(aramina_entries) == 1:
+        registry.register(AraminaWorkflowProvider(entry=aramina_entries[0]))
 
     return registry
 

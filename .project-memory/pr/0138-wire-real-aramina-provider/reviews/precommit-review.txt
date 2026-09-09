@@ -1,0 +1,87 @@
+# PR0138 Precommit Review — Wire Real Aramina Provider
+
+Branch: 0138-trace-aramina-provider-resolution
+Reviewed: 2026-09-08
+Verdict: READY FOR COMMIT
+
+Note on branch name: The task description referenced "0138-wire-real-aramina-provider" but the actual branch is "0138-trace-aramina-provider-resolution". The review is based on the actual branch and code. The diff and tests are correct and complete for the described wiring fix.
+
+## Root Cause Fixed
+`get_default_registry()` imported and registered the stale `workflow_aramina_scaffold.AraminaProvider()` unconditionally, even when the real `AraminaWorkflowProvider` existed in the model registry. The real provider was only accessible via `get_provider_for_model(model_id)` (catalog-mode path). Default-registry and readiness/fallback paths used the stale scaffold.
+
+## Allowed Files Changed
+- `src/bremen/api/workflow_orchestrator.py` — changed `get_default_registry()` wiring
+- `tests/test_aramina_workflow_runtime.py` — added 5 new tests for registry wiring
+
+No forbidden files changed (all zero diff):
+- workflow_aramina.py, aramina_artifact_compat.py, workflow_aramina_scaffold.py
+- workflow_bremen.py, model_package.py, inference.py
+- s3_model_discovery.py, model_registry.py, pyproject.toml
+
+## get_default_registry Diff Summary
+Before:
+```python
+from .workflow_aramina_scaffold import AraminaProvider
+aramina_provider = AraminaProvider()
+registry.register(aramina_provider)
+```
+
+After:
+```python
+from .workflow_aramina import AraminaWorkflowProvider
+from .model_registry import get_registry
+
+aramina_entries = [
+    entry for entry in get_registry().available_entries
+    if entry.workflow_id == "aramina"
+    and entry.artifact_type == "aramina.joblib.model_package"
+]
+if len(aramina_entries) == 1:
+    registry.register(AraminaWorkflowProvider(entry=aramina_entries[0]))
+```
+
+## RegistryModelEntry Lookup Mechanism
+Uses existing `get_registry().available_entries` — no new S3/catalog discovery plumbing. Filters by `workflow_id == "aramina"` and `artifact_type == "aramina.joblib.model_package"`. Only registers when exactly 1 Aramina entry exists (unambiguous).
+
+## Confirmation Checklist
+- [x] Scaffold import removed: `from .workflow_aramina_scaffold import AraminaProvider` — gone
+- [x] `AraminaProvider()` construction removed — gone
+- [x] `AraminaWorkflowProvider(entry=aramina_entries[0])` registered when exactly 1 Aramina entry exists
+- [x] No Aramina entry → `WorkflowNotFoundError` (honest empty state)
+- [x] Multiple Aramina entries → no default registration (requires explicit `get_provider_for_model`)
+- [x] `get_provider_for_model` unchanged (line 71: same import and routing logic)
+- [x] Bremen provider construction unchanged in `get_default_registry()`
+- [x] No workflow_aramina.py change (git diff clean)
+- [x] No aramina_artifact_compat.py change (git diff clean)
+- [x] No workflow_aramina_scaffold.py change (git diff clean)
+- [x] No Bremen provider regression
+- [x] No pyproject.toml change
+- [x] No provider URL / HTTP path added
+- [x] No Aramina dependency added
+
+## Tests Added/Updated
+1. `test_catalog_job_registers_real_aramina_provider` — verifies catalog-mode job uses real AraminaWorkflowProvider, not scaffold
+2. `test_default_registry_uses_real_aramina_and_preserves_bremen` (parametrized bremen_loaded) — verifies default registry registers real AraminaProvider when entry exists, and Bremen still works
+3. `test_default_registry_leaves_aramina_unregistered` (parametrized catalog) — verifies empty/bremen-only/unavailable/wrong-type/multiple catalogs leave Aramina unregistered
+4. `test_default_registry_never_imports_or_constructs_scaffold` — monkeypatches builtins.__import__ to reject scaffold imports
+5. `test_model_id_post_uses_real_provider_without_scaffold` (parametrized unsupported) — end-to-end FastAPI POST /jobs verifies real provider resolution, no scaffold
+
+## Validation Command Outputs
+```
+compileall -q src tests:                      PASS
+pytest tests -k "orchestrator or registry or aramina": 68 passed
+pytest tests/test_aramina_workflow_runtime.py:  237 passed
+pytest -q (full suite): 3851 passed, 11 skipped, 0 failures
+git diff --check:                            clean
+```
+
+## Security/Product Review
+- [x] No BREMEN_ARAMINA_PROVIDER_URL / provider_url in production code
+- [x] httpx in pyproject.toml is pre-existing FastAPI dependency, not Aramina
+- [x] Test mentions of provider_url/BREMEN_ARAMINA_PROVIDER_URL are assertion checks (asserting absence)
+- [x] No public output/logging leak introduced
+- [x] No clinical/regulatory claims
+
+## Files Changed
+1. `src/bremen/api/workflow_orchestrator.py` — get_default_registry wiring fix
+2. `tests/test_aramina_workflow_runtime.py` — 5 new tests for registry wiring
