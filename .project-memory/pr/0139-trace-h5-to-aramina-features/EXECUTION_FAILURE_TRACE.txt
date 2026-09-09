@@ -1,0 +1,52 @@
+PR0139 — private execution failure trace
+Research/draft diagnostic evidence; no clinical validation or release claim.
+
+Sample: Nova_214; target side: left.
+Artifact model version: 0.2.12-beta.
+Evidence: local real artifact plus real sample H5, not synthetic final-model inputs.
+The current local runtime reproduces the supplied production public error.
+Production artifact/H5 byte identity and deployed dependency versions were not verified.
+No S3 access was needed: both inputs were available locally.
+
+Exact failing runtime stage: _run_local_artifact -> lr1_model.predict_proba.
+Exact failing transformer function: sklearn.preprocessing.StandardScaler.transform,
+called from sklearn.pipeline.Pipeline.predict_proba; feature-count validation
+fails in sklearn.utils.validation._check_n_features.
+Exception class: ValueError.
+Input: numpy.ndarray shape (1, 2000); no named input columns.
+Expected by fitted LR1 StandardScaler: 100 features (n_features_in_).
+The following fitted LogisticRegression also declares 100 input features.
+Independent call to the real fitted StandardScaler.transform reproduced ValueError.
+
+Category B: LR1 pipeline input mismatch, specifically A: profile width 2000 versus
+fitted feature count 100. This is not unequal row lengths: there is one target row.
+C: final-model compatibility/input failure is not reached and is not ruled out.
+D: threshold/report execution is not reached and is not ruled out.
+E: H5/patient/side validation passed for this local sample.
+No preprocessing, resampling, feature-generation, estimator, or threshold fix is
+included. Determining the correct 100-feature input contract is separate work.
+
+Public failure remains ARAMINA_EXECUTION_FAILED. No diagnostic metadata is added
+to public API responses, events, or reports. Enable temporary private logs only
+with BREMEN_ARAMINA_DEBUG_TRACE=1; unset it to disable. Unknown metadata labels
+and class names are redacted. No exception messages or tracebacks are emitted.
+Null final checkpoints below mean not reached, not successful.
+
+Sanitized local runtime checkpoints:
+aramina.debug_trace {"stage": "artifact_load", "artifact_loaded": false, "lr1_input_shape": null, "lr1_exception_class": null, "lr1_exception_stage": null, "final_feature_columns": null, "final_input_shape": null, "final_exception_class": null, "final_exception_stage": null}
+aramina.debug_trace {"stage": "artifact_loaded", "artifact_loaded": true, "selected_model_info_keys": ["redacted", "lr1_model", "final_model", "feature_columns", "symmetry_policy", "redacted", "redacted", "thresholds", "final_fit_training_metrics", "prediction_reference_scores", "class_definition", "tissue_risk_assessment"], "lr1_model_type": "Pipeline", "lr1_expected_feature_count": 100, "final_model_type": "GatedSymmetryLogistic", "feature_columns": ["profile_p_cancer_logit_average", "age", "age_available", "sk_wasserstein_distance_full_q2", "sk_weightedrms1", "sk_weightedrms2", "sk_mean_peak_value_abs_delta", "symmetry_available"], "threshold_keys": ["redacted", "threshold_target", "redacted", "redacted"]}
+aramina.debug_trace {"stage": "canonical_validation", "canonical_measurement_count": 2, "target_side": "left"}
+aramina.debug_trace {"stage": "target_selection", "canonical_measurement_count": 2, "target_side": "left", "target_measurement_count": 1, "target_profile_lengths": [2000]}
+aramina.debug_trace {"stage": "lr1_predict_proba", "lr1_input_shape": [1, 2000]}
+aramina.debug_trace {"stage": "lr1_predict_proba", "lr1_exception_class": "ValueError", "lr1_exception_stage": "lr1_predict_proba"}
+
+Validation on this branch:
+- python -m compileall -q src tests: passed.
+- pytest -q tests/test_aramina_workflow_runtime.py: 76 passed.
+- pytest -q: 3859 passed, 11 skipped.
+- git diff --check: passed.
+- ruff check .: 1485 existing findings, unchanged total from PR0138.
+Tests cover LR1 width mismatch with tracing enabled/disabled, final-input mismatch,
+threshold mismatch, successful checkpoints, hostile metadata/exception redaction,
+logging-handler failures, and unchanged public job errors/events.
+Trace investigation complete for the local sample; inference repair is not included.

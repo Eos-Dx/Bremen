@@ -72,6 +72,12 @@ RUN if [ -n "$BREMEN_CI_GITHUB_TOKEN" ]; then \
             "https://github.com/"; \
     fi && \
     pip install --no-cache-dir "." && \
+    python -m venv /opt/aramina-preprocess && \
+    /opt/aramina-preprocess/bin/pip install --no-cache-dir \
+        "xrd-prepr  ocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@v0.1.7-beta" && \
+    python -m venv /opt/aramina-preprocess-019 && \
+    /opt/aramina-preprocess-019/bin/pip install --no-cache-dir \
+        "xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@v0.1.9-beta" && \
     if [ -n "$BREMEN_CI_GITHUB_TOKEN" ]; then \
         git config --global --unset \
             url."https://${BREMEN_CI_GITHUB_TOKEN}@github.com/".insteadOf \
