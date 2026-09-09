@@ -1,0 +1,110 @@
+# PR0135 Precommit Review — Hotfix Aramina Job Request Fields
+
+Branch: 0135-hotfix-aramina-job-request-fields
+Date: 2026-09-08
+
+## VERDICT: READY FOR COMMIT
+
+## Production Bug Summary
+Valid Aramina POST /demo/api/jobs requests with all required fields
+(patient_id, target_side, etc.) returned HTTP 500 with ARAMINA_INVALID_REQUEST.
+Root cause: FastAPI route did not extract Aramina-specific fields from
+the request body and pass them to create_analysis_job. The
+aramina_request was always None, triggering the "ARAMINA_INVALID_REQUEST"
+guard in create_analysis_job.
+
+## Architecture Confirmed
+- Same single `POST /demo/api/jobs` endpoint for Bremen and Aramina.
+- Aramina fields extracted from JSON body and validated early at route level.
+- AraminaWorkflowError is caught before the generic Exception handler,
+  returning safe HTTP 400 instead of 500.
+- Aramina remains in-process. No HTTP provider. No external service.
+- Source resolution is NOT called for invalid Aramina requests.
+
+## Files Changed
+| File | Lines | Summary |
+|------|-------|---------|
+| `src/bremen/api/fastapi_app.py` | +42/-2 | Extract Aramina fields, catch AraminaWorkflowError as 400, pass aramina_request to create_analysis_job |
+| `src/bremen/api/fastapi_contracts.py` | +5 | Add patient_id, target_side, analysis_author, prediction_comment to JobCreateRequest |
+| `tests/test_aramina_workflow_runtime.py` | +174 | 9 new FastAPI route-level tests covering plumbing, 400 errors, traceback safety, Bremen regression |
+
+## Test Commands and Pass Summaries
+```
+python -m compileall -q src tests                                          → PASS (no errors)
+pytest -q tests/test_aramina_workflow_runtime.py                           → 61 passed
+pytest -q tests/test_s3_model_discovery.py tests/test_bremen_model_requirements_api.py
+       tests/test_bremen_model_catalog.py tests/test_model_registry.py
+       tests/test_catalog_api_multi_model.py tests/test_bremen_access_logging.py
+                                                                         → 235 passed
+pytest -q (full suite)                                                     → 3844 passed, 11 skipped, 0 failures
+git diff --check                                                           → clean
+```
+
+## Route/Request Plumbing Review
+- [x] `fastapi_contracts.py` adds patient_id, target_side, analysis_author, prediction_comment to JobCreateRequest
+- [x] `fastapi_app.py` calls `_selected_aramina_request(model_id, workflow_id, body_dict)` early in the POST /jobs route
+- [x] AraminaWorkflowError from validation is caught BEFORE the generic Exception handler
+- [x] `aramina_request` is passed to `create_analysis_job` via `**({"aramina_request": aramina_request} if workflow_id == "aramina" else {})`
+- [x] Raw `body_dict` (not the Pydantic model) is used for field extraction, preserving all original values
+
+## Valid Aramina Request Review
+- [x] Valid Aramina JSON with patient_id="Nova_376" and target_side="left" is NOT rejected as ARAMINA_INVALID_REQUEST
+- [x] Request reaches create_analysis_job with aramina_request populated
+- [x] Job is created (HTTP 201) with aramina workflow in requested_workflows
+- [x] Tests: test_valid_aramina_json_not_rejected, test_valid_aramina_reaches_execution_path
+
+## Invalid Request 400 Review
+- [x] Missing patient_id → HTTP 400, error_code="ARAMINA_INVALID_REQUEST"
+- [x] Missing target_side → HTTP 400, error_code="ARAMINA_INVALID_REQUEST"
+- [x] Invalid target_side ("anterior") → HTTP 400, error_code="ARAMINA_INVALID_REQUEST"
+- [x] All responses include technical_demo_only=True
+- [x] missing_required_fields populated when patient_id/target_side missing
+- [x] Tests: test_missing_patient_id_returns_400, test_missing_target_side_returns_400, test_invalid_target_side_returns_400
+
+## Source Handling Review
+- [x] Invalid Aramina request (missing patient_id) does NOT call resolve_source
+- [x] AraminaWorkflowError is caught BEFORE source resolution code runs
+- [x] Test: test_source_id_not_consumed_by_invalid_request confirms resolve_source not called
+- [x] Fresh source_id is not consumed by invalid request
+
+## In-Process Execution Review
+- [x] Aramina remains in-process via local artifact execution
+- [x] No external HTTP provider
+- [x] No provider URL required
+- [x] No pyproject.toml changes (no dependency added)
+- [x] No import aramina in any source file
+- [x] No BREMEN_ARAMINA_PROVIDER_URL in source code
+- [x] No provider_url in source code
+- [x] Test: test_no_aramina_provider_url_or_http_dependency
+
+## Bremen Regression Review
+- [x] Bremen workflow_id=bremen still returns HTTP 400 for missing source (expected)
+- [x] No ARAMINA_INVALID_REQUEST error for Bremen requests
+- [x] Existing Bremen job creation logic unchanged
+- [x] Test: test_bremen_workflow_unchanged
+- [x] Full suite: 3844 passed, 11 skipped, 0 failures
+
+## Public Output/Log Safety Review
+- [x] AraminaWorkflowError caught as 400, not logged as exception
+- [x] No traceback in response text (test: test_expected_validation_failure_no_traceback)
+- [x] No traceback in log records (test: test_expected_validation_failure_no_traceback)
+- [x] No raw exception details in error response (test: test_no_raw_exception_in_aramina_error_response)
+- [x] No /Users/, /home/, bucket, token in error response
+- [x] Technical error_code only (ARAMINA_INVALID_REQUEST)
+- [x] Pre-existing code (auth, tokens, S3) not modified
+
+## Product Safety Review
+- [x] No diagnostic claims
+- [x] No clinical deployment claims
+- [x] No FDA/CE/regulatory claims
+- [x] technical_demo_only=True on all error responses
+- [x] "Research draft" framing maintained in existing Aramina metadata
+
+## Explicit Notes
+- **Aramina is a catalog model artifact, not package/service/dependency/Aramis.**
+- **Same /demo/api/jobs executes Bremen and Aramina by model_id.**
+- **No Aramina provider URL is required.**
+- **No import/dependency for aramina was added.**
+- **Expected validation failures produce HTTP 400, not 500, with no traceback.**
+- **No private artifact/path/S3/checksum/token/ticket/traceback leaks in public responses.**
+- **No clinical/regulatory claims were added.**

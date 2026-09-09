@@ -29,6 +29,11 @@ class JobCreateRequest(BaseModel):
     h5_path: str = Field(default="", description="Legacy explicit filesystem path")
     container_id: str = Field(default="", description="Legacy container ID")
     action: str = Field(default="", description="Action routing (e.g. delete_report)")
+    # Aramina-specific request fields
+    patient_id: Optional[str] = Field(default=None, description="Patient identifier for Aramina")
+    target_side: Optional[str] = Field(default=None, description="Target side: left or right")
+    analysis_author: Optional[str] = Field(default=None, description="Analysis author for Aramina")
+    prediction_comment: Optional[str] = Field(default=None, description="Prediction comment for Aramina")
 
 
 
