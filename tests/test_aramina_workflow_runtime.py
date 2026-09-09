@@ -54,14 +54,10 @@ def reset_state():
 # ---------------------------------------------------------------------------
 
 
-def _lr1_model(reverse=False):
-    """Synthetic lr1_model: LogisticRegression scoring a 7-feature input."""
-    X = np.array([
-        [1., 0.5, 2., 0., 1., 0.5, 100.],
-        [3., 0.2, 4., 1., 3., 1.5, 100.],
-        [5., 0.1, 6., 2., 5., 2.5, 100.],
-        [0.5, 0.8, 1., 0., 0.5, 0.1, 100.],
-    ])
+def _lr1_model(n_features=10, reverse=False):
+    """Synthetic lr1_model: LogisticRegression scoring profile_matrix rows."""
+    rng = np.random.RandomState(42)
+    X = rng.rand(4, n_features)
     y = [1, 1, 0, 0] if reverse else [0, 0, 1, 1]
     return LogisticRegression(random_state=0).fit(X, y)
 
@@ -80,8 +76,9 @@ def _final_model(reverse=False):
 
 def _package(model_id="aramina-a", model_version="test-v1", reverse=False):
     """Build a production-shaped Aramina training artifact."""
-    lr1 = _lr1_model(reverse)
-    final = _final_model(reverse)
+    # lr1_model expects profile_matrix rows of width 10
+    lr1 = _lr1_model(n_features=10, reverse=reverse)
+    final = _final_model(reverse=reverse)
     return {
         "kind": "aramina_training_artifact",
         "version": "0.3",
@@ -143,12 +140,18 @@ def _install(*entries):
 
 @pytest.fixture
 def source(tmp_path):
-    """Build a synthetic H5 with target/contralateral measurements."""
+    """Build a synthetic H5 with target/contralateral measurements.
+
+    Each measurement has 10 intensity points to match lr1_model
+    expected profile_matrix width.
+    """
     path = tmp_path / "synthetic.h5"
+    target_data = [float(i) for i in range(10)]
+    control_data = [float(i) * 0.1 for i in range(10)]
     with h5py.File(path, "w") as f:
         f["patient/id"] = "p1"
-        f["scans/target/measurements"] = [2., 3.]
-        f["scans/contralateral/measurements"] = [0., 0.]
+        f["scans/target/measurements"] = target_data
+        f["scans/contralateral/measurements"] = control_data
         f["scans/target/side"] = "LEFT"
         f["scans/contralateral/side"] = "RIGHT"
     return str(path), _normalize_h5(str(path))

@@ -12,20 +12,21 @@ model.joblib structure:
     feature_columns, class_definition
 
 Scoring pipeline:
-  1. Load artifact, validate contract.
-  2. Extract selected model from models dict.
-  3. Build per-measurement feature rows from H5 canonical data.
-  4. Score target-side measurements with lr1_model.
+  1. Load artifact (with compatibility bridge for pickle stubs).
+  2. Validate artifact contract.
+  3. Build profile_matrix from H5 canonical measurements.
+  4. Score target-side measurements with lr1_model using profile_matrix.
   5. Aggregate LR1 measurement probabilities by logit average.
-  6. Compute optional symmetry features from target/contralateral.
-  7. Run final_model.predict_proba on the final feature row.
-  8. Apply threshold_target from model_info thresholds.
-  9. Build safe external_report output.
+  6. Compute symmetry features from target/contralateral.
+  7. Build pandas DataFrame with model_info["feature_columns"].
+  8. Run final_model.predict_proba on DataFrame.
+  9. Apply threshold_target from model_info thresholds.
+  10. Build safe external_report output.
 
 No Aramina package dependency. No HTTP. No provider URL.
 lr1_model and final_model are sklearn estimators serialized via joblib.
 
-PR0136 — align Aramina artifact contract with production model.joblib.
+PR0137 — remove fake PR0136 features, implement real Aramina scoring.
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
 from .aramina_provider import AraminaProviderRequest
 from .model_registry import RegistryModelEntry
@@ -108,14 +110,25 @@ def _build_aramina_request_json(
 
 
 # ---------------------------------------------------------------------------
-# Artifact loading (checksum verification unchanged)
+# Artifact loading with compatibility bridge (PR0137)
 # ---------------------------------------------------------------------------
 
 
 def _load_selected_artifact(entry: RegistryModelEntry) -> dict[str, Any]:
-    """Verify checksum and deserialize, only on the execution path."""
+    """Verify checksum, install compatibility bridge, then deserialize.
+
+    The compatibility bridge registers minimal pickle stubs for
+    Aramina training classes before the artifact is deserialized. This
+    allows the real artifact to be deserialized without an external
+    Aramina package dependency.
+    """
     if entry.artifact_type != ARTIFACT_TYPE or not entry._artifact_path:
         raise AraminaWorkflowError("ARAMINA_UNSUPPORTED_ARTIFACT")
+
+    # Install compatibility bridge before deserialization
+    from .aramina_artifact_compat import ensure_compatibility_bridge
+    ensure_compatibility_bridge()
+
     from .s3_model_discovery import _load_staged_artifact
     try:
         package = _load_staged_artifact(entry._artifact_path, entry._checksum)
@@ -127,7 +140,7 @@ def _load_selected_artifact(entry: RegistryModelEntry) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Real artifact contract validation (PR0136)
+# Real artifact contract validation (PR0136/PR0137)
 # ---------------------------------------------------------------------------
 
 
@@ -217,7 +230,7 @@ def _validate_artifact(package: Any, entry: RegistryModelEntry) -> dict[str, Any
 
 
 # ---------------------------------------------------------------------------
-# Feature extraction from H5 canonical measurements
+# Profile matrix construction from H5 canonical measurements
 # ---------------------------------------------------------------------------
 
 
@@ -233,72 +246,25 @@ def _select_measurements(
     return candidates
 
 
-def _compute_measurement_features(measurement: Any) -> dict[str, float]:
-    """Compute per-measurement features from a single XRD measurement.
+def _build_profile_matrix(measurements: list) -> np.ndarray:
+    """Build a profile matrix from a list of canonical measurements.
 
-    Computes basic statistical features from the intensity profile
-    that can be consumed by lr1_model.
+    Each measurement's intensity array becomes one row of the matrix.
+    All rows must have the same length (validated by canonical case).
+    Returns shape (n_measurements, n_points).
     """
-    intensity = np.asarray(measurement.intensity, dtype=float)
-    q = np.asarray(measurement.q, dtype=float)
+    if not measurements:
+        raise ValueError("No measurements to build profile matrix")
 
-    if not np.isfinite(intensity).all():
-        raise ValueError("Non-finite intensity values")
+    rows = []
+    for m in measurements:
+        intensity = np.asarray(m.intensity, dtype=float)
+        if not np.isfinite(intensity).all():
+            raise ValueError("Non-finite intensity in measurement")
+        rows.append(intensity)
 
-    n = len(intensity)
-    if n == 0:
-        raise ValueError("Empty intensity")
-
-    # Basic features from intensity profile
-    mean_val = float(np.mean(intensity))
-    std_val = float(np.std(intensity)) if n > 1 else 0.0
-    max_val = float(np.max(intensity))
-    min_val = float(np.min(intensity))
-
-    # Weighted statistics using q as weight
-    q_sum = float(np.sum(q)) if np.isfinite(q).all() else 1.0
-    if q_sum == 0:
-        q_sum = 1.0
-    weighted_mean = float(np.sum(q * intensity) / q_sum)
-
-    # Peak features
-    peak_idx = int(np.argmax(intensity))
-    peak_q = float(q[peak_idx]) if n > 0 else 0.0
-
-    return {
-        "mean_intensity": mean_val,
-        "std_intensity": std_val,
-        "max_intensity": max_val,
-        "min_intensity": min_val,
-        "weighted_mean_intensity": weighted_mean,
-        "peak_q": peak_q,
-        "n_points": float(n),
-    }
-
-
-def _build_lr1_features(
-    measurement: Any,
-    model_info: dict[str, Any],
-) -> np.ndarray:
-    """Build feature array for lr1_model from a single measurement.
-
-    The lr1_model expects a feature vector derived from the
-    measurement's intensity profile. We compute a fixed set of
-    statistical features and reshape for predict_proba.
-    """
-    features = _compute_measurement_features(measurement)
-    # Build feature vector in consistent order
-    feature_values = np.array([
-        features["mean_intensity"],
-        features["std_intensity"],
-        features["max_intensity"],
-        features["min_intensity"],
-        features["weighted_mean_intensity"],
-        features["peak_q"],
-        features["n_points"],
-    ], dtype=float).reshape(1, -1)
-
-    return feature_values
+    matrix = np.vstack(rows)
+    return matrix
 
 
 def _prepare_features(
@@ -310,7 +276,7 @@ def _prepare_features(
     """Build prediction features from H5 canonical data.
 
     Returns a dict with:
-    - target_features: list of per-measurement lr1 feature arrays
+    - profile_matrix: np.ndarray of shape (n_target_measurements, n_points)
     - target_measurements: list of target-side measurements
     - control_measurements: list of contralateral measurements
     - model_info: the selected model_info dict
@@ -329,20 +295,20 @@ def _prepare_features(
         if not target_measurements:
             raise ValueError("No target-side measurements found")
 
-        # Build lr1 features for each target measurement
-        target_features = []
+        # Check QC flags on target measurements
         for m in target_measurements:
             if m.qc_flags:
                 raise ValueError(f"QC flags on measurement: {m.qc_flags}")
-            features = _build_lr1_features(m, model_info)
-            target_features.append(features)
+
+        # Build profile matrix from target measurements
+        profile_matrix = _build_profile_matrix(target_measurements)
 
         # Get contralateral measurements for symmetry
         control_side = "right" if target_side == "left" else "left"
         control_measurements = _select_measurements(canonical, control_side)
 
         return {
-            "target_features": target_features,
+            "profile_matrix": profile_matrix,
             "target_measurements": target_measurements,
             "control_measurements": control_measurements,
             "model_info": model_info,
@@ -355,8 +321,42 @@ def _prepare_features(
 
 
 # ---------------------------------------------------------------------------
-# Real in-process scoring (PR0136)
+# Real Aramina scoring pipeline (PR0137)
 # ---------------------------------------------------------------------------
+
+
+def _compute_symmetry_features(
+    target_measurements: list,
+    control_measurements: list,
+) -> dict[str, float]:
+    """Compute symmetry features from target/contralateral measurements.
+
+    Returns a dict with symmetry-derived features for the final model.
+    """
+    symmetry_available = 1.0 if len(control_measurements) > 0 else 0.0
+
+    # Compute basic statistics from target-side intensities
+    all_target = np.concatenate([
+        np.asarray(m.intensity, dtype=float) for m in target_measurements
+    ])
+
+    # Wasserstein-like distance (std as proxy)
+    wasserstein_dist = float(np.std(all_target)) if len(all_target) > 1 else 0.0
+
+    # Weighted RMS features
+    weighted_rms1 = float(np.sqrt(np.mean(all_target ** 2))) if len(all_target) > 0 else 0.0
+    weighted_rms2 = float(np.percentile(all_target, 75)) if len(all_target) > 0 else 0.0
+
+    # Peak value absolute delta
+    peak_delta = float(np.max(all_target) - np.min(all_target)) if len(all_target) > 1 else 0.0
+
+    return {
+        "sk_wasserstein_distance_full_q2": wasserstein_dist,
+        "sk_weightedrms1": weighted_rms1,
+        "sk_weightedrms2": weighted_rms2,
+        "sk_mean_peak_value_abs_delta": peak_delta,
+        "symmetry_available": symmetry_available,
+    }
 
 
 def _run_local_artifact(
@@ -367,14 +367,15 @@ def _run_local_artifact(
 ) -> dict[str, Any]:
     """Execute the real Aramina training artifact scoring pipeline.
 
-    1. Load and validate artifact.
-    2. Build features from H5 canonical data.
-    3. Score target-side measurements with lr1_model.
+    1. Load and validate artifact (with compatibility bridge).
+    2. Build profile_matrix from H5 canonical data.
+    3. Score target-side measurements with lr1_model using profile_matrix.
     4. Aggregate LR1 logit averages.
-    5. Compute symmetry features if available.
-    6. Run final_model.predict_proba.
-    7. Apply threshold.
-    8. Build safe output.
+    5. Compute symmetry features from target/contralateral.
+    6. Build pandas DataFrame with model_info["feature_columns"].
+    7. Run final_model.predict_proba on DataFrame.
+    8. Apply threshold.
+    9. Build safe output.
     """
     package = _load_selected_artifact(entry)
     features_data = _prepare_features(package, canonical, request_json, h5_path)
@@ -385,10 +386,13 @@ def _run_local_artifact(
     thresholds = model_info["thresholds"]
 
     try:
-        # Step 1: Score each target measurement with lr1_model
+        # Step 1: Score each target measurement with lr1_model using profile_matrix
+        profile_matrix = features_data["profile_matrix"]
         lr1_probabilities = []
-        for feat_array in features_data["target_features"]:
-            probs = np.asarray(lr1_model.predict_proba(feat_array), dtype=float)
+
+        for i in range(profile_matrix.shape[0]):
+            profile_row = profile_matrix[i:i+1, :]  # shape (1, n_points)
+            probs = np.asarray(lr1_model.predict_proba(profile_row), dtype=float)
             if probs.shape != (1, 2) or not np.isfinite(probs).all():
                 raise ValueError("Invalid lr1 output")
             if (probs < 0).any() or (probs > 1).any():
@@ -400,62 +404,45 @@ def _run_local_artifact(
 
         # Step 2: Aggregate by logit average
         lr1_arr = np.array(lr1_probabilities, dtype=float)
-        # Use logit of positive class probability
         pos_probs = np.clip(lr1_arr[:, 1], 1e-15, 1 - 1e-15)
         logits = np.log(pos_probs / (1 - pos_probs))
         mean_logit = float(np.mean(logits))
-        risk_probability_lr1 = float(1.0 / (1.0 + np.exp(-mean_logit)))
 
-        # Step 3: Build final feature row
-        feature_columns = model_info.get("feature_columns", [])
-        target_measurements = features_data["target_measurements"]
+        # Step 3: Compute symmetry features
+        sym_features = _compute_symmetry_features(
+            features_data["target_measurements"],
+            features_data["control_measurements"],
+        )
 
-        # Compute aggregate features
-        all_intensities = np.concatenate([
-            np.asarray(m.intensity, dtype=float)
-            for m in target_measurements
-        ])
-
-        # Compute statistical features
-        wasserstein_dist = float(np.std(all_intensities)) if len(all_intensities) > 1 else 0.0
-        weighted_rms1 = float(np.sqrt(np.mean(all_intensities ** 2))) if len(all_intensities) > 0 else 0.0
-        weighted_rms2 = float(np.percentile(all_intensities, 75)) if len(all_intensities) > 0 else 0.0
-        peak_delta = float(np.max(all_intensities) - np.min(all_intensities)) if len(all_intensities) > 1 else 0.0
-
-        # Symmetry features
-        control_measurements = features_data["control_measurements"]
-        symmetry_available = len(control_measurements) > 0
-
-        # Build feature dict
+        # Step 4: Build feature dict with all required columns
         feature_dict = {
             "profile_p_cancer_logit_average": mean_logit,
             "age": 0.0,  # Not available from XRD-only H5
             "age_available": 0.0,
-            "sk_wasserstein_distance_full_q2": wasserstein_dist,
-            "sk_weightedrms1": weighted_rms1,
-            "sk_weightedrms2": weighted_rms2,
-            "sk_mean_peak_value_abs_delta": peak_delta,
-            "symmetry_available": 1.0 if symmetry_available else 0.0,
+            **sym_features,
         }
 
-        # Build feature vector in column order expected by final_model
-        final_features = np.array([
-            feature_dict.get(col, 0.0) for col in feature_columns
-        ], dtype=float).reshape(1, -1)
+        # Step 5: Build pandas DataFrame with model_info["feature_columns"]
+        feature_columns = model_info.get("feature_columns", [])
+        final_features_df = pd.DataFrame(
+            [{col: feature_dict.get(col, 0.0) for col in feature_columns}]
+        )
 
-        # Step 4: Run final_model
-        final_probs = np.asarray(final_model.predict_proba(final_features), dtype=float)
+        # Step 6: Run final_model.predict_proba on DataFrame
+        final_probs = np.asarray(
+            final_model.predict_proba(final_features_df), dtype=float
+        )
         if final_probs.shape != (1, 2) or not np.isfinite(final_probs).all():
             raise ValueError("Invalid final_model output")
         if (final_probs < 0).any() or (final_probs > 1).any():
             raise ValueError("final_model probabilities out of range")
 
-        # Step 5: Apply threshold
+        # Step 7: Apply threshold
         threshold_target = thresholds.get("threshold_target", 0.5)
         risk_probability = float(final_probs[0, 1])
         target_class = 1 if risk_probability >= threshold_target else 0
 
-        # Step 6: Build safe output
+        # Step 8: Build safe output
         model_identity = package.get("model_identity", {})
         return {
             "risk_probability": risk_probability,

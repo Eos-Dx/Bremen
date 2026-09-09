@@ -1,0 +1,102 @@
+# PR0137 Precommit Review — Fix Real Aramina Joblib Load and Scoring
+
+Branch: 0137-hotfix-real-aramina-joblib-load-and-scoring
+Reviewed: 2026-09-08
+Verdict: READY FOR COMMIT
+
+## Production Bug Summary
+Valid Aramina POST /demo/api/jobs reached runtime but failed with
+ARAMINA_UNSUPPORTED_ARTIFACT. Root causes:
+1. Real Aramina joblib contains pickle class `aramina.m2q_model.GatedSymmetryLogistic`
+   which pickle cannot resolve without a Bremen-owned compatibility bridge.
+2. PR0136 implemented fake 7-stat feature extraction instead of real Aramina scoring.
+
+## Exact Root Cause Fixed
+1. Compatibility bridge: `aramina_artifact_compat.py` registers a real
+   `GatedSymmetryLogistic` class in `sys.modules["aramina.m2q_model"]`
+   that preserves exact prediction behavior using the unpickled fitted
+   attributes (base_scaler_, symmetry_means_, symmetry_scales_, logreg_).
+2. Fake 7-stat features removed. lr1_model now receives a profile_matrix
+   of raw intensity arrays. final_model receives a pandas DataFrame with
+   named feature columns from model_info["feature_columns"].
+
+## Actual Artifact Inspection Proof
+ARTIFACT_RUNTIME_INSPECTION.txt:
+  Status: PASSED
+  joblib_load_status: passed
+  checksum_match: true
+  Loaded from: s3://matur-misc-uk/bremen/models/.../aramina_0_2_12-beta/
+  Real classes found: lr1_model=sklearn.pipeline.Pipeline,
+    final_model=aramina.m2q_model.GatedSymmetryLogistic
+  Fitted attrs verified: base_scaler_, symmetry_means_, symmetry_scales_,
+    logreg_ (7→2 classes), feature_names_
+  No local path, S3 bucket/key, checksum, traceback, or raw repr in output.
+
+## No .json inspection file exists (not created — text inspection is sufficient)
+
+## Compatibility Bridge Proof
+aramina_artifact_compat.py:
+- Bremen-owned GatedSymmetryLogistic implementation
+- Uses real fitted attrs: base_scaler_.transform(), symmetry_means_,
+  symmetry_scales_, logreg_.predict_proba()
+- predict_proba builds 7-feature matrix from 8-column DataFrame:
+  3 base features scaled by base_scaler_, 4 symmetry features gated
+  by symmetry_available, then fed to fitted logreg_
+- No uniform/dummy/fake probability fallback
+- Registered in sys.modules["aramina.m2q_model"] for pickle resolution
+- No external Aramina dependency added
+
+## Scoring Path Proof
+- Fake PR0136 7-stat features (mean_intensity, std_intensity, etc.) removed
+- lr1_model receives profile_matrix (n_measurements × n_points) from H5
+- final_model receives pd.DataFrame with named columns from feature_columns
+- threshold_target comes from model_info["thresholds"] (verified: 0.24666)
+- output is safe external_report-style subset only
+
+## model_version Fix Proof
+job_api_handler.py: when wf_result.payload is None (failed workflow),
+falls back to registry entry model_version. Never empty.
+
+## Bremen Contract Preservation
+  workflow_bremen.py — no diff
+  model_package.py — no diff
+  inference.py — no diff
+  workflow_orchestrator.py — no diff
+  s3_model_discovery.py — no diff
+  model_registry.py — no diff
+  pyproject.toml — no diff
+  Bremen portable_logreg discovery/execution: 3840 tests pass
+
+## Public Output/Log Safety
+  No internal_report, artifact_sha256, model_checksum in output
+  No local_path, S3 bucket/key in output
+  No traceback, raw exception text in output
+  No _package, secret, token in output
+
+## Test Command Summaries
+  compileall -q src tests scripts: PASS
+  pytest tests/test_aramina_workflow_runtime.py: 57 passed
+  pytest targeted suites (discovery+catalog+registry+requirements+access): 235 passed
+  pytest -q (full suite): 3840 passed, 11 skipped, 0 failures
+  git diff --check: clean
+
+## Explicit Notes
+  - Actual production Aramina model.joblib (0.2.12-beta) was loaded
+  - joblib_load_status: passed (not NOT_TESTED_LOCALLY)
+  - No uniform/dummy/fake probability fallback exists
+  - Compatibility bridge preserves real fitted estimator behavior
+  - Fake PR0136 7-stat feature extraction removed
+  - lr1_model receives profile matrix, not synthetic stats
+  - final_model receives pandas DataFrame with named columns
+  - model_version non-empty on failed and successful jobs
+  - Bremen portable_logreg contract unchanged
+  - No aramina dependency/import added
+  - No provider URL/HTTP execution path
+  - No private data leaks
+  - No clinical/regulatory claims added
+
+## Files Changed
+  src/bremen/api/workflow_aramina.py (241 lines changed)
+  src/bremen/api/aramina_artifact_compat.py (new, 130 lines)
+  src/bremen/api/job_api_handler.py (9 lines changed)
+  tests/test_aramina_workflow_runtime.py (29 lines changed)
