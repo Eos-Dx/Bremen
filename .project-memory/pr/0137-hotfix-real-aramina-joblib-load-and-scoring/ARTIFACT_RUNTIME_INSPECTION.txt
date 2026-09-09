@@ -1,0 +1,77 @@
+ARTIFACT RUNTIME INSPECTION — PR0137
+====================================
+
+Status: PASSED (after compatibility bridge with real class)
+
+Inspection Method:
+  Downloaded actual production Aramina model.joblib from
+  s3://matur-misc-uk/bremen/models/bremen-xrd-classifier/aramina_0_2_12-beta/
+  Loaded through Bremen's _load_staged_artifact path with
+  checksum verification and compatibility bridge.
+
+model_id: aramina_target_breast_risk_0_2_12-beta_9bb911189af6
+manifest_model_version: 0.2.12-beta
+artifact_type: aramina.joblib.model_package
+joblib_load_status: passed
+checksum_match: true
+
+top_level_type: dict
+top_level_keys: dataset_summary, evaluation, feature_schema,
+  final_fit_training_metrics, historical_preprocessing_yaml,
+  input_dataframe_joblib_sha256, kind, metadata, model_columns,
+  model_definition_yaml, model_descriptions, model_identity,
+  model_performance, model_type, models, prediction_contract_yaml,
+  prediction_preprocessing_yaml, preprocessing_metadata,
+  reproducibility, training_config_yaml, version, warnings
+
+kind: aramina_training_artifact
+version: 0.3
+model_identity_name: aramina_target_breast_risk
+model_identity_version: 0.2.12-beta
+
+models_keys: ['aramina_target_breast_risk']
+selected_model_info_keys: class_definition, feature_columns,
+  final_fit_training_metrics, final_model, lr1_model, name,
+  prediction_reference_scores, symmetry_feature_contract,
+  symmetry_gate, symmetry_policy, thresholds, tissue_risk_assessment
+
+lr1_model_type: sklearn.pipeline.Pipeline
+lr1_model_steps: ['scaler', 'logreg']
+lr1_scaler_features: 100
+lr1_clf_coef_shape: (1, 100)
+lr1_clf_classes: [0, 1]
+
+final_model_type: GatedSymmetryLogistic
+final_model_module: aramina.m2q_model
+final_model_fitted_attrs: base_fill_values_, base_scaler_,
+  feature_names_, logreg_, logreg_c, random_state,
+  symmetry_means_, symmetry_scales_
+final_logreg_coef_shape: (1, 7)
+final_logreg_intercept: [-0.188015]
+final_logreg_classes: [0, 1]
+final_feature_names: profile_p_cancer_logit_average, age,
+  age_available, gated_sk_wasserstein_distance_full_q2,
+  gated_sk_weightedrms1, gated_sk_weightedrms2,
+  gated_sk_mean_peak_value_abs_delta
+
+prediction_preprocessing_yaml_present: true
+prediction_preprocessing_yaml_preview: xrd_preprocessing version local v0.1.7-beta
+
+prediction_contract_yaml_present: true
+prediction_contract_yaml_preview: container schema 0.3 format xrd-session
+
+feature_columns: profile_p_cancer_logit_average, age,
+  age_available, sk_wasserstein_distance_full_q2,
+  sk_weightedrms1, sk_weightedrms2, sk_mean_peak_value_abs_delta,
+  symmetry_available
+
+threshold_keys: threshold_youden, threshold_target,
+  target_sensitivity, target_reached
+threshold_target: 0.24666
+
+symmetry_feature_contract: aramina_sk_symmetry_v0_2
+symmetry_gate: symmetry_available
+symmetry_policy: single_model_gated_optional_refinement_requires_2_valid_measurements_per_breast_and_finite_core4
+
+No local path, S3 bucket, S3 key, checksum, traceback, or raw
+object repr in public output.

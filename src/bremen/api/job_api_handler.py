@@ -611,11 +611,18 @@ def create_analysis_job(
                 else:
                     job.overall_status = "failed"
 
-            # Extract model identity from result payload if available
+            # Extract model identity from result payload if available.
+            # For failed workflows, payload may be None — fall back to
+            # registry entry model_version so it is never empty.
             result_model_id = model_id
             result_model_version = None
             if wf_result.payload:
                 result_model_version = wf_result.payload.get("model_version")
+            if not result_model_version and model_id:
+                from .model_registry import get_model_entry  # noqa: PLC0415
+                _reg_entry = get_model_entry(model_id)
+                if _reg_entry is not None:
+                    result_model_version = _reg_entry.model_version
 
             job.workflow_runs[workflow_id] = WorkflowRun(
                 workflow_id=workflow_id,
