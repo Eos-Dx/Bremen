@@ -1,0 +1,163 @@
+# PR0142 precommit review (REVIEW 2, post-PLAN-amendment) — Aramina preprocessing
+# root-cause diagnostics
+# Reviewer: precommit-review agent (Bremen)
+# Date (UTC): 2026-09-10T15:37:07Z .. 2026-09-10T15:38:57Z
+# Head: 712b4e4cb0a7bbe681d15feddeb8b6c169e016e9 (unchanged between reviews; no commit made)
+# Branch: 0142-aramina-preprocessing-root-cause-diagnostics (matches required branch)
+# Supersedes: review 1 (2026-09-10, verdict BLOCKED, blocker B1 = job_api_handler.py /
+#             workflow_provider.py not PLAN-approved)
+# Basis: runtime-captured command output + full reads of every changed file + full reads of
+# both required project-memory artifacts. No claim rests on agent narrative alone.
+
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: READY FOR COMMIT (0 blockers, warnings below are non-gating)
+
+========================================================================
+BLOCKERS
+========================================================================
+- None. Prior blocker B1 is RESOLVED: PLAN.txt was amended and now (a) lists
+  src/bremen/api/workflow_provider.py under "Approved files to inspect" and
+  "Approved files to modify", (b) lists src/bremen/api/job_api_handler.py under
+  "Approved files to modify", and (c) adds a "Carrier/pass-through authorization" section
+  scoping both files exactly as implemented. Verified against the amended PLAN.txt read in
+  full this review.
+
+========================================================================
+MANDATED RE-CHECKS (all PASS)
+========================================================================
+1. workflow_provider.py = minimal additive diagnostic carrier: PASS. Fresh diff re-read —
+   the only change is `preprocessing_diagnostic: dict[str, str] | None = None` on the
+   frozen WorkflowResult dataclass + docstring (+5 lines). No provider semantics touched.
+   Matches the authorization ("add optional WorkflowResult.preprocessing_diagnostic; no
+   provider behavior change; no Bremen behavior change; no scoring, artifact, threshold,
+   or preprocessing-version change") verbatim.
+2. job_api_handler.py = Aramina-only sanitized pass-through: PASS. Fresh diff re-read —
+   the only change (+10 lines) sits inside create_analysis_job's
+   `workflow_id == "aramina" and wf_result.error == "ARAMINA_UNSUPPORTED_INPUT"` branch:
+   getattr(wf_result, "preprocessing_diagnostic", None) plus forwarding
+   preprocessing_release / preprocessing_diagnostic into unsupported_input_details. No
+   other code path in the file is touched. Matches the authorization verbatim.
+3. Bremen behavior unchanged: PASS. grep evidence: workflow_bremen.py has 6
+   WorkflowResult(...) construction sites and ZERO occurrences of failure_stage or
+   preprocessing_diagnostic (fields default to None); workflow_orchestrator.py and
+   fastapi_app.py contain no preprocessing_diagnostic; Bremen guard tests from PR0141
+   still pass (test_pr0141_bremen_duplicate_guard_unchanged,
+   test_pr0141_bremen_job_summary_has_empty_target_side,
+   test_api_bremen_source_error_unchanged) and test_pr0142_bremen_result_has_no_
+   preprocessing_fields asserts the new field is None for Bremen results.
+4. Public failure unchanged: PASS. failure = ARAMINA_UNSUPPORTED_INPUT, failure_stage =
+   preprocessing_contract, failure_reason_code = ARAMINA_UNSUPPORTED_INPUT_PREPROCESSING_
+   CONTRACT (stage-derived, unchanged) — asserted by test_pr0142_public_failure_stays_
+   unsupported_input, test_pr0142_job_failure_details_expose_subdiagnostic, and the full
+   PR0141 taxonomy tests; no raw internal transformer names replace the public stage.
+5. New public fields allowlisted/sanitized only: PASS. Exactly 5 safe_details fields:
+   preprocessing_stage (7-value allowlist, unknown -> worker_process),
+   preprocessing_exception_class (10 classes, unknown -> redacted),
+   preprocessing_transformer (existing 17-name _DIAGNOSTIC_TRANSFORMERS, unknown ->
+   redacted), preprocessing_release ({v0.1.7-beta, v0.1.9-beta} -> else redacted),
+   preprocessing_reason_code (7 stable codes exactly matching PLAN's list, derived only
+   from the allowlisted stage). Re-sanitized at aramina_api_errors so a caller cannot
+   inject unallowlisted values; attached ONLY for preprocessing_contract (None for all
+   other stages, success, and Bremen).
+6. No scoring/artifact/threshold/preprocessing-version/frontend/async changes: PASS.
+   Full reads: scoring pipeline and thresholds untouched in workflow_aramina.py; no model
+   artifact change; preprocessing environments/versions/timeout unchanged in
+   aramina_preprocessing.py (only diagnostics + failure reporting changed); no frontend
+   file touched; no async/Celery/job-lifecycle change (job lifecycle code untouched beyond
+   the 10-line pass-through); no external Aramina dependency/provider URL.
+7. No public leaks: PASS. Mandated grep over changed files produced 89 hits, every one
+   internal-only or sanitizer/test mention (docstrings; internal /opt/ interpreter
+   defaults consumed as the subprocess executable; completed.stdout consumed and never
+   emitted; completed.stderr never read; pre-existing Bremen S3-resolution internals and
+   legacy 500 str(exc)[:200] path untouched by this diff; type(exc).__name__-only
+   translations; leak-test fixtures). Focused scan of 0142-ADDED lines only: matches are
+   exclusively the stdout consumption line, a sanitizer docstring, and test redaction
+   fixtures. Positive boundary proof: test_pr0142_safe_diagnostic_never_leaks and
+   test_pr0142_public_payload_leaks_nothing (forbidden secrets, /tmp/, s3://, token=,
+   Traceback, artifact path/checksum all absent from diagnostics and full public payload).
+
+========================================================================
+FILES CHANGED (unchanged between reviews; all fully read)
+========================================================================
+- src/bremen/api/aramina_preprocessing.py   +153/-30  (approved)
+- src/bremen/api/workflow_aramina.py        +23       (approved)
+- src/bremen/api/aramina_api_errors.py      +16       (approved)
+- src/bremen/api/job_api_handler.py         +10       (approved — amended PLAN, pass-through only)
+- src/bremen/api/workflow_provider.py       +5        (approved — amended PLAN, carrier only)
+- tests/test_aramina_workflow_runtime.py    +397      (approved)
+- Untracked: .project-memory/pr/0142-.../ (PLAN.txt amended; PREPROCESSING_DIAGNOSTICS.md;
+  PREPROCESSING_ROOT_CAUSE_SMOKE.sh; reviews/ with this file)
+- aramina_preprocess_worker.py: approved, UNCHANGED (_DIAGNOSTIC_TRANSFORMERS, 17 names,
+  verified by read and reused by the sanitizer).
+
+========================================================================
+TESTS RUN (this review; via venv/bin/python — bare `python` absent from PATH)
+========================================================================
+- python -m compileall -q src tests ............... exit 0
+- pytest -q tests/test_aramina_workflow_runtime.py  exit 0 — 223 passed
+- pytest -q tests/test_catalog_api_multi_model.py .. exit 0 — 25 passed
+- pytest -q (full) ................................ exit 0 — 4011 passed, 11 skipped, 0 failed
+- git diff --check ................................ exit 0 (clean)
+Required tests 1-11 all present and passing (worker failure JSON captured; stage/class/
+transformer/release allowlists with redaction; no stderr/stdout/traceback/path/message;
+public code+stage unchanged; reason codes stable and stage-derived; successful Aramina
+unchanged; Bremen unchanged).
+
+========================================================================
+LEAK REVIEW
+========================================================================
+Mandated grep run again this review (89 hits — same universe as review 1; tracked files
+byte-identical): NO PUBLIC LEAK. All hits justified as internal-only or test/sanitizer
+mentions; the 0142-added-lines scan shows no leak pattern outside internal stdout
+consumption, a sanitizer docstring, and test redaction fixtures. See re-check 7.
+
+========================================================================
+PUBLIC/PRIVATE BOUNDARY RESULT: HOLDS
+========================================================================
+Public: ARAMINA_UNSUPPORTED_INPUT / preprocessing_contract / stage-derived reason code /
+fixed detail + remediation / 5 allowlisted safe_details preprocessing_* fields.
+Private (never exposed, verified by read + tests): S3 bucket/key, filesystem and h5 and
+worker paths, worker stdout/stderr, traceback, raw exception message (two prior internal
+ValueError messages were replaced by a fixed safe string — strictly safer), env vars,
+tokens/secrets, artifact checksum/private metadata, measurement arrays, dataframe rows,
+q_range/radial_profile values. Boundary applies at every hop (worker -> preprocess_aramina
+-> AraminaWorkflowError -> WorkflowResult -> job failure_details), re-sanitized at
+aramina_api_errors.
+
+========================================================================
+ARTIFACTS (verified in review 1; unchanged)
+========================================================================
+- PREPROCESSING_ROOT_CAUSE_SMOKE.sh: present; 4 required combos
+  (0.2.12+Nova_379+left/right, 0.2.13+Nova_384+left/right); fetches a FRESH source_id
+  from /demo/api/h5/containers before EVERY POST; prints all required fields; sanitized
+  output only.
+- PREPROCESSING_DIAGNOSTICS.md: present; files changed, diagnostic-path diagram,
+  illustrative before/after examples, exact public/private boundary, exact allowlists,
+  how to run smoke, honest "root cause NOT established locally" statement, and a concrete
+  unknowns-without-live-deploy list. Requirement met.
+
+========================================================================
+UNRESOLVED RISKS / WARNINGS (non-gating per directive)
+========================================================================
+- W1 (kept): PREPROCESSING_ROOT_CAUSE_SMOKE.sh resolves model_id via exact
+  `model_version == "0.2.12" | "0.2.13"` while deployed versions elsewhere carry the
+  "-beta" suffix; if the catalog reports "-beta", all four rows report
+  "model_id: NOT FOUND". Trivial fix recommended before the pre-deploy smoke run, but
+  non-gating for commit per directive.
+- W2 (kept, acceptable): Nova_379 / Nova_384 root cause remains unknown until the smoke
+  runs against a live deployment (no deployment, logs, real artifacts, or containers
+  available locally) — explicitly documented in PREPROCESSING_DIAGNOSTICS.md sections 7-8.
+- W3 (informational): reviews/ contains no plan-review artifact; the PR's amended
+  PLAN.txt was used directly as the scope source of truth.
+- W4 (informational): preprocess_aramina's failure exception is now
+  AraminaPreprocessingError (a ValueError subclass) with a fixed safe message on two
+  previously descriptive internal paths, and one test assertion was updated accordingly.
+  Aramina-only, failure-reporting-only, never publicly visible, documented in the
+  diagnostics doc section 9.
+
+========================================================================
+REQUIRED FIXES
+========================================================================
+- None blocking. (Recommended, non-gating: apply the W1 smoke-script version-matching fix
+  before running the pre-deploy root-cause smoke, so the four answers are obtainable.)
+Commit remains a human action; nothing was committed by this review.

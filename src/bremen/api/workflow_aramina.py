@@ -266,6 +266,7 @@ class AraminaWorkflowError(Exception):
     def __init__(
         self, code: str, stage: str | None = None,
         original_exception_class: str | None = None,
+        preprocessing_diagnostic: dict[str, str] | None = None,
     ) -> None:
         self.code = code if code in _SAFE_FAILURES else "ARAMINA_EXECUTION_FAILED"
         self.stage = stage if stage in FAILURE_STAGES else None
@@ -273,6 +274,12 @@ class AraminaWorkflowError(Exception):
         self.original_exception_class = (
             original_exception_class
             if original_exception_class in _TRACE_LABELS else None
+        )
+        # PR0142: allowlisted preprocessing subdiagnostics. Already sanitized
+        # by aramina_preprocessing.safe_preprocessing_diagnostic.
+        self.preprocessing_diagnostic = (
+            dict(preprocessing_diagnostic)
+            if isinstance(preprocessing_diagnostic, dict) else None
         )
         super().__init__(self.code)
 
@@ -560,13 +567,20 @@ def _prepare_features(
 
         from types import SimpleNamespace
 
-        from .aramina_preprocessing import preprocess_aramina
+        from .aramina_preprocessing import AraminaPreprocessingError, preprocess_aramina
 
         with _debug_stage("artifact_preprocessing", "lr1"):
             try:
                 frame = preprocess_aramina(
                     h5_path, package["prediction_preprocessing_yaml"],
                 )
+            except AraminaPreprocessingError as exc:
+                # PR0142: carry the allowlisted worker subdiagnostic so the
+                # public failure names the exact preprocessing stage.
+                raise AraminaWorkflowError(
+                    "ARAMINA_UNSUPPORTED_INPUT", "preprocessing_contract",
+                    type(exc).__name__, exc.diagnostic,
+                ) from None
             except Exception as exc:  # noqa: BLE001 -- boundary translation only
                 raise AraminaWorkflowError(
                     "ARAMINA_UNSUPPORTED_INPUT", "preprocessing_contract",
@@ -851,10 +865,17 @@ class AraminaWorkflowProvider(WorkflowProvider):
         except AraminaWorkflowError as exc:
             code = exc.code
             stage = exc.stage
+            diagnostic = exc.preprocessing_diagnostic
         except Exception:
             code = "ARAMINA_EXECUTION_FAILED"
             stage = None
+            diagnostic = None
         return WorkflowResult(
             workflow_id=self.workflow_id, status="failed", error=code,
             failure_stage=_safe_stage(stage) if code == "ARAMINA_UNSUPPORTED_INPUT" else None,
+            preprocessing_diagnostic=(
+                diagnostic
+                if code == "ARAMINA_UNSUPPORTED_INPUT" and stage == "preprocessing_contract"
+                else None
+            ),
         )

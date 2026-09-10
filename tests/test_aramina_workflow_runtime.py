@@ -1130,8 +1130,14 @@ def test_preprocessing_worker_errors_are_safe(synthetic_preprocessing, monkeypat
     monkeypatch.setattr("bremen.api.aramina_preprocessing.subprocess.run", run)
     with pytest.raises(ValueError, match="^Aramina preprocessing failed$"):
         synthetic_preprocessing("private", "xrd_preprocessing: {release_tag: v0.1.7-beta}\npipeline: {steps: [raw]}")
-    with pytest.raises(ValueError, match="Missing artifact preprocessing pipeline"):
+    # PR0142: the message is a fixed safe string; the allowlisted subdiagnostic
+    # is carried on the exception instead of in the message.
+    with pytest.raises(ValueError, match="^Aramina preprocessing failed$") as excinfo:
         synthetic_preprocessing("private", "{}")
+    assert excinfo.value.diagnostic["preprocessing_stage"] == "worker_config"
+    assert excinfo.value.diagnostic["preprocessing_reason_code"] == (
+        "ARAMINA_PREPROCESSING_CONFIG_FAILED"
+    )
 
 
 def test_real_profile_matrix_and_named_final_features(tmp_path, source, monkeypatch):
@@ -2024,3 +2030,392 @@ def test_pr0141_failure_stage_absent_for_non_input_failures(tmp_path, source):
     result = _execute(_entry(tmp_path, pkg), source)
     assert result.error == "ARAMINA_UNSUPPORTED_ARTIFACT"
     assert result.failure_stage is None
+
+
+# ===================================================================
+# PR0142 — Aramina preprocessing root-cause diagnostics
+# ===================================================================
+
+
+def _worker_failure(stdout: str, returncode: int = 1):
+    """Build a fake completed worker process result."""
+    import subprocess
+
+    return subprocess.CompletedProcess([], returncode, stdout, "private stderr")
+
+
+def _run_preprocessing_with_worker(monkeypatch, stdout, returncode=1):
+    """Run the real preprocess_aramina against a fake worker process.
+
+    The autouse ``synthetic_preprocessing`` fixture replaces the module-level
+    ``preprocess_aramina`` attribute, so the real implementation is recovered
+    from the module source. Returns the raised exception's allowlisted
+    diagnostic, or ``None`` when no exception was raised.
+    """
+    import bremen.api.aramina_preprocessing as preprocessing
+
+    namespace: dict = {
+        "__file__": preprocessing.__file__,
+        "__name__": "bremen.api._pr0142_real",
+        "__package__": "bremen.api",
+    }
+    source = Path(preprocessing.__file__).read_text(encoding="utf-8")
+    exec(compile(source, preprocessing.__file__, "exec"), namespace)  # noqa: S102
+
+    monkeypatch.setattr(
+        preprocessing.subprocess, "run",
+        MagicMock(return_value=_worker_failure(stdout, returncode)),
+    )
+    config = "xrd_preprocessing: {release_tag: v0.1.7-beta}\npipeline: {steps: [raw]}"
+    try:
+        namespace["preprocess_aramina"]("private-input", config)
+    except Exception as exc:  # noqa: BLE001 -- test helper
+        return getattr(exc, "diagnostic", None)
+    return None
+
+
+@pytest.mark.parametrize("stage,reason", [
+    ("worker_imports", "ARAMINA_PREPROCESSING_WORKER_IMPORTS_FAILED"),
+    ("worker_config", "ARAMINA_PREPROCESSING_CONFIG_FAILED"),
+    ("worker_pipeline_build", "ARAMINA_PREPROCESSING_PIPELINE_BUILD_FAILED"),
+    ("worker_pipeline_execution", "ARAMINA_PREPROCESSING_PIPELINE_EXECUTION_FAILED"),
+    ("worker_output", "ARAMINA_PREPROCESSING_OUTPUT_FAILED"),
+])
+def test_pr0142_worker_failure_json_maps_to_subdiagnostic(monkeypatch, stage, reason):
+    """A worker failure JSON maps to the allowlisted preprocessing subdiagnostic."""
+    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
+
+    stdout = json.dumps({
+        "error": "ARAMINA_PREPROCESSING_FAILED",
+        "diagnostic": {
+            "stage": stage, "exception_class": "ValueError",
+            "transformer": "SNRFilter",
+        },
+    })
+    diagnostic = _run_preprocessing_with_worker(monkeypatch, stdout)
+    assert diagnostic is not None
+    assert diagnostic["preprocessing_stage"] == stage
+    assert diagnostic["preprocessing_reason_code"] == reason
+    assert diagnostic["preprocessing_exception_class"] == "ValueError"
+    assert diagnostic["preprocessing_transformer"] == "SNRFilter"
+    assert diagnostic["preprocessing_release"] == "v0.1.7-beta"
+
+
+def test_pr0142_empty_output_maps_to_empty_output_reason(monkeypatch):
+    """A successful worker with no rows maps to worker_empty_output."""
+    diagnostic = _run_preprocessing_with_worker(
+        monkeypatch, json.dumps({"rows": []}), returncode=0,
+    )
+    assert diagnostic is not None
+    assert diagnostic["preprocessing_stage"] == "worker_empty_output"
+    assert diagnostic["preprocessing_reason_code"] == "ARAMINA_PREPROCESSING_EMPTY_OUTPUT"
+
+
+def test_pr0142_unparseable_worker_output_maps_to_output_failed(monkeypatch):
+    """Unparseable worker stdout maps to worker_output, not a raw error."""
+    diagnostic = _run_preprocessing_with_worker(monkeypatch, "not-json", returncode=0)
+    assert diagnostic is not None
+    assert diagnostic["preprocessing_stage"] == "worker_output"
+    assert diagnostic["preprocessing_reason_code"] == "ARAMINA_PREPROCESSING_OUTPUT_FAILED"
+
+
+def test_pr0142_worker_spawn_failure_maps_to_process_failed(monkeypatch):
+    """A missing interpreter or timeout maps to worker_process."""
+    import bremen.api.aramina_preprocessing as preprocessing
+
+    namespace: dict = {
+        "__file__": preprocessing.__file__,
+        "__name__": "bremen.api._pr0142_real",
+        "__package__": "bremen.api",
+    }
+    source = Path(preprocessing.__file__).read_text(encoding="utf-8")
+    exec(compile(source, preprocessing.__file__, "exec"), namespace)  # noqa: S102
+    monkeypatch.setattr(
+        preprocessing.subprocess, "run",
+        MagicMock(side_effect=OSError("private interpreter path")),
+    )
+    config = "xrd_preprocessing: {release_tag: v0.1.7-beta}\npipeline: {steps: [raw]}"
+    with pytest.raises(Exception) as excinfo:  # noqa: B017 -- test helper
+        namespace["preprocess_aramina"]("private-input", config)
+    diagnostic = excinfo.value.diagnostic
+    assert diagnostic["preprocessing_stage"] == "worker_process"
+    assert diagnostic["preprocessing_reason_code"] == "ARAMINA_PREPROCESSING_PROCESS_FAILED"
+    assert "private" not in json.dumps(diagnostic)
+
+
+@pytest.mark.parametrize("bad_stage", [
+    "private-stage", "", None, 7, ["worker_imports"], "worker_unknown",
+])
+def test_pr0142_unknown_stage_collapses_to_worker_process(monkeypatch, bad_stage):
+    """Any non-allowlisted stage collapses to worker_process."""
+    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
+
+    stdout = json.dumps({
+        "error": "ARAMINA_PREPROCESSING_FAILED",
+        "diagnostic": {"stage": bad_stage, "exception_class": "ValueError",
+                       "transformer": "SNRFilter"},
+    })
+    diagnostic = _run_preprocessing_with_worker(monkeypatch, stdout)
+    assert diagnostic is not None
+    assert diagnostic["preprocessing_stage"] == "worker_process"
+    assert diagnostic["preprocessing_reason_code"] == "ARAMINA_PREPROCESSING_PROCESS_FAILED"
+    assert "private" not in json.dumps(diagnostic)
+
+
+@pytest.mark.parametrize("bad_class", [
+    "PrivateError", "", None, 7, "s3://bucket/key", "ValueError ",
+])
+def test_pr0142_unknown_exception_class_redacted(monkeypatch, bad_class):
+    """Any non-allowlisted exception class becomes redacted."""
+    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
+
+    stdout = json.dumps({
+        "error": "ARAMINA_PREPROCESSING_FAILED",
+        "diagnostic": {"stage": "worker_pipeline_execution",
+                       "exception_class": bad_class, "transformer": "SNRFilter"},
+    })
+    diagnostic = _run_preprocessing_with_worker(monkeypatch, stdout)
+    assert diagnostic is not None
+    assert diagnostic["preprocessing_exception_class"] == "redacted"
+
+
+@pytest.mark.parametrize("bad_transformer", [
+    "PrivateTransformer", "", None, 7, "/tmp/private.py", "SNRFilter ",
+])
+def test_pr0142_unknown_transformer_redacted(monkeypatch, bad_transformer):
+    """Any non-allowlisted transformer becomes redacted."""
+    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
+
+    stdout = json.dumps({
+        "error": "ARAMINA_PREPROCESSING_FAILED",
+        "diagnostic": {"stage": "worker_pipeline_execution",
+                       "exception_class": "ValueError", "transformer": bad_transformer},
+    })
+    diagnostic = _run_preprocessing_with_worker(monkeypatch, stdout)
+    assert diagnostic is not None
+    assert diagnostic["preprocessing_transformer"] == "redacted"
+
+
+def test_pr0142_allowlisted_transformer_preserved(monkeypatch):
+    """An allowlisted transformer name is preserved verbatim."""
+    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
+
+    stdout = json.dumps({
+        "error": "ARAMINA_PREPROCESSING_FAILED",
+        "diagnostic": {"stage": "worker_pipeline_execution",
+                       "exception_class": "KeyError",
+                       "transformer": "PatientSpecimenValidityFilter"},
+    })
+    diagnostic = _run_preprocessing_with_worker(monkeypatch, stdout)
+    assert diagnostic is not None
+    assert diagnostic["preprocessing_transformer"] == "PatientSpecimenValidityFilter"
+
+
+def test_pr0142_unsupported_release_redacted(monkeypatch):
+    """A non-allowlisted release tag becomes redacted."""
+    from bremen.api.aramina_preprocessing import safe_preprocessing_diagnostic
+
+    diagnostic = safe_preprocessing_diagnostic(
+        {"stage": "worker_config"}, "v9.9.9-private",
+    )
+    assert diagnostic["preprocessing_release"] == "redacted"
+    assert "private" not in json.dumps(diagnostic)
+
+
+@pytest.mark.parametrize("release", ["v0.1.7-beta", "v0.1.9-beta"])
+def test_pr0142_allowlisted_release_preserved(release):
+    """Both released preprocessing tags are preserved."""
+    from bremen.api.aramina_preprocessing import safe_preprocessing_diagnostic
+
+    diagnostic = safe_preprocessing_diagnostic({"stage": "worker_config"}, release)
+    assert diagnostic["preprocessing_release"] == release
+
+
+def test_pr0142_safe_diagnostic_never_leaks(monkeypatch):
+    """Raw stdout/stderr/path/traceback/message never reach the diagnostic."""
+    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
+
+    secret = "s3://private-bucket/key /tmp/private token=secret traceback"
+    stdout = json.dumps({
+        "error": "ARAMINA_PREPROCESSING_FAILED",
+        "diagnostic": {
+            "stage": "worker_pipeline_execution",
+            "exception_class": secret,
+            "transformer": secret,
+            "message": secret,
+            "stderr": secret,
+        },
+    })
+    diagnostic = _run_preprocessing_with_worker(monkeypatch, stdout)
+    assert diagnostic is not None
+    text = json.dumps(diagnostic)
+    for forbidden in ("s3://", "private-bucket", "/tmp/", "token=", "traceback", "stderr", "message"):
+        assert forbidden not in text
+    assert diagnostic["preprocessing_exception_class"] == "redacted"
+    assert diagnostic["preprocessing_transformer"] == "redacted"
+
+
+def test_pr0142_public_failure_stays_unsupported_input(tmp_path, source, monkeypatch):
+    """Public failure code and stage are unchanged by the subdiagnostic."""
+    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
+
+    def boom(h5_path, config_yaml):
+        raise AraminaPreprocessingError({
+            "preprocessing_stage": "worker_pipeline_execution",
+            "preprocessing_exception_class": "ValueError",
+            "preprocessing_transformer": "SNRFilter",
+            "preprocessing_release": "v0.1.7-beta",
+            "preprocessing_reason_code": "ARAMINA_PREPROCESSING_PIPELINE_EXECUTION_FAILED",
+        })
+
+    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", boom)
+    result = _execute(_entry(tmp_path), source)
+    assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
+    assert result.failure_stage == "preprocessing_contract"
+    assert result.preprocessing_diagnostic["preprocessing_stage"] == "worker_pipeline_execution"
+
+
+def test_pr0142_job_failure_details_expose_subdiagnostic(tmp_path, source, monkeypatch):
+    """The job-visible failure_details carry the nested preprocessing fields."""
+    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
+
+    def boom(h5_path, config_yaml):
+        raise AraminaPreprocessingError({
+            "preprocessing_stage": "worker_pipeline_execution",
+            "preprocessing_exception_class": "ValueError",
+            "preprocessing_transformer": "SNRFilter",
+            "preprocessing_release": "v0.1.7-beta",
+            "preprocessing_reason_code": "ARAMINA_PREPROCESSING_PIPELINE_EXECUTION_FAILED",
+        })
+
+    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", boom)
+    pkg = _package()
+    pkg["prediction_preprocessing_yaml"] = (
+        "xrd_preprocessing: {release_tag: v0.1.7-beta}\npipeline: {steps: [raw]}"
+    )
+    entry = _entry(tmp_path, pkg)
+    _install(entry)
+    job = jobs.create_analysis_job(
+        model_id=entry.model_id, h5_path=source[0], aramina_request=_request(),
+    )
+    run = job.workflow_runs["aramina"]
+    assert run.failure == "ARAMINA_UNSUPPORTED_INPUT"
+    assert run.failure_details["failure_stage"] == "preprocessing_contract"
+    safe = run.failure_details["safe_details"]
+    assert safe["preprocessing_stage"] == "worker_pipeline_execution"
+    assert safe["preprocessing_exception_class"] == "ValueError"
+    assert safe["preprocessing_transformer"] == "SNRFilter"
+    assert safe["preprocessing_release"] == "v0.1.7-beta"
+    assert safe["preprocessing_reason_code"] == (
+        "ARAMINA_PREPROCESSING_PIPELINE_EXECUTION_FAILED"
+    )
+
+
+def test_pr0142_subdiagnostic_absent_for_non_preprocessing_failures(tmp_path, source):
+    """Non-preprocessing failures do not acquire preprocessing fields."""
+    result = _execute(_entry(tmp_path), source, _request(patient_id="absent-patient"))
+    assert result.failure_stage == "h5_patient_contract"
+    assert result.preprocessing_diagnostic is None
+
+
+def test_pr0142_subdiagnostic_absent_on_success(tmp_path, source):
+    """Successful runs carry no preprocessing subdiagnostic."""
+    result = _execute(_entry(tmp_path), source)
+    assert result.status == "completed"
+    assert result.preprocessing_diagnostic is None
+
+
+def test_pr0142_public_payload_leaks_nothing(tmp_path, source, monkeypatch):
+    """The full public payload contains no forbidden preprocessing values."""
+    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
+
+    secret = "s3://private-bucket/key /tmp/private token=secret"
+
+    def boom(h5_path, config_yaml):
+        raise AraminaPreprocessingError({
+            "preprocessing_stage": "worker_pipeline_execution",
+            "preprocessing_exception_class": secret,
+            "preprocessing_transformer": secret,
+            "preprocessing_release": secret,
+            "preprocessing_reason_code": secret,
+        })
+
+    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", boom)
+    entry = _entry(tmp_path)
+    _install(entry)
+    job = jobs.create_analysis_job(
+        model_id=entry.model_id, h5_path=source[0], aramina_request=_request(),
+    )
+    public = json.dumps([
+        job.to_dict(),
+        jobs.get_job_events(job.job_id),
+        jobs.get_job_reports(job.job_id),
+        jobs.list_analysis_jobs(model_id=entry.model_id),
+    ])
+    for forbidden in (
+        secret, "private-bucket", "/tmp/", "token=", "Traceback",
+        entry._artifact_path, entry._checksum, "_package",
+    ):
+        assert forbidden not in public
+    safe = job.workflow_runs["aramina"].failure_details["safe_details"]
+    assert safe["preprocessing_exception_class"] == "redacted"
+    assert safe["preprocessing_transformer"] == "redacted"
+    assert safe["preprocessing_release"] == "redacted"
+    # The stage itself is allowlisted, so its reason code is preserved.
+    assert safe["preprocessing_stage"] == "worker_pipeline_execution"
+    assert safe["preprocessing_reason_code"] == (
+        "ARAMINA_PREPROCESSING_PIPELINE_EXECUTION_FAILED"
+    )
+
+
+def test_pr0142_reason_codes_are_stage_derived():
+    """Every allowlisted stage maps to exactly one stable reason code."""
+    from bremen.api.aramina_preprocessing import (
+        PREPROCESSING_REASON_CODES, PREPROCESSING_STAGES,
+        safe_preprocessing_diagnostic,
+    )
+
+    assert set(PREPROCESSING_REASON_CODES) == set(PREPROCESSING_STAGES)
+    for stage, reason in PREPROCESSING_REASON_CODES.items():
+        diagnostic = safe_preprocessing_diagnostic({"stage": stage})
+        assert diagnostic["preprocessing_stage"] == stage
+        assert diagnostic["preprocessing_reason_code"] == reason
+        assert reason.startswith("ARAMINA_PREPROCESSING_")
+
+
+def test_pr0142_allowlists_are_closed():
+    """The public allowlists are fixed and exclude the old generic label."""
+    from bremen.api.aramina_preprocessing import (
+        PREPROCESSING_EXCEPTION_CLASSES, PREPROCESSING_RELEASES,
+        PREPROCESSING_STAGES,
+    )
+
+    assert PREPROCESSING_STAGES == {
+        "worker_imports", "worker_config", "worker_pipeline_build",
+        "worker_pipeline_execution", "worker_output", "worker_empty_output",
+        "worker_process",
+    }
+    assert PREPROCESSING_RELEASES == {"v0.1.7-beta", "v0.1.9-beta"}
+    assert "redacted" not in PREPROCESSING_EXCEPTION_CLASSES
+    assert "BaseException" not in PREPROCESSING_EXCEPTION_CLASSES
+
+
+def test_pr0142_successful_aramina_unchanged(tmp_path, source):
+    """A successful Aramina run is byte-identical in shape to before."""
+    result = _execute(_entry(tmp_path), source)
+    assert result.status == "completed"
+    assert set(result.payload) == {
+        "workflow_id", "model_id", "model_version", "external_report",
+        "scientifically_certified", "technical_demo_only", "clinical_stage",
+    }
+    assert result.failure_stage is None
+    assert result.preprocessing_diagnostic is None
+
+
+def test_pr0142_bremen_result_has_no_preprocessing_fields():
+    """Bremen workflow results carry no Aramina preprocessing fields."""
+    from bremen.api.workflow_provider import WorkflowResult
+
+    result = WorkflowResult(workflow_id="bremen", status="failed", error="X")
+    assert result.failure_stage is None
+    assert result.preprocessing_diagnostic is None

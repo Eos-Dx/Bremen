@@ -640,6 +640,11 @@ def create_analysis_job(
             )
             if workflow_id == "aramina" and wf_result.error == "ARAMINA_UNSUPPORTED_INPUT":
                 from .aramina_api_errors import unsupported_input_details
+                # PR0142: the allowlisted preprocessing subdiagnostic already
+                # carries the release tag, so no artifact internals are read
+                # here. Aramina entries keep the artifact on disk, not in
+                # _package, so reading it here would be both wrong and unsafe.
+                diagnostic = getattr(wf_result, "preprocessing_diagnostic", None)
                 job.workflow_runs[workflow_id].failure_details = unsupported_input_details(
                     patient_display_name, aramina_request.target_side.strip().lower(),
                     result_model_version or "",
@@ -647,6 +652,11 @@ def create_analysis_job(
                     model_id=result_model_id or "",
                     requested_patient_id=aramina_request.patient_id,
                     resolved_container_id=container_id or "",
+                    preprocessing_release=(
+                        diagnostic.get("preprocessing_release", "")
+                        if isinstance(diagnostic, dict) else ""
+                    ),
+                    preprocessing_diagnostic=diagnostic,
                 )
 
         job.completed_at = now

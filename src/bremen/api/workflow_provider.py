@@ -37,6 +37,10 @@ class WorkflowResult:
     workflows that expose a structured failure taxonomy (PR0141, Aramina).
     It is ``None`` for workflows that do not, so Bremen behavior is
     unchanged.
+
+    ``preprocessing_diagnostic`` is an optional allowlisted subdiagnostic
+    (PR0142, Aramina). It contains only sanitized values and is ``None`` for
+    every other workflow and for non-preprocessing failures.
     """
 
     workflow_id: str
@@ -44,6 +48,7 @@ class WorkflowResult:
     payload: dict[str, Any] | None = None
     error: str | None = None
     failure_stage: str | None = None
+    preprocessing_diagnostic: dict[str, str] | None = None
 
 
 @dataclass(frozen=True)
