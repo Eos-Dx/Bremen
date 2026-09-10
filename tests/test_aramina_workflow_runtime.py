@@ -1345,3 +1345,159 @@ def test_runtime_failure_stage_logged_without_debug(monkeypatch, caplog):
     assert '"stage": "target_qc"' in caplog.text
     assert "private-source" not in caplog.text
     assert _trace_records(caplog) == []
+
+
+@pytest.fixture(params=["fastapi", "legacy"])
+def submit_api(request, monkeypatch):
+    """Exercise both supported POST transports with identical request bodies."""
+    def submit(body):
+        if request.param == "fastapi":
+            response = _fastapi_client().post("/demo/api/jobs", json=body)
+            return response.status_code, response.json()
+        monkeypatch.setattr(jobs, "_read_json_body", lambda handler: body)
+        sent = MagicMock()
+        monkeypatch.setattr(jobs, "_send_json", sent)
+        jobs.handle_jobs_create(MagicMock())
+        return sent.call_args.args[1:]
+    return submit
+
+
+@pytest.mark.parametrize("patient,side,missing", [
+    (None, None, ["patient_id", "target_side"]),
+    ("  ", "left", ["patient_id"]),
+    ("p1", "", ["target_side"]),
+    ("p1", "private-invalid-side", []),
+])
+def test_api_validation_details_before_job(submit_api, monkeypatch, patient, side, missing):
+    create = MagicMock()
+    resolve = MagicMock()
+    monkeypatch.setattr(jobs, "create_analysis_job", create)
+    monkeypatch.setattr(jobs, "resolve_source", resolve)
+    status, data = submit_api(_valid_aramina_body(patient_id=patient, target_side=side))
+    assert status == 400
+    assert data["error_code"] == "ARAMINA_INVALID_REQUEST"
+    assert data["missing_required_fields"] == missing
+    assert data["allowed_target_side"] == ["left", "right"]
+    assert data["required_fields"] == ["source_id", "model_id", "workflow_id", "patient_id", "target_side"]
+    assert "/demo/api/h5/containers" in data["remediation"]
+    assert data["technical_demo_only"] is True
+    assert "private-invalid-side" not in json.dumps(data)
+    create.assert_not_called()
+    resolve.assert_not_called()
+
+
+@pytest.mark.parametrize("state", ["unknown", "consumed", "expired"])
+def test_api_source_unavailable_reason(submit_api, monkeypatch, state):
+    from bremen.api import source_registry as sources
+    monkeypatch.setenv("BREMEN_DEMO_H5_BUCKET", "private-bucket")
+    monkeypatch.setenv("BREMEN_DEMO_H5_PREFIX", "")
+    sid = sources.register_source("private-bucket", "private-key.h5", "sample.h5", 10, "")
+    if state == "unknown":
+        sources._registry.pop(sid)
+    elif state == "consumed":
+        sources._registry[sid].consumed = True
+    else:
+        sources._registry[sid].created_at = "2000-01-01T00:00:00+00:00"
+    create = MagicMock()
+    monkeypatch.setattr(jobs, "create_analysis_job", create)
+    try:
+        status, data = submit_api(_valid_aramina_body(source_id=sid))
+        assert status == 400
+        assert data["error_code"] == "SOURCE_ERROR"
+        assert data["reason_code"] == "SOURCE_ID_NOT_AVAILABLE"
+        assert "fresh source_id" in data["remediation"]
+        assert "private-" not in json.dumps(data)
+        create.assert_not_called()
+    finally:
+        sources._registry.pop(sid, None)
+
+
+def test_api_patient_mismatch_before_creation(submit_api, monkeypatch, source):
+    with h5py.File(source[0], "a") as f:
+        f["session/sample/patient_name"] = "Nova_257"
+    monkeypatch.setattr(jobs, "resolve_source", lambda *args: source[0])
+    create = MagicMock()
+    monkeypatch.setattr(jobs, "create_analysis_job", create)
+    status, data = submit_api(_valid_aramina_body(patient_id="Nova_214"))
+    assert status == 400
+    assert data["error_code"] == "ARAMINA_PATIENT_MISMATCH"
+    assert data["requested_patient_id"] == "Nova_214"
+    assert data["resolved_patient_display_name"] == "Nova_257"
+    assert source[0] not in json.dumps(data)
+    create.assert_not_called()
+    assert not jobs._jobs
+
+
+@pytest.mark.parametrize("version", ["0.2.12-beta", "0.2.13-beta"])
+def test_api_matching_patient_preserves_success(submit_api, monkeypatch, tmp_path, source, version):
+    entry = _entry(tmp_path, model_version=version)
+    _install(entry)
+    with h5py.File(source[0], "a") as f:
+        f["session/sample/patient_name"] = "p1"
+    monkeypatch.setattr(jobs, "resolve_source", lambda *args: source[0])
+    status, data = submit_api(_valid_aramina_body(patient_id="p1"))
+    assert status == 201
+    assert data["job"]["overall_status"] == "completed"
+    run = data["job"]["workflow_runs"]["aramina"]
+    assert run["model_identity"]["model_version"] == version
+    assert "failure_detail" not in run
+    assert data["job"]["reports"]["aramina"]["status"] == "available"
+
+
+def test_api_unsupported_input_safe_detail(submit_api, monkeypatch, tmp_path, source):
+    _install(_entry(tmp_path, model_version="0.2.13-beta"))
+    monkeypatch.setattr(jobs, "resolve_source", lambda *args: source[0])
+    # The real runtime rejects the absent requested patient; no inference result stub.
+    status, data = submit_api(_valid_aramina_body(patient_id="absent-patient"))
+    assert status == 201
+    job = data["job"]
+    run = job["workflow_runs"]["aramina"]
+    assert run["failure"] == "ARAMINA_UNSUPPORTED_INPUT"
+    assert run["failure_stage"] == "input_contract"
+    assert run["safe_details"]["target_side"] == "left"
+    assert run["safe_details"]["model_version"] == "0.2.13-beta"
+    assert job["reports"]["aramina"]["status"] == "unavailable"
+    assert jobs.get_analysis_job(job["job_id"]).to_dict()["workflow_runs"]["aramina"] == run
+    for private in (source[0], "_package", "Traceback", "checksum"):
+        assert private not in json.dumps(job)
+
+
+@pytest.mark.parametrize("error", [ValueError("s3://private-bucket/token"), RuntimeError("/tmp/private-key")])
+def test_api_aramina_exception_text_never_public(submit_api, monkeypatch, error):
+    monkeypatch.setattr(jobs, "resolve_source", MagicMock(side_effect=error))
+    status, data = submit_api(_valid_aramina_body())
+    assert status in {400, 500}
+    assert "private" not in json.dumps(data)
+    assert "reason_code" not in data  # Not every source failure is a stale handle.
+
+
+def test_api_bremen_source_error_unchanged(submit_api, monkeypatch):
+    from bremen.api.source_registry import SourceUnavailableError
+    monkeypatch.setattr(jobs, "resolve_source", MagicMock(side_effect=SourceUnavailableError("Existing safe message")))
+    status, data = submit_api({"workflow_id": "bremen", "source_id": "missing"})
+    assert status == 400
+    assert data == {"error": "Existing safe message", "error_code": "SOURCE_ERROR"}
+
+
+def test_api_diagnostic_helpers_redact_unsafe_metadata():
+    from bremen.api.aramina_api_errors import (
+        is_aramina_selection,
+        patient_mismatch_details,
+        unsupported_input_details,
+    )
+    assert not is_aramina_selection([])
+    assert patient_mismatch_details("p1", "") is None
+    assert patient_mismatch_details(" p1 ", "p1") is None
+    mismatch = patient_mismatch_details("s3://private/key", "p1")
+    assert mismatch["requested_patient_id"] == "redacted"
+    details = unsupported_input_details("/tmp/private", "private-side", "private/version")
+    assert "private" not in json.dumps(details)
+
+
+def test_schema_error_uses_catalog_routing_without_leaks(tmp_path):
+    _install(_entry(tmp_path))
+    body = _valid_aramina_body(workflow_id="bremen", patient_id={"secret": "token-value"})
+    response = _fastapi_client().post("/demo/api/jobs", json=body)
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "ARAMINA_INVALID_REQUEST"
+    assert "token-value" not in response.text

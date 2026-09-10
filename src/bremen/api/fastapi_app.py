@@ -58,7 +58,7 @@ def _log_job_rejection(reason: str, fields=(), stage: str = "request_validation"
 
     allowed_reasons = {"INVALID_JSON", "INVALID_REQUEST_SCHEMA", "UNSUPPORTED_ACTION",
                        "ARAMINA_INVALID_REQUEST", "AMBIGUOUS_SOURCE", "MISSING_SOURCE",
-                       "SOURCE_ERROR"}
+                       "SOURCE_ERROR", "ARAMINA_PATIENT_MISMATCH"}
     safe_reason = reason if reason in allowed_reasons else "INVALID_REQUEST_SCHEMA"
     safe_stage = stage if stage in {"request_validation", "source_resolution", "job_creation"} else "request_validation"
     safe_fields = ",".join(sorted({field for field in fields if isinstance(field, str) and field in _JOB_FIELDS})) or "none"
@@ -497,6 +497,13 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
             return gate
         from bremen.api.fastapi_contracts import JobCreateRequest  # noqa: PLC0415
 
+        from .aramina_api_errors import (
+            invalid_request_details,
+            is_aramina_selection,
+            patient_mismatch_details,
+            source_error_details,
+        )
+
         # Parse JSON body
         try:
             body_bytes = await request.body()
@@ -524,6 +531,8 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
                 fields = [error["loc"][0] for error in exc.errors(include_input=False)
                           if error.get("loc")]
             _log_job_rejection("INVALID_REQUEST_SCHEMA", fields)
+            if is_aramina_selection(body_dict):
+                return JSONResponse(content=invalid_request_details(body_dict), status_code=400)
             return JSONResponse(
                 content={"error": f"Invalid request: {exc}"},
                 status_code=400,
@@ -556,11 +565,7 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
             )
         except Exception:
             _log_job_rejection("ARAMINA_INVALID_REQUEST", _invalid_aramina_fields(body_dict))
-            return JSONResponse(content={
-                "error": "Invalid Aramina request fields",
-                "error_code": "ARAMINA_INVALID_REQUEST",
-                "technical_demo_only": True,
-            }, status_code=400)
+            return JSONResponse(content=invalid_request_details(body_dict), status_code=400)
 
         source_provided = bool(source_id)
         upload_provided = bool(upload_id)
@@ -651,6 +656,11 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
                 extract_patient_display_name,
             )
             patient_display_name = extract_patient_display_name(h5_path)
+            if workflow_id == "aramina":
+                mismatch = patient_mismatch_details(aramina_request.patient_id, patient_display_name)
+                if mismatch is not None:
+                    _log_job_rejection("ARAMINA_PATIENT_MISMATCH", ["patient_id"])
+                    return JSONResponse(content=mismatch, status_code=400)
 
             # Clean up expired uploads periodically
             from bremen.api.job_api_handler import (  # noqa: PLC0415
@@ -681,28 +691,22 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
 
         except ValueError as exc:
             _log_job_rejection("SOURCE_ERROR", stage=failure_stage)
+            if workflow_id == "aramina":
+                return JSONResponse(content=source_error_details(exc), status_code=400)
             return JSONResponse(content={
                 "error": str(exc), "error_code": "SOURCE_ERROR",
             }, status_code=400)
-        except AraminaWorkflowError as exc:
+        except AraminaWorkflowError:
             _log_job_rejection("ARAMINA_INVALID_REQUEST", _invalid_aramina_fields(body_dict), stage=failure_stage)
-            # Expected Aramina validation failure — safe 400, no traceback
-            missing = []
-            body_for_check = body_dict
-            if not body_for_check.get("patient_id"):
-                missing.append("patient_id")
-            if not body_for_check.get("target_side"):
-                missing.append("target_side")
-            resp = {
-                "error": exc.code,
-                "error_code": exc.code,
-                "technical_demo_only": True,
-            }
-            if missing:
-                resp["missing_required_fields"] = missing
-            return JSONResponse(content=resp, status_code=400)
+            return JSONResponse(content=invalid_request_details(body_dict), status_code=400)
         except Exception as exc:
             import logging as _log_mod
+            if workflow_id == "aramina":
+                return JSONResponse(content={
+                    "error": "Could not create Aramina job",
+                    "error_code": "ARAMINA_EXECUTION_FAILED",
+                    "technical_demo_only": True,
+                }, status_code=500)
             _log_mod.getLogger(__name__).exception("Failed to create analysis job")
             return JSONResponse(
                 content={"error": str(exc)[:200]},

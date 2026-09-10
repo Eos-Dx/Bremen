@@ -20,6 +20,10 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 
+class SourceUnavailableError(ValueError):
+    """Unknown, expired, consumed, or invalidated source handle."""
+
+
 class StagedSource:
     """Server-side record of an opaque source_id -> S3 object mapping."""
 
@@ -129,7 +133,7 @@ def resolve_source_id(
     with _lock:
         source = _registry.get(source_id)
         if source is None:
-            raise ValueError(
+            raise SourceUnavailableError(
                 "The selected source is no longer available. "
                 "Please select another container or re-upload."
             )
@@ -141,19 +145,19 @@ def resolve_source_id(
             if (now - created).total_seconds() > 3600:
                 # Expired — remove from registry
                 _registry.pop(source_id, None)
-                raise ValueError(
+                raise SourceUnavailableError(
                     "The selected source has expired. "
                     "Please refresh the catalog and try again."
                 )
         except (ValueError, TypeError):
             _registry.pop(source_id, None)
-            raise ValueError(
+            raise SourceUnavailableError(
                 "The selected source is no longer available."
             )
 
         # Must not be consumed
         if source.consumed:
-            raise ValueError(
+            raise SourceUnavailableError(
                 "The selected source has already been used. "
                 "Please select another container."
             )
@@ -161,7 +165,7 @@ def resolve_source_id(
         # Bucket must match current configuration
         if source.bucket != current_bucket:
             _registry.pop(source_id, None)
-            raise ValueError(
+            raise SourceUnavailableError(
                 "The selected source is no longer available. "
                 "Please select another container or re-upload."
             )
@@ -169,7 +173,7 @@ def resolve_source_id(
         # Prefix must match (prevents out-of-prefix selection)
         if source.prefix != current_prefix:
             _registry.pop(source_id, None)
-            raise ValueError(
+            raise SourceUnavailableError(
                 "The selected source is no longer available. "
                 "Please select another container or re-upload."
             )
