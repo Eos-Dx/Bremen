@@ -116,6 +116,7 @@ def unsupported_input_details(
     available_sides: Any = None,
     measurement_count: Any = None,
     preprocessing_release: str = "",
+    preprocessing_diagnostic: Any = None,
 ) -> dict:
     """Public input-contract category with an exact safe failing boundary.
 
@@ -123,6 +124,10 @@ def unsupported_input_details(
     failed, not a generic ``input_contract`` label. Unknown or missing stages
     collapse to ``unknown_input_contract``. No exception text, path, S3 key,
     stdout/stderr, env var, or measurement data is ever included.
+
+    PR0142: when the boundary is ``preprocessing_contract``, the allowlisted
+    worker subdiagnostic is merged into ``safe_details`` so the exact
+    preprocessing stage and rejecting transformer are visible.
     """
     from .workflow_aramina import FAILURE_STAGES, _STAGE_DETAIL, _STAGE_REMEDIATION
 
@@ -147,6 +152,17 @@ def unsupported_input_details(
         safe_details["measurement_count"] = count
     if preprocessing_release in {"v0.1.7-beta", "v0.1.9-beta"}:
         safe_details["preprocessing_release"] = preprocessing_release
+
+    # PR0142: only a preprocessing_contract failure carries the nested
+    # preprocessing subdiagnostic. Values are re-sanitized here so a caller
+    # cannot inject an unallowlisted value through this path.
+    if safe_stage == "preprocessing_contract":
+        from .aramina_preprocessing import safe_preprocessing_diagnostic
+
+        safe_details.update(safe_preprocessing_diagnostic(
+            preprocessing_diagnostic,
+            preprocessing_release if preprocessing_release in {"v0.1.7-beta", "v0.1.9-beta"} else "",
+        ))
 
     return {
         "failure_stage": safe_stage,

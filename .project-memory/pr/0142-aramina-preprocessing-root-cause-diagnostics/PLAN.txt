@@ -1,0 +1,232 @@
+# PR0142 — Aramina preprocessing root-cause diagnostics
+
+## Goal
+
+Identify the exact safe preprocessing failure point for Aramina-incompatible H5 containers, especially:
+
+- 0.2.12-beta + Nova_379 + left/right
+- 0.2.13-beta + Nova_384 + left/right
+
+Current deployed behavior after PR0141:
+- public API correctly returns ARAMINA_UNSUPPORTED_INPUT
+- failure_stage is preprocessing_contract
+- failure_reason_code is ARAMINA_UNSUPPORTED_INPUT_PREPROCESSING_CONTRACT
+- this proves failure happens before target-side/model scoring
+- it does not yet identify which preprocessing transformer/stage rejects the H5
+
+## Non-goals
+
+Do not:
+- change scoring/math
+- change thresholds
+- change model artifacts
+- change preprocessing versions
+- add Aramina external package/service dependency
+- add provider URL/HTTP
+- add dummy/fake/uniform fallback
+- rewrite frontend
+- change async/job lifecycle
+- expose private data publicly
+
+## Approved files to inspect
+
+- src/bremen/api/aramina_preprocessing.py
+- src/bremen/api/aramina_preprocess_worker.py
+- src/bremen/api/workflow_aramina.py
+- src/bremen/api/aramina_api_errors.py
+- src/bremen/api/job_api_handler.py
+- src/bremen/api/fastapi_app.py
+- src/bremen/api/workflow_provider.py
+- tests/test_aramina_workflow_runtime.py
+- tests/test_catalog_api_multi_model.py
+
+## Approved files to modify
+
+Runtime diagnostics:
+- src/bremen/api/aramina_preprocessing.py
+- src/bremen/api/aramina_preprocess_worker.py
+- src/bremen/api/workflow_aramina.py
+- src/bremen/api/aramina_api_errors.py
+- src/bremen/api/job_api_handler.py
+- src/bremen/api/workflow_provider.py
+
+Tests:
+- tests/test_aramina_workflow_runtime.py
+
+Project memory:
+- .project-memory/pr/0142-aramina-preprocessing-root-cause-diagnostics/PREPROCESSING_DIAGNOSTICS.md
+- .project-memory/pr/0142-aramina-preprocessing-root-cause-diagnostics/PREPROCESSING_ROOT_CAUSE_SMOKE.sh
+- .project-memory/pr/0142-aramina-preprocessing-root-cause-diagnostics/reviews/precommit-review.txt
+
+
+## Carrier/pass-through authorization
+
+`src/bremen/api/workflow_provider.py` is approved for a minimal additive carrier change only:
+- add optional `WorkflowResult.preprocessing_diagnostic`
+- no provider behavior change
+- no Bremen behavior change
+- no scoring, artifact, threshold, or preprocessing-version change
+
+`src/bremen/api/job_api_handler.py` is approved for a minimal Aramina-only pass-through change only:
+- copy sanitized preprocessing diagnostic data from `WorkflowResult` into Aramina `failure_details`
+- only for Aramina unsupported-input preprocessing failures
+- preserve Bremen behavior
+- do not expose paths, S3 keys, stdout/stderr, tracebacks, raw exception messages, env vars, checksums, artifact internals, or measurement arrays
+
+## Required behavior
+
+1. Keep public API stable.
+
+Top-level public failure remains:
+
+ARAMINA_UNSUPPORTED_INPUT
+
+Public failure_stage remains:
+
+preprocessing_contract
+
+Do not replace it with raw internal transformer names.
+
+2. Add safe preprocessing subdiagnostics.
+
+Expose only allowlisted, non-sensitive values, either in workflow failure_details.safe_details or in a nested diagnostic object:
+
+- preprocessing_stage
+- preprocessing_exception_class
+- preprocessing_transformer
+- preprocessing_release
+- preprocessing_reason_code
+
+Allowed preprocessing_stage values:
+- worker_imports
+- worker_config
+- worker_pipeline_build
+- worker_pipeline_execution
+- worker_output
+- worker_empty_output
+- worker_process
+
+Allowed exception classes:
+- ValueError
+- TypeError
+- KeyError
+- IndexError
+- AttributeError
+- ImportError
+- ModuleNotFoundError
+- RuntimeError
+- OSError
+- MemoryError
+- redacted
+
+Allowed transformer values must come from the existing _DIAGNOSTIC_TRANSFORMERS allowlist, otherwise redacted.
+
+Allowed preprocessing_release:
+- v0.1.7-beta
+- v0.1.9-beta
+- redacted
+
+3. Add precise safe reason codes.
+
+Map preprocessing diagnostics into stable reason codes, for example:
+
+- ARAMINA_PREPROCESSING_WORKER_IMPORTS_FAILED
+- ARAMINA_PREPROCESSING_CONFIG_FAILED
+- ARAMINA_PREPROCESSING_PIPELINE_BUILD_FAILED
+- ARAMINA_PREPROCESSING_PIPELINE_EXECUTION_FAILED
+- ARAMINA_PREPROCESSING_EMPTY_OUTPUT
+- ARAMINA_PREPROCESSING_OUTPUT_FAILED
+- ARAMINA_PREPROCESSING_PROCESS_FAILED
+
+Do not use raw exception messages.
+
+4. Preserve private safety.
+
+Never expose:
+- S3 bucket/key
+- filesystem path
+- h5 path
+- stdout/stderr
+- traceback
+- raw exception message
+- env var values
+- tokens/secrets
+- artifact checksum/private metadata
+- patient measurement arrays
+- dataframe row contents
+- q_range/radial_profile values
+
+5. Add smoke script.
+
+Create PREPROCESSING_ROOT_CAUSE_SMOKE.sh.
+
+It should run deployed API checks for:
+- 0.2.12 + Nova_379 + left
+- 0.2.12 + Nova_379 + right
+- 0.2.13 + Nova_384 + left
+- 0.2.13 + Nova_384 + right
+
+It must fetch fresh /demo/api/h5/containers before each POST.
+
+It should print:
+- HTTP status
+- job_id
+- overall_status
+- failure
+- failure_stage
+- failure_reason_code
+- preprocessing_stage
+- preprocessing_exception_class
+- preprocessing_transformer
+- preprocessing_release
+- preprocessing_reason_code
+- remediation
+
+6. Add documentation artifact.
+
+Create PREPROCESSING_DIAGNOSTICS.md with:
+- files changed
+- before/after examples
+- exact public/private boundary
+- exact allowlists
+- how to run smoke
+- whether Nova_379/Nova_384 root cause was established locally
+- what remains unknown without live deploy/logs
+
+## Required tests
+
+Add tests for:
+1. preprocessing worker diagnostic is captured when worker returns failure JSON.
+2. stage is allowlisted.
+3. exception_class is allowlisted or redacted.
+4. transformer is allowlisted or redacted.
+5. preprocessing_release is allowlisted or redacted.
+6. raw stderr/stdout/traceback/path/message are not exposed.
+7. public failure remains ARAMINA_UNSUPPORTED_INPUT.
+8. public failure_stage remains preprocessing_contract.
+9. preprocessing_reason_code is stable and stage-derived.
+10. successful Aramina execution remains unchanged.
+11. Bremen behavior unchanged.
+
+## Validation
+
+Must run:
+
+python -m compileall -q src tests
+
+pytest -q tests/test_aramina_workflow_runtime.py
+
+pytest -q tests/test_catalog_api_multi_model.py
+
+pytest -q
+
+git diff --check
+
+Full pytest must pass before READY.
+
+## Commit policy
+
+Do not commit.
+Coder writes code/tests/artifacts only.
+Reviewer writes precommit-review.txt.
+Human commits.
