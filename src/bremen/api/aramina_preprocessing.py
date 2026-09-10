@@ -45,8 +45,41 @@ def preprocess_aramina(h5_path: str, config_yaml: str) -> pd.DataFrame:
         check=False,
     )
     if completed.returncode:
+        try:
+            diagnostic = json.loads(completed.stdout).get("diagnostic", {})
+        except (ValueError, AttributeError):
+            diagnostic = {}
+        _log_preprocessing_rejection(diagnostic)
         raise ValueError("Aramina preprocessing failed")
     payload = json.loads(completed.stdout)
     if set(payload) != {"rows"} or not payload["rows"]:
+        _log_preprocessing_rejection({"stage": "worker_empty_output"})
         raise ValueError("No valid Aramina measurements")
     return pd.DataFrame(payload["rows"])
+
+
+def _log_preprocessing_rejection(diagnostic: dict) -> None:
+    """Allowlisted worker diagnostics, never stdout/stderr or measurement data."""
+    import logging
+
+    if not isinstance(diagnostic, dict):
+        diagnostic = {}
+    stage = diagnostic.get("stage")
+    if not isinstance(stage, str) or stage not in {"worker_imports", "worker_config", "worker_pipeline_build",
+                     "worker_pipeline_execution", "worker_output", "worker_empty_output"}:
+        stage = "worker_process"
+    name = diagnostic.get("exception_class")
+    if not isinstance(name, str) or name not in {"ValueError", "TypeError", "KeyError", "IndexError", "AttributeError",
+                    "ImportError", "ModuleNotFoundError", "RuntimeError", "OSError", "MemoryError"}:
+        name = "redacted"
+    from .aramina_preprocess_worker import _DIAGNOSTIC_TRANSFORMERS
+    transformer = diagnostic.get("transformer")
+    if not isinstance(transformer, str) or transformer not in _DIAGNOSTIC_TRANSFORMERS:
+        transformer = "redacted"
+    try:
+        logging.getLogger(__name__).warning(
+            "aramina.preprocessing.rejected\tstage=%s\texception_class=%s\ttransformer=%s",
+            stage, name, transformer,
+        )
+    except Exception:  # noqa: BLE001, S110 -- diagnostics cannot change inference
+        pass

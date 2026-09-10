@@ -1252,7 +1252,12 @@ def test_isolated_worker_protocol(monkeypatch, capsys, fails):
     out = capsys.readouterr().out
     assert "private-source" not in out
     payload = json.loads(out)
-    assert payload == {"error": "ARAMINA_PREPROCESSING_FAILED"} if fails else payload["rows"][0]["radial_profile_data"] == [1., 2.]
+    if fails:
+        assert payload == {"error": "ARAMINA_PREPROCESSING_FAILED", "diagnostic": {
+            "stage": "worker_pipeline_execution", "exception_class": "ValueError", "transformer": "redacted",
+        }}
+    else:
+        assert payload["rows"][0]["radial_profile_data"] == [1., 2.]
 
 
 @pytest.mark.parametrize("missing", ["final_column", "threshold"])
@@ -1266,3 +1271,77 @@ def test_no_missing_feature_or_threshold_fallback(tmp_path, source, missing):
     result = _execute(_entry(tmp_path, pkg), source)
     assert result.error == "ARAMINA_EXECUTION_FAILED"
     assert result.payload is None
+
+
+@pytest.mark.parametrize("update,reason,field", [
+    ({"patient_id": ""}, "ARAMINA_INVALID_REQUEST", "patient_id"),
+    ({"target_side": "invalid-private-side"}, "ARAMINA_INVALID_REQUEST", "target_side"),
+    ({"analysis_author": None}, "ARAMINA_INVALID_REQUEST", "analysis_author"),
+    ({"prediction_comment": None}, "ARAMINA_INVALID_REQUEST", "prediction_comment"),
+    ({"source_id": {"private": "secret"}}, "INVALID_REQUEST_SCHEMA", "source_id"),
+    ({"upload_id": "private-upload"}, "AMBIGUOUS_SOURCE", "upload_id"),
+])
+def test_job_rejection_logs_reason_without_values(monkeypatch, caplog, update, reason, field):
+    monkeypatch.delenv("BREMEN_ARAMINA_DEBUG_TRACE", raising=False)
+    body = _valid_aramina_body(patient_id="private-patient", analysis_author="private-author")
+    body.update(update)
+    response = _fastapi_client().post("/demo/api/jobs", json=body)
+    assert response.status_code == 400
+    records = [r for r in caplog.records if r.getMessage().startswith("runtime.job_request.rejected")]
+    assert len(records) == 1
+    text = records[0].getMessage()
+    assert f"reason={reason}" in text
+    assert field in text.split("invalid_fields=")[1]
+    assert records[0].exc_info is None
+    for private in ("private-patient", "private-author", "private-upload", "invalid-private-side", "secret"):
+        assert private not in text
+
+
+@pytest.mark.parametrize("body", [b"", b"not-json"])
+def test_invalid_json_has_safe_rejection_log(caplog, body):
+    assert _fastapi_client().post("/demo/api/jobs", content=body).status_code == 400
+    assert "reason=INVALID_JSON" in caplog.text
+
+
+def test_source_resolution_rejection_has_stage(monkeypatch, caplog):
+    monkeypatch.setattr(jobs, "resolve_source", MagicMock(side_effect=ValueError("private-source-path")))
+    response = _fastapi_client().post("/demo/api/jobs", json=_valid_aramina_body())
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "SOURCE_ERROR"
+    assert "stage=source_resolution" in caplog.text
+    assert "reason=SOURCE_ERROR" in caplog.text
+    assert "private-source-path" not in caplog.text
+
+
+def test_rejection_logger_allowlist_and_failure_isolation(monkeypatch, caplog):
+    from bremen.api.fastapi_app import _log_job_rejection
+    _log_job_rejection("private-reason", ["private-field", "patient_id"], "private-stage")
+    assert "private-" not in caplog.text
+    assert "invalid_fields=patient_id" in caplog.text
+    monkeypatch.setattr("logging.Logger.warning", MagicMock(side_effect=RuntimeError("private")))
+    _log_job_rejection("INVALID_JSON")
+
+
+
+def test_worker_diagnostic_log_is_safe_and_always_enabled(monkeypatch, caplog):
+    from bremen.api.aramina_preprocessing import _log_preprocessing_rejection
+    monkeypatch.delenv("BREMEN_ARAMINA_DEBUG_TRACE", raising=False)
+    _log_preprocessing_rejection({"stage": "worker_pipeline_execution",
+                                 "exception_class": "ValueError", "transformer": "SNRFilter"})
+    assert "transformer=SNRFilter" in caplog.text
+    assert "exception_class=ValueError" in caplog.text
+    _log_preprocessing_rejection({"stage": ["private"], "exception_class": "private-path",
+                                 "transformer": "private-patient"})
+    assert "private" not in caplog.text
+    assert all(record.exc_info is None for record in caplog.records)
+
+
+def test_runtime_failure_stage_logged_without_debug(monkeypatch, caplog):
+    from bremen.api.workflow_aramina import _debug_stage
+    monkeypatch.delenv("BREMEN_ARAMINA_DEBUG_TRACE", raising=False)
+    with pytest.raises(ValueError), _debug_stage("target_qc"):
+        raise ValueError("private-source")
+    assert "aramina.runtime.rejected" in caplog.text
+    assert '"stage": "target_qc"' in caplog.text
+    assert "private-source" not in caplog.text
+    assert _trace_records(caplog) == []

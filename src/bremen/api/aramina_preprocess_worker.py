@@ -12,9 +12,19 @@ import json
 import logging
 import sys
 
+_DIAGNOSTIC_TRANSFORMERS = frozenset({
+    "H5PoniGeometryCalculatorTransformer", "H5SessionSelectorTransformer",
+    "H5ToDataFrameTransformer", "ProductColumnBuilder", "ColumnValueFilter",
+    "GroupValueFilter", "ProductStatusGroupFilter", "PairedGroupFilter",
+    "FaultyPixelDetector", "ConstantQRangeTransformer", "AzimuthalIntegration",
+    "SNRTransformer", "SNRFilter", "PatientSpecimenValidityFilter",
+    "QRangeValueNormalizer", "RadialProfileValueFilter", "KeepColumnsTransformer",
+})
+
 
 def main() -> None:
     request = json.load(sys.stdin)
+    stage = "worker_imports"
     try:
         # Third-party progress and exceptions must not expose source metadata.
         logging.disable(logging.CRITICAL)
@@ -29,16 +39,19 @@ def main() -> None:
             import yaml
             from xrd_preprocessing import build_pipeline_from_config
 
+            stage = "worker_config"
             config = yaml.safe_load(request["config_yaml"])
             expected = {"v0.1.7-beta": "0.1.7b0", "v0.1.9-beta": "0.1.9b0"}.get(
                 config.get("xrd_preprocessing", {}).get("release_tag"),
             )
             if expected is None or version("xrd-preprocessing") != expected:
                 raise ValueError("Unsupported preprocessing version")
+            stage = "worker_pipeline_build"
             config["io"] = {}
-            df = build_pipeline_from_config(config, verbose=False).fit_transform(
-                request["h5"]
-            )
+            pipeline = build_pipeline_from_config(config, verbose=False)
+            stage = "worker_pipeline_execution"
+            df = pipeline.fit_transform(request["h5"])
+            stage = "worker_output"
             rows = []
             for _, row in df.iterrows():
                 age = pd.to_numeric(row.get("age"), errors="coerce")
@@ -54,8 +67,21 @@ def main() -> None:
                     }
                 )
         print(json.dumps({"rows": rows}, allow_nan=False))
-    except Exception:  # noqa: BLE001 -- worker never emits third-party exception text
-        print(json.dumps({"error": "ARAMINA_PREPROCESSING_FAILED"}))
+    except Exception as exc:  # noqa: BLE001 -- never emit exception messages
+        name = type(exc).__name__
+        if name not in {"ValueError", "TypeError", "KeyError", "IndexError", "AttributeError",
+                        "ImportError", "ModuleNotFoundError", "RuntimeError", "OSError", "MemoryError"}:
+            name = "redacted"
+        transformer = "redacted"
+        frame = exc.__traceback__
+        while frame is not None:
+            candidate = type(frame.tb_frame.f_locals.get("self")).__name__
+            if candidate in _DIAGNOSTIC_TRANSFORMERS:
+                transformer = candidate
+            frame = frame.tb_next
+        print(json.dumps({"error": "ARAMINA_PREPROCESSING_FAILED",
+                          "diagnostic": {"stage": stage, "exception_class": name,
+                                         "transformer": transformer}}))
         raise SystemExit(1) from None
 
 

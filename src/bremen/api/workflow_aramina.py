@@ -110,14 +110,16 @@ _TRACE_STAGES = frozenset({
 })
 
 
-def _debug_checkpoint(stage: str, **fields: Any) -> None:
-    """Opt-in private diagnostics: never format objects or exception messages.
+def _debug_checkpoint(stage: str, *, _failure: bool = False, **fields: Any) -> None:
+    """Private diagnostics: opt-in checkpoints and always-on failure stages.
 
     Only fixed metadata labels and numeric shapes/counts survive. Unknown
     artifact keys, columns, class names, and sides are redacted. Nothing is
     attached to public events, reports, or API responses.
     """
-    if os.environ.get("BREMEN_ARAMINA_DEBUG_TRACE") != "1" or stage not in _TRACE_STAGES:
+    if stage not in _TRACE_STAGES:
+        return
+    if not _failure and os.environ.get("BREMEN_ARAMINA_DEBUG_TRACE") != "1":
         return
     try:
         safe = {}
@@ -133,7 +135,8 @@ def _debug_checkpoint(stage: str, **fields: Any) -> None:
                     ) else "redacted" for item in value
                 ]
         logging.getLogger(__name__).warning(
-            "aramina.debug_trace %s", json.dumps({"stage": stage, **safe}),
+            "%s %s", "aramina.runtime.rejected" if _failure else "aramina.debug_trace",
+            json.dumps({"stage": stage, **safe}),
         )
     except Exception:  # noqa: BLE001, S110 -- logging failures must not affect inference
         # Diagnostics must never change inference or public failure behavior.
@@ -147,6 +150,10 @@ def _debug_stage(stage: str, group: str = "execution"):
         yield
     except Exception as exc:
         _debug_checkpoint(stage, **{
+            f"{group}_exception_class": type(exc).__name__,
+            f"{group}_exception_stage": stage,
+        })
+        _debug_checkpoint(stage, _failure=True, **{
             f"{group}_exception_class": type(exc).__name__,
             f"{group}_exception_stage": stage,
         })

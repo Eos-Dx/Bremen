@@ -46,6 +46,46 @@ from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 
 
+_JOB_FIELDS = frozenset({
+    "workflow_id", "model_id", "source_id", "upload_id", "h5_path", "container_id",
+    "action", "patient_id", "target_side", "analysis_author", "prediction_comment",
+})
+
+
+def _log_job_rejection(reason: str, fields=(), stage: str = "request_validation") -> None:
+    """Always-on rejection reason; field names only, never request values."""
+    import logging
+
+    allowed_reasons = {"INVALID_JSON", "INVALID_REQUEST_SCHEMA", "UNSUPPORTED_ACTION",
+                       "ARAMINA_INVALID_REQUEST", "AMBIGUOUS_SOURCE", "MISSING_SOURCE",
+                       "SOURCE_ERROR"}
+    safe_reason = reason if reason in allowed_reasons else "INVALID_REQUEST_SCHEMA"
+    safe_stage = stage if stage in {"request_validation", "source_resolution", "job_creation"} else "request_validation"
+    safe_fields = ",".join(sorted({field for field in fields if isinstance(field, str) and field in _JOB_FIELDS})) or "none"
+    try:
+        logging.getLogger(__name__).warning(
+            "runtime.job_request.rejected\tstage=%s\tstatus=rejected\thttp_status=400\treason=%s\tinvalid_fields=%s",
+            safe_stage, safe_reason, safe_fields,
+        )
+    except Exception:  # noqa: BLE001, S110 -- diagnostics cannot alter API behavior
+        pass
+
+
+def _invalid_aramina_fields(body: dict) -> list[str]:
+    """Name invalid Aramina inputs using the runtime's current field rules."""
+    fields = []
+    patient = body.get("patient_id", "")
+    side = body.get("target_side", "")
+    if not isinstance(patient, str) or not patient.strip():
+        fields.append("patient_id")
+    if not isinstance(side, str) or side.strip().lower() not in {"left", "right"}:
+        fields.append("target_side")
+    for field in ("analysis_author", "prediction_comment"):
+        if not isinstance(body.get(field, ""), str):
+            fields.append(field)
+    return fields
+
+
 # ------------------------------------------------------------------
 # Auth enforcement dependency (PR0111)
 # ------------------------------------------------------------------
@@ -461,12 +501,14 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         try:
             body_bytes = await request.body()
             if not body_bytes:
+                _log_job_rejection("INVALID_JSON")
                 return JSONResponse(
                     content={"error": "Invalid JSON body"},
                     status_code=400,
                 )
             body_dict = __import__("json").loads(body_bytes)
         except Exception:
+            _log_job_rejection("INVALID_JSON")
             return JSONResponse(
                 content={"error": "Invalid JSON body"},
                 status_code=400,
@@ -476,6 +518,12 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
         try:
             req = JobCreateRequest(**body_dict)
         except Exception as exc:
+            from pydantic import ValidationError
+            fields = []
+            if isinstance(exc, ValidationError):
+                fields = [error["loc"][0] for error in exc.errors(include_input=False)
+                          if error.get("loc")]
+            _log_job_rejection("INVALID_REQUEST_SCHEMA", fields)
             return JSONResponse(
                 content={"error": f"Invalid request: {exc}"},
                 status_code=400,
@@ -483,6 +531,7 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
 
         # Action routing — delete_report is not migrated in Phase 3
         if req.action == "delete_report":
+            _log_job_rejection("UNSUPPORTED_ACTION", ["action"])
             return JSONResponse(
                 content={"error": "delete_report not migrated in Phase 3"},
                 status_code=400,
@@ -506,6 +555,7 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
                 model_id, workflow_id, body_dict,
             )
         except Exception:
+            _log_job_rejection("ARAMINA_INVALID_REQUEST", _invalid_aramina_fields(body_dict))
             return JSONResponse(content={
                 "error": "Invalid Aramina request fields",
                 "error_code": "ARAMINA_INVALID_REQUEST",
@@ -518,6 +568,7 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
 
         # Validate: exactly one of source_id or upload_id (or legacy path)
         if source_provided and upload_provided:
+            _log_job_rejection("AMBIGUOUS_SOURCE", ["source_id", "upload_id"])
             return JSONResponse(content={
                 "error": "Only one of source_id or upload_id may be provided.",
                 "error_code": "AMBIGUOUS_SOURCE",
@@ -557,6 +608,7 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
             AraminaWorkflowError,
         )
 
+        failure_stage = "source_resolution"
         try:
             # Derive effective source display name
             effective_container_id = container_id
@@ -587,6 +639,7 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
                 resolved_path = resolve_source(source_id, upload_id)
                 h5_path = resolved_path
             elif not has_legacy_path and not container_id:
+                _log_job_rejection("MISSING_SOURCE", ["source_id", "upload_id", "h5_path", "container_id"])
                 return JSONResponse(content={
                     "error": "A source_id, upload_id, h5_path, or container_id "
                              "is required to create an analysis job.",
@@ -608,6 +661,7 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
             from bremen.api.job_api_handler import (  # noqa: PLC0415
                 create_analysis_job,
             )
+            failure_stage = "job_creation"
             job = create_analysis_job(
                 container_id=effective_container_id,
                 workflow_id=workflow_id,
@@ -626,10 +680,12 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
             }, status_code=201)
 
         except ValueError as exc:
+            _log_job_rejection("SOURCE_ERROR", stage=failure_stage)
             return JSONResponse(content={
                 "error": str(exc), "error_code": "SOURCE_ERROR",
             }, status_code=400)
         except AraminaWorkflowError as exc:
+            _log_job_rejection("ARAMINA_INVALID_REQUEST", _invalid_aramina_fields(body_dict), stage=failure_stage)
             # Expected Aramina validation failure — safe 400, no traceback
             missing = []
             body_for_check = body_dict
