@@ -634,6 +634,12 @@ def create_analysis_job(
                 result_summary=wf_result.payload or {},
                 failure=wf_result.error,
             )
+            if workflow_id == "aramina" and wf_result.error == "ARAMINA_UNSUPPORTED_INPUT":
+                from .aramina_api_errors import unsupported_input_details
+                job.workflow_runs[workflow_id].failure_details = unsupported_input_details(
+                    patient_display_name, aramina_request.target_side.strip().lower(),
+                    result_model_version or "",
+                )
 
         job.completed_at = now
 
@@ -1010,6 +1016,12 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
 
     Also handles action=delete_report for report deletion.
     """
+    from .aramina_api_errors import (
+        invalid_request_details,
+        patient_mismatch_details,
+        source_error_details,
+    )
+
     body = _read_json_body(handler)
     if body is None:
         _send_json(handler, 400, {"error": "Invalid JSON body"})
@@ -1036,10 +1048,7 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
             model_id, workflow_id, body,
         )
     except Exception:
-        _send_json(handler, 400, {
-            "error": "Invalid Aramina request fields",
-            "error_code": "ARAMINA_INVALID_REQUEST",
-        })
+        _send_json(handler, 400, invalid_request_details(body))
         return
 
     # Validate: exactly one of source_id or upload_id (or legacy h5_path)
@@ -1123,6 +1132,11 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
 
         # Extract patient display name from H5 metadata (fault-tolerant)
         patient_display_name = extract_patient_display_name(h5_path)
+        if workflow_id == "aramina":
+            mismatch = patient_mismatch_details(aramina_request.patient_id, patient_display_name)
+            if mismatch is not None:
+                _send_json(handler, 400, mismatch)
+                return
 
         job = create_analysis_job(
             container_id=effective_container_id,
@@ -1140,8 +1154,15 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
         })
     except ValueError as exc:
         # Typed safe error from resolution
-        _send_json(handler, 400, {"error": str(exc), "error_code": "SOURCE_ERROR"})
+        _send_json(handler, 400, source_error_details(exc) if workflow_id == "aramina"
+                   else {"error": str(exc), "error_code": "SOURCE_ERROR"})
     except Exception as exc:
+        if workflow_id == "aramina":
+            _send_json(handler, 500, {
+                "error": "Could not create Aramina job", "error_code": "ARAMINA_EXECUTION_FAILED",
+                "technical_demo_only": True,
+            })
+            return
         _log.exception("Failed to create analysis job")
         _send_json(handler, 500, {"error": str(exc)[:200]})
 

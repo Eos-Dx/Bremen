@@ -35,6 +35,7 @@ class WorkflowRun:
     result_summary: dict[str, Any] = field(default_factory=dict)
     report_metadata: dict[str, Any] | None = None
     failure: str | None = None
+    failure_details: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -48,6 +49,7 @@ class WorkflowRun:
             "result_summary": dict(self.result_summary),
             "report_metadata": self.report_metadata,
             "failure": self.failure,
+            **self.failure_details,
         }
 
 
