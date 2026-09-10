@@ -469,6 +469,7 @@ def create_analysis_job(
     source_key: str = "",
     patient_display_name: str = "",
     aramina_request: Any = None,
+    target_side: str = "",
 ) -> AnalysisJob:
     """Create and execute an analysis job synchronously.
 
@@ -535,6 +536,9 @@ def create_analysis_job(
         "model_id": model_id,
         "source_key": source_key or "",
         "patient_display_name": patient_display_name or "",
+        # PR0141: Aramina inference identity includes the requested side.
+        # Bremen leaves this empty so its duplicate identity is unchanged.
+        "target_side": target_side if target_side in {"left", "right"} else "",
     }
 
     job = AnalysisJob(
@@ -639,6 +643,10 @@ def create_analysis_job(
                 job.workflow_runs[workflow_id].failure_details = unsupported_input_details(
                     patient_display_name, aramina_request.target_side.strip().lower(),
                     result_model_version or "",
+                    stage=getattr(wf_result, "failure_stage", None),
+                    model_id=result_model_id or "",
+                    requested_patient_id=aramina_request.patient_id,
+                    resolved_container_id=container_id or "",
                 )
 
         job.completed_at = now
@@ -701,6 +709,9 @@ def list_analysis_jobs(
         if j.input_summary:
             summary["model_id"] = j.input_summary.get("model_id")
             summary["source_key"] = j.input_summary.get("source_key", "")
+            # PR0141: expose the requested side so clients can distinguish
+            # left/right runs for the same source and model. Empty for Bremen.
+            summary["target_side"] = j.input_summary.get("target_side", "")
             pdn = j.input_summary.get("patient_display_name", "")
             summary["patient_display_name"] = pdn
             summary["source_display_name"] = (
@@ -884,10 +895,19 @@ def _find_existing_completed_report(
     source_key: str,
     workflow_id: str,
     model_id: str,
+    target_side: str = "",
 ) -> tuple[str, str] | None:
     """Check if a completed report exists for source + workflow + model.
 
     Returns (job_id, workflow_id) if found, None otherwise.
+
+    PR0141: ``target_side`` is part of the Aramina inference request, so an
+    Aramina duplicate identity must include it. A completed left-side run must
+    not block a right-side run for the same source and model.
+
+    Bremen behavior is unchanged: ``target_side`` is empty for Bremen, and an
+    empty requested side matches any stored side, so the original
+    source + workflow + model identity is preserved exactly.
     """
     if not source_key or not model_id:
         return None
@@ -901,6 +921,9 @@ def _find_existing_completed_report(
             if isk.get("model_id") != model_id:
                 continue
             if workflow_id not in job.requested_workflows:
+                continue
+            # Side-aware identity: only enforced when a side is requested.
+            if target_side and isk.get("target_side", "") != target_side:
                 continue
             # Check for completed report
             rm = job.reports.get(workflow_id)
@@ -1073,9 +1096,14 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
             source_key = stable
 
     # ---- Rerun guard: block duplicate analysis ----
+    # PR0141: Aramina identity includes target_side; Bremen identity is unchanged.
+    requested_side = (
+        aramina_request.target_side.strip().lower()
+        if workflow_id == "aramina" and aramina_request is not None else ""
+    )
     if source_key and workflow_id and model_id:
         existing = _find_existing_completed_report(
-            source_key, workflow_id, model_id,
+            source_key, workflow_id, model_id, requested_side,
         )
         if existing is not None:
             _send_json(handler, 409, {
@@ -1087,6 +1115,8 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
                 ),
                 "job_id": existing[0],
                 "workflow_id": existing[1],
+                "existing_target_side": requested_side,
+                "requested_target_side": requested_side,
             })
             return
 
@@ -1145,6 +1175,7 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
             model_id=model_id,
             source_key=source_key,
             patient_display_name=patient_display_name,
+            target_side=requested_side,
             **({"aramina_request": aramina_request} if workflow_id == "aramina" else {}),
         )
 

@@ -31,12 +31,19 @@ class WorkflowFeatureVector:
 
 @dataclass(frozen=True)
 class WorkflowResult:
-    """Result of a single workflow execution."""
+    """Result of a single workflow execution.
+
+    ``failure_stage`` is an optional allowlisted public category for
+    workflows that expose a structured failure taxonomy (PR0141, Aramina).
+    It is ``None`` for workflows that do not, so Bremen behavior is
+    unchanged.
+    """
 
     workflow_id: str
     status: str  # "completed" | "failed" | "skipped"
     payload: dict[str, Any] | None = None
     error: str | None = None
+    failure_stage: str | None = None
 
 
 @dataclass(frozen=True)

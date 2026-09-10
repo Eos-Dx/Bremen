@@ -1,0 +1,163 @@
+# PR0141 precommit review (REVIEW 2, post-PLAN-amendment) — Aramina target-side
+# compatibility diagnostics
+# Reviewer: precommit-review agent (Bremen)
+# Date (UTC): 2026-09-10T13:19:31Z .. 2026-09-10T13:22:13Z
+# Head: befa917d1a6fb607957845c4b268dbe16b533560 (unchanged; no commit made)
+# Branch: 0141-aramina-target-side-compatibility-diagnostics (matches required branch)
+# Supersedes: review 1 (2026-09-10T12:15:12Z, verdict block, blocker B1 = scope drift)
+# Basis: runtime-captured command output + full reads; agent narrative not accepted as
+# evidence for any pass/fail claim.
+
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: pass (0 blockers, warnings present)
+COMMIT DECISION: READY FOR COMMIT (with the warnings below; commit is the human's action)
+
+BLOCKERS
+- None. Prior blocker B1 (workflow_provider.py outside approved scope) is RESOLVED:
+  PLAN.txt was amended and now (a) lists src/bremen/api/workflow_provider.py under both
+  "Approved files to inspect" and "Approved files to modify", and (b) adds section 7
+  "WorkflowResult carrier authorization" permitting a minimal additive carrier change only.
+  Verified against the amended PLAN.txt read in full this review.
+
+WARNINGS
+- W1 (kept, non-blocking per review directive; doc condition only partially met):
+  `report_contract` is defined in FAILURE_STAGES with fixed detail/remediation text
+  (exercised by tests/test_aramina_workflow_runtime.py::test_pr0141_every_stage_has_detail_and_remediation),
+  but NO runtime boundary raises it — report-build failures inside
+  workflow_aramina._run_local_artifact step 8 fall back to the pre-existing safe code
+  ARAMINA_EXECUTION_FAILED (search evidence: "report_contract" occurs only at the 3
+  definition sites in workflow_aramina.py; no raise site in src/). PLAN section 2 lists
+  the report payload boundary, so the mapping is only partially realized. The user
+  directive makes this acceptable "if documented as not runtime-raised yet";
+  COMPATIBILITY_DIAGNOSTICS.md section 6 still says "`report_contract` is wired but not
+  exercised by a test", which overstates the actual state (it is defined, not raised).
+  Recommended one-line doc fix before or after commit: replace "is wired but not
+  exercised by a test" with "is defined but not runtime-raised yet; report-build failures
+  currently fall back to ARAMINA_EXECUTION_FAILED". Not a commit gate.
+- W2 (kept, not fixed): COMPATIBILITY_MATRIX_SMOKE.sh still resolves model_id via exact
+  `m.get("model_version") == version` against "0.2.12"/"0.2.13" while model versions
+  elsewhere (PLAN.txt, tests, doc) carry the "-beta" suffix ("0.2.12-beta"/"0.2.13-beta").
+  If the deployed catalog reports the "-beta" suffix, every matrix row will report
+  "model_id: NOT FOUND". Unchanged since review 1 (script still 230 lines; matcher
+  re-read this review). A trivial fix exists (prefix/startswith match or adding the
+  "-beta" labels) but was not applied; per directive this stays a warning. Verify or fix
+  before relying on the script for the pre-deploy matrix run.
+- W3 (kept, acceptable): the production matrix smoke was not run (no live deployment in
+  this environment), so PLAN's Goal questions (exact root cause for 0.2.12-beta+Nova_379+left
+  and 0.2.13-beta+Nova_384+right) remain unanswered. COMPATIBILITY_DIAGNOSTICS.md section 6
+  explicitly documents this as unknown. Acceptable pre-deploy per directive; the taxonomy
+  makes the answer observable once the script runs against a live instance.
+- W4 (informational): no plan-review artifact exists in reviews/ (directory contains only
+  this precommit review); the amended PLAN.txt was used directly as the scope source of truth.
+- W5 (informational, unchanged): both POST handlers return
+  existing_target_side = requested_target_side = requested_side in the 409 body. Accurate in
+  every reachable side-aware match (a stored side different from the requested side is
+  skipped before matching; Aramina requests always carry a validated non-empty side), so no
+  client-visible misreporting was found.
+
+VALIDATION
+- python -m compileall -q src tests -> exit 0 (executed via venv/bin/python; bare `python`
+  is absent from PATH in this environment — documented, no source impact)
+- pytest -q tests/test_aramina_workflow_runtime.py -> exit 0, 183 passed
+- pytest -q tests/test_bremen_model_requirements_api.py tests/test_catalog_api_multi_model.py
+  -> exit 0, 60 passed
+- pytest -q (full) -> exit 0, 3971 passed, 11 skipped, 0 failed
+- git diff --check -> exit 0 (clean)
+- All mandatory user re-checks pass (see PLAN COMPLIANCE and BREMEN CONTRACT CHECK).
+- Not committed (commit policy: human commits).
+
+FILES READ
+- .project-memory/pr/0141-aramina-target-side-compatibility-diagnostics/PLAN.txt (full,
+  re-read post-amendment — section 7 verified)
+- src/bremen/api/workflow_provider.py (diff re-read this review; full file read in review 1;
+  unchanged since — same +9/-2 stat and identical hunk)
+- .project-memory/pr/0141-aramina-target-side-compatibility-diagnostics/COMPATIBILITY_DIAGNOSTICS.md
+  (full re-read — W1/W3 evidence)
+- .project-memory/pr/0141-aramina-target-side-compatibility-diagnostics/COMPATIBILITY_MATRIX_SMOKE.sh
+  (matcher + matrix block re-read; full read in review 1; unchanged since)
+- greps: failure_stage across src/ (model_requirements.py, aramina_provider.py hits are
+  pre-existing, unrelated to this diff); workflow_bremen.py WorkflowResult sites (6, none
+  set failure_stage); workflow_orchestrator.py (no failure_stage)
+- Carried over from review 1 (tracked files byte-identical — same git diff --stat):
+  full reads of workflow_aramina.py, aramina_api_errors.py, aramina_preprocessing.py,
+  job_api_handler.py, fastapi_app.py, tests/test_aramina_workflow_runtime.py,
+  tests/test_catalog_api_multi_model.py
+
+FILES WRITTEN
+- .project-memory/pr/0141-aramina-target-side-compatibility-diagnostics/reviews/precommit-review.txt
+  (this file; single write, read back and verified). No other file written. No commit made.
+
+SNAPSHOT DELTA
+- HEAD: befa917d1a6fb607957845c4b268dbe16b533560 (identical to review 1; no new commits)
+- Tracked modified: same 8 files, same 980 insertions / 51 deletions as review 1 —
+  no tracked file changed between reviews
+- Untracked: .project-memory/pr/0141-aramina-target-side-compatibility-diagnostics/
+  (PLAN.txt — now amended with workflow_provider.py approval + section 7; README.md;
+  COMPATIBILITY_DIAGNOSTICS.md — unchanged from review 1; COMPATIBILITY_MATRIX_SMOKE.sh —
+  unchanged from review 1; reviews/ containing this review)
+- No generated artifacts, secrets, patient data, H5 files, or uncontrolled joblib files;
+  __pycache__ gitignored (verified in review 1); joblib only as controlled tmp_path
+  test fixtures.
+
+PLAN COMPLIANCE
+- Prior blocker B1 resolution: workflow_provider.py diff is exactly the authorized minimal
+  additive carrier change — one optional field `failure_stage: str | None = None` plus
+  docstring on the frozen WorkflowResult dataclass. No other hunk. Matches PLAN section 7
+  verbatim ("add optional failure diagnostic fields to WorkflowResult").
+- Re-check 1 (carrier only): confirmed — diff contains only the optional field + docstring;
+  no other WorkflowResult/WorkflowProvider semantics touched.
+- Re-check 2 (no Bremen behavior change): confirmed — (a) Bremen providers construct
+  WorkflowResult without failure_stage (grep of workflow_bremen.py: 6 construction sites,
+  none pass the field; it defaults to None); (b) Bremen duplicate guard unchanged
+  (test_pr0141_bremen_duplicate_guard_unchanged passes: empty-side request matches any
+  stored side; a requested side never matches a Bremen job); (c) Bremen job summaries carry
+  empty target_side (test_pr0141_bremen_job_summary_has_empty_target_side); (d) Bremen
+  source-error shape unchanged (test_api_bremen_source_error_unchanged); (e) full suite
+  green including all Bremen contract tests. Bremen output is unchanged, satisfying PLAN
+  section 7's "must not set these optional fields" for Bremen.
+- Re-check 3 (W1/W2/W3 classification): all three retained as warnings only, none blocking:
+  W1 report_contract defined-but-not-raised (doc wording still imprecise — condition gap
+  noted); W2 smoke version matching unfixed (warning kept per directive); W3 live matrix
+  not run, documented in doc section 6 (acceptable pre-deploy per directive).
+- Section 1 taxonomy, section 2 mapping (8/9 wired boundaries + unknown collapse),
+  section 3 safe details, section 4 side-aware rerun guard, section 5 smoke script,
+  section 6 doc artifact, and required tests 1-14: verified in review 1 and unchanged
+  (tracked files byte-identical); all corresponding tests pass in this review's runs.
+- Non-goals: respected — no artifact, threshold, scoring/math, external Aramina dependency,
+  provider URL/HTTP, dummy fallback, async/Celery, or frontend-layout change.
+
+BREMEN CONTRACT CHECK
+- API: request/response behavior covered by updated tests on both transports; failure
+  details sanitized and stage-aware; no deferral claimed.
+- H5 reader: h5 reader files untouched; no H5 contract change.
+- Target/control: untouched.
+- Preprocessing: no feature/output schema change; preprocessing_release_tag() is a read-only
+  allowlisted accessor; isolated worker environments and worker unchanged.
+- Inference: model package loading, checksum verification, feature columns, thresholds,
+  prediction output unchanged (verified in review 1; files unchanged since).
+- Joblib: controlled test fixtures only.
+- CI/Docker: no CI/Docker files touched; no docker commands run; no secrets/credentials.
+- Reports/clinical wording: "Research draft. Requires clinical review." preserved; doc keeps
+  research-draft/technical-verification-only framing; no new clinical claims.
+- Platform integration: no local machine paths in API contracts; sanitizers reject
+  path-like/scheme-bearing values; opaque source_id handling unchanged.
+
+VALIDATION COMPLETENESS CHECK
+- All five mandatory commands executed on this branch during THIS review; all exit 0.
+  No validation skipped or deferred; no deferral mechanism needed for validation.
+EVIDENCE COMPLETENESS CHECK
+- B1 resolution evidenced by: amended PLAN.txt full read (section 7 + modified-files list),
+  git diff of workflow_provider.py (single additive hunk), failure_stage greps proving
+  Bremen never sets it, and the green full suite. W1/W2 evidenced by search + re-reads;
+  W3 evidenced by doc section 6. Nothing accepted on narrative alone.
+DIFF COMPLETENESS CHECK
+- git diff --name-only lists the same 8 files as review 1; diff --stat byte-identical
+  (980/51), so review 1's full reads remain valid for the tracked delta; workflow_provider.py
+  diff re-read fresh this review. git diff --check clean. Nothing unreviewed.
+BOUNDARY CONFIRMATIONS
+- No .git/.venv/venv/__pycache__/artifacts access via filesystem tools (greps ran through
+  shell within the project tree; __pycache__ binary hits in grep output were not opened).
+- Read-only git operations only; nothing staged, nothing committed.
+- No live system, S3 bucket, or external service contacted; smoke script reviewed, not run.
+- This review is decision-support for a human committer; not a clinical or scientific
+  validity judgment.

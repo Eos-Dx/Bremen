@@ -490,3 +490,74 @@ class TestPR0088CatalogApi:
         assert "threshold_value" not in body
         assert "manifest_threshold" not in body
         assert "_package" not in body
+
+
+# ---------------------------------------------------------------------------
+# PR0141 — Aramina target-side compatibility diagnostics
+# ---------------------------------------------------------------------------
+
+
+class TestPR0141AraminaTargetSideDiagnostics:
+    """Aramina failure diagnostics are side-aware and leak nothing."""
+
+    def test_failure_stage_taxonomy_is_fixed(self):
+        """The public failure taxonomy is a closed allowlist."""
+        from bremen.api.workflow_aramina import FAILURE_STAGES
+
+        assert FAILURE_STAGES == {
+            "preprocessing_contract",
+            "h5_patient_contract",
+            "target_side_contract",
+            "profile_matrix_contract",
+            "lr1_contract",
+            "symmetry_contract",
+            "final_dataframe_contract",
+            "final_model_contract",
+            "report_contract",
+            "unknown_input_contract",
+        }
+        # The old generic label is no longer a public stage.
+        assert "input_contract" not in FAILURE_STAGES
+
+    def test_unsupported_input_details_are_side_aware(self):
+        """Public details name the requested side and the exact boundary."""
+        from bremen.api.aramina_api_errors import unsupported_input_details
+
+        details = unsupported_input_details(
+            "Nova_379", "left", "0.2.12-beta", stage="target_side_contract",
+        )
+        assert details["failure_stage"] == "target_side_contract"
+        assert details["failure_reason_code"] == (
+            "ARAMINA_UNSUPPORTED_INPUT_TARGET_SIDE_CONTRACT"
+        )
+        assert details["safe_details"]["target_side"] == "left"
+        assert details["safe_details"]["model_version"] == "0.2.12-beta"
+
+    def test_unsupported_input_details_leak_nothing(self):
+        """No path, bucket, key, token, or exception text is exposed."""
+        from bremen.api.aramina_api_errors import unsupported_input_details
+
+        details = unsupported_input_details(
+            "s3://private-bucket/key", "left", "0.2.12-beta",
+            stage="preprocessing_contract",
+            resolved_container_id="/tmp/private/model.h5",
+            preprocessing_release="v9.9.9-private",
+        )
+        text = json.dumps(details)
+        for forbidden in ("s3://", "private-bucket", "/tmp/", "v9.9.9"):
+            assert forbidden not in text
+
+    def test_workflow_result_failure_stage_defaults_to_none(self):
+        """Non-Aramina workflow results carry no failure stage."""
+        from bremen.api.workflow_provider import WorkflowResult
+
+        result = WorkflowResult(workflow_id="bremen", status="failed", error="X")
+        assert result.failure_stage is None
+
+    def test_aramina_workflow_error_stage_is_allowlisted(self):
+        """AraminaWorkflowError only accepts allowlisted stages."""
+        from bremen.api.workflow_aramina import AraminaWorkflowError
+
+        assert AraminaWorkflowError("ARAMINA_UNSUPPORTED_INPUT", "lr1_contract").stage == "lr1_contract"
+        assert AraminaWorkflowError("ARAMINA_UNSUPPORTED_INPUT", "private").stage is None
+        assert AraminaWorkflowError("ARAMINA_UNSUPPORTED_INPUT").stage is None

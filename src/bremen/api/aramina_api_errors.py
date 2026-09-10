@@ -75,14 +75,83 @@ def patient_mismatch_details(requested: str, resolved: str) -> dict | None:
     }
 
 
-def unsupported_input_details(patient: str, side: str, version: str) -> dict:
-    """Public input-contract category, not a claim about a private failing step."""
+def _safe_identifier(value: str) -> str:
+    """Echo only short opaque identifiers; never paths or free-form metadata."""
+    return value if re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", value) else "redacted"
+
+
+def _safe_basename(value: str) -> str:
+    """Return a sanitized basename only when it is already a public label.
+
+    Rejects anything containing a path separator, scheme, or free-form text.
+    """
+    if not value or "/" in value or "\\" in value or "://" in value:
+        return ""
+    return value if re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", value) else ""
+
+
+def _safe_sides(values: Any) -> list[str]:
+    """Return only allowlisted side labels, sorted and de-duplicated."""
+    if not isinstance(values, (list, tuple, set, frozenset)):
+        return []
+    return sorted({v for v in values if v in {"left", "right"}})
+
+
+def _safe_count(value: Any) -> int | None:
+    """Return a non-negative integer count, or None when unknown/unsafe."""
+    if type(value) is int and value >= 0:
+        return value
+    return None
+
+
+def unsupported_input_details(
+    patient: str,
+    side: str,
+    version: str,
+    *,
+    stage: str | None = None,
+    model_id: str = "",
+    requested_patient_id: str = "",
+    resolved_container_id: str = "",
+    available_sides: Any = None,
+    measurement_count: Any = None,
+    preprocessing_release: str = "",
+) -> dict:
+    """Public input-contract category with an exact safe failing boundary.
+
+    PR0141: ``failure_stage`` is now the allowlisted runtime boundary that
+    failed, not a generic ``input_contract`` label. Unknown or missing stages
+    collapse to ``unknown_input_contract``. No exception text, path, S3 key,
+    stdout/stderr, env var, or measurement data is ever included.
+    """
+    from .workflow_aramina import FAILURE_STAGES, _STAGE_DETAIL, _STAGE_REMEDIATION
+
+    safe_stage = stage if stage in FAILURE_STAGES else "unknown_input_contract"
+    safe_details: dict[str, Any] = {
+        "patient_display_name": _safe_sample_id(patient) if patient else "",
+        "requested_patient_id": _safe_sample_id(requested_patient_id) if requested_patient_id else "",
+        "target_side": side if side in {"left", "right"} else "",
+        "model_id": _safe_identifier(model_id) if model_id else "",
+        "model_version": _safe_identifier(version) if version else "",
+    }
+    # Optional fields are omitted entirely when unknown, so the public shape
+    # never implies knowledge the runtime does not have.
+    container = _safe_basename(resolved_container_id)
+    if container:
+        safe_details["resolved_container_id"] = container
+    sides = _safe_sides(available_sides)
+    if sides:
+        safe_details["available_sides"] = sides
+    count = _safe_count(measurement_count)
+    if count is not None:
+        safe_details["measurement_count"] = count
+    if preprocessing_release in {"v0.1.7-beta", "v0.1.9-beta"}:
+        safe_details["preprocessing_release"] = preprocessing_release
+
     return {
-        "failure_stage": "input_contract",
-        "failure_detail": "Selected H5 could not be used for the requested Aramina patient and target side.",
-        "safe_details": {
-            "patient_display_name": _safe_sample_id(patient) if patient else "",
-            "target_side": side if side in {"left", "right"} else "",
-            "model_version": version if re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", version) else "redacted",
-        },
+        "failure_stage": safe_stage,
+        "failure_reason_code": f"ARAMINA_UNSUPPORTED_INPUT_{safe_stage.upper()}",
+        "failure_detail": _STAGE_DETAIL[safe_stage],
+        "remediation": _STAGE_REMEDIATION[safe_stage],
+        "safe_details": safe_details,
     }

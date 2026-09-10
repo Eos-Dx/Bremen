@@ -1,0 +1,266 @@
+# PR0141 — Aramina target-side compatibility diagnostics
+
+## Status / source of truth
+
+Branch:
+0141-aramina-target-side-compatibility-diagnostics
+
+Base:
+main after PR0140 / PR206:
+Improve Aramina API validation and failure diagnostics.
+
+PR0140 already did:
+- actionable ARAMINA_INVALID_REQUEST for missing patient_id/target_side
+- SOURCE_ID_NOT_AVAILABLE
+- ARAMINA_PATIENT_MISMATCH
+- generic safe ARAMINA_UNSUPPORTED_INPUT details
+- no scoring/preprocessing/artifact/frontend changes
+
+PR0140 did NOT establish exact root cause for unsupported inputs.
+
+## Goal
+
+Make Aramina failures explainable by:
+model_id + patient_id + target_side.
+
+Specifically answer:
+- why 0.2.12-beta + Nova_379 + left fails
+- why 0.2.13-beta + Nova_384 + right fails
+- whether failures are target-side absence, preprocessing failure, profile matrix failure, LR1 failure, symmetry failure, final model failure, report failure, or unknown input-contract failure
+- whether Aramina rerun/duplicate guard incorrectly ignores target_side
+
+## Non-goals
+
+Do not:
+- change model artifacts
+- change thresholds
+- change scoring/math
+- add external Aramina package dependency
+- add provider URL / HTTP
+- add dummy/uniform/fake fallback
+- implement async/Celery/background queue
+- rewrite frontend layout
+- change Bremen behavior
+
+## Approved files to inspect
+
+- src/bremen/api/workflow_aramina.py
+- src/bremen/api/aramina_preprocessing.py
+- src/bremen/api/aramina_preprocess_worker.py
+- src/bremen/api/aramina_api_errors.py
+- src/bremen/api/job_api_handler.py
+- src/bremen/api/fastapi_app.py
+- src/bremen/api/job_models.py
+- src/bremen/api/workflow_provider.py
+- src/bremen/api/source_registry.py
+- src/bremen/control_room_ui.py
+- tests/test_aramina_workflow_runtime.py
+- tests/test_catalog_api_multi_model.py
+- tests/test_bremen_model_requirements_api.py
+
+## Approved files to modify
+
+Runtime/API:
+- src/bremen/api/workflow_aramina.py
+- src/bremen/api/aramina_preprocessing.py
+- src/bremen/api/aramina_preprocess_worker.py
+- src/bremen/api/aramina_api_errors.py
+- src/bremen/api/job_api_handler.py
+- src/bremen/api/fastapi_app.py
+- src/bremen/api/job_models.py
+- src/bremen/api/workflow_provider.py
+
+Tests:
+- tests/test_aramina_workflow_runtime.py
+- tests/test_catalog_api_multi_model.py
+
+Project memory:
+- .project-memory/pr/0141-aramina-target-side-compatibility-diagnostics/COMPATIBILITY_DIAGNOSTICS.md
+- .project-memory/pr/0141-aramina-target-side-compatibility-diagnostics/COMPATIBILITY_MATRIX_SMOKE.sh
+- .project-memory/pr/0141-aramina-target-side-compatibility-diagnostics/reviews/precommit-review.txt
+
+Do not modify frontend in this PR unless required only for a tiny test fixture. UI display work is a later PR.
+
+## Required implementation
+
+### 1. Exact safe failure taxonomy
+
+Keep public top-level failure:
+ARAMINA_UNSUPPORTED_INPUT
+
+Add safe structured fields for failed Aramina workflow runs:
+- failure_stage
+- failure_reason_code
+- failure_detail
+- remediation
+- safe_details
+
+Allowed failure_stage values:
+- preprocessing_contract
+- h5_patient_contract
+- target_side_contract
+- profile_matrix_contract
+- lr1_contract
+- symmetry_contract
+- final_dataframe_contract
+- final_model_contract
+- report_contract
+- unknown_input_contract
+
+Do not use raw exception messages as public details.
+
+### 2. Stage mapping
+
+Map fixed runtime boundaries to safe stages:
+
+- aramina_preprocessing.py / worker failure -> preprocessing_contract
+- patient not present in preprocessed dataframe -> h5_patient_contract
+- requested target_side has no usable rows -> target_side_contract
+- empty/nonfinite/bad profile matrix -> profile_matrix_contract
+- lr1_model predict_proba/input/output failure -> lr1_contract
+- symmetry feature construction failure -> symmetry_contract
+- final feature DataFrame missing/bad columns -> final_dataframe_contract
+- final_model predict_proba/input/output failure -> final_model_contract
+- report payload/report construction failure -> report_contract
+- otherwise -> unknown_input_contract
+
+### 3. Safe details
+
+When known, include only sanitized:
+- patient_display_name
+- requested_patient_id
+- target_side
+- model_id
+- model_version
+- resolved_container_id basename only
+- available_sides
+- measurement_count
+- preprocessing_release only if allowlisted: v0.1.7-beta or v0.1.9-beta
+
+Never expose:
+- S3 bucket/key/path
+- filesystem path
+- traceback
+- raw exception text
+- stdout/stderr
+- env vars
+- tokens/secrets
+- artifact checksums/private metadata
+- patient measurement arrays
+
+### 4. Rerun/duplicate guard
+
+Investigate and fix confirmed defect if still present:
+
+Current suspected behavior:
+_find_existing_completed_report(source_key, workflow_id, model_id)
+does not include target_side.
+
+Required behavior:
+- Bremen duplicate logic unchanged.
+- Aramina duplicate identity includes target_side.
+- Existing Aramina left run must not block Aramina right run for same source/model.
+- If full storage migration is unsafe, return precise side-aware 409 with existing_target_side/requested_target_side and document deferral.
+
+### 5. Matrix smoke script
+
+Create:
+.project-memory/pr/0141-aramina-target-side-compatibility-diagnostics/COMPATIBILITY_MATRIX_SMOKE.sh
+
+It must fetch fresh /demo/api/h5/containers before each POST and run:
+
+0.2.12:
+- Nova_214 left
+- Nova_214 right
+- Nova_227 left
+- Nova_227 right
+- Nova_379 left
+- Nova_379 right
+
+0.2.13:
+- Nova_214 left
+- Nova_214 right
+- Nova_227 left
+- Nova_227 right
+- Nova_384 left
+- Nova_384 right
+
+Capture:
+- HTTP status
+- job_id
+- overall_status
+- workflow_status
+- failure
+- failure_stage
+- failure_reason_code
+- remediation
+- model_version
+- report_status
+- resolved patient_display_name
+- resolved container_id
+- target_side
+- event failure reason
+
+### 6. Documentation artifact
+
+Create:
+.project-memory/pr/0141-aramina-target-side-compatibility-diagnostics/COMPATIBILITY_DIAGNOSTICS.md
+
+Must include:
+- files changed
+- failure taxonomy
+- before/after examples
+- rerun guard findings
+- whether target_side was added to duplicate identity
+- how to run matrix smoke
+- what remains unknown
+- explicit statement whether scoring/preprocessing/artifacts changed
+
+
+### 7. WorkflowResult carrier authorization
+
+`src/bremen/api/workflow_provider.py` is approved for a minimal additive carrier change only:
+- add optional failure diagnostic fields to `WorkflowResult`
+- no behavior change to providers other than allowing Aramina diagnostics to serialize through existing job models
+- Bremen output must remain unchanged unless a Bremen failure explicitly sets these optional fields, which it must not in this PR
+
+## Required tests
+
+Add/extend tests for:
+1. target_side is required and not inferred
+2. only left/right accepted
+3. successful Aramina synthetic/fixture paths for both 0.2.12 and 0.2.13 still work
+4. preprocessing failure maps to preprocessing_contract
+5. missing patient maps to h5_patient_contract
+6. missing target side maps to target_side_contract
+7. bad profile matrix maps to profile_matrix_contract
+8. LR1 failure maps to lr1_contract
+9. symmetry failure maps to symmetry_contract
+10. final DataFrame failure maps to final_dataframe_contract
+11. final model failure maps to final_model_contract
+12. Aramina duplicate guard includes target_side
+13. Bremen duplicate guard unchanged
+14. no forbidden leaks in public API/job responses
+
+## Validation commands
+
+Must run:
+
+python -m compileall -q src tests
+
+pytest -q tests/test_aramina_workflow_runtime.py
+
+pytest -q tests/test_bremen_model_requirements_api.py tests/test_catalog_api_multi_model.py
+
+pytest -q
+
+git diff --check
+
+Full pytest must pass before READY.
+
+## Commit policy
+
+Do not commit.
+Coder writes code/tests/artifacts only.
+Reviewer writes precommit-review.txt.
+Human commits.
