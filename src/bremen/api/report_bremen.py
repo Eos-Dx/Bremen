@@ -85,11 +85,16 @@ class BremenReportProvider(ReportProvider):
         *,
         model_identity: dict[str, str] | None = None,
         readiness_snapshot: dict[str, bool] | None = None,
+        job_context: dict[str, Any] | None = None,
     ) -> ReportEnvelope:
         """Generate a Bremen v0.2 report from workflow output.
 
         When the workflow result is empty or indicates failure, returns
         an unavailable report with a typed reason code.
+
+        ``job_context`` is accepted for interface parity with the report
+        provider contract. Bremen reports do not use it, so the Bremen report
+        contract is unchanged.
         """
         model_identity = model_identity or {}
         readiness_snapshot = readiness_snapshot or {}

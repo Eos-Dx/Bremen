@@ -345,6 +345,21 @@ def _get_report_provider(workflow_id: str) -> ReportProvider | None:
     return providers.get(workflow_id)
 
 
+def _safe_report_identifier(value: Any) -> str:
+    """Return a short opaque identifier, or empty string when unsafe.
+
+    Never returns a path, S3 URI, or free-form text.
+    """
+    import re
+
+    if not isinstance(value, str):
+        return ""
+    clean = value.strip()
+    if not clean or "/" in clean or "\\" in clean or "://" in clean:
+        return ""
+    return clean if re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", clean) else ""
+
+
 class _AraminaLocalReportProvider(ReportProvider):
     """Expose the local runner's numeric result through existing report APIs."""
 
@@ -354,6 +369,7 @@ class _AraminaLocalReportProvider(ReportProvider):
         self, job_id: str, workflow_result: dict[str, Any], *,
         model_identity: dict[str, str] | None = None,
         readiness_snapshot: dict[str, bool] | None = None,
+        job_context: dict[str, Any] | None = None,
     ) -> ReportEnvelope:
         import math
 
@@ -362,6 +378,19 @@ class _AraminaLocalReportProvider(ReportProvider):
         valid = (type(score) in (int, float) and math.isfinite(score)
                  and 0 <= score <= 1)
         identity = model_identity or {}
+        context = job_context or {}
+
+        # PR0143: additive report metadata. The requested side comes from the
+        # workflow result (the side actually scored); the patient identifier
+        # comes from the job context. Both are sanitized and omitted when
+        # unknown, so the existing contract is unchanged.
+        target_side = ""
+        if isinstance(external, dict):
+            candidate = external.get("target_side")
+            if candidate in {"left", "right"}:
+                target_side = candidate
+        patient_id = _safe_report_identifier(context.get("patient_id"))
+
         return ReportEnvelope(
             report_id=str(_uuid.uuid4()), workflow_id="aramina", job_id=job_id,
             report_schema_version="v0.1",
@@ -370,6 +399,12 @@ class _AraminaLocalReportProvider(ReportProvider):
             scientifically_certified=False,
             disclaimer="Research draft. Requires clinical review.",
             payload={"risk_score": float(score), "technical_demo_only": True} if valid else {},
+            patient_id=patient_id or None,
+            target_side=target_side or None,
+            links={
+                "job": f"/demo/api/jobs/{job_id}",
+                "json": f"/demo/api/jobs/{job_id}/reports/aramina",
+            },
         )
 
 
@@ -811,6 +846,19 @@ def get_job_reports(job_id: str) -> dict[str, Any]:
     }
 
 
+def _report_job_context(job: AnalysisJob) -> dict[str, Any]:
+    """Return safe job-level metadata for report providers.
+
+    PR0143: exposes only the requested patient identifier and target side.
+    Never includes source_key, container paths, or artifact internals.
+    """
+    summary = job.input_summary or {}
+    return {
+        "patient_id": summary.get("patient_display_name", ""),
+        "target_side": summary.get("target_side", ""),
+    }
+
+
 def get_job_report(job_id: str, workflow_id: str) -> dict[str, Any]:
     """Return a specific workflow report, or unavailable."""
     with _jobs_lock:
@@ -853,6 +901,7 @@ def get_job_report(job_id: str, workflow_id: str) -> dict[str, Any]:
         workflow_result=wf_run.result_summary,
         model_identity=wf_run.model_identity,
         readiness_snapshot=wf_run.readiness_snapshot,
+        job_context=_report_job_context(job),
     )
     return {
         "report": report.to_dict(),
@@ -882,6 +931,7 @@ def _generate_job_reports(job: AnalysisJob) -> None:
             workflow_result=wf_run.result_summary,
             model_identity=wf_run.model_identity,
             readiness_snapshot=wf_run.readiness_snapshot,
+            job_context=_report_job_context(job),
         )
 
         job.reports[wid] = ReportMetadata(

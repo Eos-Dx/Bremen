@@ -63,8 +63,13 @@ class AraminaReportProvider(ReportProvider):
         *,
         model_identity: dict[str, str] | None = None,
         readiness_snapshot: dict[str, bool] | None = None,
+        job_context: dict[str, Any] | None = None,
     ) -> ReportEnvelope:
-        """Return an unavailable report with a typed reason code."""
+        """Return an unavailable report with a typed reason code.
+
+        ``job_context`` is accepted for interface parity with the report
+        provider contract. This placeholder boundary does not use it.
+        """
         return ReportEnvelope(
             report_id=str(uuid.uuid4()),
             workflow_id=self.workflow_id,
