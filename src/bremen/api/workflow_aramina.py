@@ -78,6 +78,86 @@ _SAFE_FAILURES = frozenset({
     "ARAMINA_MODEL_IDENTITY_MISMATCH",
 })
 
+# PR0141 — fixed safe failure taxonomy for ARAMINA_UNSUPPORTED_INPUT.
+# These are public category names, not private failing function names.
+FAILURE_STAGES = frozenset({
+    "preprocessing_contract",
+    "h5_patient_contract",
+    "target_side_contract",
+    "profile_matrix_contract",
+    "lr1_contract",
+    "symmetry_contract",
+    "final_dataframe_contract",
+    "final_model_contract",
+    "report_contract",
+    "unknown_input_contract",
+})
+
+# Fixed remediation text per stage. Never derived from exception contents.
+_STAGE_REMEDIATION = {
+    "preprocessing_contract": (
+        "The selected H5 could not be preprocessed with the model's declared "
+        "preprocessing contract. Verify the container layout and required "
+        "measurement metadata, then retry with a fresh source_id."
+    ),
+    "h5_patient_contract": (
+        "The requested patient_id was not present in the preprocessed "
+        "measurements. Use the patient_display_name returned by "
+        "/demo/api/h5/containers for the selected source_id."
+    ),
+    "target_side_contract": (
+        "The selected container has no usable measurements for the requested "
+        "target_side. Retry with the other side, or select a container that "
+        "contains the requested side."
+    ),
+    "profile_matrix_contract": (
+        "The target-side measurements could not be assembled into a valid "
+        "profile matrix. Verify the container measurement data, then retry."
+    ),
+    "lr1_contract": (
+        "The model's first-stage scorer rejected the profile matrix. This is "
+        "a model/input compatibility failure, not a request error."
+    ),
+    "symmetry_contract": (
+        "Paired target/contralateral symmetry features could not be computed "
+        "for this container and target_side."
+    ),
+    "final_dataframe_contract": (
+        "The final feature table could not be built with the model's declared "
+        "feature columns."
+    ),
+    "final_model_contract": (
+        "The model's final scorer rejected the feature table. This is a "
+        "model/input compatibility failure, not a request error."
+    ),
+    "report_contract": (
+        "The model produced a result but the report payload could not be "
+        "constructed safely."
+    ),
+    "unknown_input_contract": (
+        "The selected H5 could not be used for the requested Aramina patient "
+        "and target side. Refresh /demo/api/h5/containers and retry with a "
+        "fresh source_id."
+    ),
+}
+
+# Fixed public detail text per stage.
+_STAGE_DETAIL = {
+    "preprocessing_contract": "Artifact-declared preprocessing did not produce usable measurements.",
+    "h5_patient_contract": "Requested patient was not present in the preprocessed measurements.",
+    "target_side_contract": "No usable measurements were available for the requested target side.",
+    "profile_matrix_contract": "Target-side measurements did not form a valid profile matrix.",
+    "lr1_contract": "The first-stage scorer could not score the profile matrix.",
+    "symmetry_contract": "Paired symmetry features could not be computed.",
+    "final_dataframe_contract": "The final feature table did not match the model feature contract.",
+    "final_model_contract": "The final scorer could not score the feature table.",
+    "report_contract": "The report payload could not be constructed.",
+    "unknown_input_contract": "Selected H5 could not be used for the requested patient and target side.",
+}
+
+# Allowlisted preprocessing release tags (never arbitrary artifact values).
+_ALLOWED_PREPROCESSING_RELEASES = frozenset({"v0.1.7-beta", "v0.1.9-beta"})
+
 
 _TRACE_LABELS = frozenset(_FINAL_FEATURE_COLUMNS) | {
     "lr1_model", "final_model", "thresholds", "feature_columns", "class_definition",
@@ -110,7 +190,7 @@ _TRACE_STAGES = frozenset({
 })
 
 
-def _debug_checkpoint(stage: str, *, _failure: bool = False, **fields: Any) -> None:
+def _debug_checkpoint(stage: str, *, _failure: bool = False, **fields: Any) -> None:  # noqa: D401
     """Private diagnostics: opt-in checkpoints and always-on failure stages.
 
     Only fixed metadata labels and numeric shapes/counts survive. Unknown
@@ -145,16 +225,30 @@ def _debug_checkpoint(stage: str, *, _failure: bool = False, **fields: Any) -> N
 
 @contextmanager
 def _debug_stage(stage: str, group: str = "execution"):
-    """Record the original exception class before public error translation."""
+    """Record the original exception class before public error translation.
+
+    PR0141: an inner boundary may already have translated the failure into an
+    ``AraminaWorkflowError``. In that case the original exception class is
+    carried on the error so the private trace still names the real cause
+    instead of the translation wrapper.
+    """
     try:
         yield
     except Exception as exc:
+        name = type(exc).__name__
+        if isinstance(exc, AraminaWorkflowError):
+            # Prefer the original cause. When the cause class is unknown or
+            # unsafe, report a fixed label rather than the translation
+            # wrapper name, which would misattribute the failure.
+            name = exc.original_exception_class or "redacted"
+        if name not in _TRACE_LABELS:
+            name = "redacted"
         _debug_checkpoint(stage, **{
-            f"{group}_exception_class": type(exc).__name__,
+            f"{group}_exception_class": name,
             f"{group}_exception_stage": stage,
         })
         _debug_checkpoint(stage, _failure=True, **{
-            f"{group}_exception_class": type(exc).__name__,
+            f"{group}_exception_class": name,
             f"{group}_exception_stage": stage,
         })
         # Stage comes from a fixed call-site literal, not exception contents.
@@ -162,11 +256,42 @@ def _debug_stage(stage: str, group: str = "execution"):
 
 
 class AraminaWorkflowError(Exception):
-    """An allow-listed stable failure code; never arbitrary exception text."""
+    """An allow-listed stable failure code; never arbitrary exception text.
 
-    def __init__(self, code: str) -> None:
+    PR0141 adds an optional fixed ``stage`` so ARAMINA_UNSUPPORTED_INPUT can
+    report which safe runtime boundary failed. ``stage`` is always drawn from
+    ``FAILURE_STAGES``; unknown values collapse to ``unknown_input_contract``.
+    """
+
+    def __init__(
+        self, code: str, stage: str | None = None,
+        original_exception_class: str | None = None,
+    ) -> None:
         self.code = code if code in _SAFE_FAILURES else "ARAMINA_EXECUTION_FAILED"
+        self.stage = stage if stage in FAILURE_STAGES else None
+        # Private only: never serialized into public responses.
+        self.original_exception_class = (
+            original_exception_class
+            if original_exception_class in _TRACE_LABELS else None
+        )
         super().__init__(self.code)
+
+
+def _safe_stage(stage: str | None) -> str:
+    """Collapse any non-allowlisted stage to the unknown input contract."""
+    return stage if stage in FAILURE_STAGES else "unknown_input_contract"
+
+
+def _safe_release_tag(config_yaml: str) -> str:
+    """Return an allowlisted preprocessing release tag, or empty string."""
+    try:
+        import yaml
+
+        config = yaml.safe_load(config_yaml)
+        release = config.get("xrd_preprocessing", {}).get("release_tag")
+    except Exception:  # noqa: BLE001 -- diagnostics must never raise
+        return ""
+    return release if release in _ALLOWED_PREPROCESSING_RELEASES else ""
 
 
 # ---------------------------------------------------------------------------
@@ -360,6 +485,11 @@ def _build_profile_matrix(measurements: list) -> np.ndarray:
     rows = []
     for m in measurements:
         intensity = np.asarray(m.intensity, dtype=float)
+        # PR0141: an empty profile is not a usable matrix row. Without this
+        # check it would silently become a (n, 0) matrix and fail later in
+        # LR1, misattributing a profile-matrix failure to the scorer.
+        if intensity.ndim != 1 or intensity.size == 0:
+            raise ValueError("Empty intensity in measurement")
         if not np.isfinite(intensity).all():
             raise ValueError("Non-finite intensity in measurement")
         rows.append(intensity)
@@ -378,6 +508,10 @@ def _prepare_features(
 
     Return the target profile matrix, patient measurement DataFrame, selected
     model information, and measured age/availability for final features.
+
+    PR0141: each fixed boundary raises ARAMINA_UNSUPPORTED_INPUT with an
+    allowlisted ``stage`` so the public failure is explainable. No exception
+    text, path, or measurement data is attached.
     """
     try:
         _debug_checkpoint(
@@ -388,7 +522,16 @@ def _prepare_features(
             validate_canonical_case(canonical)
         from .workflow_orchestrator import _validate_aramina_source
         with _debug_stage("source_validation"):
-            _validate_aramina_source(h5_path, canonical, request_json["patient_id"])
+            try:
+                _validate_aramina_source(h5_path, canonical, request_json["patient_id"])
+            except Exception as exc:  # noqa: BLE001 -- boundary translation only
+                # The staged H5 does not belong to the requested patient, or
+                # its bytes changed after normalization. Both are H5 patient
+                # contract failures, not generic input failures.
+                raise AraminaWorkflowError(
+                    "ARAMINA_UNSUPPORTED_INPUT", "h5_patient_contract",
+                    type(exc).__name__,
+                ) from None
 
         models = package["models"]
         selected_model_name = next(iter(models))
@@ -403,30 +546,52 @@ def _prepare_features(
         )
         with _debug_stage("target_selection"):
             if not target_measurements:
-                raise ValueError("No target-side measurements found")
+                raise AraminaWorkflowError(
+                    "ARAMINA_UNSUPPORTED_INPUT", "target_side_contract",
+                )
 
         # Check QC flags on target measurements
         with _debug_stage("target_qc"):
             for m in target_measurements:
                 if m.qc_flags:
-                    raise ValueError(f"QC flags on measurement: {m.qc_flags}")
+                    raise AraminaWorkflowError(
+                        "ARAMINA_UNSUPPORTED_INPUT", "target_side_contract",
+                    )
 
         from types import SimpleNamespace
 
         from .aramina_preprocessing import preprocess_aramina
 
         with _debug_stage("artifact_preprocessing", "lr1"):
-            frame = preprocess_aramina(h5_path, package["prediction_preprocessing_yaml"])
+            try:
+                frame = preprocess_aramina(
+                    h5_path, package["prediction_preprocessing_yaml"],
+                )
+            except Exception as exc:  # noqa: BLE001 -- boundary translation only
+                raise AraminaWorkflowError(
+                    "ARAMINA_UNSUPPORTED_INPUT", "preprocessing_contract",
+                    type(exc).__name__,
+                ) from None
             # A job is bound to exactly one requested patient; never mix rows.
             if set(frame["patientId"].astype(str)) != {request_json["patient_id"]}:
-                raise ValueError("Preprocessed patient mismatch")
+                raise AraminaWorkflowError(
+                    "ARAMINA_UNSUPPORTED_INPUT", "h5_patient_contract",
+                )
             sides = frame["side"].astype(str).str.strip().str.lower()
             target_frame = frame.loc[sides == target_side]
             if target_frame.empty:
-                raise ValueError("No preprocessed target measurements")
+                raise AraminaWorkflowError(
+                    "ARAMINA_UNSUPPORTED_INPUT", "target_side_contract",
+                )
             measurements = [SimpleNamespace(intensity=row) for row in target_frame["radial_profile_data"]]
         with _debug_stage("profile_matrix", "lr1"):
-            profile_matrix = _build_profile_matrix(measurements)
+            try:
+                profile_matrix = _build_profile_matrix(measurements)
+            except Exception as exc:  # noqa: BLE001 -- boundary translation only
+                raise AraminaWorkflowError(
+                    "ARAMINA_UNSUPPORTED_INPUT", "profile_matrix_contract",
+                    type(exc).__name__,
+                ) from None
         _debug_checkpoint("profile_matrix", target_measurement_count=len(measurements),
                           target_profile_lengths=[len(m.intensity) for m in measurements])
         ages = pd.to_numeric(frame.get("age", pd.Series(dtype=float)), errors="coerce")
@@ -440,7 +605,9 @@ def _prepare_features(
     except AraminaWorkflowError:
         raise
     except Exception:
-        raise AraminaWorkflowError("ARAMINA_UNSUPPORTED_INPUT") from None
+        raise AraminaWorkflowError(
+            "ARAMINA_UNSUPPORTED_INPUT", "unknown_input_contract",
+        ) from None
 
 
 # ---------------------------------------------------------------------------
@@ -502,18 +669,30 @@ def _run_local_artifact(
             profile_row = profile_matrix[i:i+1, :]  # shape (1, n_points)
             _debug_checkpoint("lr1_predict_proba", lr1_input_shape=list(profile_row.shape))
             with _debug_stage("lr1_predict_proba", "lr1"):
-                probs = np.asarray(lr1_model.predict_proba(profile_row), dtype=float)
+                try:
+                    probs = np.asarray(lr1_model.predict_proba(profile_row), dtype=float)
+                except Exception as exc:  # noqa: BLE001 -- boundary translation only
+                    raise AraminaWorkflowError(
+                        "ARAMINA_UNSUPPORTED_INPUT", "lr1_contract",
+                        type(exc).__name__,
+                    ) from None
             with _debug_stage("lr1_output_validation", "lr1"):
                 if probs.shape != (1, 2) or not np.isfinite(probs).all():
-                    raise ValueError("Invalid lr1 output")
+                    raise AraminaWorkflowError(
+                        "ARAMINA_UNSUPPORTED_INPUT", "lr1_contract",
+                    )
                 if (probs < 0).any() or (probs > 1).any():
-                    raise ValueError("lr1 probabilities out of range")
+                    raise AraminaWorkflowError(
+                        "ARAMINA_UNSUPPORTED_INPUT", "lr1_contract",
+                    )
 
             lr1_probabilities.append(probs[0])
 
         with _debug_stage("lr1_aggregation", "lr1"):
             if not lr1_probabilities:
-                raise ValueError("No LR1 scores to aggregate")
+                raise AraminaWorkflowError(
+                    "ARAMINA_UNSUPPORTED_INPUT", "lr1_contract",
+                )
 
             # Step 2: Aggregate by logit average
             lr1_arr = np.array(lr1_probabilities, dtype=float)
@@ -524,10 +703,16 @@ def _run_local_artifact(
         # Step 3: Compute symmetry features
         with _debug_stage("symmetry_features", "execution"):
             from .aramina_symmetry import symmetry_features
-            sym_features = symmetry_features(
-                features_data["dataframe"], request_json["target_side"],
-                model_info.get("symmetry_feature_contract", "aramina_sk_symmetry_v0_1"),
-            )
+            try:
+                sym_features = symmetry_features(
+                    features_data["dataframe"], request_json["target_side"],
+                    model_info.get("symmetry_feature_contract", "aramina_sk_symmetry_v0_1"),
+                )
+            except Exception as exc:  # noqa: BLE001 -- boundary translation only
+                raise AraminaWorkflowError(
+                    "ARAMINA_UNSUPPORTED_INPUT", "symmetry_contract",
+                    type(exc).__name__,
+                ) from None
 
         # Step 4: Build feature dict with all required columns
         feature_dict = {
@@ -540,9 +725,15 @@ def _run_local_artifact(
         # Step 5: Build pandas DataFrame with model_info["feature_columns"]
         with _debug_stage("final_dataframe", "final"):
             feature_columns = model_info.get("feature_columns", [])
-            final_features_df = pd.DataFrame(
-                [{col: feature_dict[col] for col in feature_columns}]
-            )
+            try:
+                final_features_df = pd.DataFrame(
+                    [{col: feature_dict[col] for col in feature_columns}]
+                )
+            except Exception as exc:  # noqa: BLE001 -- boundary translation only
+                raise AraminaWorkflowError(
+                    "ARAMINA_UNSUPPORTED_INPUT", "final_dataframe_contract",
+                    type(exc).__name__,
+                ) from None
 
         _debug_checkpoint(
             "final_dataframe", final_feature_columns=list(final_features_df.columns),
@@ -550,15 +741,25 @@ def _run_local_artifact(
         )
         # Step 6: Run final_model.predict_proba on DataFrame
         with _debug_stage("final_predict_proba", "final"):
-            final_probs = np.asarray(
-                final_model.predict_proba(final_features_df), dtype=float
-            )
+            try:
+                final_probs = np.asarray(
+                    final_model.predict_proba(final_features_df), dtype=float
+                )
+            except Exception as exc:  # noqa: BLE001 -- boundary translation only
+                raise AraminaWorkflowError(
+                    "ARAMINA_UNSUPPORTED_INPUT", "final_model_contract",
+                    type(exc).__name__,
+                ) from None
 
         with _debug_stage("final_output_validation", "final"):
             if final_probs.shape != (1, 2) or not np.isfinite(final_probs).all():
-                raise ValueError("Invalid final_model output")
+                raise AraminaWorkflowError(
+                    "ARAMINA_UNSUPPORTED_INPUT", "final_model_contract",
+                )
             if (final_probs < 0).any() or (final_probs > 1).any():
-                raise ValueError("final_model probabilities out of range")
+                raise AraminaWorkflowError(
+                    "ARAMINA_UNSUPPORTED_INPUT", "final_model_contract",
+                )
 
         # Step 7: Apply threshold
         with _debug_stage("threshold", "final"):
@@ -649,6 +850,11 @@ class AraminaWorkflowProvider(WorkflowProvider):
             )
         except AraminaWorkflowError as exc:
             code = exc.code
+            stage = exc.stage
         except Exception:
             code = "ARAMINA_EXECUTION_FAILED"
-        return WorkflowResult(workflow_id=self.workflow_id, status="failed", error=code)
+            stage = None
+        return WorkflowResult(
+            workflow_id=self.workflow_id, status="failed", error=code,
+            failure_stage=_safe_stage(stage) if code == "ARAMINA_UNSUPPORTED_INPUT" else None,
+        )

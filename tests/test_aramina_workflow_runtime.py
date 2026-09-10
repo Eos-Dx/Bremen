@@ -991,7 +991,9 @@ def test_debug_trace_lr1_pipeline_feature_mismatch(tmp_path, source, monkeypatch
     pkg["models"]["selected_model"]["lr1_model"] = pipeline
     monkeypatch.setenv("BREMEN_ARAMINA_DEBUG_TRACE", "1" if enabled else "0")
     result = _execute(_entry(tmp_path, pkg), source)
-    assert result.error == "ARAMINA_EXECUTION_FAILED"
+    # PR0141: an LR1 input-width mismatch is an lr1_contract input failure.
+    assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
+    assert result.failure_stage == "lr1_contract"
     assert result.payload is None
     records = _trace_records(caplog)
     if not enabled:
@@ -1025,7 +1027,10 @@ def test_debug_trace_final_stages(tmp_path, source, monkeypatch, caplog, failure
     else:
         info["thresholds"]["threshold_target"] = "invalid"
     result = _execute(_entry(tmp_path, pkg), source)
-    assert result.error == "ARAMINA_EXECUTION_FAILED"
+    # PR0141: final-model input failure is final_model_contract; a bad
+    # threshold value is not an input-contract failure and stays generic.
+    expected_code = "ARAMINA_UNSUPPORTED_INPUT" if failure == "final" else "ARAMINA_EXECUTION_FAILED"
+    assert result.error == expected_code
     merged = {key: value for record in _trace_records(caplog) for key, value in record.items()}
     assert merged["final_input_shape"] == [1, 8]
     assert merged["final_feature_columns"] == list(_FINAL_FEATURE_COLUMNS)
@@ -1064,7 +1069,8 @@ def test_debug_trace_redacts_untrusted_metadata_and_exception(tmp_path, source, 
     entry = _entry(tmp_path)
     monkeypatch.setattr("bremen.api.workflow_aramina._load_selected_artifact", lambda entry: pkg)
     result = _execute(entry, source)
-    assert result.error == "ARAMINA_EXECUTION_FAILED"
+    assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
+    assert result.failure_stage == "lr1_contract"
     text = json.dumps(_trace_records(caplog))
     for forbidden in (secret, entry._artifact_path, entry._checksum, "Traceback", "patient-private"):
         assert forbidden not in text
@@ -1087,7 +1093,8 @@ def test_debug_trace_failure_stays_out_of_public_job(tmp_path, source, monkeypat
     job = jobs.create_analysis_job(
         model_id=entry.model_id, h5_path=source[0], aramina_request=_request(),
     )
-    assert job.workflow_runs["aramina"].failure == "ARAMINA_EXECUTION_FAILED"
+    assert job.workflow_runs["aramina"].failure == "ARAMINA_UNSUPPORTED_INPUT"
+    assert job.workflow_runs["aramina"].failure_details["failure_stage"] == "lr1_contract"
     assert _trace_records(caplog)[-1]["lr1_exception_class"] == "ValueError"
     public = json.dumps([job.to_dict(), jobs.get_job_events(job.job_id)])
     for forbidden in ("lr1_input_shape", "lr1_exception_class", "debug_trace", "ValueError"):
@@ -1260,8 +1267,11 @@ def test_isolated_worker_protocol(monkeypatch, capsys, fails):
         assert payload["rows"][0]["radial_profile_data"] == [1., 2.]
 
 
-@pytest.mark.parametrize("missing", ["final_column", "threshold"])
-def test_no_missing_feature_or_threshold_fallback(tmp_path, source, missing):
+@pytest.mark.parametrize("missing,code,stage", [
+    ("final_column", "ARAMINA_UNSUPPORTED_INPUT", "final_dataframe_contract"),
+    ("threshold", "ARAMINA_EXECUTION_FAILED", None),
+])
+def test_no_missing_feature_or_threshold_fallback(tmp_path, source, missing, code, stage):
     pkg = _package()
     info = pkg["models"]["selected_model"]
     if missing == "final_column":
@@ -1269,7 +1279,8 @@ def test_no_missing_feature_or_threshold_fallback(tmp_path, source, missing):
     else:
         del info["thresholds"]["threshold_target"]
     result = _execute(_entry(tmp_path, pkg), source)
-    assert result.error == "ARAMINA_EXECUTION_FAILED"
+    assert result.error == code
+    assert result.failure_stage == stage
     assert result.payload is None
 
 
@@ -1453,9 +1464,14 @@ def test_api_unsupported_input_safe_detail(submit_api, monkeypatch, tmp_path, so
     job = data["job"]
     run = job["workflow_runs"]["aramina"]
     assert run["failure"] == "ARAMINA_UNSUPPORTED_INPUT"
-    assert run["failure_stage"] == "input_contract"
+    # PR0141: the exact safe boundary, not a generic input_contract label.
+    assert run["failure_stage"] == "h5_patient_contract"
+    assert run["failure_reason_code"] == "ARAMINA_UNSUPPORTED_INPUT_H5_PATIENT_CONTRACT"
+    assert run["failure_detail"]
+    assert run["remediation"]
     assert run["safe_details"]["target_side"] == "left"
     assert run["safe_details"]["model_version"] == "0.2.13-beta"
+    assert run["safe_details"]["requested_patient_id"] == "absent-patient"
     assert job["reports"]["aramina"]["status"] == "unavailable"
     assert jobs.get_analysis_job(job["job_id"]).to_dict()["workflow_runs"]["aramina"] == run
     for private in (source[0], "_package", "Traceback", "checksum"):
@@ -1501,3 +1517,510 @@ def test_schema_error_uses_catalog_routing_without_leaks(tmp_path):
     assert response.status_code == 400
     assert response.json()["error_code"] == "ARAMINA_INVALID_REQUEST"
     assert "token-value" not in response.text
+
+
+# ===================================================================
+# PR0141 — Aramina target-side compatibility diagnostics
+# ===================================================================
+
+
+def _stage_of(result):
+    """Return the public failure stage for a failed workflow result."""
+    return result.failure_stage
+
+
+def test_pr0141_target_side_required_and_not_inferred(tmp_path, source):
+    """target_side is explicit request input and is never inferred."""
+    provider = AraminaWorkflowProvider(entry=_entry(tmp_path))
+    # No request at all -> invalid request, not an inferred side.
+    assert provider.execute(source[1], h5_path=source[0]).error == "ARAMINA_INVALID_REQUEST"
+    # Blank side -> invalid request.
+    assert _execute(_entry(tmp_path), source, _request(target_side="")).error == "ARAMINA_INVALID_REQUEST"
+    # The fixture contains both sides, so both explicit sides are honored
+    # verbatim. The requested side is echoed, never replaced by the other.
+    for side in ("left", "right"):
+        result = _execute(_entry(tmp_path), source, _request(target_side=side))
+        assert result.status == "completed"
+        assert result.payload["external_report"]["target_side"] == side
+
+
+def test_pr0141_target_side_not_inferred_from_canonical(tmp_path, source, monkeypatch):
+    """A side absent from preprocessing fails instead of falling back."""
+    import pandas as _pd
+
+    # Only the contralateral side is available; the requested side is absent.
+    frame = _pd.DataFrame([{
+        "patientId": "p1", "side": "right", "age": None,
+        "radial_profile_data": [1.0, 2.0, 3.0], "q_range": [2.0, 3.0, 4.0],
+    }])
+    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", lambda *a: frame)
+    result = _execute(_entry(tmp_path), source, _request(target_side="left"))
+    assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
+    assert result.failure_stage == "target_side_contract"
+    assert result.payload is None
+
+
+@pytest.mark.parametrize("side", ["left", "right", "LEFT", " Right "])
+def test_pr0141_only_left_right_accepted(tmp_path, source, side):
+    """Only left/right are accepted; case and whitespace are normalized."""
+    payload = _build_aramina_request_json(patient_id="p1", target_side=side)
+    assert payload["target_side"] in {"left", "right"}
+
+
+@pytest.mark.parametrize("side", ["anterior", "l", "both", "left,right", "0"])
+def test_pr0141_invalid_sides_rejected(tmp_path, source, side):
+    """Non left/right values are rejected before any artifact load."""
+    loader = MagicMock(side_effect=AssertionError("must not load"))
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr("joblib.load", loader)
+        result = _execute(_entry(tmp_path), source, _request(target_side=side))
+    assert result.error == "ARAMINA_INVALID_REQUEST"
+    loader.assert_not_called()
+
+
+@pytest.mark.parametrize("version", ["0.2.12-beta", "0.2.13-beta"])
+def test_pr0141_known_good_versions_still_complete(tmp_path, source, version):
+    """Both released model versions still complete on a compatible fixture."""
+    entry = _entry(tmp_path, model_version=version)
+    result = _execute(entry, source)
+    assert result.status == "completed"
+    assert result.payload["model_version"] == version
+    assert result.failure_stage is None
+
+
+def test_pr0141_preprocessing_failure_maps_to_preprocessing_contract(tmp_path, source, monkeypatch):
+    """A preprocessing worker failure maps to preprocessing_contract."""
+    def boom(h5_path, config_yaml):
+        raise ValueError("Aramina preprocessing failed")
+
+    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", boom)
+    result = _execute(_entry(tmp_path), source)
+    assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
+    assert result.failure_stage == "preprocessing_contract"
+
+
+def test_pr0141_preprocessing_failure_leaks_nothing(tmp_path, source, monkeypatch):
+    """Preprocessing diagnostics never leak stderr/stdout/path/raw exception."""
+    secret = "s3://private-bucket/key /tmp/private token=secret"
+
+    def boom(h5_path, config_yaml):
+        raise RuntimeError(secret)
+
+    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", boom)
+    entry = _entry(tmp_path)
+    _install(entry)
+    job = jobs.create_analysis_job(
+        model_id=entry.model_id, h5_path=source[0], aramina_request=_request(),
+    )
+    run = job.workflow_runs["aramina"]
+    assert run.failure == "ARAMINA_UNSUPPORTED_INPUT"
+    assert run.failure_details["failure_stage"] == "preprocessing_contract"
+    public = json.dumps([job.to_dict(), jobs.get_job_events(job.job_id)])
+    for forbidden in (secret, "private-bucket", "/tmp/", "token=", "RuntimeError", "Traceback"):
+        assert forbidden not in public
+
+
+def test_pr0141_missing_patient_maps_to_h5_patient_contract(tmp_path, source):
+    """A patient absent from the staged H5 maps to h5_patient_contract."""
+    result = _execute(_entry(tmp_path), source, _request(patient_id="absent-patient"))
+    assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
+    assert result.failure_stage == "h5_patient_contract"
+
+
+def test_pr0141_missing_target_side_maps_to_target_side_contract(tmp_path, source, monkeypatch):
+    """A side with no usable measurements maps to target_side_contract."""
+    import pandas as _pd
+
+    # Preprocessing returns only the contralateral side for the requested side.
+    frame = _pd.DataFrame([{
+        "patientId": "p1", "side": "right", "age": None,
+        "radial_profile_data": [1.0, 2.0, 3.0], "q_range": [2.0, 3.0, 4.0],
+    }])
+    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", lambda *a: frame)
+    result = _execute(_entry(tmp_path), source, _request(target_side="left"))
+    assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
+    assert result.failure_stage == "target_side_contract"
+
+
+def test_pr0141_target_qc_flags_map_to_target_side_contract(tmp_path, source):
+    """QC-flagged target measurements map to target_side_contract."""
+    from dataclasses import replace as _replace
+
+    canonical = source[1]
+    flagged = tuple(
+        _replace(m, qc_flags=("LOW_SNR",)) if m.side == "LEFT" else m
+        for m in canonical.measurements
+    )
+    flagged_source = (source[0], _replace(canonical, measurements=flagged))
+    result = _execute(_entry(tmp_path), flagged_source)
+    assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
+    assert result.failure_stage == "target_side_contract"
+
+
+@pytest.mark.parametrize("bad", ["empty", "nonfinite", "ragged"])
+def test_pr0141_bad_profile_matrix_maps_to_profile_matrix_contract(
+    tmp_path, source, monkeypatch, bad,
+):
+    """Empty/non-finite/ragged profile matrices map to profile_matrix_contract."""
+    import pandas as _pd
+
+    if bad == "empty":
+        # Patient matches, but the target-side profile is empty.
+        frame = _pd.DataFrame([{
+            "patientId": "p1", "side": "left", "age": None,
+            "radial_profile_data": [], "q_range": [],
+        }])
+    elif bad == "nonfinite":
+        frame = _pd.DataFrame([{
+            "patientId": "p1", "side": "left", "age": None,
+            "radial_profile_data": [1.0, float("nan"), 3.0], "q_range": [2.0, 3.0, 4.0],
+        }])
+    else:
+        frame = _pd.DataFrame([
+            {"patientId": "p1", "side": "left", "age": None,
+             "radial_profile_data": [1.0, 2.0], "q_range": [2.0, 3.0]},
+            {"patientId": "p1", "side": "left", "age": None,
+             "radial_profile_data": [1.0, 2.0, 3.0], "q_range": [2.0, 3.0, 4.0]},
+        ])
+    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", lambda *a: frame)
+    result = _execute(_entry(tmp_path), source)
+    assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
+    assert result.failure_stage == "profile_matrix_contract"
+
+
+def test_pr0141_lr1_failure_maps_to_lr1_contract(tmp_path, source, monkeypatch):
+    """An LR1 scorer failure maps to lr1_contract."""
+    pkg = _package()
+    bad = MagicMock()
+    bad.predict_proba = MagicMock(side_effect=ValueError("private lr1 detail"))
+    pkg["models"]["selected_model"]["lr1_model"] = bad
+    monkeypatch.setattr("bremen.api.workflow_aramina._load_selected_artifact", lambda entry: pkg)
+    result = _execute(_entry(tmp_path), source)
+    assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
+    assert result.failure_stage == "lr1_contract"
+
+
+def test_pr0141_lr1_bad_output_maps_to_lr1_contract(tmp_path, source, monkeypatch):
+    """An out-of-contract LR1 output maps to lr1_contract."""
+    pkg = _package()
+    bad = MagicMock()
+    bad.predict_proba = MagicMock(return_value=np.array([[float("nan"), 0.5]]))
+    pkg["models"]["selected_model"]["lr1_model"] = bad
+    monkeypatch.setattr("bremen.api.workflow_aramina._load_selected_artifact", lambda entry: pkg)
+    result = _execute(_entry(tmp_path), source)
+    assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
+    assert result.failure_stage == "lr1_contract"
+
+
+def test_pr0141_symmetry_failure_maps_to_symmetry_contract(tmp_path, source, monkeypatch):
+    """A symmetry feature failure maps to symmetry_contract."""
+    def boom(*args, **kwargs):
+        raise ValueError("private symmetry detail")
+
+    monkeypatch.setattr("bremen.api.aramina_symmetry.symmetry_features", boom)
+    result = _execute(_entry(tmp_path), source)
+    assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
+    assert result.failure_stage == "symmetry_contract"
+
+
+def test_pr0141_final_dataframe_failure_maps_to_final_dataframe_contract(tmp_path, source):
+    """A missing declared feature column maps to final_dataframe_contract."""
+    pkg = _package()
+    pkg["models"]["selected_model"]["feature_columns"].append("unknown_feature")
+    result = _execute(_entry(tmp_path, pkg), source)
+    assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
+    assert result.failure_stage == "final_dataframe_contract"
+
+
+def test_pr0141_final_model_failure_maps_to_final_model_contract(tmp_path, source, monkeypatch):
+    """A final scorer failure maps to final_model_contract."""
+    pkg = _package()
+    bad = MagicMock()
+    bad.predict_proba = MagicMock(side_effect=ValueError("private final detail"))
+    pkg["models"]["selected_model"]["final_model"] = bad
+    monkeypatch.setattr("bremen.api.workflow_aramina._load_selected_artifact", lambda entry: pkg)
+    result = _execute(_entry(tmp_path), source)
+    assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
+    assert result.failure_stage == "final_model_contract"
+
+
+def test_pr0141_final_model_bad_output_maps_to_final_model_contract(tmp_path, source, monkeypatch):
+    """An out-of-contract final output maps to final_model_contract."""
+    pkg = _package()
+    bad = MagicMock()
+    bad.predict_proba = MagicMock(return_value=np.array([[0.5, 2.0]]))
+    pkg["models"]["selected_model"]["final_model"] = bad
+    monkeypatch.setattr("bremen.api.workflow_aramina._load_selected_artifact", lambda entry: pkg)
+    result = _execute(_entry(tmp_path), source)
+    assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
+    assert result.failure_stage == "final_model_contract"
+
+
+def test_pr0141_unknown_stage_collapses_to_unknown_input_contract():
+    """Any non-allowlisted stage collapses to unknown_input_contract."""
+    from bremen.api.aramina_api_errors import unsupported_input_details
+    from bremen.api.workflow_aramina import FAILURE_STAGES
+
+    assert "input_contract" not in FAILURE_STAGES
+    details = unsupported_input_details("p1", "left", "0.2.12-beta", stage="input_contract")
+    assert details["failure_stage"] == "unknown_input_contract"
+    details = unsupported_input_details("p1", "left", "0.2.12-beta", stage=None)
+    assert details["failure_stage"] == "unknown_input_contract"
+    details = unsupported_input_details("p1", "left", "0.2.12-beta", stage="private-stage")
+    assert details["failure_stage"] == "unknown_input_contract"
+
+
+@pytest.mark.parametrize("stage", sorted([
+    "preprocessing_contract", "h5_patient_contract", "target_side_contract",
+    "profile_matrix_contract", "lr1_contract", "symmetry_contract",
+    "final_dataframe_contract", "final_model_contract", "report_contract",
+    "unknown_input_contract",
+]))
+def test_pr0141_every_stage_has_detail_and_remediation(stage):
+    """Every allowlisted stage has fixed public detail and remediation text."""
+    from bremen.api.aramina_api_errors import unsupported_input_details
+
+    details = unsupported_input_details("p1", "left", "0.2.12-beta", stage=stage)
+    assert details["failure_stage"] == stage
+    assert details["failure_reason_code"] == f"ARAMINA_UNSUPPORTED_INPUT_{stage.upper()}"
+    assert details["failure_detail"]
+    assert details["remediation"]
+    assert details["safe_details"]["target_side"] == "left"
+
+
+def test_pr0141_safe_details_allowlist_and_redaction():
+    """safe_details exposes only sanitized, allowlisted values."""
+    from bremen.api.aramina_api_errors import unsupported_input_details
+
+    details = unsupported_input_details(
+        "Nova_379", "left", "0.2.12-beta",
+        stage="target_side_contract",
+        model_id="aramina-target-breast-risk",
+        requested_patient_id="Nova_379",
+        resolved_container_id="Nova_379.h5",
+        available_sides=["left", "right", "private-side"],
+        measurement_count=3,
+        preprocessing_release="v0.1.7-beta",
+    )
+    safe = details["safe_details"]
+    assert safe["patient_display_name"] == "Nova_379"
+    assert safe["requested_patient_id"] == "Nova_379"
+    assert safe["target_side"] == "left"
+    assert safe["model_id"] == "aramina-target-breast-risk"
+    assert safe["model_version"] == "0.2.12-beta"
+    assert safe["resolved_container_id"] == "Nova_379.h5"
+    assert safe["available_sides"] == ["left", "right"]
+    assert safe["measurement_count"] == 3
+    assert safe["preprocessing_release"] == "v0.1.7-beta"
+
+
+def test_pr0141_safe_details_reject_unsafe_values():
+    """Unsafe identifiers, paths, releases and counts are dropped or redacted."""
+    from bremen.api.aramina_api_errors import unsupported_input_details
+
+    details = unsupported_input_details(
+        "/tmp/private", "private-side", "private/version",
+        stage="target_side_contract",
+        model_id="s3://bucket/key",
+        requested_patient_id="/home/private",
+        resolved_container_id="s3://private-bucket/key.h5",
+        available_sides=["private-side", 7],
+        measurement_count=-1,
+        preprocessing_release="v9.9.9-private",
+    )
+    safe = details["safe_details"]
+    assert safe["patient_display_name"] == "redacted"
+    assert safe["requested_patient_id"] == "redacted"
+    assert safe["target_side"] == ""
+    assert safe["model_id"] == "redacted"
+    assert safe["model_version"] == "redacted"
+    assert "resolved_container_id" not in safe
+    assert "available_sides" not in safe
+    assert "measurement_count" not in safe
+    assert "preprocessing_release" not in safe
+    assert "private" not in json.dumps(details)
+
+
+def test_pr0141_optional_safe_details_omitted_when_unknown():
+    """Unknown optional fields are omitted, not emitted as empty guesses."""
+    from bremen.api.aramina_api_errors import unsupported_input_details
+
+    safe = unsupported_input_details("p1", "left", "0.2.12-beta")["safe_details"]
+    for optional in ("resolved_container_id", "available_sides",
+                     "measurement_count", "preprocessing_release"):
+        assert optional not in safe
+
+
+def test_pr0141_preprocessing_release_tag_allowlist():
+    """Only the two released preprocessing tags are reported."""
+    from bremen.api.aramina_preprocessing import preprocessing_release_tag
+
+    assert preprocessing_release_tag("xrd_preprocessing: {release_tag: v0.1.7-beta}") == "v0.1.7-beta"
+    assert preprocessing_release_tag("xrd_preprocessing: {release_tag: v0.1.9-beta}") == "v0.1.9-beta"
+    assert preprocessing_release_tag("xrd_preprocessing: {release_tag: v9.9.9}") == ""
+    assert preprocessing_release_tag("not: [valid") == ""
+    assert preprocessing_release_tag("{}") == ""
+
+
+# ---- Rerun / duplicate guard ----
+
+
+def _completed_aramina_job(tmp_path, source, monkeypatch, side, model_id="aramina-a"):
+    """Create a completed Aramina job with an available report."""
+    entry = _entry(tmp_path, model_id=model_id)
+    _install(entry)
+    monkeypatch.setattr(jobs, "resolve_source", lambda *args: source[0])
+    body = _valid_aramina_body(model_id=model_id, patient_id="p1", target_side=side)
+    monkeypatch.setattr(jobs, "_read_json_body", lambda handler: body)
+    sent = MagicMock()
+    monkeypatch.setattr(jobs, "_send_json", sent)
+    jobs.handle_jobs_create(MagicMock())
+    return sent
+
+
+def test_pr0141_aramina_duplicate_guard_includes_target_side(tmp_path, source, monkeypatch):
+    """A completed left run must not block a right run for the same source/model."""
+    first = _completed_aramina_job(tmp_path, source, monkeypatch, "left")
+    assert first.call_args.args[1] == 201
+    job = jobs.get_analysis_job(first.call_args.args[2]["job"]["job_id"])
+    assert job.overall_status == "completed"
+    assert job.reports["aramina"].status == "available"
+    assert job.input_summary["target_side"] == "left"
+
+    # Same source + model, opposite side -> must NOT be blocked.
+    second = _completed_aramina_job(tmp_path, source, monkeypatch, "right")
+    assert second.call_args.args[1] == 201
+
+
+def test_pr0141_aramina_duplicate_guard_blocks_same_side(tmp_path, source, monkeypatch):
+    """A completed left run still blocks an identical left run."""
+    _completed_aramina_job(tmp_path, source, monkeypatch, "left")
+    second = _completed_aramina_job(tmp_path, source, monkeypatch, "left")
+    assert second.call_args.args[1] == 409
+    payload = second.call_args.args[2]
+    assert payload["error"] == "report_already_exists"
+    assert payload["existing_target_side"] == "left"
+    assert payload["requested_target_side"] == "left"
+
+
+def test_pr0141_aramina_duplicate_guard_side_aware_409_fields(tmp_path, source, monkeypatch):
+    """The 409 carries explicit side fields for client disambiguation."""
+    _completed_aramina_job(tmp_path, source, monkeypatch, "left")
+    second = _completed_aramina_job(tmp_path, source, monkeypatch, "left")
+    payload = second.call_args.args[2]
+    assert set(payload) >= {
+        "status", "error", "message", "job_id", "workflow_id",
+        "existing_target_side", "requested_target_side",
+    }
+
+
+def test_pr0141_find_existing_completed_report_signature():
+    """The guard accepts target_side and defaults to side-agnostic matching."""
+    import inspect
+    from bremen.api.job_api_handler import _find_existing_completed_report
+
+    sig = inspect.signature(_find_existing_completed_report)
+    assert "target_side" in sig.parameters
+    assert sig.parameters["target_side"].default == ""
+
+
+def test_pr0141_bremen_duplicate_guard_unchanged(tmp_path, source, monkeypatch):
+    """Bremen duplicate identity is still source + workflow + model only."""
+    from bremen.api.job_api_handler import _find_existing_completed_report
+
+    from bremen.api.job_models import AnalysisJob, ReportMetadata, WorkflowRun
+    from bremen.api.report_provider import REPORT_STATUS_AVAILABLE
+
+    job = AnalysisJob(
+        job_id="bremen-job", request_id="req", created_at="now",
+        overall_status="completed",
+        input_summary={
+            "source_key": "stable-key", "model_id": "bremen-a",
+            "workflow_id": "bremen", "target_side": "",
+        },
+        requested_workflows=("bremen",),
+        workflow_runs={"bremen": WorkflowRun(workflow_id="bremen", status="completed")},
+        reports={"bremen": ReportMetadata(
+            report_id="r", workflow_id="bremen", report_schema_version="v0.1",
+            status=REPORT_STATUS_AVAILABLE,
+        )},
+    )
+    jobs._jobs[job.job_id] = job
+    # Side-agnostic lookup still finds the Bremen job (unchanged behavior).
+    assert _find_existing_completed_report("stable-key", "bremen", "bremen-a") is not None
+    # A requested side must not accidentally match a Bremen job.
+    assert _find_existing_completed_report("stable-key", "bremen", "bremen-a", "left") is None
+
+
+def test_pr0141_bremen_job_summary_has_empty_target_side():
+    """Bremen job summaries expose an empty target_side, not a guessed side."""
+    from bremen.api.job_models import AnalysisJob
+
+    job = AnalysisJob(
+        job_id="bremen-job", request_id="req", created_at="now",
+        overall_status="completed",
+        input_summary={
+            "source_key": "stable-key", "model_id": "bremen-a",
+            "workflow_id": "bremen", "patient_display_name": "p1",
+        },
+        requested_workflows=("bremen",),
+    )
+    jobs._jobs[job.job_id] = job
+    summaries = jobs.list_analysis_jobs(model_id="bremen-a")
+    assert summaries
+    assert summaries[0]["target_side"] == ""
+
+
+def test_pr0141_aramina_job_summary_exposes_target_side(tmp_path, source, monkeypatch):
+    """Aramina job summaries expose the requested side."""
+    sent = _completed_aramina_job(tmp_path, source, monkeypatch, "right")
+    job_id = sent.call_args.args[2]["job"]["job_id"]
+    summaries = jobs.list_analysis_jobs(model_id="aramina-a")
+    match = [s for s in summaries if s["job_id"] == job_id]
+    assert match and match[0]["target_side"] == "right"
+
+
+def test_pr0141_public_failure_payload_leaks_nothing(tmp_path, source, monkeypatch):
+    """The full public failure payload contains no forbidden values."""
+    secret = "s3://private-bucket/secret-key /tmp/private token=secret"
+    pkg = _package()
+    bad = MagicMock()
+    bad.predict_proba = MagicMock(side_effect=RuntimeError(secret))
+    pkg["models"]["selected_model"]["lr1_model"] = bad
+    entry = _entry(tmp_path)
+    _install(entry)
+    monkeypatch.setattr("bremen.api.workflow_aramina._load_selected_artifact", lambda e: pkg)
+    job = jobs.create_analysis_job(
+        model_id=entry.model_id, h5_path=source[0], aramina_request=_request(),
+    )
+    run = job.workflow_runs["aramina"]
+    assert run.failure == "ARAMINA_UNSUPPORTED_INPUT"
+    assert run.failure_details["failure_stage"] == "lr1_contract"
+    public = json.dumps([
+        job.to_dict(),
+        jobs.get_job_events(job.job_id),
+        jobs.get_job_reports(job.job_id),
+        jobs.list_analysis_jobs(model_id=entry.model_id),
+    ])
+    for forbidden in (
+        secret, "private-bucket", "secret-key", "/tmp/", "token=",
+        "Traceback", "RuntimeError", entry._artifact_path, entry._checksum,
+        "_package", "provider_url",
+    ):
+        assert forbidden not in public
+
+
+def test_pr0141_failure_stage_absent_on_success(tmp_path, source):
+    """Successful runs do not acquire failure fields."""
+    result = _execute(_entry(tmp_path), source)
+    assert result.status == "completed"
+    assert result.failure_stage is None
+
+
+def test_pr0141_failure_stage_absent_for_non_input_failures(tmp_path, source):
+    """Non-input failures keep their existing code and carry no stage."""
+    pkg = _package()
+    del pkg["kind"]
+    result = _execute(_entry(tmp_path, pkg), source)
+    assert result.error == "ARAMINA_UNSUPPORTED_ARTIFACT"
+    assert result.failure_stage is None

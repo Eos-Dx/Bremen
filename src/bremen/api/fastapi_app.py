@@ -590,12 +590,17 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
                 source_key = stable
 
         # Rerun guard: block duplicate analysis
+        # PR0141: Aramina identity includes target_side; Bremen identity is unchanged.
         from bremen.api.job_api_handler import (  # noqa: PLC0415
             _find_existing_completed_report,
         )
+        requested_side = (
+            aramina_request.target_side.strip().lower()
+            if workflow_id == "aramina" and aramina_request is not None else ""
+        )
         if source_key and workflow_id and model_id:
             existing = _find_existing_completed_report(
-                source_key, workflow_id, model_id,
+                source_key, workflow_id, model_id, requested_side,
             )
             if existing is not None:
                 return JSONResponse(content={
@@ -607,6 +612,8 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
                     ),
                     "job_id": existing[0],
                     "workflow_id": existing[1],
+                    "existing_target_side": requested_side,
+                    "requested_target_side": requested_side,
                 }, status_code=409)
 
         from bremen.api.workflow_aramina import (  # noqa: PLC0415
@@ -679,6 +686,7 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
                 model_id=model_id,
                 source_key=source_key,
                 patient_display_name=patient_display_name,
+                target_side=requested_side,
                 **({"aramina_request": aramina_request}
                    if workflow_id == "aramina" else {}),
             )

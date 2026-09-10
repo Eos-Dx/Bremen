@@ -11,6 +11,20 @@ import pandas as pd
 import yaml
 
 
+def preprocessing_release_tag(config_yaml: str) -> str:
+    """Return the artifact-declared release tag only when allowlisted.
+
+    PR0141: used for safe public diagnostics. Never returns arbitrary
+    artifact values, and never raises.
+    """
+    try:
+        config = yaml.safe_load(config_yaml)
+        release = config.get("xrd_preprocessing", {}).get("release_tag")
+    except Exception:  # noqa: BLE001 -- diagnostics must never raise
+        return ""
+    return release if release in {"v0.1.7-beta", "v0.1.9-beta"} else ""
+
+
 def preprocess_aramina(h5_path: str, config_yaml: str) -> pd.DataFrame:
     """Apply the artifact pipeline in the dedicated, pinned XRD environment.
 
