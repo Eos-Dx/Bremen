@@ -2419,3 +2419,196 @@ def test_pr0142_bremen_result_has_no_preprocessing_fields():
     result = WorkflowResult(workflow_id="bremen", status="failed", error="X")
     assert result.failure_stage is None
     assert result.preprocessing_diagnostic is None
+
+
+# ===================================================================
+# PR0143 — Aramina report contract: patient_id, target_side, links
+# ===================================================================
+
+# The exact Aramina report contract confirmed by production smoke. These
+# fields must remain present with the same types.
+_ARAMINA_REPORT_CONTRACT = {
+    "report_id": str,
+    "workflow_id": str,
+    "job_id": str,
+    "report_schema_version": str,
+    "generated_at": str,
+    "workflow_status": str,
+    "model_id": (str, type(None)),
+    "model_version": (str, type(None)),
+    "scientifically_certified": bool,
+    "disclaimer": str,
+    "payload": dict,
+}
+
+
+def _aramina_report(job_id="job-1", score=0.42, side="left", patient="Nova_214"):
+    """Build an Aramina report through the real provider."""
+    from bremen.api.job_api_handler import _AraminaLocalReportProvider
+
+    external = {"risk_score": score}
+    if side is not None:
+        external["target_side"] = side
+    return _AraminaLocalReportProvider().generate_report(
+        job_id,
+        {"external_report": external},
+        model_identity={"model_id": "aramina-a", "model_version": "0.2.12-beta"},
+        job_context={"patient_id": patient, "target_side": side or ""},
+    ).to_dict()
+
+
+def test_pr0143_existing_contract_fields_present_and_typed():
+    """Every pre-existing Aramina report field keeps its name and type."""
+    report = _aramina_report()
+    for field, expected in _ARAMINA_REPORT_CONTRACT.items():
+        assert field in report, f"missing contract field: {field}"
+        assert isinstance(report[field], expected), field
+
+
+def test_pr0143_payload_fields_preserved():
+    """risk_score and technical_demo_only stay exactly where they were."""
+    report = _aramina_report(score=0.42)
+    assert report["payload"]["risk_score"] == 0.42
+    assert report["payload"]["technical_demo_only"] is True
+    assert set(report["payload"]) == {"risk_score", "technical_demo_only"}
+
+
+def test_pr0143_report_includes_patient_id():
+    """Aramina reports expose the requested patient identifier."""
+    assert _aramina_report(patient="Nova_214")["patient_id"] == "Nova_214"
+
+
+def test_pr0143_report_includes_target_side():
+    """Aramina reports expose the scored target side."""
+    assert _aramina_report(side="left")["target_side"] == "left"
+    assert _aramina_report(side="right")["target_side"] == "right"
+
+
+def test_pr0143_report_includes_links_job_and_json():
+    """Aramina reports expose job and json links."""
+    report = _aramina_report(job_id="job-abc")
+    assert report["links"]["job"] == "/demo/api/jobs/job-abc"
+    assert report["links"]["json"] == "/demo/api/jobs/job-abc/reports/aramina"
+
+
+def test_pr0143_no_pdf_link_without_endpoint():
+    """No pdf link is advertised, because no PDF endpoint exists."""
+    report = _aramina_report()
+    assert "pdf" not in report["links"]
+    assert set(report["links"]) == {"job", "json"}
+
+
+def test_pr0143_no_pdf_endpoint_exists():
+    """Guard: the pdf link must stay absent while no PDF route exists."""
+    from pathlib import Path
+
+    sources = list(Path("src/bremen").rglob("*.py"))
+    text = "\n".join(p.read_text(encoding="utf-8") for p in sources)
+    assert "application/pdf" not in text
+
+
+def test_pr0143_links_are_relative_paths():
+    """Links are relative API paths, never absolute or filesystem paths."""
+    report = _aramina_report(job_id="job-abc")
+    for value in report["links"].values():
+        assert value.startswith("/demo/api/jobs/")
+        assert "://" not in value
+        assert "\\" not in value
+
+
+def test_pr0143_unsafe_patient_id_omitted():
+    """A path-like or free-form patient identifier is not echoed."""
+    for unsafe in ("/tmp/private", "s3://bucket/key", "a" * 200, "has space"):
+        report = _aramina_report(patient=unsafe)
+        assert "patient_id" not in report, unsafe
+
+
+def test_pr0143_unknown_target_side_omitted():
+    """A non-allowlisted side is omitted rather than echoed."""
+    report = _aramina_report(side="anterior")
+    assert "target_side" not in report
+
+
+def test_pr0143_failed_report_keeps_unavailable_behavior():
+    """A failed Aramina report stays unavailable with an empty payload."""
+    from bremen.api.job_api_handler import _AraminaLocalReportProvider
+
+    report = _AraminaLocalReportProvider().generate_report(
+        "job-2", {"external_report": {}},
+        model_identity={"model_id": "aramina-a", "model_version": "0.2.12-beta"},
+        job_context={"patient_id": "Nova_379", "target_side": "left"},
+    ).to_dict()
+    assert report["workflow_status"] == "unavailable"
+    assert report["payload"] == {}
+    # Safe links are still present and correct.
+    assert report["links"]["json"] == "/demo/api/jobs/job-2/reports/aramina"
+
+
+def test_pr0143_bremen_report_contract_unchanged():
+    """Bremen reports gain none of the new Aramina fields."""
+    from bremen.api.report_bremen import BremenReportProvider
+
+    report = BremenReportProvider().generate_report(
+        "job-1", {"status": "failed"},
+        model_identity={"model_id": "bremen-a", "model_version": "v1"},
+    ).to_dict()
+    for field in ("patient_id", "target_side", "links"):
+        assert field not in report, field
+
+
+def test_pr0143_report_envelope_defaults_unchanged():
+    """A default ReportEnvelope serializes exactly as before PR0143."""
+    from bremen.api.report_provider import ReportEnvelope
+
+    envelope = ReportEnvelope(
+        report_id="r", workflow_id="bremen", job_id="j",
+        report_schema_version="v0.1",
+    )
+    assert set(envelope.to_dict()) == {
+        "report_id", "workflow_id", "job_id", "report_schema_version",
+        "generated_at", "workflow_status", "model_id", "model_version",
+        "scientifically_certified", "disclaimer", "payload",
+    }
+
+
+def test_pr0143_public_report_leaks_nothing(tmp_path, source, monkeypatch):
+    """The public report JSON contains no private values."""
+    entry = _entry(tmp_path)
+    _install(entry)
+    # The report patient_id comes from H5 patient metadata, so the fixture
+    # must carry it for the identifier to be present.
+    with h5py.File(source[0], "a") as f:
+        f["session/sample/patient_name"] = "p1"
+    monkeypatch.setattr(jobs, "resolve_source", lambda *args: source[0])
+    body = _valid_aramina_body(model_id=entry.model_id, patient_id="p1", target_side="left")
+    monkeypatch.setattr(jobs, "_read_json_body", lambda handler: body)
+    sent = MagicMock()
+    monkeypatch.setattr(jobs, "_send_json", sent)
+    jobs.handle_jobs_create(MagicMock())
+    job_id = sent.call_args.args[2]["job"]["job_id"]
+
+    report = jobs.get_job_report(job_id, "aramina")
+    public = json.dumps(report)
+    for forbidden in (
+        source[0], entry._artifact_path, entry._checksum, "_package",
+        "source_key", "Traceback", "token", "s3://", "/tmp/",
+    ):
+        assert forbidden not in public
+    assert report["report"]["patient_id"] == "p1"
+    assert report["report"]["target_side"] == "left"
+    assert report["report"]["links"]["job"] == f"/demo/api/jobs/{job_id}"
+
+
+def test_pr0143_job_context_excludes_private_fields(tmp_path, source):
+    """The report job context carries only patient_id and target_side."""
+    from bremen.api.job_api_handler import _report_job_context
+
+    entry = _entry(tmp_path)
+    _install(entry)
+    job = jobs.create_analysis_job(
+        model_id=entry.model_id, h5_path=source[0], aramina_request=_request(),
+        source_key="private-stable-key", patient_display_name="p1",
+    )
+    context = _report_job_context(job)
+    assert set(context) == {"patient_id", "target_side"}
+    assert "private-stable-key" not in json.dumps(context)

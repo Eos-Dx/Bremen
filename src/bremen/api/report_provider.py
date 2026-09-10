@@ -53,9 +53,14 @@ class ReportEnvelope:
     scientifically_certified: bool = False
     disclaimer: str = ""
     payload: dict[str, Any] = field(default_factory=dict)
+    # PR0143: optional workflow-specific report metadata. Omitted entirely when
+    # unset, so existing report contracts are byte-for-byte unchanged.
+    patient_id: str | None = None
+    target_side: str | None = None
+    links: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "report_id": self.report_id,
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -68,6 +73,15 @@ class ReportEnvelope:
             "disclaimer": self.disclaimer,
             "payload": dict(self.payload),
         }
+        # Additive only: a report that does not set these keeps its exact
+        # previous shape, so Bremen and failed-report contracts are unchanged.
+        if self.patient_id is not None:
+            result["patient_id"] = self.patient_id
+        if self.target_side is not None:
+            result["target_side"] = self.target_side
+        if self.links:
+            result["links"] = dict(self.links)
+        return result
 
 
 # ---------------------------------------------------------------------------
@@ -93,6 +107,7 @@ class ReportProvider(ABC):
         *,
         model_identity: dict[str, str] | None = None,
         readiness_snapshot: dict[str, bool] | None = None,
+        job_context: dict[str, Any] | None = None,
     ) -> ReportEnvelope:
         """Generate a workflow-specific report from the output of a workflow run.
 
@@ -104,6 +119,9 @@ class ReportProvider(ABC):
         model_identity : Optional model identity (model_id, model_version,
             model_checksum).
         readiness_snapshot : Optional readiness state at execution time.
+        job_context : Optional safe job-level metadata (for example the
+            requested ``patient_id`` and ``target_side``). Providers that do
+            not need it ignore it.
 
         Returns
         -------
