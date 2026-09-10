@@ -1,0 +1,24 @@
+PR0139 production smoke after deploy
+
+Bremen:
+- single submit completed, report available.
+
+Aramina 0.2.12:
+- Nova_214 left completed.
+- /demo/api/jobs/{job_id}/reports/aramina returned HTTP 200.
+- model_version 0.2.12-beta.
+- payload contains risk_score and technical_demo_only.
+
+Aramina 0.2.13:
+- Nova_227 right completed.
+- model_version 0.2.13-beta.
+- report available.
+
+Unsupported inputs:
+- Nova_379/Nova_383/Nova_384 fail safely with ARAMINA_UNSUPPORTED_INPUT.
+- No generic ARAMINA_EXECUTION_FAILED for supported successful cases.
+- No ARAMINA_UNSUPPORTED_ARTIFACT for successful 0.2.13 case.
+
+Known follow-up:
+- /demo/report UI still appears Bremen-oriented for Aramina jobs.
+- Track separately as PR0140 workflow-aware report routing.
