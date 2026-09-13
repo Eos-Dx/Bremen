@@ -315,6 +315,17 @@ Swagger-style API reference for the current Bremen technical demo API:
 - [docs/api/errors-and-troubleshooting.md](docs/api/errors-and-troubleshooting.md) — common issues
 - [docs/api/examples/smoke-production.sh](docs/api/examples/smoke-production.sh) — runnable smoke script
 
+## Architecture and Design Notes
+
+Current architecture discussion for six-measurement Bremen inference and the model/platform runtime boundary:
+
+- [docs/architecture_spike_six_measurement_and_model_owned_inference.md](docs/architecture_spike_six_measurement_and_model_owned_inference.md) — architecture spike covering the 3 LEFT + 3 RIGHT product contract, training-serving parity gates, and incremental model-owned inference migration.
+- [docs/architecture_review_model_boundary_and_technical_debt.md](docs/architecture_review_model_boundary_and_technical_debt.md) — reconciled architecture/technical-debt review, including framework options and snapshot-provenance notes.
+- [docs/adr/0014-bremen-six-measurement-input-contract.md](docs/adr/0014-bremen-six-measurement-input-contract.md) — Proposed ADR for the normal Bremen six-measurement contract.
+- [docs/adr/0015-model-owned-inference-runtime-boundary.md](docs/adr/0015-model-owned-inference-runtime-boundary.md) — Proposed ADR for moving scientific inference semantics into model-owned releases.
+
+These documents are proposals/discussion records. They do not authorize a runtime aggregation change by themselves.
+
 ## Development Roadmap
 
 See [ROADMAP.md](ROADMAP.md) (repository root) for the authoritative Bremen development roadmap. This file replaces the prior `docs/roadmap.md` as the single source of truth for planned PR sequencing.
