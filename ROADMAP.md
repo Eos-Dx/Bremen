@@ -4,6 +4,25 @@
 
 No hard calendar dates — use sequence and dependencies.
 
+## Proposed architecture transition track (discussion; not scheduled)
+
+This track records an architecture proposal and does not replace the numbered delivery milestones below. No runtime mathematics are authorized by this entry.
+
+- Bremen normal product input is defined for this discussion as exactly six measurements total: 3 LEFT + 3 RIGHT; five measurements are defective input.
+- Current Bremen provider behavior must be reconciled because it selects one LEFT and one RIGHT measurement rather than consuming all six.
+- Before changing production aggregation, establish deployed-model lineage, q-grid semantics, 15-feature golden parity, prediction parity, and order invariance.
+- Preferred architecture direction: retain Bremen Platform as auth/job/storage/report/orchestration layer and move scientific inference semantics into model-owned, inference-complete releases.
+- MLflow PyFunc / Model Registry are candidates, not the architectural objective; framework adoption can be incremental and independent of the boundary decision.
+- Do not treat historical/snapshot-specific Aramina findings as current defects without revision provenance.
+
+Discussion records:
+- `docs/architecture_spike_six_measurement_and_model_owned_inference.md`
+- `docs/architecture_review_model_boundary_and_technical_debt.md`
+- `docs/adr/0014-bremen-six-measurement-input-contract.md` (Proposed)
+- `docs/adr/0015-model-owned-inference-runtime-boundary.md` (Proposed)
+
+---
+
 ## Current milestone (PR0082a)
 
 Control Room Data and Selection Foundation:
