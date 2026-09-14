@@ -13,24 +13,18 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
-import tempfile
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from typing import Any
 
-import numpy as np
-import pytest
+from tests.bremen_3x3_helpers import GOLD
 
 from bremen.api.model_registry import (
     RegistryModelEntry,
     ModelRegistry,
     initialize_registry,
-    get_registry,
-    get_model_package,
     reset_for_tests,
 )
 from bremen.api.workflow_orchestrator import get_provider_for_model
-from bremen.api.workflow_bremen import BremenProvider
 
 
 # ---------------------------------------------------------------------------
@@ -51,6 +45,7 @@ PACKAGE_B_THRESHOLD = 0.3
 def _build_package(coef: list[float], threshold: float, intercept: float = 0.0) -> dict[str, Any]:
     return {
         "portable_logreg": {
+            "feature_columns": GOLD["feature_names"],
             "coef": coef,
             "imputer_statistics": [0.0] * 15,
             "scaler_mean": [0.0] * 15,
@@ -93,35 +88,9 @@ def _make_entry(
 
 
 def _make_canonical_case() -> Any:
-    """Create a controlled canonical XRD case with known intensity profiles.
-
-    Returns a minimal object with measurements attribute.
-    """
-    npt = 100
-    q = np.linspace(5.0, 8.0, npt, dtype=np.float64)
-
-    # Target: higher intensity
-    target_intensity = np.abs(np.random.default_rng(42).normal(12.0, 2.0, npt))
-    # Control: lower intensity
-    control_intensity = np.abs(np.random.default_rng(42).normal(8.0, 2.0, npt))
-
-    class MockMeasurement:
-        def __init__(self, side: str, intensity: np.ndarray):
-            self.side = side
-            self.intensity = intensity
-            self.position = "center"
-
-    class MockCanonicalCase:
-        def __init__(self):
-            self.measurements = [
-                MockMeasurement("LEFT", target_intensity),
-                MockMeasurement("RIGHT", control_intensity),
-            ]
-            self.source_layout = "session"
-            self.source_checksum = "a" * 64
-            self.source_layout_version = "v0.1"
-
-    return MockCanonicalCase()
+    """Controlled full product input; models still differ in coefficients."""
+    from tests.bremen_3x3_helpers import make_case
+    return make_case()
 
 
 # ---------------------------------------------------------------------------
@@ -226,8 +195,7 @@ class TestTwoModelExecution:
 
         provider = get_provider_for_model("my-model")
         case = _make_canonical_case()
-        result = provider.execute(case)
-        payload = result.payload or {}
+        provider.execute(case)
         # The provider's model_id is set from the entry
         assert provider._model_id == "my-model"
 

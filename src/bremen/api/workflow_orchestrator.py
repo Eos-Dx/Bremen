@@ -13,8 +13,6 @@ import hashlib
 import logging
 import time as _time
 import uuid
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 import h5py
@@ -227,7 +225,7 @@ def run_workflow_request(
           EventType.NORMALIZATION_STARTED, "normalization", "started")
 
     try:
-        canonical = _normalize_h5(h5_path, request_id=request_id)
+        canonical = _normalize_h5(h5_path, request_id=request_id, workflow_id=workflow_id)
     except NormalizationError:
         _log.warning(
             "runtime.normalization.failed\t"
@@ -330,7 +328,8 @@ def run_workflow_request(
     # Build event sink if store is provided
     event_sink = None
     if event_store is not None:
-        event_sink = lambda ev: event_store.append(job_id, ev)
+        def event_sink(ev):
+            event_store.append(job_id, ev)
 
     context = WorkflowExecutionContext(
         job_id=job_id,
@@ -464,6 +463,7 @@ def _normalize_h5(
     h5_path: str,
     *,
     request_id: str = "",
+    workflow_id: str = "",
 ) -> CanonicalXRDCase:
     """Open H5, detect layout, normalize to canonical.
 
@@ -472,7 +472,10 @@ def _normalize_h5(
     """
     with h5py.File(h5_path, "r") as h5_file:
         adapter = detect_layout(h5_file)
-        case = adapter.normalize_to_canonical(h5_file)
+        normalizer = adapter.normalize_to_canonical
+        if workflow_id == "bremen":
+            normalizer = getattr(adapter, "normalize_bremen_to_canonical", normalizer)
+        case = normalizer(h5_file)
 
     _log.debug(
         "runtime.normalization.layout_detected\t"

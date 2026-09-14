@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import logging
 import os
-import traceback
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -397,7 +396,7 @@ def run_model_pipeline_dry_run(
         checked_stages.append("normalization")
 
         from .workflow_orchestrator import _normalize_h5  # noqa: PLC0415
-        canonical = _normalize_h5(h5_path)
+        canonical = _normalize_h5(h5_path, workflow_id=workflow_id)
 
     # --- Stage 5: Workflow resolution ---
         checked_stages.append("workflow_resolution")
