@@ -198,6 +198,32 @@ def test_runtime_owns_complete_sequence_and_structured_result():
     callback.assert_called_once_with(result.features)
 
 
+def test_provider_executes_through_model_runtime_contract_v1(monkeypatch):
+    # PR0153B wiring: provider.execute must route the frozen scientific
+    # sequence through exactly one contract predict call; the runtime still
+    # composes the exact PR0152 run() internally.
+    from bremen.model_runtime import ModelRuntime, ModelInput, RuntimePrediction
+    provider = BremenProvider(model_package=MODEL)
+    runtime = provider.model_runtime()
+    assert isinstance(runtime, ModelRuntime)
+    predict = Mock(wraps=runtime.predict_model)
+    run = Mock(wraps=runtime.run)
+    monkeypatch.setattr(runtime, 'predict_model', predict)
+    monkeypatch.setattr(runtime, 'run', run)
+    result = provider.execute(make_case())
+    assert result.status == 'completed'
+    assert_close(result.payload['probability'], GOLD['expected_probability'])
+    predict.assert_called_once()
+    run.assert_called_once()
+    passed_input = predict.call_args.args[0]
+    assert isinstance(passed_input, ModelInput)
+    assert len(passed_input.measurements) == 6
+    fresh = runtime.predict_model(ModelInput(workflow_id='bremen',
+                                             measurements=make_case().measurements))
+    assert isinstance(fresh, RuntimePrediction)
+    assert_close(fresh.result['probability'], GOLD['expected_probability'])
+
+
 def test_runtime_rejects_reordered_features_and_invalid_classes():
     from bremen.bremen_runtime import BremenRuntime, BremenRuntimeError
     runtime = BremenRuntime(MODEL)

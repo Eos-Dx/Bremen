@@ -159,6 +159,45 @@ def _coerce_string_list(value: Any) -> list[str]:
     return result
 
 
+def _runtime_input_requirements(model_id: str) -> dict[str, Any] | None:
+    """Best-effort derive model-specific input requirements from the runtime.
+
+    PR0153B connects the Model Requirements API to the Model Runtime Contract
+    v1 so model-specific requirements come from the runtime rather than from
+    duplicated platform knowledge.  Resolution is read-only and defensive:
+
+    - constructs no artifact work and creates no job/report/persistent state;
+    - returns ``None`` whenever no contract runtime is reachable (legacy or
+      display-only registries, scaffold workflows), preserving the pre-runtime
+      response byte-for-byte;
+    - never surfaces paths, checksums, tokens or artifact internals (the
+      runtime payload is static model-declared values only).
+    """
+    try:
+        from .model_registry import get_model_entry  # noqa: PLC0415
+
+        entry = get_model_entry(model_id)
+        if entry is None:
+            return None
+        from .workflow_orchestrator import get_provider_for_model  # noqa: PLC0415
+
+        try:
+            provider = get_provider_for_model(model_id)
+        except ValueError:
+            # Unroutable / display-only rows expose no executable runtime.
+            return None
+        runtime = getattr(provider, "model_runtime", lambda: None)()
+        if runtime is None:
+            return None
+        requirements = getattr(runtime, "model_requirements", None)
+        if requirements is None:
+            return None
+        payload = requirements().to_input_requirements()
+        return payload if isinstance(payload, dict) else None
+    except Exception:  # noqa: BLE001 -- discovery must never break on runtime derivation
+        return None
+
+
 def _find_container_requirements(
     model_id: str,
     *,
@@ -217,6 +256,29 @@ def _build_declared_requirements_response(
         required_fields = ["container_id", "source_id", "patient_id", "target_side"]
         optional_fields = ["analysis_author", "prediction_comment"]
 
+    # PR0153B — where a Model Runtime Contract v1 runtime is reachable, derive
+    # model-specific request fields from the runtime instead of duplicating
+    # platform knowledge, and annotate the container contract additively.
+    # When no runtime is available (legacy/scaffold/display-only registries)
+    # the response is unchanged.
+    runtime_requirements = _runtime_input_requirements(model_id)
+    if runtime_requirements is not None:
+        if not required_fields:
+            required_fields = _coerce_string_list(
+                runtime_requirements.get("request_fields"),
+            )
+        if not optional_fields:
+            optional_fields = _coerce_string_list(
+                runtime_requirements.get("optional_request_fields"),
+            )
+        container_requirements = dict(requirements)
+        container_requirements["model_runtime"] = {
+            "contract_version": runtime_requirements.get("contract_version", "v1"),
+            "input_requirements": runtime_requirements,
+        }
+    else:
+        container_requirements = dict(requirements)
+
     response: dict[str, Any] = {
         "schema_version": "bremen.model_requirements.v1",
         "technical_demo_only": True,
@@ -232,7 +294,7 @@ def _build_declared_requirements_response(
         ),
         "required_fields": required_fields,
         "optional_fields": optional_fields,
-        "container_requirements": dict(requirements),
+        "container_requirements": container_requirements,
         "notes": [
             "Model-specific container requirements are declared by "
             "container_requirements.json next to the model artifact.",

@@ -116,9 +116,26 @@ class WorkflowProvider(ABC):
     """Abstract workflow provider.
 
     Each provider owns its scientific identity independently.
+
+    A provider is a platform orchestration adapter.  When the workflow is
+    backed by a Model Runtime Contract v1 runtime, the provider exposes it via
+    :meth:`model_runtime`; the base returns ``None`` because some providers
+    (for example display-only or scaffold workflows) own no scientific runtime.
+    The base accessor is non-abstract and purely additive so existing providers
+    remain valid without change (PR0153B backward compatibility).
     """
 
     workflow_id: str = ""
+
+    def model_runtime(self) -> Any:
+        """Return the workflow's Model Runtime Contract v1 runtime, if any.
+
+        The returned object satisfies ``bremen.model_runtime.ModelRuntime``
+        (requirements / validate / predict).  Returning ``None`` means this
+        provider does not expose a contract runtime; callers must not assume
+        that scientific inference can be reached through the provider.
+        """
+        return None
 
     @abstractmethod
     def readiness(self) -> WorkflowReadiness:
