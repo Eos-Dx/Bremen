@@ -263,6 +263,16 @@ Concrete Python shape (as permitted by this document: the ADR defines semantic r
 Known remaining platform coupling for PR0154:
 
 - ModelInput.container_path: Aramina artifact preprocessing still consumes a platform-staged filesystem path. An inference-complete model package should accept a container abstraction (bytes/source-of-record ref) owned by the platform, removing paths from the runtime input.
-- ModelInput.patient_id: the Aramina pipeline still performs patient identity binding internally (via _validate_aramina_source called inside the existing pipeline). This is platform-identity logic living behind the runtime boundary and should move fully to the platform in PR0154.
+- ModelInput.patient_id: the Aramina pipeline still performs patient identity binding internally (via _validate_aramina_source called inside the existing pipeline). This is platform-identity logic living behind the runtime boundary and should move fully to the platform.
 - bremen_features.build_bremen_features lazily imports validate_canonical_measurement from bremen.api.xrd_normalization (flagged in the PR0152 review). Decoupling belongs to PR0154 packaging work.
 - Bremen model identity constants in bremen_runtime.py mirror the frozen release evidence; PR0154 should source them from the model package manifest itself.
+
+PR0154 resolution (Bremen v0.1 inference-complete package)
+
+PR0154 moved the complete Bremen v0.1 scientific runtime behind a model-package boundary at bremen.model_packages.bremen_v01 (release manifest + feature science + portable predictor + runtime entry point implementing this contract). See docs/bremen_v01_inference_package.md.
+
+- Resolved — the lazy xrd_normalization import was lifted out of the science module: the package feature module contains no platform import; structural canonical-measurement validation now happens at the package runtime boundary (model_packages.bremen_v01.runtime) with the identical fixed safe reason. Numerical behavior unchanged.
+- Resolved — Bremen model identity now has one authoritative source: model_packages.bremen_v01.manifest. The duplicate constants in the former top-level bremen_runtime.py are gone; the old bremen_features.py / bremen_runtime.py / inference.py paths are zero-logic re-export shims (documented, deprecated).
+- Decision vocabulary stays platform-owned: api.decision_contract remains the single authority for decision codes and is consumed by the package runtime exactly as before; the numerical threshold comparison remains inside the package predictor.
+- Remaining for PR0155 — the two Aramina coupling points (ModelInput.container_path and ModelInput.patient_id / _validate_aramina_source) are Aramina-owned and out of PR0154 scope (Bremen only). They should be lifted to the platform when Aramina is packaged, or when a container/bytes abstraction replaces staged paths.
+- Remaining for PR0155 — packaging metadata capture (dependencies declared by the package manifest today, model-release provenance, optional migration of the portable dict into a self-contained release directory) and any evaluation of an external packaging/registry mechanism. PR0154 does not introduce MLflow/BentoML/KServe or relocate artifacts.

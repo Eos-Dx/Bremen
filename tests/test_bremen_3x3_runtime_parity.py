@@ -96,7 +96,7 @@ def test_invalid_shape_rejected_before_science_or_scoring(left, right, monkeypat
     provider = BremenProvider(model_package=MODEL)
     science = Mock(side_effect=AssertionError('must not reach science'))
     scorer = Mock(side_effect=AssertionError('must not reach scorer'))
-    monkeypatch.setattr('bremen.bremen_runtime.build_bremen_features', science)
+    monkeypatch.setattr('bremen.model_packages.bremen_v01.runtime.build_bremen_features', science)
     monkeypatch.setattr(provider._runtime, 'score', scorer)
     result = provider.execute(replace(case, measurements=ms))
     assert result.status == 'failed'
@@ -108,7 +108,7 @@ def test_invalid_shape_rejected_before_science_or_scoring(left, right, monkeypat
 
 
 def test_scientific_failure_is_safe(monkeypatch):
-    monkeypatch.setattr('bremen.bremen_runtime.build_bremen_features',
+    monkeypatch.setattr('bremen.model_packages.bremen_v01.runtime.build_bremen_features',
                         Mock(side_effect=ValueError('/private/source secret token traceback')))
     result = BremenProvider(model_package=MODEL).execute(make_case())
     assert result.status == 'failed'
