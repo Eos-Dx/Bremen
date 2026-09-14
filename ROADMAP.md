@@ -20,6 +20,8 @@ Discussion records:
 - `docs/architecture_review_model_boundary_and_technical_debt.md`
 - `docs/adr/0014-bremen-six-measurement-input-contract.md` (Proposed)
 - `docs/adr/0015-model-owned-inference-runtime-boundary.md` (Proposed)
+- `docs/model_runtime_contract_v1.md`
+- `docs/adr/0016-model-runtime-contract-v1.md` (Accepted)
 
 ---
 
