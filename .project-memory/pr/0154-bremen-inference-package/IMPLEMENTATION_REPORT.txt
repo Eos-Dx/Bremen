@@ -1,0 +1,204 @@
+PR0154 — Bremen v0.1 inference-complete model package — Implementation Report
+
+Branch: 0154-bremen-inference-package
+HEAD at start: c92f9f0a437efc07b499c833acff69b2879dcb11 (clean worktree)
+No commit created.
+
+IMPLEMENTATION STATUS
+COMPLETE (packaging refactor + direct package golden self-test + full
+regression). Not claiming ready for commit — that is the reviewer's verdict.
+
+PACKAGE LAYOUT
+src/bremen/model_packages/
+  __init__.py                  (root; no science, no platform imports)
+  bremen_v01/
+    __init__.py                (single entry point; re-exports runtime surface)
+    manifest.py                (authoritative release identity + input contract
+                                + provenance + declared runtime dependencies)
+    features.py                (frozen 15-feature science — moved from
+                                bremen_features.py; lazy platform import lifted)
+    predictor.py               (portable_logreg contract + math — moved from
+                                inference.py)
+    runtime.py                 (BremenRuntime — Model Runtime Contract v1 entry)
+
+AUTHORITATIVE RUNTIME ENTRY POINT
+bremen.model_packages.bremen_v01.runtime.BremenRuntime (re-exported by
+bremen.model_packages.bremen_v01) implements bremen.model_runtime.ModelRuntime
+(model_requirements / validate_model_input / predict_model) over the frozen
+PR0152 run() sequence. The package __init__ also re-exports
+BremenRuntimeError / BremenFeatureError / BremenFeatures / BremenModelResult.
+
+FILES MOVED (content relocated into package)
+- bremen/bremen_features.py  -> model_packages/bremen_v01/features.py
+- bremen/inference.py        -> model_packages/bremen_v01/predictor.py
+- bremen/bremen_runtime.py   -> model_packages/bremen_v01/runtime.py
+
+FILES ADDED
+- model_packages/__init__.py, bremen_v01/{__init__,manifest,features,predictor,runtime}.py
+- tests/test_bremen_v01_package.py (50 direct package golden/self-test cases)
+- docs/bremen_v01_inference_package.md
+
+FILES CHANGED
+- bremen/bremen_features.py, bremen/inference.py, bremen/bremen_runtime.py ->
+  zero-logic re-export compatibility shims (no def/class bodies)
+- api/workflow_bremen.py -> imports the package entry point only (no scientific
+  helper imports); _project_model_result no longer annotates the scientific
+  result type; header doc points to the package
+- tests/test_bremen_3x3_runtime_parity.py, tests/test_bremen_model_runtime_
+  contract_v1.py -> monkeypatch seams retargeted to the authoritative
+  bremen.model_packages.bremen_v01.runtime module (path rename only, same seam)
+- tests/test_bremen_inference_integration.py -> sklearn no-import check now
+  scans both the shim and the authoritative package predictor
+- docs/model_runtime_contract_v1.md -> PR0154 resolution notes (no rewrite of
+  accepted architecture)
+
+FILES REMOVED
+None. (Old modules retained as documented shims.)
+
+COMPATIBILITY SHIMS
+bremen_features.py / inference.py / bremen_runtime.py are re-export-only
+shims (test_shims_have_no_scientific_logic asserts zero def/class).
+Justification (AST-proven): feature_artifact_prediction, inference_handler,
+s3_model_discovery and server still import bremen.inference symbols; several
+tests import the historical paths. Shims import from the package (direction
+platform->package, allowed). New code imports the package entry point.
+
+SCIENTIFIC OWNERSHIP
+Package owns the complete Bremen v0.1 sequence: 3+3 validation, ROI/smoothing/
+normalization, common-grid interpolation, per-side mean + sample std (ddof=1),
+bands, raw peaks + gate, frozen 15-feature order, imputation/scaler arithmetic,
+portable logistic regression, model-owned threshold, safe diagnostics,
+identity/provenance. The science files import only numpy/pandas/scipy/stdlib
+(+ package-internal). features.py and predictor.py are byte-identical to HEAD
+science except docstrings, the one lifted lazy import, and the predictor's
+FEATURE_COLS import path.
+
+MODEL IDENTITY OWNERSHIP
+manifest.py is the single authoritative source (model_id
+bremen-paper-reference-v0-2-0, name bremen_paper_reference_symmetry_logreg,
+version 0.2.0-paper-reference, feature schema v0.1, artifact SHA256
+65866f44..., threshold identity 0.3585907282566089). Duplicate identity
+constants removed from bremen_runtime.py. Platform routing ids (registry/
+catalog model_id, provider default bremen_mri_triage_logreg) are unchanged
+public identifiers, distinct from release identity, reconciled via the contract.
+
+MODEL REQUIREMENTS OWNERSHIP
+Package manifest declares the input contract; runtime.model_requirements()
+assembles it. Platform model_requirements.py already derives from the runtime
+(PR0153B) — no platform re-declaration of 3+3 remains.
+
+ARTIFACT LOADING OWNERSHIP
+predictor.py owns portable_logreg interpretation/execution (adapt_model_package,
+validate_portable_logreg_model, predict_proba_portable, PortableLogRegModelError);
+runtime.model_metadata resolves identity from the loaded package. Platform never
+inspects coefficients/scaler/feature columns/threshold. Physical artifact
+staging/checksums/ADR-0007 manifest remain platform-owned; manifest.py is
+Python release-contract metadata, NOT a second artifact-manifest system.
+
+DEPENDENCY DIRECTION
+platform (api/*, workflow_bremen) -> model_runtime contract + package entry.
+package runtime -> package science + api.decision_contract + api.xrd_
+normalization.validate_canonical_measurement (the only two platform bridges,
+documented) + model_runtime types. package science -> numpy/pandas/scipy/stdlib
+only. contract -> stdlib only. No package import of workflow/report/job/fastapi/
+auth/storage (AST + subprocess tests). No cycles (compileall, full suite).
+
+DIRECT PACKAGE GOLDEN PARITY
+tests/test_bremen_v01_package.py (no WorkflowProvider): exact 15 features +
+probability 0.7388733541967353 at atol 1e-10/rtol 0; decision/threshold; exact
+3+3 requirements; all 9 invalid shapes; all-six participation (matches frozen
+mutations + changed_features); LEFT/RIGHT permutation invariance (12 cases);
+replicate variance ddof=1 (sigma->0 on identical replicates); original-peak
+semantics; raw-peak gate; portable estimator + threshold parity vs PR0151
+reference; feature-cols single source. 50 passed.
+
+PLATFORM INTEGRATION PARITY
+Unchanged suites: PR0151/PR0152 parity + workflow + plugin 151 passed; PR0153B
+contract 36 passed; requirements API + inference integration 46 passed
+(+1 skip); registry/multi-model/catalog 56 passed; job/report/decision suites
+pass. Provider payload keys byte-identical to PR0153B.
+
+RAW-H5 PARITY
+Unchanged (test_synthetic_h5_production_job_path, calibration layout, canonical
+physical-q, H5-enumeration permutations) — green inside the 151-suite run.
+
+PUBLIC API COMPATIBILITY
+No endpoint/field/report/auth/job/model_id/threshold change. BREMEN_V01_FEATURE_
+COLUMNS still exported (sourced from package runtime class).
+
+ARAMINA REGRESSION
+Unchanged and green: Aramina runtime/provider/scaffold 282 passed; contract/
+registry shared code unaffected; Aramina science untouched (no files moved).
+
+DUPLICATE SCIENCE SEARCH
+grep for definitions of build_bremen_features / predict_proba_portable /
+validate_portable_logreg_model / validate_bremen_shape in src -> only the four
+package modules. Shims contain no definitions. One authoritative active path.
+
+FORBIDDEN IMPORT SEARCH
+package importing workflow/report/job/fastapi/auth/storage -> NONE. package
+science importing bremen.api -> NONE (features/predictor/manifest). No src still
+imports bremen.bremen_runtime internals. workflow_bremen imports no scientific
+helpers. All enforced by tests.
+
+FILES CHANGED (git)
+Modified: docs/model_runtime_contract_v1.md, api/workflow_bremen.py,
+bremen_features.py, bremen_runtime.py, inference.py, 3 test files.
+Added: model_packages/ (5 files), tests/test_bremen_v01_package.py,
+docs/bremen_v01_inference_package.md, PR memory dir.
+Diff stat (tracked): 163 insertions, 916 deletions (deletions are the
+shimmed moved code).
+
+TARGETED TEST RESULTS
+- compileall src tests: exit 0
+- package golden: 50 passed
+- PR0151/0152 parity+workflow+plugin: 151 passed
+- PR0153B contract: 36 passed
+- requirements+inference integration: 46 passed, 1 skipped
+- Aramina runtime/provider/scaffold: 282 passed
+- registry/multi-model/catalog: 56 passed
+- job/report/decision suites: 81 + 143 passed
+
+FULL PYTEST RESULT
+pytest -q -> 4201 passed, 11 skipped, 0 failed.
+Collection reconciliation: worktree 4212 collected = HEAD 4161 + 50 new package
+tests + 1 existing guard auto-parametrization (test_no_server_spawning over the
+new test file). Node-id diff: 0 removed, 51 added — no existing test dropped or
+weakened.
+
+RUFF RESULT
+ruff check on every changed/new Python file -> All checks passed (14 files).
+
+GIT DIFF CHECK
+git diff --check -> exit 0.
+
+REMAINING WORK FOR PR0155
+- Lift the two Aramina coupling points (ModelInput.container_path,
+  ModelInput.patient_id / _validate_aramina_source) to the platform when
+  Aramina is packaged, or introduce a container/bytes abstraction replacing
+  staged paths. (Bremen-only scope here; Aramina untouched.)
+- Packaging metadata capture: pin/record scientific dependency versions
+  (numpy/pandas/scipy), release provenance, optional migration of the portable
+  dict into a self-contained release artifact directory; evaluate MLflow or an
+  equivalent packaging/registry mechanism. No MLflow/BentoML/KServe introduced.
+- Optionally delete the three re-export shims once external/internal callers
+  are migrated (tracked separately).
+- Consider moving decision projection (api.decision_contract consumption) out
+  of the package runtime if a future release wants zero bremen.api imports in
+  the package; currently an accepted documented boundary.
+
+RISKS AND NON-GATING NOTES
+- Shims keep historical import paths alive; if a caller monkeypatches a shim
+  module attribute expecting it to affect package-internal globals it would not
+  — verified no such caller remains (all seams retargeted to the runtime
+  module). Behavior identical.
+- The package runtime still imports api.decision_contract and the canonical
+  measurement validator: deliberate, documented seams (decision vocabulary is
+  the platform single source; input-structure validation is the platform
+  canonical contract). Science modules are fully platform-free.
+- Live deployment identity verification (PR0152 post-deploy smoke) remains an
+  operator step; unaffected by packaging.
+- manifest.py THRESHOLD_VALUE / ARTIFACT_SHA256 are provenance constants; the
+  applied threshold always comes from the loaded artifact predictor (unchanged).
+- No secrets, binaries, H5/joblib files, patient data, registry push, or git
+  mutations introduced.

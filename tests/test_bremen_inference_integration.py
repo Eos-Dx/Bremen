@@ -100,20 +100,29 @@ class TestPortableInference:
             validate_portable_logreg_model(package)
 
     def test_no_sklearn_import(self):
-        """Inference module must not import sklearn."""
+        """Portable inference module must not import sklearn.
+
+        PR0154: the authoritative implementation lives in the Bremen v0.1
+        inference package; the historical ``bremen/inference.py`` path is a
+        re-export shim.  Scan both so the guarantee covers the real science.
+        """
         import ast
 
-        src = Path(__file__).parents[1] / "src" / "bremen" / "inference.py"
-        tree = ast.parse(src.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    if "sklearn" in alias.name.lower():
-                        pytest.fail(f"inference.py imports sklearn: {alias.name}")
-            elif isinstance(node, ast.ImportFrom):
-                module = node.module or ""
-                if "sklearn" in module.lower():
-                    pytest.fail(f"inference.py imports sklearn: {module}")
+        for rel in (
+            Path("src") / "bremen" / "inference.py",
+            Path("src") / "bremen" / "model_packages" / "bremen_v01" / "predictor.py",
+        ):
+            src = Path(__file__).parents[1] / rel
+            tree = ast.parse(src.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        if "sklearn" in alias.name.lower():
+                            pytest.fail(f"{src.name} imports sklearn: {alias.name}")
+                elif isinstance(node, ast.ImportFrom):
+                    module = node.module or ""
+                    if "sklearn" in module.lower():
+                        pytest.fail(f"{src.name} imports sklearn: {module}")
 
     def test_feature_values_imputed_gracefully(self):
         """NaN features are imputed via imputer_statistics."""

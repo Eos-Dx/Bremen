@@ -260,7 +260,7 @@ def test_bremen_predict_preserves_frozen_sequence(monkeypatch):
 
 def test_bremen_predict_maps_preprocessing_failure_to_category(monkeypatch):
     # invalid_scientific_profiles -> ModelPreprocessingFailedError (same safe reason)
-    import bremen.bremen_runtime as br
+    import bremen.model_packages.bremen_v01.runtime as br
 
     monkeypatch.setattr(br, "build_bremen_features",
                         lambda ms: (_ for _ in ()).throw(ValueError("boom")))

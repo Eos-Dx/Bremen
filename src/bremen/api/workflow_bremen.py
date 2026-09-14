@@ -1,7 +1,9 @@
 """Bremen workflow provider.
 
-Orchestration adapter for the model-owned Bremen runtime. Scientific validation,
-features, scoring and decisions belong to bremen.bremen_runtime.
+Orchestration adapter for the model-owned Bremen v0.1 runtime package
+(``bremen.model_packages.bremen_v01``). Scientific validation, features,
+scoring and decisions belong to the model package behind Model Runtime
+Contract v1 (``bremen.model_runtime``).
 
 PR0075 — multi-workflow runtime foundation.
 PR0077 — structured event emission, removal of unstructured validation output.
@@ -17,7 +19,7 @@ from typing import Any
 
 import numpy as np
 
-from bremen.bremen_runtime import BremenRuntime, BremenModelResult
+from bremen.model_packages.bremen_v01 import BremenRuntime
 from bremen.model_runtime import (
     ModelConfigurationRequiredError,
     ModelInferenceFailedError,
@@ -192,8 +194,13 @@ class BremenProvider(WorkflowProvider):
             )
         return self._project_model_result(result)
 
-    def _project_model_result(self, result: BremenModelResult) -> WorkflowResult:
-        """Translate the structured runtime result without scientific arithmetic."""
+    def _project_model_result(self, result) -> WorkflowResult:
+        """Translate a runtime ``score()`` result into the workflow envelope.
+
+        Reads model-owned result fields (translation only — no scientific
+        arithmetic); the concrete result type is package-internal and is not
+        imported by the platform adapter.
+        """
         decision = result.decision
         return self._project_prediction(RuntimePrediction(
             workflow_id=self.workflow_id,
