@@ -1,0 +1,205 @@
+PR0153B — Model Runtime Contract v1 — Implementation Report
+
+Branch: 0153b-model-runtime-contract-v1
+HEAD at start: a2fabd74737dc4133273f19e4b5ecee5da6d3995 (clean worktree)
+No commit created.
+
+IMPLEMENTATION STATUS
+COMPLETE (implementation + contract tests + regression validation all green).
+
+CONTRACT FORM CHOSEN
+Structural typing.Protocol (runtime_checkable) in a new small module
+src/bremen/model_runtime.py, following repo precedents (EventSink,
+RecordResolver). Three semantic members: model_requirements(),
+validate_model_input(), predict_model(). No ABC re-parenting, no base class,
+no framework/HTTP/job concepts. Contract module imports nothing from
+bremen.api or any model-specific science (verified by test).
+
+FILES CHANGED
+- src/bremen/model_runtime.py (NEW): ModelRuntime protocol, ModelInput,
+  ModelRequirements (+to_input_requirements), ModelValidation,
+  RuntimePrediction, CONTRACT_VERSION, ModelRuntimeError base + five
+  ownership categories.
+- src/bremen/bremen_runtime.py: BremenRuntime now implements the contract
+  directly (no wrapper). BremenRuntimeError derives from ModelRuntimeError.
+  predict_model delegates to unchanged PR0152 run(); validate_model_input
+  wraps validate_bremen_shape; model_requirements declares exact 3 LEFT + 3
+  RIGHT (six total), model identity, request fields. Safe-failure reasons stay
+  byte-identical.
+- src/bremen/api/workflow_bremen.py: remains a thin adapter. execute() routes
+  the scientific sequence through exactly one runtime.predict_model() call and
+  maps contract categories to the PR0152 envelopes (Incompatible:, Feature
+  construction failed:, Model execution failed, configuration). Provider
+  gained runtime/model_runtime() handle; defensive getattr for package/
+  model_ready so a minimal fake runtime needs only the three members.
+- src/bremen/api/workflow_aramina.py: NEW AraminaRuntime adapter composing the
+  EXISTING module-level pipeline functions (_build_aramina_request_json,
+  _load_selected_artifact, _run_local_artifact). No science duplicated.
+  AraminaWorkflowProvider now delegates execute() to runtime.predict_model()
+  and keeps identical payload/failure projection (ARAMINA_* taxonomy
+  unchanged). model_requirements declares requires_target_side=True and the
+  existing public request-field defaults.
+- src/bremen/api/workflow_provider.py: additive non-abstract
+  model_runtime() -> None accessor.
+- src/bremen/api/model_requirements.py: additive runtime-derived
+  requirements. _runtime_input_requirements(model_id) resolves
+  entry->provider->runtime (fully guarded). When a runtime is reachable,
+  required/optional fields fall back to runtime-declared values only when the
+  manifest is silent, and container_requirements gains
+  "model_runtime" = {contract_version, input_requirements}. No endpoint
+  paths/fields/types changed; no-op path byte-identical when no runtime.
+- tests/test_bremen_model_runtime_contract_v1.py (NEW): 36 contract tests.
+- tests/test_bremen_3x3_runtime_parity.py: +1 test
+  test_provider_executes_through_model_runtime_contract_v1.
+- docs/model_runtime_contract_v1.md: implementation notes + PR0154 coupling
+  (status line and migration sequence updated to reflect PR0153B; no
+  architecture rewrite).
+
+BEHAVIOR IMPLEMENTED
+Common platform/model boundary: platform orchestrates, runtimes own scientific
+inference. Bremen 3+3 and Aramina target_side semantics coexist behind one
+ModelRuntime contract. Requirements validated and predicted through the
+contract; providers delegate rather than reimplement.
+
+BREMEN RUNTIME ADAPTATION
+BremenRuntime implements ModelRuntime directly; predict_model is a thin,
+error-translating façade over the untouched PR0152 run(). No science changed
+(preprocessing, 15-feature formulas, scaler behavior, estimator, threshold all
+identical). No new wrapper layers.
+
+ARAMINA RUNTIME ADAPTATION
+AraminaRuntime adapter in the authoritative workflow_aramina module reuses the
+existing pipeline; provider delegates. preprocessing/LR1/symmetry/final model/
+threshold behavior, target_side semantics, source resolution, preprocessing
+release selection and failure classification are unchanged externally.
+
+WORKFLOW PROVIDER CHANGES
+Both providers are now explicit platform adapters exposing model_runtime().
+BremenProvider.execute() performs one predict_model() call (the PR0152
+runs_runtime_once parity guarantee still passes). No provider performs
+preprocessing, feature formulas, aggregation, scaler/estimator math, or
+threshold application.
+
+MODEL REQUIREMENTS INTEGRATION
+Additive, behavior-preserving: runtime derives model-specific request fields
+and annotates container_requirements.model_runtime. Backward-compatible:
+display-only/no-manifest/no-runtime rows produce the identical PR0124 response.
+No second requirements system created.
+
+VALIDATION BOUNDARY
+Model runtimes own scientific input validation (Bremen exact 3+3 shape via
+validate_model_input; Aramina explicit target_side via the existing request
+validator). Invalid input fails before any scientific work/scoring (parity
+regression preserved). Platform validation (source existence, authorization,
+routing, job identity) stays on the platform.
+
+PREDICTION BOUNDARY
+Runtimes own complete scientific inference; providers translate
+RuntimePrediction.result into the established WorkflowResult payload. No new
+public API fields; existing result semantics preserved.
+
+ERROR COMPATIBILITY
+Internal ownership categories only (input invalid / unsupported / configuration
+required / preprocessing failed / inference failed). Public codes unchanged:
+Bremen safe reason constants preserved (Incompatible: requires_exactly_3_left_
+3_right, Feature construction failed: invalid_scientific_profiles,
+raw_peak_gate_failed); full ARAMINA_* code/stage/diagnostic taxonomy propagates
+unchanged. No paths/S3/artifact internals/tracebacks/tokens/env in errors
+(runtime errors use constant safe reasons).
+
+TESTS ADDED OR UPDATED
+Added tests/test_bremen_model_runtime_contract_v1.py (36 tests) covering:
+protocol satisfaction for both runtimes; requirements behavior and model-
+specific differences coexisting; validation routing; predict routing;
+provider delegation via a minimal fake runtime (no provider science edits);
+error category ownership/safety; runtime-derived Model Requirements API;
+dependency-direction check. Extended tests/test_bremen_3x3_runtime_parity.py
+with one contract-wiring test.
+
+TEST COUNT ADDED: 37 new test functions (36 contract + 1 parity). Collected
+contract file = 36; parity addition = 1.
+
+VALIDATION RUN (exact commands)
+- python -m compileall -q src tests -> exit 0
+- pytest -q tests/test_bremen_model_runtime_contract_v1.py -> 36 passed
+- pytest -q tests/test_bremen_3x3_runtime_parity.py
+  tests/test_bremen_3x3_training_parity.py tests/test_bremen_workflow_bremen.py
+  tests/test_bremen_runtime_plugin.py -> 151 passed
+- pytest -q tests/test_aramina_workflow_runtime.py
+  tests/test_aramina_provider_contract.py tests/test_bremen_workflow_aramina_scaffold.py
+  -> 282 passed
+- pytest -q tests/test_bremen_model_requirements_api.py -> 35 passed
+- pytest -q tests/test_bremen_workflow_registry.py tests/test_multi_model_execution.py
+  tests/test_catalog_api_multi_model.py tests/test_bremen_training_runtime_separation.py
+  tests/test_bremen_inference_integration.py tests/test_bremen_h5_layouts.py
+  -> 156 passed, 2 skipped
+- pytest -q (full) -> 4150 passed, 11 skipped, 0 failed
+- ruff check on every changed Python file -> only one PRE-EXISTING F401
+  (dataclasses.field in workflow_provider.py, present identically at HEAD,
+  unrelated to this change; left untouched)
+- git diff --check -> exit 0
+
+VALIDATION RESULTS
+All targeted suites pass. Bremen scientific parity unchanged (golden features/
+probability diff 0, all-six participation, permutation invariance, raw-H5
+parity, invalid-shape fail-closed). Aramina regressions unchanged (runtime/
+provider/preprocessing/report; target_side semantics; failure taxonomy;
+routing; report contract). Common contract tests pass. Full pytest green.
+
+BREMEN SCIENTIFIC PARITY RESULT: unchanged (PR0151/PR0152 suites pass;
+predict_model delegates to the frozen run(); parity test asserts exactly one
+run() call through the contract).
+ARAMINA REGRESSION RESULT: unchanged (AraminaRuntime composes existing
+functions; provider payload/failure projection byte-equal; 282 Aramina tests
+pass).
+COMMON CONTRACT TEST RESULT: 36 pass.
+PUBLIC API COMPATIBILITY: preserved (no new/renamed fields or codes;
+requirements enrichment is additive and gated).
+
+DIFF SUMMARY
+7 tracked files changed (+574/-43), 2 untracked Python artifacts added
+(contract module + contract test), 1 PR memory dir. Scope matches PLAN.md
+EXPECTED SCOPE.
+
+PLAN COMPLIANCE
+Matches .project-memory/pr/0153b-model-runtime-contract-v1/PLAN.md.
+
+BLOCKERS
+None.
+
+WARNINGS
+- One pre-existing repo F401 in workflow_provider.py was intentionally not
+  fixed (unrelated to this PR; not introduced by these edits).
+- Contract test imports Aramina symbols lazily to remain correct when
+  test_bremen_api_skeleton reimports bremen.api during the full session.
+- Live deployment model identity verification (PR0152 post-deploy smoke) is
+  still an operator step; unaffected by this interface refactor.
+
+KNOWN REMAINING COUPLING FOR PR0154 (documented in docs/model_runtime_contract_v1.md)
+- ModelInput.container_path: Aramina artifact preprocessing still consumes a
+  platform-staged filesystem path (should become a platform-owned container
+  abstraction).
+- ModelInput.patient_id: Aramina still performs patient identity binding
+  internally via _validate_aramina_source (should move fully to platform).
+- bremen_features.build_bremen_features lazily imports
+  validate_canonical_measurement from bremen.api.xrd_normalization.
+- Bremen model identity constants in bremen_runtime.py should be sourced from
+  the model package manifest (PR0154 inference-complete packaging).
+
+BOUNDARY CONFIRMATIONS
+- confirm: implementation followed approved PLAN.txt/PLAN.md
+- confirm: no review artifact written
+- confirm: PLAN.md not modified after creation (created once, then implemented)
+- confirm: plan-review artifact not modified (none present; not authored)
+- confirm: only PLAN-approved paths changed
+- confirm: test discipline rules applied (regressions preserved, not weakened;
+  one authoritative science implementation per model)
+- confirm: validation commands run and recorded
+- confirm: no git mutation commands run (no commit/branch/reset/etc.)
+- confirm: no registry push or secrets introduced
+- confirm: no /demo/* prohibited fields introduced
+- confirm: unavailable model candidates remain display-only and non-executable
+  (display-only Aramina yields no runtime-derived requirements)
+- confirm: no model retraining / no scientific/threshold/feature changes
+- confirm: no MLflow/BentoML/KServe or new network model service introduced
+- confirm: IMPLEMENTATION_REPORT.txt written and is handoff context only

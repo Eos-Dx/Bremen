@@ -41,6 +41,14 @@ import numpy as np
 import pandas as pd
 
 from .aramina_provider import AraminaProviderRequest
+from ..model_runtime import (
+    CONTRACT_VERSION,
+    ModelInput,
+    ModelInputInvalidError,
+    ModelRequirements,
+    ModelValidation,
+    RuntimePrediction,
+)
 from .model_registry import RegistryModelEntry
 from .workflow_provider import (
     CompatibilityResult,
@@ -803,17 +811,138 @@ def _run_local_artifact(
 
 
 # ---------------------------------------------------------------------------
+# Model Runtime Contract v1 (PR0153B)
+# ---------------------------------------------------------------------------
+
+# Model-declared request-field contract.  These match the existing public
+# requirements defaults exactly; exposing them through the runtime lets the
+# Model Requirements API derive model-specific requirements instead of
+# duplicating platform knowledge.  ``target_side`` remains explicit.
+ARAMINA_WORKFLOW_ID = "aramina"
+ARAMINA_REQUEST_FIELDS = ("container_id", "source_id", "patient_id", "target_side")
+ARAMINA_OPTIONAL_REQUEST_FIELDS = ("analysis_author", "prediction_comment")
+ARAMINA_ALLOWED_TARGET_SIDES = ("left", "right")
+
+
+class AraminaRuntime:
+    """Model Runtime Contract v1 adapter over the existing Aramina pipeline.
+
+    It owns model-specific scientific inference by composing the authoritative
+    module-level functions already in this file (``_build_aramina_request_json``,
+    ``_load_selected_artifact``, ``_run_local_artifact``).  No Aramina science
+    is reimplemented or duplicated here: preprocessing release selection, LR1,
+    symmetry, the final model and the threshold all stay in the existing
+    pipeline functions.  ``AraminaWorkflowError`` propagates unchanged so the
+    established public code/stage/diagnostic taxonomy is preserved exactly.
+    """
+
+    workflow_id = ARAMINA_WORKFLOW_ID
+
+    def __init__(self, *, entry: RegistryModelEntry) -> None:
+        self._entry = entry
+
+    def model_requirements(self) -> ModelRequirements:
+        """Describe the Aramina model-specific input contract."""
+        return ModelRequirements(
+            contract_version=CONTRACT_VERSION,
+            workflow_id=ARAMINA_WORKFLOW_ID,
+            model_id=self._entry.model_id,
+            model_version=self._entry.model_version,
+            feature_schema_version=self._entry.feature_schema_version,
+            # Aramina does not declare a fixed per-side measurement count; it
+            # consumes all target-side profiles produced by artifact preprocessing.
+            measurement_sides=(),
+            total_measurements=None,
+            requires_target_side=True,
+            allowed_target_sides=ARAMINA_ALLOWED_TARGET_SIDES,
+            request_fields=ARAMINA_REQUEST_FIELDS,
+            optional_request_fields=ARAMINA_OPTIONAL_REQUEST_FIELDS,
+            notes=(
+                "Aramina requires an explicit target_side (left or right).",
+                "Preprocessing is artifact-owned and release-gated.",
+            ),
+        )
+
+    def _request_json(self, input: ModelInput) -> dict[str, str]:
+        """Build the validated local request from the runtime input carrier."""
+        parameters = input.parameters if isinstance(input.parameters, dict) else {}
+        author = str(parameters.get("analysis_author", "") or "")
+        comment = str(parameters.get("prediction_comment", "") or "")
+        return _build_aramina_request_json(
+            patient_id=input.patient_id,
+            target_side=input.target_side,
+            analysis_author=author,
+            prediction_comment=comment,
+        )
+
+    def validate_model_input(self, input: ModelInput) -> ModelValidation:
+        """Validate the model-specific explicit-target_side contract.
+
+        Only the request-parameter scientific contract is checked here; the
+        full canonical/source validation remains where it already happens,
+        inside the artifact pipeline.  Platform concerns (source existence,
+        authorization, routing, job identity) are not runtime responsibilities.
+        """
+        if input.canonical is None:
+            raise ModelInputInvalidError("not_a_canonical_case")
+        try:
+            self._request_json(input)
+        except AraminaWorkflowError as exc:
+            # Public code is preserved by the provider; the runtime category
+            # carries the same safe reason.
+            raise ModelInputInvalidError(exc.code) from None
+        return ModelValidation(compatible=True)
+
+    def predict_model(
+        self, input: ModelInput, *, on_features=None,
+    ) -> RuntimePrediction:
+        """Execute the existing artifact pipeline through the contract boundary.
+
+        ``on_features`` is accepted for contract compatibility; Aramina does
+        not emit a feature-stage boundary, so it is intentionally a no-op and
+        no scientific behaviour is added.
+        """
+        request_json = self._request_json(input)
+        report = _run_local_artifact(
+            self._entry, input.canonical, request_json, input.container_path,
+        )
+        return RuntimePrediction(
+            workflow_id=ARAMINA_WORKFLOW_ID,
+            model_id=self._entry.model_id,
+            model_version=str(report.get("model_version", "") or ""),
+            result=report,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Workflow provider
 # ---------------------------------------------------------------------------
 
 
 class AraminaWorkflowProvider(WorkflowProvider):
-    """Run one catalog-selected Aramina artifact locally."""
+    """Run one catalog-selected Aramina artifact locally.
+
+    Platform adapter only: it resolves/owns the model runtime, passes the
+    canonical/model input, invokes the runtime contract and translates the
+    runtime outcome into the established workflow result.  It performs no
+    model-specific scientific preprocessing, feature engineering, aggregation,
+    scaler/estimator math or threshold application of its own.
+    """
 
     workflow_id = "aramina"
 
     def __init__(self, *, entry: RegistryModelEntry) -> None:
         self._entry = entry
+        self._runtime = AraminaRuntime(entry=entry)
+
+    @property
+    def runtime(self) -> AraminaRuntime:
+        """The model runtime this provider orchestrates."""
+        return self._runtime
+
+    def model_runtime(self) -> AraminaRuntime:
+        """Return the Model Runtime Contract v1 implementation for this workflow."""
+        return self._runtime
 
     def readiness(self) -> WorkflowReadiness:
         return WorkflowReadiness(
@@ -840,13 +969,22 @@ class AraminaWorkflowProvider(WorkflowProvider):
         try:
             if aramina_request is None:
                 raise AraminaWorkflowError("ARAMINA_INVALID_REQUEST")
-            request_json = _build_aramina_request_json(
+            model_input = ModelInput(
+                workflow_id=self.workflow_id,
+                measurements=tuple(getattr(canonical, "measurements", ()) or ()),
+                canonical=canonical,
                 patient_id=aramina_request.patient_id,
                 target_side=aramina_request.target_side,
-                analysis_author=aramina_request.analysis_author,
-                prediction_comment=aramina_request.prediction_comment,
+                container_path=h5_path,
+                parameters={
+                    "analysis_author": aramina_request.analysis_author,
+                    "prediction_comment": aramina_request.prediction_comment,
+                    "container_id": aramina_request.container_id,
+                    "source_id": aramina_request.source_id,
+                },
             )
-            report = _run_local_artifact(self._entry, canonical, request_json, h5_path)
+            prediction = self._runtime.predict_model(model_input)
+            report = dict(prediction.result)
             payload = {
                 "workflow_id": self.workflow_id,
                 "model_id": self._entry.model_id,

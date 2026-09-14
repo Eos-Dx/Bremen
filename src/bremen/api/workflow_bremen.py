@@ -17,8 +17,14 @@ from typing import Any
 
 import numpy as np
 
-from bremen.bremen_runtime import (
-    BremenRuntime, BremenRuntimeError, BremenFeatureError, BremenModelResult,
+from bremen.bremen_runtime import BremenRuntime, BremenModelResult
+from bremen.model_runtime import (
+    ModelConfigurationRequiredError,
+    ModelInferenceFailedError,
+    ModelInput,
+    ModelInputInvalidError,
+    ModelRuntimeError,
+    RuntimePrediction,
 )
 
 from .workflow_provider import (
@@ -98,14 +104,29 @@ class BremenProvider(WorkflowProvider):
         model_checksum: str | None = None,
         model_version: str | None = None,
         model_id: str | None = None,
+        runtime: BremenRuntime | None = None,
     ) -> None:
         self._raw_model_package = model_package
-        self._runtime = BremenRuntime(model_package)
-        self._model_package = self._runtime.package
+        self._runtime = runtime if runtime is not None else BremenRuntime(model_package)
+        # ``package``/``model_ready`` are concrete BremenRuntime capabilities;
+        # reading them defensively keeps the provider a pure contract adapter
+        # (a minimal fake runtime only needs the three contract members).
+        self._model_package = getattr(self._runtime, "package", None)
         self._model_id = model_id or "bremen_mri_triage_logreg"
         self._model_checksum = model_checksum
         self._model_version = model_version
         self._model_validated = False
+
+    # ---- WorkflowProvider identity and runtime handle ----
+
+    @property
+    def runtime(self) -> BremenRuntime:
+        """The model runtime this provider orchestrates."""
+        return self._runtime
+
+    def model_runtime(self) -> BremenRuntime:
+        """Return the Model Runtime Contract v1 implementation for this workflow."""
+        return self._runtime
 
     # ---- Readiness ----
 
@@ -128,11 +149,13 @@ class BremenProvider(WorkflowProvider):
         measurements = getattr(canonical, "measurements", None)
         if measurements is None:
             return CompatibilityResult(compatible=False, reason="not_a_canonical_case")
-        try:
-            self._runtime.validate_input(measurements)
-        except BremenFeatureError:
+        validation = self._runtime.validate_model_input(
+            ModelInput(workflow_id=self.workflow_id, measurements=measurements),
+        )
+        if not validation.compatible:
             return CompatibilityResult(
-                compatible=False, reason="requires_exactly_3_left_3_right",
+                compatible=False,
+                reason=validation.safe_reason or "requires_exactly_3_left_3_right",
             )
         return CompatibilityResult(compatible=True)
 
@@ -153,7 +176,7 @@ class BremenProvider(WorkflowProvider):
     # ---- Inference ----
 
     def run_inference(self, features: WorkflowFeatureVector) -> WorkflowResult:
-        """Run portable logistic regression inference."""
+        """Run portable logistic regression inference via the model runtime."""
         if not self._validate_model_internal():
             return WorkflowResult(
                 workflow_id=self.workflow_id,
@@ -163,7 +186,7 @@ class BremenProvider(WorkflowProvider):
 
         try:
             result = self._runtime.score(features.feature_names, features.feature_values)
-        except BremenRuntimeError:
+        except ModelRuntimeError:
             return WorkflowResult(
                 workflow_id=self.workflow_id, status="failed", error="Model execution failed",
             )
@@ -172,6 +195,29 @@ class BremenProvider(WorkflowProvider):
     def _project_model_result(self, result: BremenModelResult) -> WorkflowResult:
         """Translate the structured runtime result without scientific arithmetic."""
         decision = result.decision
+        return self._project_prediction(RuntimePrediction(
+            workflow_id=self.workflow_id,
+            model_version=self._model_version or "",
+            result={
+                "probability": result.probability,
+                "prediction": result.prediction,
+                "threshold_applied": result.threshold,
+                "decision_code": decision.decision_code,
+                "decision_display_name": decision.decision_display_name,
+                "decision_policy_id": decision.decision_policy_id,
+                "decision_policy_version": decision.decision_policy_version,
+                "triage_recommendation": decision.legacy_triage,
+            },
+        ))
+
+    def _project_prediction(self, prediction: RuntimePrediction) -> WorkflowResult:
+        """Project a contract runtime result into the established payload shape.
+
+        The provider never performs model arithmetic; it only copies the
+        model-owned result mapping into the existing payload fields and adds
+        provider-held platform metadata (prediction id, checksum, versions).
+        """
+        result = prediction.result
         return WorkflowResult(
             workflow_id=self.workflow_id,
             status="completed",
@@ -180,14 +226,14 @@ class BremenProvider(WorkflowProvider):
                 "model_version": self._model_version or "unknown",
                 "model_checksum": self._model_checksum or "",
                 "feature_schema_version": "v0.1",
-                "probability": result.probability,
-                "prediction": result.prediction,
-                "threshold_applied": result.threshold,
-                "triage_recommendation": decision.legacy_triage,
-                "decision_code": decision.decision_code,
-                "decision_display_name": decision.decision_display_name,
-                "decision_policy_id": decision.decision_policy_id,
-                "decision_policy_version": decision.decision_policy_version,
+                "probability": result["probability"],
+                "prediction": result["prediction"],
+                "threshold_applied": result["threshold_applied"],
+                "triage_recommendation": result["triage_recommendation"],
+                "decision_code": result["decision_code"],
+                "decision_display_name": result["decision_display_name"],
+                "decision_policy_id": result["decision_policy_id"],
+                "decision_policy_version": result["decision_policy_version"],
             },
         )
 
@@ -206,18 +252,19 @@ class BremenProvider(WorkflowProvider):
         # --- Compatibility check ---
         compat = self.validate_compatibility(canonical)
         if not compat.compatible:
+            reason = compat.reason or "incompatible"
             if context:
                 context.emit(
                     "runtime.input.preparation.failed",
                     "input", "failed",
                     details={
-                        "reason": compat.reason or "incompatible",
+                        "reason": reason,
                         "workflow_configuration_required": (
-                            compat.reason == "workflow_configuration_required"
+                            reason == "workflow_configuration_required"
                         ),
                     },
                 )
-            if compat.reason == "workflow_configuration_required":
+            if reason == "workflow_configuration_required":
                 return WorkflowResult(
                     workflow_id=self.workflow_id,
                     status="failed",
@@ -247,8 +294,14 @@ class BremenProvider(WorkflowProvider):
                 error="Model not ready",
             )
 
-        # The runtime owns the complete scientific sequence. The callback only
-        # projects feature-stage metadata into the existing job event stream.
+        # The model runtime owns the complete scientific sequence through the
+        # Model Runtime Contract v1 boundary: one predict call; the callback
+        # only projects feature-stage metadata into the existing job stream.
+        model_input = ModelInput(
+            workflow_id=self.workflow_id,
+            measurements=getattr(canonical, "measurements", ()),
+        )
+
         def trace_features(features):
             if context:
                 context.emit(
@@ -259,12 +312,52 @@ class BremenProvider(WorkflowProvider):
                 self.validate_features(features, context)
 
         try:
-            model_result = self._runtime.run(canonical.measurements, on_features=trace_features)
-        except BremenRuntimeError:
+            prediction = self._runtime.predict_model(
+                model_input, on_features=trace_features,
+            )
+        except ModelInputInvalidError as exc:
+            # Fail-safe parity with the pre-contract behaviour: shape failures
+            # are already handled by the compatibility gate above.
+            if context:
+                context.emit(
+                    "runtime.input.preparation.failed", "input", "failed",
+                    details={
+                        "reason": exc.safe_reason, "workflow_configuration_required": False,
+                    },
+                )
+            return WorkflowResult(
+                workflow_id=self.workflow_id, status="failed",
+                error=f"Incompatible: {exc.safe_reason}",
+            )
+        except ModelConfigurationRequiredError:
+            if context:
+                context.emit(
+                    "runtime.input.preparation.failed", "input", "failed",
+                    details={
+                        "reason": "workflow_configuration_required",
+                        "workflow_configuration_required": True,
+                    },
+                )
+            return WorkflowResult(
+                workflow_id=self.workflow_id,
+                status="failed",
+                error="Workflow configuration required for multi-position input",
+            )
+        except ModelInferenceFailedError:
             if context:
                 context.emit("runtime.model.execution.failed", "model", "failed")
             return WorkflowResult(
                 workflow_id=self.workflow_id, status="failed", error="Model execution failed",
+            )
+        except ModelRuntimeError as exc:
+            if context:
+                context.emit(
+                    "runtime.features.failed", "features", "failed",
+                    details={"reason": exc.safe_reason},
+                )
+            return WorkflowResult(
+                workflow_id=self.workflow_id, status="failed",
+                error=f"Feature construction failed: {exc.safe_reason}",
             )
         except Exception:
             if context:
@@ -276,7 +369,7 @@ class BremenProvider(WorkflowProvider):
                 workflow_id=self.workflow_id, status="failed",
                 error="Feature construction failed: invalid_scientific_profiles",
             )
-        result = self._project_model_result(model_result)
+        result = self._project_prediction(prediction)
 
         # --- Per-side measurement counts (PR0096) ---
         if result.status == "completed" and result.payload is not None:
@@ -531,5 +624,6 @@ class BremenProvider(WorkflowProvider):
     # ---- Internal ----
 
     def _validate_model_internal(self) -> bool:
-        self._model_validated = self._runtime.model_ready()
+        model_ready = getattr(self._runtime, "model_ready", None)
+        self._model_validated = bool(model_ready()) if callable(model_ready) else True
         return self._model_validated

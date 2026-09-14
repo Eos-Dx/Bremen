@@ -1,6 +1,6 @@
 # Model Runtime Contract v1
 
-Status: Proposed platform contract
+Status: Accepted platform contract (implemented by PR0153B; see "PR0153B implementation notes" at the end of this document)
 
 Purpose
 
@@ -226,9 +226,9 @@ Migration sequence
 
 PR0152 established the first dedicated Bremen scientific runtime.
 
-PR0153 will formalize and integrate Model Runtime Contract v1 across the platform without changing model science.
+PR0153/PR0153B formalized and integrated Model Runtime Contract v1 across the platform without changing model science (see implementation notes below).
 
-A later PR may move BremenRuntime into an inference-complete model package outside the platform-owned scientific source tree.
+A later PR (PR0154) may move BremenRuntime into an inference-complete model package outside the platform-owned scientific source tree.
 
 MLflow or an equivalent framework may then be evaluated as a packaging and registry mechanism.
 
@@ -246,3 +246,23 @@ Non-goals for Contract v1
 Acceptance principle
 
 A future model integration is correct only when Bremen Platform can invoke the model without independently reconstructing the scientific logic required to produce that model prediction.
+
+PR0153B implementation notes
+
+Concrete Python shape (as permitted by this document: the ADR defines semantic responsibilities, not a mandatory implementation form):
+
+- The contract is implemented as a structural typing.Protocol, bremen.model_runtime.ModelRuntime (repo precedent: EventSink, RecordResolver). No ABC, no base class, no shared fake behavior is required; implementations satisfy it structurally.
+- The three semantic operations map to model_requirements(), validate_model_input(input), and predict_model(input) and return the structured types ModelRequirements, ModelValidation, and RuntimePrediction. The method names carry a model_ prefix to stay unambiguous alongside the workflow-level lifecycle methods already owned by WorkflowProvider (readiness, validate_compatibility, build_features, run_inference, execute); the semantic responsibilities are unchanged.
+- Runtime input is the ModelInput carrier (canonical measurements/case plus model-declared request parameters). It uses the existing canonical data model; no canonical model redesign was performed.
+- Internal error ownership categories are implemented as ModelRuntimeError plus ModelInputInvalidError, ModelInputUnsupportedError, ModelConfigurationRequiredError, ModelPreprocessingFailedError, and ModelInferenceFailedError. Public error codes were not renamed; adapters preserve established envelopes (Bremen safe reason constants and the full ARAMINA_* code/stage/diagnostic taxonomy propagate unchanged through AraminaRuntime).
+- Dependency direction is enforced by tests: bremen/model_runtime.py imports nothing from bremen.api, the Bremen runtime, the Aramina pipeline, or any model-specific scientific module.
+- Bremen: BremenRuntime implements the contract directly (no wrapper layer); predict_model delegates to the untouched PR0152 run() sequence. workflow_bremen.py remains a thin adapter: it invokes exactly one predict_model call per execution and translates contract categories into the PR0152 error envelopes byte-for-byte.
+- Aramina: AraminaRuntime (in api/workflow_aramina.py, the authoritative Aramina module) is a contract adapter composing the existing pipeline functions. No Aramina scientific logic was duplicated or rewritten; target_side semantics, source resolution behavior, preprocessing release selection and failure classification are externally identical.
+- Model Requirements API: where a runtime is reachable, model-specific request fields are derived from the runtime and the response gains an additive container_requirements.model_runtime block (contract_version, input_requirements). With no reachable runtime (display-only or scaffold rows) the response is unchanged. No endpoint paths, fields or types were altered.
+
+Known remaining platform coupling for PR0154:
+
+- ModelInput.container_path: Aramina artifact preprocessing still consumes a platform-staged filesystem path. An inference-complete model package should accept a container abstraction (bytes/source-of-record ref) owned by the platform, removing paths from the runtime input.
+- ModelInput.patient_id: the Aramina pipeline still performs patient identity binding internally (via _validate_aramina_source called inside the existing pipeline). This is platform-identity logic living behind the runtime boundary and should move fully to the platform in PR0154.
+- bremen_features.build_bremen_features lazily imports validate_canonical_measurement from bremen.api.xrd_normalization (flagged in the PR0152 review). Decoupling belongs to PR0154 packaging work.
+- Bremen model identity constants in bremen_runtime.py mirror the frozen release evidence; PR0154 should source them from the model package manifest itself.
