@@ -1,0 +1,28 @@
+{
+  "source_repository": "bremen-training-pipeline",
+  "source_commit": "c98a950d3fbf0db72d87f2ecd977d80fe35da9e4",
+  "source_sha256": {
+    "src/bremen/reference_features.py": "707cbf331be238e3448570dd19b26690c5b2bc814602e1acad6bff830d567a84",
+    "src/bremen/features.py": "21097008b40cc789ff7c2a45787a834c5eefe92e257eead86f7a4abfe8a55a8f",
+    "src/bremen/prediction.py": "ca764f7cb6a0396d62af1e28f9369b612613616e7cfa428b9f602b513f6a5351",
+    "src/bremen/paper_reference.py": "d4da6b083058a8ada9dd6dcff69b0a3853039b9b15101195f8b04b7b9cc781f4",
+    "src/bremen/training.py": "5743e2457c301a0fbc1bd9a42c535908e8e96e9bbde2b4660d30cb0fad7578d6",
+    "config/preprocessing/bremen_paper_reference_all_n256_v0_2.yaml": "ef6f624b26bbc0b5a007c7c3e7fb1f36294bfa974d23748d565bf988f724a8be"
+  },
+  "model_sha256": "65866f441a119cddeb965e5c414c9f87aafd46ec5fd7a866cf9f0fef408df3b0",
+  "model_identity": {
+    "name": "bremen_paper_reference_symmetry_logreg",
+    "version": "0.2.0-paper-reference",
+    "created_by": "VK",
+    "clinical_stage": "research reference",
+    "intended_use": "Exact Bremen reproduction of the frozen 15-feature paper model."
+  },
+  "model_id": null,
+  "generation": "Synthetic analytic profiles; original source build_feature_frame and existing estimator.predict_proba. No training or patient data.",
+  "versions": {
+    "numpy": "2.5.0",
+    "pandas": "2.3.3",
+    "scipy": "1.18.0",
+    "sklearn": "1.9.0"
+  }
+}
