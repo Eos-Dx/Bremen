@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import h5py
@@ -177,6 +177,22 @@ class CanonicalH5LayoutAdapter(H5LayoutAdapter):
     def detect(self, h5_file: h5py.File) -> bool:
         return "/scans/target/measurements" in h5_file
 
+    def normalize_bremen_to_canonical(self, h5_file: h5py.File) -> CanonicalXRDCase:
+        """Use explicit physical q coordinates for Bremen, never array indices."""
+        from dataclasses import replace
+        from bremen.api.preflight import H5ContainerError
+
+        case = self.normalize_to_canonical(h5_file)
+        measurements = []
+        for side, label in [("LEFT", "target"), ("RIGHT", "contralateral")]:
+            q_path = f"/scans/{label}/q"
+            if q_path not in h5_file:
+                raise H5ContainerError("Missing physical q coordinates")
+            q = np.asarray(h5_file[q_path][()], dtype=np.float64)
+            for i, m in enumerate(m for m in case.measurements if m.side == side):
+                measurements.append(replace(m, q=q if q.ndim == 1 else q[i]))
+        return replace(case, measurements=tuple(measurements))
+
     def normalize_to_canonical(self, h5_file: h5py.File) -> CanonicalXRDCase:
         """Canonical layout: reads existing measurements arrays."""
         import hashlib
@@ -225,7 +241,6 @@ class CanonicalH5LayoutAdapter(H5LayoutAdapter):
         control_side = _read_side(h5_file, "/scans/contralateral/side")
 
         # Read measurements for counting
-        from bremen.api.preflight import H5MeasurementError
 
         target_measurements = h5_file["/scans/target/measurements"][:]
         control_measurements = h5_file["/scans/contralateral/measurements"][:]
@@ -280,6 +295,40 @@ class CalibrationSampleH5LayoutAdapter(H5LayoutAdapter):
                     return True
         return False
 
+    def normalize_bremen_to_canonical(self, h5_file: h5py.File) -> CanonicalXRDCase:
+        """Retain every sample set for Bremen instead of selecting a pair."""
+        import hashlib
+        from pathlib import Path
+        from bremen.api.preflight import H5ContainerError
+
+        measurements = []
+        for key, calibration in h5_file.items():
+            if not key.startswith("calib_"):
+                continue
+            for sample_key, sample in calibration.items():
+                if not sample_key.startswith("sample_"):
+                    continue
+                sample_type = _read_sample_metadata_str(
+                    h5_file, sample.name, "sample/sample_type",
+                )
+                if not sample_type or "sets" not in sample:
+                    raise H5ContainerError("Missing sample profile metadata")
+                side = _breast_type_to_side(sample_type)
+                for group in sample["sets"].values():
+                    if "integration/q" not in group or "integration/i" not in group:
+                        raise H5ContainerError("Missing sample profile arrays")
+                    measurements.append(CanonicalXRDMeasurement(
+                        side=side, position="session",
+                        q=np.asarray(group["integration/q"][()], dtype=np.float64),
+                        intensity=np.asarray(group["integration/i"][()], dtype=np.float64),
+                    ))
+        return CanonicalXRDCase(
+            source_layout=self.name, source_layout_version=self.version,
+            source_checksum=hashlib.sha256(Path(h5_file.filename).read_bytes()).hexdigest(),
+            calibration_provenance="session_pre_integrated",
+            measurements=tuple(measurements),
+        )
+
     def normalize_to_canonical(self, h5_file: h5py.File) -> CanonicalXRDCase:
         """Calibration layout: reads existing integration/q and integration/i.
 
@@ -310,6 +359,8 @@ class CalibrationSampleH5LayoutAdapter(H5LayoutAdapter):
                 "Insufficient samples in calibration group for normalization"
             )
 
+        # Legacy normalization only (e.g. Aramina); Bremen uses the all-set
+        # normalize_bremen_to_canonical method above, never this pair selection.
         # Use first two samples as target/control
         target_key = sample_keys[0]
         control_key = sample_keys[1]
@@ -629,6 +680,43 @@ class SessionLayoutH5Adapter(H5LayoutAdapter):
                     return True
         return False
 
+    def normalize_bremen_to_canonical(self, h5_file: h5py.File) -> CanonicalXRDCase:
+        """Keep every session profile and its native q for Bremen 3×3 inference.
+
+        Unlike the legacy pair context, alignment belongs to the scientific
+        builder. Aramina continues to use normalize_to_canonical unchanged.
+        """
+        import hashlib
+        from pathlib import Path
+        from bremen.api.preflight import H5ContainerError
+
+        sample_type = _read_sample_metadata_str(h5_file, "/session", "sample/sample_type")
+        if not sample_type:
+            raise H5ContainerError("Missing session side metadata")
+        target_side = _breast_type_to_side(sample_type)
+        control_side = "RIGHT" if target_side == "LEFT" else "LEFT"
+        measurements = []
+        for key, group in h5_file["/session/sets"].items():
+            if key.startswith("contralateral_set_") and key.endswith("_sample_main"):
+                side = control_side
+            elif key.startswith("set_") and key.endswith("_sample_main"):
+                side = target_side
+            else:
+                raise H5ContainerError("Unsupported session measurement structure")
+            if "integration/q" not in group or "integration/i" not in group:
+                raise H5ContainerError("Missing session profile arrays")
+            measurements.append(CanonicalXRDMeasurement(
+                side=side, position="session",
+                q=np.asarray(group["integration/q"][()], dtype=np.float64),
+                intensity=np.asarray(group["integration/i"][()], dtype=np.float64),
+            ))
+        return CanonicalXRDCase(
+            source_layout=self.name, source_layout_version=self.version,
+            source_checksum=hashlib.sha256(Path(h5_file.filename).read_bytes()).hexdigest(),
+            calibration_provenance="session_pre_integrated",
+            measurements=tuple(measurements),
+        )
+
     def normalize_to_canonical(self, h5_file: h5py.File) -> CanonicalXRDCase:
         """Session layout: reads existing integration/q and integration/i."""
         import hashlib
@@ -667,10 +755,7 @@ class SessionLayoutH5Adapter(H5LayoutAdapter):
         control_scan_ref: str,
     ) -> H5PredictionContext:
         from bremen.api.preflight import (
-            H5MetadataError,
             H5ContainerError,
-            H5SideMismatchError,
-            H5PatientMismatchError,
             resolve_patient_metadata,
         )
 
@@ -1212,7 +1297,6 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
                 )
 
         # ---- Pair by position key (NOT first-two) ----
-        pair_keys = {m["pair_key"] for m in measurements}
         pairs: dict[str, dict[str, dict]] = {}
         for m in measurements:
             pk = m["pair_key"]

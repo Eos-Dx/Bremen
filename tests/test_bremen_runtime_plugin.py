@@ -15,19 +15,14 @@ Covers:
 from __future__ import annotations
 
 import pytest
-import time as _time
 
 from bremen.api.execution_context import WorkflowExecutionContext
 from bremen.api.event_schema import (
-    JobEvent, EventType, validate_event_details,
+    JobEvent, validate_event_details,
 )
 from bremen.api.event_store import BoundedEventStore
-from bremen.api.lifecycle_contracts import (
-    PreparedArtifact, FeatureSet, FeatureValidation,
-    ModelOutput, OutputValidation, DecisionOutput,
-)
 from bremen.api.runtime_plugin import (
-    BREMEN_STAGE_ORDER, validate_stage_order, build_execution_trace,
+    BREMEN_STAGE_ORDER, validate_stage_order,
 )
 from bremen.api.execution_trace import (
     build_trace_from_events, measure_event_budget,
@@ -155,10 +150,6 @@ class TestFeatureStage:
 class TestDecisionStage:
     def test_execute_emits_decision_event(self):
         """Execute with context emits decision events via the single path."""
-        import numpy as np
-        from bremen.api.xrd_normalization import (
-            CanonicalXRDCase, CanonicalXRDMeasurement,
-        )
 
         model = {
             "portable_logreg": {
@@ -177,22 +168,8 @@ class TestDecisionStage:
             job_id="j1", request_id="r1", workflow_id="bremen",
             event_sink=sink,
         )
-        case = CanonicalXRDCase(
-            source_layout="test", source_layout_version="v1",
-            source_checksum="abc", calibration_provenance="test",
-            measurements=(
-                CanonicalXRDMeasurement(
-                    side="LEFT", position="P1",
-                    q=np.linspace(1, 10, 100, dtype=np.float64),
-                    intensity=np.random.default_rng(42).normal(10, 2, 100).astype(np.float64),
-                ),
-                CanonicalXRDMeasurement(
-                    side="RIGHT", position="P1",
-                    q=np.linspace(1, 10, 100, dtype=np.float64),
-                    intensity=np.random.default_rng(43).normal(10, 2, 100).astype(np.float64),
-                ),
-            ),
-        )
+        from tests.bremen_3x3_helpers import make_case
+        case = make_case()
         result = provider.execute(case, ctx)
         assert result.status == "completed"
         decision_events = [
@@ -202,43 +179,18 @@ class TestDecisionStage:
         assert len(decision_events) == 1
         assert decision_events[0].details.get("scientifically_certified") is False
 
-    def test_nova_configuration_required(self):
-        """Nova input with P1/P2/P3 positions returns configuration_required."""
-        import numpy as np
-        from bremen.api.xrd_normalization import (
-            CanonicalXRDCase, CanonicalXRDMeasurement,
-        )
-        provider = BremenProvider()
+    def test_nova_three_positions_use_frozen_contract(self):
+        """P1/P2/P3 now execute all six profiles without a selection policy."""
+        from tests.bremen_3x3_helpers import make_case, MODEL
+        provider = BremenProvider(model_package=MODEL)
         sink = _FakeSink()
         ctx = WorkflowExecutionContext(
-            job_id="j1", request_id="r1", workflow_id="bremen",
-            event_sink=sink,
+            job_id="j1", request_id="r1", workflow_id="bremen", event_sink=sink,
         )
-        # Nova-style: 6 measurements, P1/P2/P3 positions
-        rng = np.random.default_rng(42)
-        case = CanonicalXRDCase(
-            source_layout="nova", source_layout_version="v1",
-            source_checksum="abc", calibration_provenance="nova",
-            measurements=tuple(
-                CanonicalXRDMeasurement(
-                    side=s, position=p,
-                    q=np.linspace(1, 10, 100, dtype=np.float64),
-                    intensity=rng.normal(10, 2, 100).astype(np.float64),
-                )
-                for s in ("LEFT", "RIGHT")
-                for p in ("P1", "P2", "P3")
-            ),
-        )
-        result = provider.execute(case, ctx)
-        assert result.status == "failed"
-        assert "config" in (result.error or "").lower()
-        # Verify input_preparation.failed event was emitted
-        failed_events = [
-            e for e in sink.events
-            if e.event_type == "runtime.input.preparation.failed"
-        ]
-        assert len(failed_events) == 1
-        assert failed_events[0].details.get("workflow_configuration_required") is True
+        result = provider.execute(make_case(source_layout="nova"), ctx)
+        assert result.status == "completed"
+        assert not [e for e in sink.events if e.event_type == "runtime.input.preparation.failed"]
+        assert len([e for e in sink.events if e.event_type == "runtime.features.completed"]) == 1
 
 
 # ---------------------------------------------------------------------------

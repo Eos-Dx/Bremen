@@ -141,10 +141,6 @@ def test_product_shape_contract(sides, valid):
     assert (len(sides) == 6 and sides.count('LEFT') == sides.count('RIGHT') == 3) == valid
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    'PR0152: platform scaler adds 1e-10; frozen source probability differs '
-    'by 1.1408751721120325e-10. Production unchanged in PR0151.'
-))
 def test_current_platform_probability_against_training_golden():
     from bremen.inference import predict_proba_portable as platform_predict
 

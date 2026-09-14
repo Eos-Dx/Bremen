@@ -18,23 +18,15 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from bremen.api.workflow_provider import (
-    WorkflowFeatureVector,
-    WorkflowResult,
-    WorkflowReadiness,
-    CompatibilityResult,
-)
 from bremen.api.workflow_bremen import (
     BremenProvider,
     BREMEN_V01_FEATURE_COLUMNS,
     TRIAGE_RECOMMENDED,
     TRIAGE_RULE_OUT,
-    WorkflowConfigurationRequiredError,
     WorkflowIncompatibleError,
 )
 from bremen.api.xrd_normalization import (
     CanonicalXRDCase,
-    CanonicalXRDMeasurement,
 )
 
 
@@ -62,27 +54,9 @@ def _make_synthetic_model():
 
 
 def _make_canonical_case(**overrides) -> CanonicalXRDCase:
-    """Create a valid canonical case for testing."""
-    params = {
-        "source_layout": "test",
-        "source_layout_version": "v1",
-        "source_checksum": "abc123",
-        "calibration_provenance": "session_pre_integrated",
-        "measurements": (
-            CanonicalXRDMeasurement(
-                side="LEFT", position="P1",
-                q=np.linspace(1.0, 10.0, 100, dtype=np.float64),
-                intensity=np.random.default_rng(42).normal(10, 2, 100).astype(np.float64),
-            ),
-            CanonicalXRDMeasurement(
-                side="RIGHT", position="P1",
-                q=np.linspace(1.0, 10.0, 100, dtype=np.float64),
-                intensity=np.random.default_rng(43).normal(10, 2, 100).astype(np.float64),
-            ),
-        ),
-    }
-    params.update(overrides)
-    return CanonicalXRDCase(**params)
+    """Use valid 3+3 scientific profiles for production workflow tests."""
+    from tests.bremen_3x3_helpers import make_case
+    return make_case(**overrides)
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +183,7 @@ class TestBremenCompatibility:
         )
         result = provider.validate_compatibility(case)
         assert result.compatible is False
-        assert "requires_both_sides" in (result.reason or "")
+        assert "requires_exactly_3_left_3_right" in (result.reason or "")
 
     def test_not_canonical_case_is_incompatible(self):
         """Non-CanonicalXRDCase input is incompatible."""
@@ -409,10 +383,8 @@ class TestCrossWorkflowRejection:
         model = _make_synthetic_model()
         model["portable_logreg"]["feature_columns"][0] = "wrong_feature"
         provider = BremenProvider(model_package=model)
-        # The provider's internal validation doesn't check feature_columns
-        # (that's done by inference.validate_portable_logreg_model)
-        # But the dimensions check catches coef length
-        assert provider._validate_model_internal() is True  # passes structure check
+        # Runtime readiness now validates the complete frozen feature order.
+        assert provider._validate_model_internal() is False
 
 
 # ---------------------------------------------------------------------------
@@ -460,8 +432,8 @@ class TestPerSideMeasurementCounts:
         assert result.payload is not None
         assert "left_measurement_count" in result.payload
         assert "right_measurement_count" in result.payload
-        assert result.payload["left_measurement_count"] >= 1
-        assert result.payload["right_measurement_count"] >= 1
+        assert result.payload["left_measurement_count"] == 3
+        assert result.payload["right_measurement_count"] == 3
 
     def test_left_count_from_side_label(self):
         """left_measurement_count comes from side='LEFT' label."""
@@ -469,35 +441,14 @@ class TestPerSideMeasurementCounts:
             model_package=_make_synthetic_model(),
             model_version="test-v1",
         )
-        measurements = [
-            CanonicalXRDMeasurement(
-                side="LEFT", position="P1",
-                q=np.linspace(1.0, 10.0, 100, dtype=np.float64),
-                intensity=np.random.default_rng(42).normal(10, 2, 100).astype(np.float64),
-            ),
-            CanonicalXRDMeasurement(
-                side="LEFT", position="P1",
-                q=np.linspace(1.0, 10.0, 100, dtype=np.float64),
-                intensity=np.random.default_rng(44).normal(10, 2, 100).astype(np.float64),
-            ),
-            CanonicalXRDMeasurement(
-                side="RIGHT", position="P1",
-                q=np.linspace(1.0, 10.0, 100, dtype=np.float64),
-                intensity=np.random.default_rng(43).normal(10, 2, 100).astype(np.float64),
-            ),
-        ]
-        case = CanonicalXRDCase(
-            source_layout="test",
-            source_layout_version="v1",
-            source_checksum="abc123",
-            calibration_provenance="session_pre_integrated",
-            measurements=tuple(measurements),
-        )
+        # Interleave sides: counts must follow labels, not array halves.
+        ms = _make_canonical_case().measurements
+        case = _make_canonical_case(measurements=tuple(ms[i] for i in [3, 0, 4, 1, 5, 2]))
         result = provider.execute(case)
         assert result.status == "completed"
         assert result.payload is not None
-        assert result.payload["left_measurement_count"] == 2
-        assert result.payload["right_measurement_count"] == 1
+        assert result.payload["left_measurement_count"] == 3
+        assert result.payload["right_measurement_count"] == 3
 
     def test_counts_absent_when_incompatible(self):
         """Counts not present in payload when execution fails."""
@@ -513,5 +464,5 @@ class TestPerSideMeasurementCounts:
         )
         case = _make_canonical_case()
         result = provider.execute(case)
-        # Canonical case has 1 LEFT + 1 RIGHT = 2 total
-        assert result.payload["left_measurement_count"] + result.payload["right_measurement_count"] == 2
+        # Canonical case has 3 LEFT + 3 RIGHT = 6 total
+        assert result.payload["left_measurement_count"] + result.payload["right_measurement_count"] == 6

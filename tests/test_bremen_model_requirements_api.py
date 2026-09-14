@@ -810,7 +810,6 @@ def test_post_validate_h5_path_not_echoed(monkeypatch):
 
 def _make_real_model_package() -> dict:
     """Create a minimal but functional portable_logreg model package."""
-    import numpy as np
 
     return {
         "portable_logreg": {
@@ -901,13 +900,13 @@ def _create_real_h5_file(tmp_path) -> str:
 
         # Target (LEFT) measurements
         target = h5.create_group("/scans/target")
-        target.create_dataset("measurements", data=rng.normal(1.0, 0.1, size=(1, 100)))
+        target.create_dataset("measurements", data=rng.normal(1.0, 0.1, size=(3, 100)))
         target.create_dataset("q", data=q)
         target.attrs["side"] = "LEFT"
 
         # Contralateral (RIGHT) measurements
         contra = h5.create_group("/scans/contralateral")
-        contra.create_dataset("measurements", data=rng.normal(0.8, 0.1, size=(1, 100)))
+        contra.create_dataset("measurements", data=rng.normal(0.8, 0.1, size=(3, 100)))
         contra.create_dataset("q", data=q)
         contra.attrs["side"] = "RIGHT"
 

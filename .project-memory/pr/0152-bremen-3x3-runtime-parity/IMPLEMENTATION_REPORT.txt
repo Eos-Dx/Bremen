@@ -1,0 +1,102 @@
+PR0152 — Bremen 3x3 production runtime parity with model-owned scientific boundary
+Branch: 0152-bremen-3x3-runtime-parity
+HEAD at start: dac5547 (PR0151, #211)
+No commit created.
+
+IMPLEMENTATION STATUS: complete (pending separate pre-commit review)
+
+PR0151 CONTRACT USED
+- Authoritative source: sibling bremen-training-pipeline @ c98a950d3fbf0db72d87f2ecd977d80fe35da9e4.
+- Frozen golden fixture tests/fixtures/bremen_3x3/{golden,model,intermediates,provenance}.json.
+- Tolerance absolute 1e-10, rtol 0. No scientific reinterpretation.
+
+MODEL RUNTIME BOUNDARY CREATED
+- src/bremen/bremen_features.py — frozen numerical primitives + 15-feature builder.
+- src/bremen/bremen_runtime.py — BremenRuntime (validation, preprocessing, features,
+  scoring, decision) returning structured BremenFeatures / BremenModelResult.
+- src/bremen/api/workflow_bremen.py — orchestration adapter only.
+
+WORKFLOW_BREMEN RESPONSIBILITIES AFTER CHANGE
+- Receives canonical input, selects runtime, passes all six measurements to
+  runtime.run(...) once, translates safe failures, projects structured result,
+  emits job events, reports per-side counts.
+- No left_ms[0]/right_ms[0], no aggregation, q-grid, smoothing, mean/std, 15
+  features, scaler arithmetic or logistic-regression math.
+
+SCIENTIFIC RUNTIME RESPONSIBILITIES
+- Owns the complete authoritative model-specific inference sequence.
+
+EXACT 3x3 PIPELINE
+- ROI crop -> Savitzky-Golay (11/3, interp edge) -> p05 normalization (narrow
+  no-op) -> overlapping finest-median-step common grid -> np.interp resample with
+  NaN outside bounds + all-row-finite filter -> LEFT/RIGHT grouping -> per-side
+  arithmetic mean and sample std ddof=1 -> two bands -> original-profile raw peaks
+  -> 15 features in frozen order -> imputation -> scaler -> logistic regression ->
+  threshold (>=).
+
+MODEL IDENTITY CHECK
+- model_id bremen-paper-reference-v0-2-0; version 0.2.0-paper-reference.
+- artifact SHA256 65866f441a119cddeb965e5c414c9f87aafd46ec5fd7a866cf9f0fef408df3b0
+  (matches PR0151 provenance and run manifest).
+- threshold 0.3585907282566089; classes [0,1]; frozen 15-column feature order.
+- Every portable parameter matches the frozen fixture exactly (max diff 0.0).
+- Local runtime artifact identity verified. Live deployment identity requires
+  post-deploy smoke verification.
+
+RAW-H5 PARITY
+- Synthetic non-sensitive 3+3 H5 generated in tests; production loading ->
+  runtime -> features -> inference. Max abs feature diff 2.2e-16; probability
+  exact. No patient H5, private path, source key or identifier committed.
+
+15-FEATURE GOLDEN PARITY: max abs diff 0.0 (atol 1e-10, rtol 0).
+PROBABILITY PARITY: 0.7388733541967353, diff 0.0.
+FIRST-PAIR REMOVAL: no left_ms[0]/right_ms[0]/first_pair in src.
+PERMUTATION RESULTS: 12 cases exact; H5 enumeration order does not change output.
+ALL-SIX PARTICIPATION: each of L1..R3 mutation changes 13 features.
+INVALID-SHAPE RESULTS: 3+2, 2+3, 4+2, 2+4, 1+1, 0+6, 6+0, 3+4, 0+0 all fail
+  closed with requires_exactly_3_left_3_right before science/scoring.
+OLD XFAIL STATUS: removed; test_current_platform_probability_against_training_golden
+  now passes normally.
+
+FILES CHANGED
+- docs/bremen_3x3_training_parity.md (PR0152 Part 2 added; PR0151 preserved)
+- src/bremen/bremen_features.py (new)
+- src/bremen/bremen_runtime.py (new)
+- src/bremen/api/workflow_bremen.py
+- src/bremen/api/h5_layouts.py
+- src/bremen/api/model_requirements.py
+- src/bremen/api/workflow_orchestrator.py
+- src/bremen/inference.py
+- tests/bremen_3x3_helpers.py (new)
+- tests/test_bremen_3x3_runtime_parity.py (new)
+- tests/test_bremen_3x3_training_parity.py
+- tests/test_bremen_inference_integration.py
+- tests/test_bremen_model_requirements_api.py
+- tests/test_bremen_runtime_plugin.py
+- tests/test_bremen_workflow_bremen.py
+- tests/test_multi_model_execution.py
+- .project-memory/pr/0152-bremen-3x3-runtime-parity/PLAN.md
+
+TARGETED TEST RESULTS
+- tests/test_bremen_3x3_runtime_parity.py: 52 passed
+- tests/test_bremen_3x3_training_parity.py: 32 passed (0 xfailed)
+- tests/test_bremen_workflow_bremen.py: 36 passed
+- affected job/API/inference/aramina regressions: all passed
+
+FULL PYTEST RESULT: 4112 passed, 11 skipped, 0 xfailed.
+RUFF RESULT: all changed Python files pass.
+GIT DIFF CHECK: exit 0.
+
+POST-DEPLOY VERIFICATION
+1. Confirm deployed artifact checksum equals 65866f44...df3b0.
+2. Confirm threshold 0.3585907282566089 and classes [0,1].
+3. Submit known 3+3 container; confirm 15 features and probability match golden
+   within atol 1e-10, rtol 0.
+4. Submit five-measurement container; confirm requires_exactly_3_left_3_right and
+   no completed inference result.
+
+RISKS AND NON-GATING NOTES
+- Raw-H5 fixture is synthetic; it is H5-container/profile evidence, not a
+  fabricated detector/PONI integration claim.
+- Live deployment identity not queryable from this environment.
+- Repository-wide Ruff has pre-existing findings outside changed files; not fixed.

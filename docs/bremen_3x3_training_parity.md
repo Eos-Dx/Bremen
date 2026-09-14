@@ -1,4 +1,17 @@
-# Bremen 3×3 training parity — PR0151 research investigation
+# Bremen 3×3 training parity — PR0151 investigation and PR0152 production runtime
+
+This document has two parts. **PR0151** (Part 1, preserved as historical evidence)
+established the authoritative 3 LEFT + 3 RIGHT training contract at the
+integrated-profile boundary and recorded the then-current production mismatch.
+**PR0152** (Part 2) implements that frozen contract in production behind a
+dedicated model-owned runtime boundary.
+
+Research decision support requiring radiologist review; no clinical validation or
+release claim is established here.
+
+---
+
+## Part 1 — PR0151 research investigation
 
 **AUTHORITATIVE BREMEN 3x3 TRAINING CONTRACT CONFIRMED** at the integrated-profile
 boundary for the source/model identified below. This verdict does **not** mean
@@ -247,3 +260,117 @@ Using the repository `venv/bin` Python 3.13 environment:
   outside the new files; no unrelated lint fixes made.
 - `git diff --check`: passed; new untracked files also checked separately.
 - Production diff: empty. No commit created.
+
+---
+
+## Part 2 — PR0152 production runtime parity
+
+PR0151 established authoritative training parity and froze the golden fixture.
+PR0152 implements that contract in production. The Bremen workflow provider no
+longer owns model-specific scientific feature engineering. Broader generic
+ModelRuntime formalization is deferred to PR0153.
+
+### Model-owned runtime boundary
+
+Production scientific inference now lives behind one dedicated boundary:
+
+| Module | Ownership |
+| --- | --- |
+| `src/bremen/bremen_features.py` | Frozen numerical primitives and the 15-feature builder (transcribed from the reviewed PR0151 reference). |
+| `src/bremen/bremen_runtime.py` | `BremenRuntime` — model-specific validation, preprocessing, feature construction, scoring and decision; returns structured `BremenFeatures` / `BremenModelResult`. |
+| `src/bremen/api/workflow_bremen.py` | Orchestration adapter only: canonical input, runtime selection, one `runtime.run(...)` call, safe failure translation, result projection, job events. |
+
+`BremenProvider` no longer selects `left_ms[0]` / `right_ms[0]`, computes
+aggregation, q-grid interpolation, smoothing, mean/std, the 15 features, scaler
+arithmetic or logistic-regression math. It passes the complete canonical
+measurement set to the runtime and projects the structured result. There is one
+authoritative production implementation of the 15-feature contract; the legacy
+first-pair feature helper was removed rather than duplicated.
+
+This is a concrete runtime, not a generic framework. The scientific core avoids
+Bremen Platform dependencies so it can later move into an inference-complete
+model package with minimal change (PR0153).
+
+### Exact 3x3 product contract
+
+A valid Bremen inference input contains exactly 3 LEFT + 3 RIGHT (six total).
+Five measurements are incomplete/invalid. 3+2, 2+3, 4+2, 2+4, 1+1, missing-left,
+missing-right, more than six and fewer than six all fail **before** any scientific
+work or scoring, with the fixed safe reason `requires_exactly_3_left_3_right`.
+No local path, S3 path, source key, artifact path, traceback, raw exception,
+environment variable or token is exposed. Scientific exceptions become the fixed
+constant `invalid_scientific_profiles`; the raw-peak eligibility gate
+(`mean_peak_value_raw >= 0.6`) is preserved as `raw_peak_gate_failed`.
+
+### Frozen scientific sequence (runtime-owned)
+
+All six measurements participate. The runtime reproduces PR0151 exactly: per-profile
+ROI crop, Savitzky-Golay smoothing (window 11, poly 3, SciPy default edge mode),
+p05 normalization (narrow ROI is a no-op), overlapping finest-median-step common
+grid, `np.interp` resampling with NaN outside bounds and all-row-finite column
+filter, LEFT/RIGHT grouping, per-side arithmetic mean and **sample std (`ddof=1`)**,
+two bands, original-profile raw peaks, the exact 15-feature order, imputation,
+scaler arithmetic and logistic-regression probability, then the authoritative
+threshold with positive decision at `>=`.
+
+Replicate variance is part of the trained model contract; the contract is not
+reducible to mean-left versus mean-right. The contract is order-independent within
+each side: permuting L1/L2/L3 or R1/R2/R3 does not change features or probability
+(bitwise equality is not claimed; parity holds within absolute `1e-10`, rtol 0).
+Incidental H5 enumeration order does not change inference.
+
+### Scaler parity
+
+The legacy runtime added `1e-10` to every scaler scale. That unauthorized
+numerical modification was removed. Scoring now imputes nonfinite entries,
+replaces scales `isclose(0)` with 1, and applies `((x-mean)/scale) @ coef +
+intercept` with the frozen class orientation. The PR0151 golden contract wins over
+legacy arithmetic.
+
+### Model identity
+
+The local runtime artifact was verified against PR0151 evidence:
+
+| Field | Value |
+| --- | --- |
+| model_id | `bremen-paper-reference-v0-2-0` |
+| model_version | `0.2.0-paper-reference` |
+| artifact SHA256 | `65866f441a119cddeb965e5c414c9f87aafd46ec5fd7a866cf9f0fef408df3b0` |
+| threshold | `0.3585907282566089` |
+| classes | `[0, 1]` |
+| feature schema | the frozen 15-column order |
+
+Every portable parameter (imputer statistics, scaler mean/scale, coefficients,
+intercept) matches the frozen fixture exactly. The artifact carries
+`feature_schema.feature_columns` and `decision.threshold` in structured metadata;
+`adapt_model_package` now reads those nested fields without changing any
+scientific parameter. **Local runtime artifact identity is verified. Live
+deployment identity requires post-deploy smoke verification** (see below).
+
+### Raw-H5 parity
+
+PR0151 stopped at the integrated-profile boundary. PR0152 extends evidence through
+the production raw-H5 path using a synthetic, non-sensitive 3+3 H5 fixture
+generated in tests (no patient H5, private path, source key or identifier is
+committed). The fixture exercises synthetic H5 -> production H5
+loading/canonicalization -> Bremen runtime -> 15-feature generation -> model
+inference, and reproduces the frozen features and probability. Bremen session,
+calibration and canonical loading retain all six native profiles and their
+physical q; the legacy pair-selecting loaders remain for Aramina.
+
+### Post-deploy verification steps
+
+1. Confirm the deployed artifact checksum equals
+   `65866f441a119cddeb965e5c414c9f87aafd46ec5fd7a866cf9f0fef408df3b0`.
+2. Confirm the loaded threshold is `0.3585907282566089` and classes are `[0, 1]`.
+3. Submit a known 3+3 container and confirm the 15 features and probability match
+   the frozen golden values within absolute `1e-10`, rtol 0.
+4. Submit a five-measurement container and confirm it fails with
+   `requires_exactly_3_left_3_right` and produces no completed inference result.
+
+### Non-goals
+
+No MLflow, BentoML, KServe or generic ModelRuntime protocol (PR0153); no Aramina
+refactor; no retraining; no new scientific formulas; no model coefficient or
+threshold changes; no frontend, PDF or report redesign; no `first_pair_legacy`
+public contract; no new public aggregation/selection report fields.

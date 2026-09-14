@@ -21,11 +21,10 @@ from bremen.inference import (
 )
 from bremen.api.preprocessing_bridge import (
     BREMEN_V01_FEATURE_COLUMNS,
-    FEATURE_SCHEMA_VERSION,
 )
 from bremen.api.inference_handler import run_inference
 from bremen.api.model_state import ModelState
-from bremen.api.app import handle_health, handle_submit_prediction
+from bremen.api.app import handle_health
 
 
 # ---------------------------------------------------------------------------
@@ -59,11 +58,13 @@ def _create_synthetic_h5(tmp_path: Path) -> Path:
         f.create_dataset("/patient/id", data="TEST-INF-001")
         tg = f.create_group("/scans/target")
         tg.create_dataset("side", data="L")
+        tg.create_dataset("q", data=np.linspace(2, 23, 100))
         tg.create_dataset(
             "measurements", data=np.random.default_rng(1).normal(0, 1, (3, 100)).astype(np.float64)
         )
         ct = f.create_group("/scans/contralateral")
         ct.create_dataset("side", data="R")
+        ct.create_dataset("q", data=np.linspace(2, 23, 100))
         ct.create_dataset(
             "measurements", data=np.random.default_rng(2).normal(0.3, 1, (3, 100)).astype(np.float64)
         )

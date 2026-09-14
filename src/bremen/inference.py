@@ -10,12 +10,11 @@ only ``math`` and ``numpy``.
 
 from __future__ import annotations
 
-import math
 from typing import Any
 
 import numpy as np
 
-from bremen.api.preprocessing_bridge import BREMEN_V01_FEATURE_COLUMNS
+from bremen.bremen_features import FEATURE_COLS as BREMEN_V01_FEATURE_COLUMNS
 
 
 class PortableLogRegModelError(Exception):
@@ -79,7 +78,7 @@ def predict_proba_portable(
 
     Steps:
     1. Validate package if not already validated.
-    2. Impute NaN features using ``imputer_statistics``.
+    2. Impute nonfinite features using ``imputer_statistics``.
     3. Scale using ``(x - scaler_mean) / scaler_scale``.
     4. Compute logit = ``dot(coef, scaled) + intercept``.
     5. Compute sigmoid probability.
@@ -105,14 +104,15 @@ def predict_proba_portable(
     plr = package["portable_logreg"]
     features = np.array(feature_vector, dtype=np.float64)
 
-    # 1. Impute NaN values
+    # 1. Impute nonfinite values
     imputer = np.array(plr["imputer_statistics"], dtype=np.float64)
-    features = np.where(np.isnan(features), imputer, features)
+    features = np.where(np.isfinite(features), features, imputer)
 
     # 2. Scale
     scaler_mean = np.array(plr["scaler_mean"], dtype=np.float64)
     scaler_scale = np.array(plr["scaler_scale"], dtype=np.float64)
-    scaled = (features - scaler_mean) / (scaler_scale + 1e-10)
+    scaler_scale = np.where(np.isclose(scaler_scale, 0.0), 1.0, scaler_scale)
+    scaled = (features - scaler_mean) / scaler_scale
 
     # 3. Compute logit
     coef = np.array(plr["coef"], dtype=np.float64)
@@ -120,7 +120,13 @@ def predict_proba_portable(
     logit = float(np.dot(coef, scaled)) + intercept
 
     # 4. Sigmoid
-    prob = 1.0 / (1.0 + math.exp(-logit))
+    with np.errstate(over="ignore"):
+        prob = float(1.0 / (1.0 + np.exp(-logit)))
+    classes = list(plr.get("classes", [0, 1]))
+    if classes == [1, 0]:
+        prob = 1.0 - prob
+    elif classes != [0, 1]:
+        raise PortableLogRegModelError("Unsupported portable class order")
 
     # 5. Apply threshold
     threshold = float(plr["threshold"])
@@ -207,6 +213,17 @@ def adapt_model_package(package: dict) -> dict:
     if "threshold" not in plr and "threshold" in package:
         plr["threshold"] = package["threshold"]
         needs_patch = True
+    # Paper-reference artifacts carry these fields in structured metadata.
+    if "feature_columns" not in plr and isinstance(package.get("feature_schema"), dict):
+        columns = package["feature_schema"].get("feature_columns")
+        if columns is not None:
+            plr["feature_columns"] = columns
+            needs_patch = True
+    if "threshold" not in plr and isinstance(package.get("decision"), dict):
+        threshold = package["decision"].get("threshold")
+        if threshold is not None:
+            plr["threshold"] = threshold
+            needs_patch = True
     if needs_patch:
         patched = dict(package)
         patched["portable_logreg"] = plr
