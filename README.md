@@ -323,6 +323,8 @@ Current architecture discussion for six-measurement Bremen inference and the mod
 - [docs/architecture_review_model_boundary_and_technical_debt.md](docs/architecture_review_model_boundary_and_technical_debt.md) — reconciled architecture/technical-debt review, including framework options and snapshot-provenance notes.
 - [docs/adr/0014-bremen-six-measurement-input-contract.md](docs/adr/0014-bremen-six-measurement-input-contract.md) — Proposed ADR for the normal Bremen six-measurement contract.
 - [docs/adr/0015-model-owned-inference-runtime-boundary.md](docs/adr/0015-model-owned-inference-runtime-boundary.md) — Proposed ADR for moving scientific inference semantics into model-owned releases.
+- [docs/model_runtime_contract_v1.md](docs/model_runtime_contract_v1.md) — Model Runtime Contract v1 defining the platform/model scientific ownership boundary.
+- [docs/adr/0016-model-runtime-contract-v1.md](docs/adr/0016-model-runtime-contract-v1.md) — Accepted ADR establishing the common model-runtime boundary.
 
 These documents are proposals/discussion records. They do not authorize a runtime aggregation change by themselves.
 
