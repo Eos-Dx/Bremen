@@ -62,7 +62,7 @@ def synthetic_preprocessing(monkeypatch):
             for m in canonical.measurements
         ])
     from bremen.api.aramina_preprocessing import preprocess_aramina
-    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", preprocess)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.preprocessing.preprocess_aramina", preprocess)
     return preprocess_aramina
 
 
@@ -208,15 +208,27 @@ def test_no_external_dependency_or_execution_configuration():
         text = (Path("src/bremen/api") / name).read_text()
         assert "BREMEN_ARAMINA_PROVIDER_URL" not in text
         assert "provider_url" not in text
-    text = Path("src/bremen/api/workflow_aramina.py").read_text()
-    # PR0139 permits only the opt-in private diagnostic switch.
-    env_calls = [node for node in ast.walk(ast.parse(text))
-                 if isinstance(node, ast.Call)
-                 and ast.unparse(node.func) == "os.environ.get"]
-    assert env_calls
-    assert all(ast.literal_eval(node.args[0]) == "BREMEN_ARAMINA_DEBUG_TRACE"
-               for node in env_calls)
-    assert "_post_aramina_predict" not in text
+    # PR0156: Aramina science/diagnostics moved into the model package; the
+    # provider_url / no-external-model-import guarantee must hold there too.
+    for name in ("workflow_aramina.py",):
+        text = (Path("src/bremen/api") / name).read_text()
+        assert "_post_aramina_predict" not in text
+    package_dir = Path("src/bremen/model_packages/aramina_v0213")
+    for path in sorted(package_dir.glob("*.py")):
+        text = path.read_text()
+        assert "BREMEN_ARAMINA_PROVIDER_URL" not in text
+        assert "provider_url" not in text
+        assert "_post_aramina_predict" not in text
+    # PR0139 permits only the opt-in private diagnostic switch. PR0156 moved
+    # the diagnostics to the package (trace.py) and pipeline (inference.py), so
+    # the env-call invariant is now enforced across those authoritative files.
+    for path in (package_dir / "trace.py", package_dir / "inference.py"):
+        env_calls = [node for node in ast.walk(ast.parse(path.read_text()))
+                     if isinstance(node, ast.Call)
+                     and ast.unparse(node.func) == "os.environ.get"]
+        assert env_calls
+        assert all(ast.literal_eval(node.args[0]) == "BREMEN_ARAMINA_DEBUG_TRACE"
+                   for node in env_calls)
 
 
 # ===================================================================
@@ -485,7 +497,7 @@ def test_invalid_model_output_rejected(tmp_path, source, monkeypatch):
     pkg = _package()
     pkg["models"]["selected_model"]["final_model"] = bad_final
     monkeypatch.setattr(
-        "bremen.api.workflow_aramina._load_selected_artifact", lambda entry: pkg,
+        "bremen.model_packages.aramina_v0213.inference._load_selected_artifact", lambda entry: pkg,
     )
     result = _execute(_entry(tmp_path), source)
     assert result.status == "failed"
@@ -501,7 +513,7 @@ def test_exception_and_private_metadata_never_exposed(tmp_path, source, monkeypa
     pkg = _package()
     pkg["models"]["selected_model"]["lr1_model"] = bad_lr1
     monkeypatch.setattr(
-        "bremen.api.workflow_aramina._load_selected_artifact", lambda entry: pkg,
+        "bremen.model_packages.aramina_v0213.inference._load_selected_artifact", lambda entry: pkg,
     )
     result = _execute(_entry(tmp_path), source)
     assert result.status == "failed"
@@ -1067,7 +1079,7 @@ def test_debug_trace_redacts_untrusted_metadata_and_exception(tmp_path, source, 
     info["feature_columns"].append(secret)
     info["lr1_model"] = model_type()
     entry = _entry(tmp_path)
-    monkeypatch.setattr("bremen.api.workflow_aramina._load_selected_artifact", lambda entry: pkg)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.inference._load_selected_artifact", lambda entry: pkg)
     result = _execute(entry, source)
     assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
     assert result.failure_stage == "lr1_contract"
@@ -1116,7 +1128,7 @@ def test_artifact_preprocessing_uses_isolated_version(synthetic_preprocessing, m
         "patientId": "p1", "side": "left", "age": None,
         "radial_profile_data": [2., 3.], "q_range": [2., 23.],
     }]}), ""))
-    monkeypatch.setattr("bremen.api.aramina_preprocessing.subprocess.run", run)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.preprocessing.subprocess.run", run)
     result = synthetic_preprocessing("private-input", yaml.safe_dump(config))
     assert result.iloc[0].radial_profile_data == [2., 3.]
     assert run.call_args.args[0][:2] == ["/test/python", "-I"]
@@ -1127,7 +1139,7 @@ def test_artifact_preprocessing_uses_isolated_version(synthetic_preprocessing, m
 def test_preprocessing_worker_errors_are_safe(synthetic_preprocessing, monkeypatch):
     import subprocess
     run = MagicMock(return_value=subprocess.CompletedProcess([], 1, "secret", "private path"))
-    monkeypatch.setattr("bremen.api.aramina_preprocessing.subprocess.run", run)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.preprocessing.subprocess.run", run)
     with pytest.raises(ValueError, match="^Aramina preprocessing failed$"):
         synthetic_preprocessing("private", "xrd_preprocessing: {release_tag: v0.1.7-beta}\npipeline: {steps: [raw]}")
     # PR0142: the message is a fixed safe string; the allowlisted subdiagnostic
@@ -1151,8 +1163,8 @@ def test_real_profile_matrix_and_named_final_features(tmp_path, source, monkeypa
     profile = np.linspace(2., 6., 100)
     frame = pd.DataFrame([{"patientId": "p1", "side": "left", "age": 42.,
                            "radial_profile_data": profile, "q_range": np.linspace(2., 23., 100)}])
-    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", lambda *args: frame)
-    monkeypatch.setattr("bremen.api.workflow_aramina._load_selected_artifact", lambda entry: pkg)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.preprocessing.preprocess_aramina", lambda *args: frame)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.inference._load_selected_artifact", lambda entry: pkg)
     result = _execute(_entry(tmp_path), source)
     assert result.status == "completed"
     np.testing.assert_array_equal(lr1.call_args.args[0], profile.reshape(1, 100))
@@ -1242,7 +1254,7 @@ def test_isolated_worker_protocol(monkeypatch, capsys, fails):
 
     import xrd_preprocessing
 
-    worker = runpy.run_path("src/bremen/api/aramina_preprocess_worker.py")
+    worker = runpy.run_path("src/bremen/model_packages/aramina_v0213/aramina_preprocess_worker.py")
     monkeypatch.setattr("importlib.metadata.version", lambda name: "0.1.7b0")
     frame = pd.DataFrame([{"patientId": "p1", "side": "left", "age": None,
                            "radial_profile_data": [1., 2.], "q_range": [2., 23.]}])
@@ -1559,7 +1571,7 @@ def test_pr0141_target_side_not_inferred_from_canonical(tmp_path, source, monkey
         "patientId": "p1", "side": "right", "age": None,
         "radial_profile_data": [1.0, 2.0, 3.0], "q_range": [2.0, 3.0, 4.0],
     }])
-    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", lambda *a: frame)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.preprocessing.preprocess_aramina", lambda *a: frame)
     result = _execute(_entry(tmp_path), source, _request(target_side="left"))
     assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
     assert result.failure_stage == "target_side_contract"
@@ -1599,7 +1611,7 @@ def test_pr0141_preprocessing_failure_maps_to_preprocessing_contract(tmp_path, s
     def boom(h5_path, config_yaml):
         raise ValueError("Aramina preprocessing failed")
 
-    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", boom)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.preprocessing.preprocess_aramina", boom)
     result = _execute(_entry(tmp_path), source)
     assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
     assert result.failure_stage == "preprocessing_contract"
@@ -1612,7 +1624,7 @@ def test_pr0141_preprocessing_failure_leaks_nothing(tmp_path, source, monkeypatc
     def boom(h5_path, config_yaml):
         raise RuntimeError(secret)
 
-    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", boom)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.preprocessing.preprocess_aramina", boom)
     entry = _entry(tmp_path)
     _install(entry)
     job = jobs.create_analysis_job(
@@ -1642,7 +1654,7 @@ def test_pr0141_missing_target_side_maps_to_target_side_contract(tmp_path, sourc
         "patientId": "p1", "side": "right", "age": None,
         "radial_profile_data": [1.0, 2.0, 3.0], "q_range": [2.0, 3.0, 4.0],
     }])
-    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", lambda *a: frame)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.preprocessing.preprocess_aramina", lambda *a: frame)
     result = _execute(_entry(tmp_path), source, _request(target_side="left"))
     assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
     assert result.failure_stage == "target_side_contract"
@@ -1688,7 +1700,7 @@ def test_pr0141_bad_profile_matrix_maps_to_profile_matrix_contract(
             {"patientId": "p1", "side": "left", "age": None,
              "radial_profile_data": [1.0, 2.0, 3.0], "q_range": [2.0, 3.0, 4.0]},
         ])
-    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", lambda *a: frame)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.preprocessing.preprocess_aramina", lambda *a: frame)
     result = _execute(_entry(tmp_path), source)
     assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
     assert result.failure_stage == "profile_matrix_contract"
@@ -1700,7 +1712,7 @@ def test_pr0141_lr1_failure_maps_to_lr1_contract(tmp_path, source, monkeypatch):
     bad = MagicMock()
     bad.predict_proba = MagicMock(side_effect=ValueError("private lr1 detail"))
     pkg["models"]["selected_model"]["lr1_model"] = bad
-    monkeypatch.setattr("bremen.api.workflow_aramina._load_selected_artifact", lambda entry: pkg)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.inference._load_selected_artifact", lambda entry: pkg)
     result = _execute(_entry(tmp_path), source)
     assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
     assert result.failure_stage == "lr1_contract"
@@ -1712,7 +1724,7 @@ def test_pr0141_lr1_bad_output_maps_to_lr1_contract(tmp_path, source, monkeypatc
     bad = MagicMock()
     bad.predict_proba = MagicMock(return_value=np.array([[float("nan"), 0.5]]))
     pkg["models"]["selected_model"]["lr1_model"] = bad
-    monkeypatch.setattr("bremen.api.workflow_aramina._load_selected_artifact", lambda entry: pkg)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.inference._load_selected_artifact", lambda entry: pkg)
     result = _execute(_entry(tmp_path), source)
     assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
     assert result.failure_stage == "lr1_contract"
@@ -1723,7 +1735,7 @@ def test_pr0141_symmetry_failure_maps_to_symmetry_contract(tmp_path, source, mon
     def boom(*args, **kwargs):
         raise ValueError("private symmetry detail")
 
-    monkeypatch.setattr("bremen.api.aramina_symmetry.symmetry_features", boom)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.symmetry.symmetry_features", boom)
     result = _execute(_entry(tmp_path), source)
     assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
     assert result.failure_stage == "symmetry_contract"
@@ -1744,7 +1756,7 @@ def test_pr0141_final_model_failure_maps_to_final_model_contract(tmp_path, sourc
     bad = MagicMock()
     bad.predict_proba = MagicMock(side_effect=ValueError("private final detail"))
     pkg["models"]["selected_model"]["final_model"] = bad
-    monkeypatch.setattr("bremen.api.workflow_aramina._load_selected_artifact", lambda entry: pkg)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.inference._load_selected_artifact", lambda entry: pkg)
     result = _execute(_entry(tmp_path), source)
     assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
     assert result.failure_stage == "final_model_contract"
@@ -1756,7 +1768,7 @@ def test_pr0141_final_model_bad_output_maps_to_final_model_contract(tmp_path, so
     bad = MagicMock()
     bad.predict_proba = MagicMock(return_value=np.array([[0.5, 2.0]]))
     pkg["models"]["selected_model"]["final_model"] = bad
-    monkeypatch.setattr("bremen.api.workflow_aramina._load_selected_artifact", lambda entry: pkg)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.inference._load_selected_artifact", lambda entry: pkg)
     result = _execute(_entry(tmp_path), source)
     assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
     assert result.failure_stage == "final_model_contract"
@@ -1995,7 +2007,7 @@ def test_pr0141_public_failure_payload_leaks_nothing(tmp_path, source, monkeypat
     pkg["models"]["selected_model"]["lr1_model"] = bad
     entry = _entry(tmp_path)
     _install(entry)
-    monkeypatch.setattr("bremen.api.workflow_aramina._load_selected_artifact", lambda e: pkg)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.inference._load_selected_artifact", lambda e: pkg)
     job = jobs.create_analysis_job(
         model_id=entry.model_id, h5_path=source[0], aramina_request=_request(),
     )
@@ -2052,12 +2064,12 @@ def _run_preprocessing_with_worker(monkeypatch, stdout, returncode=1):
     from the module source. Returns the raised exception's allowlisted
     diagnostic, or ``None`` when no exception was raised.
     """
-    import bremen.api.aramina_preprocessing as preprocessing
+    import bremen.model_packages.aramina_v0213.preprocessing as preprocessing
 
     namespace: dict = {
         "__file__": preprocessing.__file__,
         "__name__": "bremen.api._pr0142_real",
-        "__package__": "bremen.api",
+        "__package__": "bremen.model_packages.aramina_v0213",
     }
     source = Path(preprocessing.__file__).read_text(encoding="utf-8")
     exec(compile(source, preprocessing.__file__, "exec"), namespace)  # noqa: S102
@@ -2121,12 +2133,12 @@ def test_pr0142_unparseable_worker_output_maps_to_output_failed(monkeypatch):
 
 def test_pr0142_worker_spawn_failure_maps_to_process_failed(monkeypatch):
     """A missing interpreter or timeout maps to worker_process."""
-    import bremen.api.aramina_preprocessing as preprocessing
+    import bremen.model_packages.aramina_v0213.preprocessing as preprocessing
 
     namespace: dict = {
         "__file__": preprocessing.__file__,
         "__name__": "bremen.api._pr0142_real",
-        "__package__": "bremen.api",
+        "__package__": "bremen.model_packages.aramina_v0213",
     }
     source = Path(preprocessing.__file__).read_text(encoding="utf-8")
     exec(compile(source, preprocessing.__file__, "exec"), namespace)  # noqa: S102
@@ -2268,7 +2280,7 @@ def test_pr0142_public_failure_stays_unsupported_input(tmp_path, source, monkeyp
             "preprocessing_reason_code": "ARAMINA_PREPROCESSING_PIPELINE_EXECUTION_FAILED",
         })
 
-    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", boom)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.preprocessing.preprocess_aramina", boom)
     result = _execute(_entry(tmp_path), source)
     assert result.error == "ARAMINA_UNSUPPORTED_INPUT"
     assert result.failure_stage == "preprocessing_contract"
@@ -2288,7 +2300,7 @@ def test_pr0142_job_failure_details_expose_subdiagnostic(tmp_path, source, monke
             "preprocessing_reason_code": "ARAMINA_PREPROCESSING_PIPELINE_EXECUTION_FAILED",
         })
 
-    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", boom)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.preprocessing.preprocess_aramina", boom)
     pkg = _package()
     pkg["prediction_preprocessing_yaml"] = (
         "xrd_preprocessing: {release_tag: v0.1.7-beta}\npipeline: {steps: [raw]}"
@@ -2340,7 +2352,7 @@ def test_pr0142_public_payload_leaks_nothing(tmp_path, source, monkeypatch):
             "preprocessing_reason_code": secret,
         })
 
-    monkeypatch.setattr("bremen.api.aramina_preprocessing.preprocess_aramina", boom)
+    monkeypatch.setattr("bremen.model_packages.aramina_v0213.preprocessing.preprocess_aramina", boom)
     entry = _entry(tmp_path)
     _install(entry)
     job = jobs.create_analysis_job(

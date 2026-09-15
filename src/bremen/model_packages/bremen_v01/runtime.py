@@ -20,10 +20,12 @@ Boundary notes:
 
 - ``features`` and ``predictor`` (package science) import only
   numpy/pandas/scipy/stdlib; this runtime is the single model-owned bridge to
-  two platform modules and nothing else: ``api.decision_contract`` (the
+  platform modules and nothing else: ``api.decision_contract`` (the
   platform decision-vocabulary authority shared with events/reports) and
-  ``api.xrd_normalization.validate_canonical_measurement`` (the PR0152 lazy
-  import lifted out of the science module in PR0154).  The numerical
+  ``canonical_input.validate_canonical_measurement`` (the PR0152 lazy import
+  lifted out of the science module in PR0154 and neutralized to
+  ``bremen.canonical_input`` in PR0156 so canonical input validation is a
+  generic cross-model contract, not an ``api`` import).  The numerical
   threshold comparison stays inside the package predictor.
 - The fitted artifact is never modified or fit.  Research decision support
   requiring radiologist review.
@@ -32,7 +34,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 from bremen.api.decision_contract import BremenDecision, build_decision
-from bremen.api.xrd_normalization import validate_canonical_measurement
+from bremen.canonical_input import validate_canonical_measurement
 from bremen.model_packages.bremen_v01 import manifest
 from bremen.model_packages.bremen_v01.features import (
     FEATURE_COLS, BremenFeatureError, build_bremen_features, validate_bremen_shape,

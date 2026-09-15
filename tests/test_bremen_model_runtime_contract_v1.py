@@ -288,8 +288,9 @@ def test_aramina_predict_delegates_to_existing_pipeline(monkeypatch):
         return {"risk_probability": 0.11, "target_class_risk_level": 0,
                 "model_version": "0.2.12-beta"}
 
+    import bremen.model_packages.aramina_v0213.inference as inference
     wa = _aramina()
-    monkeypatch.setattr(wa, "_run_local_artifact", fake_local)
+    monkeypatch.setattr(inference, "_run_local_artifact", fake_local)
     runtime = wa.AraminaRuntime(entry=_aramina_entry())
     prediction = runtime.predict_model(ModelInput(
         workflow_id="aramina", canonical=SimpleNamespace(measurements=()),
@@ -304,12 +305,13 @@ def test_aramina_predict_delegates_to_existing_pipeline(monkeypatch):
 
 
 def test_aramina_predict_preserves_workflow_error_taxonomy(monkeypatch):
+    import bremen.model_packages.aramina_v0213.inference as inference
     wa = _aramina()
 
     def boom(entry, canonical, request_json, h5_path):
         raise wa.AraminaWorkflowError("ARAMINA_UNSUPPORTED_INPUT", "preprocessing_contract")
 
-    monkeypatch.setattr(wa, "_run_local_artifact", boom)
+    monkeypatch.setattr(inference, "_run_local_artifact", boom)
     runtime = wa.AraminaRuntime(entry=_aramina_entry())
     with pytest.raises(wa.AraminaWorkflowError) as exc:
         runtime.predict_model(ModelInput(
@@ -382,9 +384,10 @@ def test_bremen_provider_preserves_execution_envelope_from_runtime_error():
 
 
 def test_aramina_provider_delegates_predict_to_runtime(monkeypatch):
+    import bremen.model_packages.aramina_v0213.inference as inference
     wa = _aramina()
     monkeypatch.setattr(
-        wa, "_run_local_artifact",
+        inference, "_run_local_artifact",
         lambda entry, canonical, request_json, h5_path:
         {"risk_probability": 0.5, "model_version": "0.2.12-beta"},
     )

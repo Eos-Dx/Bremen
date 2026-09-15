@@ -595,22 +595,18 @@ def _load_staged_artifact(local_path: str, expected_checksum: str) -> Any:
 
     The discovery/catalog path never calls this function. Keeping controlled
     deserialization here preserves the existing artifact-loading boundary.
-    """
-    import io
-    from joblib import load as joblib_load
 
-    try:
-        with open(local_path, "rb") as stream:
-            content = stream.read()
-        if (not re.fullmatch(r"[a-f0-9]{64}", expected_checksum)
-                or hashlib.sha256(content).hexdigest() != expected_checksum):
-            raise ValueError
-    except Exception:
-        raise ValueError("Artifact integrity failed") from None
-    try:
-        return joblib_load(io.BytesIO(content))
-    except Exception:
-        raise RuntimeError("Unsupported artifact") from None
+    PR0156: the authoritative implementation now lives in the narrow
+    model-package bridge ``bremen.model_packages_bridge.load_staged_artifact``
+    (shared by the Aramina inference package).  This module-level name is kept
+    as a re-export so the existing controlled-loading boundary and its error
+    mapping (``ValueError("Artifact integrity failed")`` /
+    ``RuntimeError("Unsupported artifact")``) remain byte-identical for any
+    caller or test seam referencing it.
+    """
+    from bremen.model_packages_bridge import load_staged_artifact  # noqa: PLC0415
+
+    return load_staged_artifact(local_path, expected_checksum)
 
 
 def _stage_and_load_artifact(
