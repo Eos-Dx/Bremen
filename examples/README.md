@@ -201,3 +201,7 @@ also includes control ablations for age-only, BMI-only, availability-only,
 single availability flags, M2+age, and M2+BMI. All splits remain patient-safe.
 Missing symmetry is encoded with an explicit availability flag and a zero value,
 not as a biological zero.
+
+## MLflow inference packaging
+
+- `bremen_mlflow_inference_package_poc.py` — research PoC for wrapping the inference-complete Bremen 3x3 runtime behind an MLflow PyFunc-compatible structured input adapter. Not production code.

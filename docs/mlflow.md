@@ -125,3 +125,7 @@ confidence interval
 model version
 preprocessing version
 ```
+
+## Inference packaging spike
+
+- [MLflow model packaging spike](mlflow_model_packaging_spike.md) — evaluates inference-complete Bremen packaging with PyFunc-compatible structured 3x3 input, dependency capture, and Registry tradeoffs.
