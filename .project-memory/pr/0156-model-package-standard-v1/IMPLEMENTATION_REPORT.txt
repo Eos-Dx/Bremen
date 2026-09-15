@@ -1,0 +1,225 @@
+PR0156 — Model Package Standard v1 + Aramina conformance — Implementation Report
+
+Branch: 0156-model-package-standard-v1
+HEAD at start: e361feab04e5f800bf89ebbda8aa62fd60296528 (clean worktree)
+No commit / push / PR created.
+
+SUMMARY
+Defined one framework-independent Model Package Standard v1 (ownership boundary
+around the existing Model Runtime Contract v1) and migrated Aramina's complete
+model-specific scientific inference out of the platform/API namespace into a
+dedicated model package under the PR0154 model_packages namespace. Bremen
+(PR0154 package) is treated as the reference implementation and is unchanged
+scientifically. Both packages now conform to the same semantic standard. HTTP
+surface, model_id/workflow_id semantics, failure codes, reports, jobs, auth are
+all frozen and verified unchanged. No MLflow, no registry, no science change.
+
+STANDARD INTRODUCED
+Structural (not inheritance-based) standard; NO ModelPackageBase class — the
+runtime protocol already is the interface. Each conforming package owns one
+authoritative source for: identity, requirements, validation, a ModelRuntime
+entry point, artifact interpretation, complete inference, threshold/
+postprocessing, safe diagnostics, provenance, golden tests, and a standalone-
+packaging import boundary. Documented in docs/model_package_standard_v1.md and
+formalized as docs/adr/0017-model-package-standard-v1.md (ADR-0017 — next free
+number verified; only 0001-0016 existed). Distinguishes three layers:
+ModelRuntime (callable semantics) vs Model Package Standard (deployable
+ownership) vs packaging technology (future MLflow wrap).
+
+BREMEN CONFORMANCE CHANGES (semantics-preserving; no science change)
+- bremen_v01/runtime.py canonical-validation import retargeted from
+  bremen.api.xrd_normalization -> neutral bremen.canonical_input (same object).
+  Resolves the PR0152/PR0154-flagged api import on the model-runtime path by
+  classifying canonical measurement vocabulary as generic cross-model.
+- features.py/predictor.py/manifest.py: untouched. Golden probability unchanged.
+- Conformance asserted by parametrized common tests + existing PR0151/152/154
+  suites.
+
+ARAMINA MIGRATION / CONFORMANCE CHANGES
+- New package src/bremen/model_packages/aramina_v0213/ (release 0.2.13-beta,
+  name chosen from PR0154 <model>_<release> convention):
+    __init__.py     entry point (AraminaRuntime + manifest)
+    manifest.py     authoritative identity/requirements/artifact-type/
+                    allowed-preprocessing-releases/allowed target sides/notes/
+                    deps (per-selection identity remains entry-driven, so
+                    public model_id/routing unchanged)
+    errors.py       AraminaWorkflowError + FAILURE_STAGES + _SAFE_FAILURES +
+                    _STAGE_REMEDIATION/_STAGE_DETAIL + trace allowlists +
+                    _safe_stage/_safe_release_tag
+    trace.py        _debug_checkpoint/_debug_stage (private diagnostics; only
+                    os.environ switch is BREMEN_ARAMINA_DEBUG_TRACE)
+    artifact_compat.py, aramina_preprocess_worker.py, preprocessing.py,
+                    symmetry.py  moved verbatim
+    inference.py    moved artifact load/validate, profile matrix, LR1, logit
+                    aggregation, symmetry call, final model, threshold, report
+                    payload, _build_aramina_request_json (verbatim)
+    runtime.py      AraminaRuntime (ModelRuntime): requirements from manifest +
+                    entry identity; validate; predict calls pipeline and
+                    PROPAGATES AraminaWorkflowError unchanged
+- api/workflow_aramina.py is now a thin provider (ModelInput build + delegate
+  to package runtime + unchanged WorkflowResult envelope) plus a transitional
+  re-export surface; imports no scientific helper module directly.
+- Provider routes through package runtime; provider-level report == direct
+  package report (proven by tests).
+
+FILES MOVED (into package; verbatim content, import paths retargeted)
+- api/aramina_preprocessing.py -> model_packages/aramina_v0213/preprocessing.py
+- api/aramina_preprocess_worker.py -> .../aramina_v0213/aramina_preprocess_worker.py
+  (filename kept so Path(__file__).with_name + relative import resolve; the old
+  api copy was deleted as a duplicate — single implementation)
+- api/aramina_symmetry.py -> .../aramina_v0213/symmetry.py
+- api/aramina_artifact_compat.py -> .../aramina_v0213/artifact_compat.py
+- science section of api/workflow_aramina.py -> .../aramina_v0213/{inference,
+  errors,trace,runtime}.py
+
+FILES CREATED
+- src/bremen/canonical_input.py (neutral canonical vocabulary)
+- src/bremen/model_packages_bridge.py (narrow controlled joblib loader, single
+  body reused by platform + Aramina package)
+- src/bremen/model_packages/aramina_v0213/{__init__,manifest,errors,trace,
+  artifact_compat,preprocessing,aramina_preprocess_worker,symmetry,inference,
+  runtime}.py
+- tests/test_bremen_model_package_standard_v1.py (conformance matrix)
+- tests/test_aramina_v0213_package.py (direct package golden/parity)
+- tests/test_bremen_api_freeze_pr0156.py (HTTP route/schema freeze lock)
+- tests/test_bremen_model_package_deduplication.py (single-authoritative-def)
+- docs/model_package_standard_v1.md, docs/adr/0017-model-package-standard-v1.md
+
+FILES DELETED
+- src/bremen/api/aramina_preprocess_worker.py (superseded by the package copy;
+  no duplicate retained)
+
+FILES CHANGED
+- src/bremen/api/xrd_normalization.py -> re-export from canonical_input (types
+  identical by identity) + doc note
+- src/bremen/api/workflow_aramina.py -> provider + transitional re-exports
+- src/bremen/api/aramina_preprocessing.py / aramina_symmetry.py /
+  aramina_artifact_compat.py -> re-export shims (zero logic)
+- src/bremen/api/s3_model_discovery.py -> _load_staged_artifact now delegates
+  to model_packages_bridge.load_staged_artifact (byte-identical error contract)
+- src/bremen/model_packages/bremen_v01/runtime.py -> canonical_input retarget
+- tests/test_aramina_workflow_runtime.py -> seam retargets to authoritative
+  package modules (patch target == pipeline resolution) + env-invariant test
+  now reads the moved authoritative files (strengthened, not weakened)
+- tests/test_bremen_model_runtime_contract_v1.py -> Aramina pipeline seam
+  retargeted to package inference module
+- docs/model_runtime_contract_v1.md, docs/mlflow_model_packaging_spike.md ->
+  clarification notes only (no rewrite of accepted decisions)
+
+COMPATIBILITY SHIMS RETAINED + WHY
+bremen.api.aramina_preprocessing / aramina_symmetry / aramina_artifact_compat /
+workflow_aramina and bremen.{bremen_features,inference,bremen_runtime} (PR0154)
+are re-export-only shims (verified: contain no def/class bodies). They exist
+because many platform modules and test seams import the historical paths; they
+preserve import stability during transition. Every shim re-exports the SAME
+authoritative object (identity-checked in tests) — one active implementation.
+Shims marked transitional; deletion tracked for a follow-up migration PR.
+
+DEPENDENCY DIRECTION
+platform -> bremen.model_runtime (contract) -> model package public entry ->
+package science. Package -> package + neutral leaves. Package NEVER imports
+workflow/report/job/fastapi/auth/storage/registry (enforced by AST tests + a
+subprocess import-isolation test + reverse-import tests). Verified NO cycles
+(compileall + full suite).
+
+REMAINING PLATFORM BRIDGES (documented, non-circular)
+- bremen.canonical_input — generic cross-model canonical vocabulary (PR0156
+  neutral home). Resolves the PR0154 xrd coupling for the runtime path.
+- bremen.api.decision_contract (Bremen runtime only) — platform-specific
+  decision vocabulary; classified and retained (ADR-0017).
+- bremen.model_packages_bridge.load_staged_artifact — narrow controlled joblib
+  loader for the Aramina artifact (platform stages/verifies; package interprets).
+- _validate_aramina_source — H5 patient/source identity binding stays platform
+  (workflow_orchestrator); reached from the Aramina pipeline via a module global
+  that defaults to a lazy import (monkeypatchable). Classified platform concern;
+  full lift to platform is future PR0155 packaging work (not done to avoid a
+  provider contract/behavior change).
+
+SCIENTIFIC PARITY EVIDENCE
+No scientific code edited. Verbatim diff of the moved Aramina pipeline shows only
+import-path retargets (same objects), RegistryModelEntry->Any annotation, and
+comments/headers. Bremen science files byte-identical (only the canonical_input
+import retarget in runtime). Pre-change baseline of the 8 affected suites:
+485 passed / 1 skipped; post-change those same suites all pass.
+
+BREMEN GOLDEN PROBABILITY RESULT
+0.7388733541967353 (exact) via package runtime WITHOUT provider; threshold
+0.3585907282566089; features at atol 1e-10 rtol 0. test_bremen_v01_package.py
+(50) + PR0151/0152 parity (171) + contract (36) all pass.
+
+ARAMINA PARITY EVIDENCE
+Direct package runtime reproduces the provider-level external_report
+bit-for-bit (test_direct_package_prediction_matches_provider_route);
+target_side normalization, threshold/decision flip, ARAMINA_* taxonomy,
+preprocessing release env selection, worker diagnostics, symmetry, LR1, final
+model all covered by 238 (test_aramina_workflow_runtime) + 21
+(test_aramina_v0213_package) + 43 provider/scaffold + conformance tests. 282
+Aramina suite total pass unchanged.
+
+TEST COUNTS ADDED
++47 tests total (4248 collected vs HEAD 4212; node-id diff: 0 removed, 47
+added across the 4 new files; additions confined to new files). New suites:
+model_package_standard_v1 (16 conformance), aramina_v0213_package (21 direct),
+api_freeze_pr0156 (3), model_package_deduplication (4).
+
+COMPILEALL RESULT
+python -m compileall -q src tests -> exit 0.
+
+RUFF RESULT
+Every file I authored/modified: clean. Only pre-existing repo findings remain
+(verified present at HEAD, unrelated to this PR, not fixed per scope rules):
+s3_model_discovery.py x2, and 6 AraminaPreprocessingError unused-imports in
+test_aramina_workflow_runtime.py (count identical at HEAD; lines shifted by my
+~12-line additions). Zero new findings introduced.
+
+GIT DIFF --CHECK RESULT
+Exit 0. Trailing-whitespace scan clean; no conflict markers; all added files end
+with a newline.
+
+DUPLICATE SCIENCE SEARCHES
+build_bremen_features / predict_proba_portable / validate_bremen_shape -> only
+model_packages/bremen_v01. symmetry_features / preprocess_aramina /
+ensure_compatibility_bridge -> only model_packages/aramina_v0213.
+load_staged_artifact -> single definition in model_packages_bridge (api
+_load_staged_artifact is a delegator, not a second body). Shims re-export only.
+
+FORBIDDEN IMPORT SEARCHES
+No model_packages module imports workflow_aramina/workflow_bremen/jobs/report/
+fastapi/auth/source_registry/model_state/model_requirements (grep NONE in
+package; reverse imports to decision_contract/canonical_input/model_packages_
+bridge/workflow_orchestrator are the 4 documented allowed edges). HTTP layer
+unchanged (13 endpoint/route/schema/auth/report files confirmed UNCHANGED).
+
+SECURITY / ARTIFACT SCAN
+No .h5/.joblib/.pkl/.zip/.bin/.npy or binary added. No secrets/credentials/tokens
+added. Aramina artifacts are synthetic (generated at test time only). Only
+constant infra paths (/opt/aramina-preprocess...) exist — moved verbatim from
+HEAD (unchanged). Runtime errors use allowlisted constant reasons; private-text
+non-leak asserted in tests.
+
+PUBLIC API COMPATIBILITY
+No endpoint added/removed/renamed/moved/versioned; no method/schema/auth/status-
+code/error-code/model_id/workflow_id change; Model Package Standard and MLflow
+are not exposed via HTTP. Locked by test_bremen_api_freeze_pr0156.py (29-route
+frozen set + no /model-package|/mlflow|/registry route + requirements schema
+keys). job/report/model-requirements/registry suites pass unchanged.
+
+KNOWN WARNINGS
+- Test seams (not source behavior) were retargeted to package modules; the
+  patched module must equal the resolution module of the pipeline. This is the
+  PR0154 precedent and is asserted equivalent by direct-vs-provider tests.
+- trace.py log-record logger name changed (private diagnostics; no public/event/
+  report impact; verified no test asserts the logger name).
+- _ARAMINA_REFERENCE / identity: public model_id stays entry-driven; manifest
+  reference identity is documentation + package-level defaults only.
+
+REMAINING WORK FOR FUTURE MLFLOW PACKAGING (PR0155 next)
+- Introduce a container/bytes abstraction so Aramina preprocessing + patient/
+  source binding (_validate_aramina_source) need no filesystem path in the
+  runtime boundary; relocate decision-vocabulary behind a runtime adapter to
+  make Bremen runtime api-free if a zero-platform-import package is required.
+- Isolate the inference distribution (PR0155 spike flagged eager
+  bremen/__init__ -> xrd_preprocessing import blocks standalone load).
+- MLflow pyfunc wrap of each conforming package (signature, JSON params,
+  pinned serving deps, local save/load golden test); evaluate Model Registry
+  separately afterward. Remove transitional shims after caller migration.

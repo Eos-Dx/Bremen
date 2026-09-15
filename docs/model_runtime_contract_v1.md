@@ -276,3 +276,29 @@ PR0154 moved the complete Bremen v0.1 scientific runtime behind a model-package 
 - Decision vocabulary stays platform-owned: api.decision_contract remains the single authority for decision codes and is consumed by the package runtime exactly as before; the numerical threshold comparison remains inside the package predictor.
 - Remaining for PR0155 — the two Aramina coupling points (ModelInput.container_path and ModelInput.patient_id / _validate_aramina_source) are Aramina-owned and out of PR0154 scope (Bremen only). They should be lifted to the platform when Aramina is packaged, or when a container/bytes abstraction replaces staged paths.
 - Remaining for PR0155 — packaging metadata capture (dependencies declared by the package manifest today, model-release provenance, optional migration of the portable dict into a self-contained release directory) and any evaluation of an external packaging/registry mechanism. PR0154 does not introduce MLflow/BentoML/KServe or relocate artifacts.
+
+PR0156 update (Model Package Standard v1 + Aramina conformance)
+
+PR0156 defines the deployable ownership boundary as Model Package Standard v1
+(docs/model_package_standard_v1.md, ADR-0017).  Aramina's complete scientific
+inference moved from the platform namespace to the package
+bremen.model_packages.aramina_v0213, which implements the same ModelRuntime
+callable contract and exposes one authoritative identity/requirements
+(manifest.py).  Public HTTP surface is unchanged and locked by
+`tests/test_bremen_api_freeze_pr0156.py`.
+
+- Canonical input vocabulary neutralized: model-runtime packages now import
+  validate_canonical_measurement and the canonical measurement/case types from
+  the neutral bremen.canonical_input (stdlib/numpy only); bremen.api.
+  xrd_normalization re-exports them (same object identity) so platform callers
+  and the H5 canonicalization boundary keep working.  This resolves the PR0154
+  "generic cross-model vocabulary" coupling for the model-runtime import path.
+- Bremen decision-vocabulary bridge to bremen.api.decision_contract is retained
+  and is explicitly classified as platform-specific in ADR-0017 (Bremen-only;
+  Aramina does not consume it).  A future packaging PR may relocate it behind a
+  runtime adapter.
+- Remaining for PR0155 packaging PR: introduce a container/bytes abstraction so
+  Aramina artifact preprocessing and the platform source/patient binding
+  (_validate_aramina_source, still lazily looked up from the Aramina runtime) no
+  longer need a filesystem path inside the runtime boundary; capture release
+  dependency/provenance metadata for a framework (MLflow pyfunc) wrap.

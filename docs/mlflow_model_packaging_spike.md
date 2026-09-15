@@ -2,6 +2,15 @@
 
 Status: research result; no production change
 
+> PR0156 update: MLflow packaging, if adopted, applies to **any** package
+> conforming to Model Package Standard v1 (see
+> `docs/model_package_standard_v1.md` / ADR-0017), not only Bremen. Both Bremen
+> (`bremen.model_packages.bremen_v01`) and Aramina
+> (`bremen.model_packages.aramina_v0213`) now sit behind that standard, so a
+> framework wrapper targets each package's ModelRuntime entry point without
+> moving scientific logic. This document remains a non-binding spike; no MLflow
+> production integration was implemented in PR0156.
+
 ## Verdict
 
 RECOMMEND MLflow PyFunc-compatible packaging for Bremen v0.1, but defer MLflow Model Registry adoption.
