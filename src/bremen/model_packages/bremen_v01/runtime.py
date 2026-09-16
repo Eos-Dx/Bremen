@@ -252,11 +252,21 @@ class BremenRuntime:
         except Exception:
             raise ModelPreprocessingFailedError("invalid_scientific_profiles") from None
         metadata = self.model_metadata
+        # PR0159: the model package owns the interpretation of its own
+        # container/artifact metadata.  The normalized contract (source
+        # metadata, model metadata, model metrics) is transported verbatim in
+        # the runtime result so the platform mapper never parses model-specific
+        # internals.  Absent fields keep the contract's explicit absence.
+        from . import source_metadata as _source_metadata  # noqa: PLC0415
+
         return RuntimePrediction(
             workflow_id=manifest.WORKFLOW_ID,
             model_id=str(metadata.get("model_id") or manifest.MODEL_ID),
             model_version=str(metadata.get("model_version") or ""),
             result=_bremen_result_mapping(model_result),
+            source_metadata=_source_metadata.extract_source_metadata(input.container_path),
+            model_metadata=_source_metadata.extract_model_metadata(self.package),
+            model_metrics=_source_metadata.extract_model_metrics(self.package),
         )
 
     @property

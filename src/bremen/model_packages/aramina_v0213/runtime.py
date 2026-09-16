@@ -120,14 +120,22 @@ class AraminaRuntime:
         platform provider.
         """
         request_json = self._request_json(input)
-        report = inference._run_local_artifact(
-            self._entry, input.canonical, request_json, input.container_path,
+        report, source_metadata, model_metadata, model_metrics = (
+            inference._run_local_artifact(
+                self._entry, input.canonical, request_json, input.container_path,
+            )
         )
         return RuntimePrediction(
             workflow_id=manifest.WORKFLOW_ID,
             model_id=self._entry.model_id,
             model_version=str(report.get("model_version", "") or ""),
             result=report,
+            # PR0159: the normalized metadata contract is produced by this
+            # model package's own adapter and transported verbatim (never
+            # interpreted by the platform).
+            source_metadata=source_metadata,
+            model_metadata=model_metadata,
+            model_metrics=model_metrics,
         )
 
 

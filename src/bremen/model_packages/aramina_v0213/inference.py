@@ -373,7 +373,7 @@ def _run_local_artifact(
     canonical: CanonicalXRDCase,
     request_json: dict[str, str],
     h5_path: str,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], Any, Any, Any]:
     """Execute the real Aramina training artifact scoring pipeline.
 
     1. Load and validate artifact (with compatibility bridge).
@@ -384,7 +384,11 @@ def _run_local_artifact(
     6. Build pandas DataFrame with model_info["feature_columns"].
     7. Run final_model.predict_proba on DataFrame.
     8. Apply threshold.
-    9. Build safe output.
+    9. Build safe model-native report.
+
+    Returns ``(report, source_metadata, model_metadata, model_metrics)`` where
+    the last three are the model package's own normalized metadata contract
+    (PR0159) — the model-native ``report`` dict is unchanged.
     """
     _debug_checkpoint(
         "artifact_load", artifact_loaded=False, artifact_validated=False, lr1_input_shape=None,
@@ -523,7 +527,7 @@ def _run_local_artifact(
         # Step 8: Build safe output
         with _debug_stage("report", "report_build"):
             model_identity = package.get("model_identity", {})
-            return {
+            report = {
                 "risk_probability": risk_probability,
                 "risk_score": risk_probability,  # backward-compatible alias for report provider
                 "target_class_risk_level": target_class,
@@ -534,6 +538,25 @@ def _run_local_artifact(
                 "reliability": "research_draft",
                 "reliability_reason": "Technical demo only. Requires clinical review.",
             }
+            # PR0159: the normalized metadata contract is produced by this
+            # model package's own adapter (container + artifact interpretation)
+            # and transported alongside the model-native report so the runtime
+            # can attach it to the ModelRuntime result.  The model-native
+            # report itself stays unchanged.  The frame age is the model's own
+            # preprocessing output; it is only used when the frame genuinely
+            # provides one (``age_available``), otherwise the container
+            # attribute is the fallback.
+            from . import source_metadata as _source_metadata  # noqa: PLC0415
+
+            frame_age = features_data.get("age")
+            if not features_data.get("age_available"):
+                frame_age = None
+            source_metadata = _source_metadata.extract_source_metadata(
+                h5_path, frame_age=frame_age,
+            )
+            model_metadata = _source_metadata.extract_model_metadata(package)
+            model_metrics = _source_metadata.extract_model_metrics(package)
+            return report, source_metadata, model_metadata, model_metrics
 
     except AraminaWorkflowError:
         raise

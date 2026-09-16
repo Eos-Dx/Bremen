@@ -365,16 +365,22 @@ def run_workflow_request(
                 overall_status="partial_success",
             )
 
-        # Execute — pass context if provider accepts it
+        # Execute — pass context if provider accepts it.  The platform-staged
+        # ``h5_path`` is passed to both providers so each model package can
+        # interpret its own container metadata (PR0159); TypeError fallbacks
+        # keep legacy/fake providers working unchanged.
         if workflow_id == "aramina":
             wf_result = provider.execute(
                 canonical, context, aramina_request=aramina_request, h5_path=h5_path,
             )
         else:
             try:
-                wf_result = provider.execute(canonical, context)
+                wf_result = provider.execute(canonical, context, h5_path=h5_path)
             except TypeError:
-                wf_result = provider.execute(canonical)
+                try:
+                    wf_result = provider.execute(canonical, context)
+                except TypeError:
+                    wf_result = provider.execute(canonical)
     except Exception as exc:
         _log.exception(
             "runtime.workflow.failed\t"

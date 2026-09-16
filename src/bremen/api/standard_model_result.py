@@ -72,7 +72,11 @@ class StandardModelResult:
     scan_date_time: str = ""
     operator_id: str = ""
     hardware_version: str = ""
-    eoscan_version: str = ""
+    # ``None`` when no authoritative package-owned Eoscan version source
+    # exists (the current Bremen/Aramina containers expose omniscan-backfill
+    # producer provenance, which is NOT Eoscan version).  Explicit absence,
+    # never a promoted alias.
+    eoscan_version: str | None = None
     model_name: str = ""
     model_version: str = ""
     model_method: str = ""

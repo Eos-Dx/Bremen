@@ -164,6 +164,13 @@ class AraminaWorkflowProvider(WorkflowProvider):
                 "technical_demo_only": True,
                 "scientifically_certified": False,
                 "external_report": report,
+                # PR0159: the normalized metadata contract is transported
+                # verbatim from the runtime result (translation only — the
+                # provider never parses model-specific container/artifact
+                # internals).
+                "source_metadata": prediction.source_metadata.to_dict(),
+                "model_metadata": prediction.model_metadata.to_dict(),
+                "model_metrics": prediction.model_metrics.to_dict(),
             }
             if self._entry._clinical_stage == "research draft":
                 payload["clinical_stage"] = "research draft"
