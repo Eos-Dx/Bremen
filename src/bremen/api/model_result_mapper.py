@@ -101,16 +101,60 @@ def _clean_number(value: Any) -> float | None:
     return None
 
 
-def _empty_metrics() -> dict[str, Any]:
-    """Release metrics are model-release metadata, never per-patient values.
+def _clean_age(value: Any) -> int | float | None:
+    """Return a faithful numeric copy of a patient age, or ``None``.
 
-    No authoritative sensitivity/specificity exists in the current
-    Bremen/Aramina release metadata, so both are reported as explicit absence
-    (``None``) rather than fabricated.  If a future authoritative release
-    source provides them, they should be threaded through here (see
-    docs/standard_model_result_contract_v1.md "Model metrics ownership").
+    Preserves the numeric value exactly (integral values stay ``int``,
+    non-integral values stay ``float``); booleans and non-numeric values are
+    rejected so nothing is derived or fabricated.
+    """
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return int(value)
+    if isinstance(value, float):
+        return int(value) if value.is_integer() else float(value)
+    return None
+
+
+def _clean_eoscan_version(value: Any) -> str | None:
+    """Return a stripped Eoscan version string, or ``None`` when absent.
+
+    Explicit absence (``None``) is correct when no authoritative
+    package-owned Eoscan version source exists; empty/whitespace values are
+    treated as absent and are never promoted from unrelated producer
+    provenance.  The mapper never interprets model-specific source fields.
+    """
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def _empty_metrics() -> dict[str, Any]:
+    """Explicit absence fallback for model-release metrics.
+
+    When the model-owned runtime result carries no authoritative
+    sensitivity/specificity, both are reported as explicit absence (``None``)
+    rather than fabricated.  When the runtime result DOES carry them (from the
+    model package's own release/artifact metadata), the mapper copies those
+    values verbatim (see ``_clean_metrics``).
     """
     return {"sensitivity": None, "specificity": None}
+
+
+def _clean_metrics(value: Any) -> dict[str, Any]:
+    """Copy authoritative model-owned metrics verbatim, or explicit absence.
+
+    Consumes the metrics dict already transported by the model runtime result
+    (never computed here).  Only numeric values are accepted; anything else
+    falls back to explicit absence.
+    """
+    if not isinstance(value, dict):
+        return _empty_metrics()
+    return {
+        "sensitivity": _clean_number(value.get("sensitivity")),
+        "specificity": _clean_number(value.get("specificity")),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -149,21 +193,36 @@ def map_bremen_result(
         or _bremen_manifest.MODEL_VERSION
     )
 
+    # PR0159: the five patient/acquisition metadata fields and the model
+    # metadata/metrics arrive in the normalized runtime-result contract
+    # (``source_metadata`` / ``model_metadata`` / ``model_metrics``) produced by
+    # the model package's own adapter.  The mapper performs ONLY normalized
+    # runtime result -> Standard Model Result; it never parses model-specific
+    # container/artifact internals.  Absent values keep the contract's
+    # explicit absence convention.
+    source_metadata = result_summary.get("source_metadata")
+    source_metadata = source_metadata if isinstance(source_metadata, dict) else {}
+    model_metadata = result_summary.get("model_metadata")
+    model_metadata = model_metadata if isinstance(model_metadata, dict) else {}
+
     return StandardModelResult(
         report_id=_clean_str(report_id),
         created_at=normalize_timestamp(created_at),
         analysis_author=_clean_str(context.get("analysis_author")),
         prediction_comment=_clean_str(context.get("prediction_comment")),
         patient_id=_clean_str(context.get("patient_id")),
-        patient_age=None,                 # not present in Bremen report metadata
-        scan_date_time="",                # not present — do not fabricate
-        operator_id="",
-        hardware_version="",
-        eoscan_version="",
+        patient_age=_clean_age(source_metadata.get("patient_age")),
+        scan_date_time=normalize_timestamp(source_metadata.get("scan_date_time")),
+        operator_id=_clean_str(source_metadata.get("operator_id")),
+        hardware_version=_clean_str(source_metadata.get("hardware_version")),
+        eoscan_version=_clean_eoscan_version(source_metadata.get("eoscan_version")),
         model_name=_bremen_manifest.MODEL_NAME,   # authoritative package identity
         model_version=model_version,
-        model_method=_model_method(model_version),
-        model_metrics=_empty_metrics(),
+        model_method=(
+            _clean_str(model_metadata.get("model_method"))
+            or _model_method(model_version)
+        ),
+        model_metrics=_clean_metrics(result_summary.get("model_metrics")),
         threshold_value=threshold,
         risk_probability=probability,     # authoritative; not recalculated
         target_class_risk_level=_risk_level(
@@ -228,21 +287,36 @@ def map_aramina_result(
         candidate = _clean_str(context.get("target_side"))
         target_side = candidate if candidate in {"left", "right"} else ""
 
+    # PR0159: the five patient/acquisition metadata fields and the model
+    # metadata/metrics arrive in the normalized runtime-result contract
+    # (``source_metadata`` / ``model_metadata`` / ``model_metrics``) produced by
+    # the model package's own adapter.  The mapper performs ONLY normalized
+    # runtime result -> Standard Model Result; it never parses model-specific
+    # container/artifact internals.  Absent values keep the contract's
+    # explicit absence convention.
+    source_metadata = result_summary.get("source_metadata")
+    source_metadata = source_metadata if isinstance(source_metadata, dict) else {}
+    model_metadata = result_summary.get("model_metadata")
+    model_metadata = model_metadata if isinstance(model_metadata, dict) else {}
+
     return StandardModelResult(
         report_id=_clean_str(report_id),
         created_at=normalize_timestamp(created_at),
         analysis_author=_clean_str(context.get("analysis_author")),
         prediction_comment=_clean_str(context.get("prediction_comment")),
         patient_id=_clean_str(context.get("patient_id")),
-        patient_age=None,                 # not exposed in report metadata; do not re-derive
-        scan_date_time="",                # not present — do not fabricate
-        operator_id="",
-        hardware_version="",
-        eoscan_version="",
+        patient_age=_clean_age(source_metadata.get("patient_age")),
+        scan_date_time=normalize_timestamp(source_metadata.get("scan_date_time")),
+        operator_id=_clean_str(source_metadata.get("operator_id")),
+        hardware_version=_clean_str(source_metadata.get("hardware_version")),
+        eoscan_version=_clean_eoscan_version(source_metadata.get("eoscan_version")),
         model_name=model_name,            # authoritative artifact/release identity
         model_version=model_version,
-        model_method=_model_method(model_version),
-        model_metrics=_empty_metrics(),
+        model_method=(
+            _clean_str(model_metadata.get("model_method"))
+            or _model_method(model_version)
+        ),
+        model_metrics=_clean_metrics(result_summary.get("model_metrics")),
         threshold_value=threshold,
         risk_probability=probability,     # authoritative; not recalculated
         target_class_risk_level=_risk_level(

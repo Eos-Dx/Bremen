@@ -43,12 +43,15 @@ __all__ = [
     "ModelInput",
     "ModelInputInvalidError",
     "ModelInputUnsupportedError",
+    "ModelMetadata",
+    "ModelMetrics",
     "ModelPreprocessingFailedError",
     "ModelRequirements",
     "ModelRuntime",
     "ModelRuntimeError",
     "ModelValidation",
     "RuntimePrediction",
+    "SourceMetadata",
 ]
 
 
@@ -148,6 +151,72 @@ class ModelValidation:
 
 
 @dataclass(frozen=True)
+class SourceMetadata:
+    """Normalized patient/acquisition metadata contract (PR0159).
+
+    Transport-neutral canonical names produced by each model package's own
+    adapter from its own container/artifact representation.  The platform
+    (runtime result transport, providers, mapper) depends ONLY on these
+    normalized names — never on model-specific source field names.
+
+    ``scan_date_time`` carries the raw source string; the Standard Result
+    mapper normalizes it with the shared ``normalize_timestamp()``.
+    Absent values use the contract's explicit absence convention
+    (``None`` for the numeric age and for ``eoscan_version`` when no
+    authoritative package-owned Eoscan version source exists, ``""`` for
+    other strings).
+    """
+
+    patient_age: int | float | None = None
+    scan_date_time: str = ""
+    operator_id: str = ""
+    hardware_version: str = ""
+    eoscan_version: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON-safe view of the normalized source metadata."""
+        return {
+            "patient_age": self.patient_age,
+            "scan_date_time": self.scan_date_time,
+            "operator_id": self.operator_id,
+            "hardware_version": self.hardware_version,
+            "eoscan_version": self.eoscan_version,
+        }
+
+
+@dataclass(frozen=True)
+class ModelMetadata:
+    """Normalized model-level metadata contract (PR0159).
+
+    ``model_method`` is the model package's own model-type/inference-method
+    identifier, mapped inside the package from its artifact contract.  Absent
+    -> ``""`` (the mapper falls back to the documented model_method rule).
+    """
+
+    model_method: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"model_method": self.model_method}
+
+
+@dataclass(frozen=True)
+class ModelMetrics:
+    """Normalized model-owned release metrics contract (PR0159).
+
+    Sensitivity/specificity are model-release metadata mapped inside each
+    model package from its own artifact structure (e.g. held-out evaluation
+    or final-fit training metrics).  Never computed by the platform; absent
+    -> ``None`` (explicit absence, never fabricated).
+    """
+
+    sensitivity: float | None = None
+    specificity: float | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"sensitivity": self.sensitivity, "specificity": self.specificity}
+
+
+@dataclass(frozen=True)
 class RuntimePrediction:
     """Structured internal runtime result sufficient for workflow projection.
 
@@ -156,6 +225,12 @@ class RuntimePrediction:
     WorkflowProvider copies it into the established workflow result shape
     without knowing model internals; this type never becomes a public API
     envelope by itself.
+
+    PR0159: ``source_metadata`` / ``model_metadata`` / ``model_metrics`` carry
+    the normalized metadata contract produced by the model package's own
+    adapter, so the platform transports (providers, job layer, Standard Result
+    mapper) consume canonical names only and never parse model-specific
+    container/artifact internals.
     """
 
     workflow_id: str
@@ -163,6 +238,9 @@ class RuntimePrediction:
     model_version: str = ""
     result: Mapping[str, Any] = field(default_factory=dict)
     safe_reason: str | None = None
+    source_metadata: SourceMetadata = field(default_factory=SourceMetadata)
+    model_metadata: ModelMetadata = field(default_factory=ModelMetadata)
+    model_metrics: ModelMetrics = field(default_factory=ModelMetrics)
 
 
 # ---------------------------------------------------------------------------

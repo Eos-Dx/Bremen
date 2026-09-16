@@ -439,6 +439,9 @@ def test_local_execution_completed_status(tmp_path, source):
     assert set(result.payload) == {
         "workflow_id", "model_id", "model_version", "external_report",
         "scientifically_certified", "technical_demo_only", "clinical_stage",
+        # PR0159: normalized metadata contract transported from the runtime
+        # result (translation only; the provider never parses model internals).
+        "source_metadata", "model_metadata", "model_metrics",
     }
 
 
@@ -2413,12 +2416,18 @@ def test_pr0142_allowlists_are_closed():
 
 
 def test_pr0142_successful_aramina_unchanged(tmp_path, source):
-    """A successful Aramina run is byte-identical in shape to before."""
+    """A successful Aramina run keeps its established shape.
+
+    PR0159 adds only the normalized metadata contract keys (source_metadata,
+    model_metadata, model_metrics) as internal runtime-result transport; the
+    model-native external_report and failure fields are unchanged.
+    """
     result = _execute(_entry(tmp_path), source)
     assert result.status == "completed"
     assert set(result.payload) == {
         "workflow_id", "model_id", "model_version", "external_report",
         "scientifically_certified", "technical_demo_only", "clinical_stage",
+        "source_metadata", "model_metadata", "model_metrics",
     }
     assert result.failure_stage is None
     assert result.preprocessing_diagnostic is None

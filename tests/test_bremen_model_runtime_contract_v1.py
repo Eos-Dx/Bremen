@@ -37,12 +37,15 @@ from bremen.model_runtime import (
     ModelInput,
     ModelInputInvalidError,
     ModelInputUnsupportedError,
+    ModelMetadata,
+    ModelMetrics,
     ModelPreprocessingFailedError,
     ModelRequirements,
     ModelRuntime,
     ModelRuntimeError,
     ModelValidation,
     RuntimePrediction,
+    SourceMetadata,
 )
 from tests.bremen_3x3_helpers import GOLD, MODEL, make_case
 
@@ -285,8 +288,13 @@ def test_aramina_predict_delegates_to_existing_pipeline(monkeypatch):
     def fake_local(entry, canonical, request_json, h5_path):
         captured["request_json"] = request_json
         captured["h5_path"] = h5_path
-        return {"risk_probability": 0.11, "target_class_risk_level": 0,
-                "model_version": "0.2.12-beta"}
+        return (
+            {"risk_probability": 0.11, "target_class_risk_level": 0,
+             "model_version": "0.2.12-beta"},
+            SourceMetadata(),
+            ModelMetadata(),
+            ModelMetrics(),
+        )
 
     import bremen.model_packages.aramina_v0213.inference as inference
     wa = _aramina()
@@ -388,8 +396,12 @@ def test_aramina_provider_delegates_predict_to_runtime(monkeypatch):
     wa = _aramina()
     monkeypatch.setattr(
         inference, "_run_local_artifact",
-        lambda entry, canonical, request_json, h5_path:
-        {"risk_probability": 0.5, "model_version": "0.2.12-beta"},
+        lambda entry, canonical, request_json, h5_path: (
+            {"risk_probability": 0.5, "model_version": "0.2.12-beta"},
+            SourceMetadata(),
+            ModelMetadata(),
+            ModelMetrics(),
+        ),
     )
     provider = wa.AraminaWorkflowProvider(entry=_aramina_entry())
     assert isinstance(provider.model_runtime(), ModelRuntime)

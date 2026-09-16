@@ -277,7 +277,9 @@ def test_absent_context_fields_empty_not_fabricated():
     assert out["patient_age"] is None
     assert out["operator_id"] == ""
     assert out["hardware_version"] == ""
-    assert out["eoscan_version"] == ""
+    # No authoritative Eoscan version source -> explicit null (never a
+    # promoted alias from producer provenance).
+    assert out["eoscan_version"] is None
 
 
 def test_no_mapper_returns_for_invalid_results():

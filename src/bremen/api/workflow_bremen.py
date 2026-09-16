@@ -241,13 +241,23 @@ class BremenProvider(WorkflowProvider):
                 "decision_display_name": result["decision_display_name"],
                 "decision_policy_id": result["decision_policy_id"],
                 "decision_policy_version": result["decision_policy_version"],
+                # PR0159: the normalized metadata contract is transported
+                # verbatim from the runtime result (translation only — the
+                # provider never parses model-specific internals).
+                "source_metadata": prediction.source_metadata.to_dict(),
+                "model_metadata": prediction.model_metadata.to_dict(),
+                "model_metrics": prediction.model_metrics.to_dict(),
             },
         )
 
     # ---- Execute (single authoritative path) ----
 
     def execute(
-        self, canonical: Any, context: WorkflowExecutionContext | None = None,
+        self,
+        canonical: Any,
+        context: WorkflowExecutionContext | None = None,
+        *,
+        h5_path: str = "",
     ) -> WorkflowResult:
         """Single authoritative execution path.
 
@@ -255,6 +265,10 @@ class BremenProvider(WorkflowProvider):
         via the context's event sink.  This is the ONLY path that
         performs feature construction and inference — no duplicate
         execution occurs.
+
+        ``h5_path`` is the platform-staged container path passed through the
+        documented ``ModelInput.container_path`` bridge so the model package
+        can interpret its own container metadata (PR0159).
         """
         # --- Compatibility check ---
         compat = self.validate_compatibility(canonical)
@@ -304,9 +318,12 @@ class BremenProvider(WorkflowProvider):
         # The model runtime owns the complete scientific sequence through the
         # Model Runtime Contract v1 boundary: one predict call; the callback
         # only projects feature-stage metadata into the existing job stream.
+        # ``container_path`` is the documented platform->package bridge the
+        # Bremen package uses to interpret its own container metadata (PR0159).
         model_input = ModelInput(
             workflow_id=self.workflow_id,
             measurements=getattr(canonical, "measurements", ()),
+            container_path=h5_path,
         )
 
         def trace_features(features):
