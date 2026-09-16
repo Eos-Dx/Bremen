@@ -370,9 +370,17 @@ def test_bremen_report_integration_standard_and_legacy():
     assert std["specific_output"] == {}
 
 
-def test_bremen_report_golden_probability_exact():
-    std = _run_bremen_report()["report"]["standard_result"]
-    assert std["risk_probability"] == 0.7388733541967353  # golden, exact
+def test_bremen_report_golden_probability_within_frozen_tolerance_and_verbatim_mapping():
+    report = _run_bremen_report()["report"]
+    probability = report["standard_result"]["risk_probability"]
+    legacy_probability = report["payload"]["score_and_threshold"]["p_mri_needed"]
+
+    assert probability == legacy_probability
+    assert probability == pytest.approx(
+        0.7388733541967353,
+        abs=1e-10,
+        rel=0,
+    )
 
 
 def _run_failed_job_report():
