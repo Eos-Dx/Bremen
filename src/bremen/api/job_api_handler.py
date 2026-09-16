@@ -949,8 +949,15 @@ def get_job_report(job_id: str, workflow_id: str) -> dict[str, Any]:
         }
 
     provider = _get_report_provider(workflow_id)
+    # Snapshot the workflow run AND the already-stored report identity metadata
+    # under the same lock.  ``_generate_job_reports``/report-delete mutate
+    # ``job.reports`` under this lock, so reading the stored ReportMetadata here
+    # is consistent.  The stored report_id/generated_at are the authoritative,
+    # stable Standard Model Result identity (PR0158a): they never change across
+    # repeated GETs, unlike the freshly-generated envelope below.
     with _jobs_lock:
         wf_run = job.workflow_runs.get(workflow_id)
+        stored_report = job.reports.get(workflow_id)
 
     if provider is None or wf_run is None:
         return {
@@ -977,13 +984,29 @@ def get_job_report(job_id: str, workflow_id: str) -> dict[str, Any]:
     # as before.  The mapper consumes the model-owned result; it recomputes
     # nothing and adds no new top-level provider field.
     if report.workflow_status == REPORT_STATUS_AVAILABLE:
+        # PR0158a: canonical Standard Model Result identity comes from the
+        # ALREADY-STORED ReportMetadata so repeated GETs are byte-identical.
+        # Only a legacy/test-only job with no stored report falls back to the
+        # freshly-generated envelope (which would otherwise drift per GET).
+        # created_at keeps its raw stored representation; the mapper's
+        # normalize_timestamp() produces the RFC3339 seconds-precision form.
+        standard_report_id = (
+            stored_report.report_id
+            if stored_report is not None and stored_report.report_id
+            else report.report_id
+        )
+        standard_created_at = (
+            stored_report.generated_at
+            if stored_report is not None and stored_report.generated_at
+            else report.generated_at
+        )
         standard = build_standard_result(
             workflow_id,
             wf_run.result_summary,
             model_identity=wf_run.model_identity,
             job_context=_mapper_job_context(job),
-            report_id=report.report_id,
-            created_at=report.generated_at,
+            report_id=standard_report_id,
+            created_at=standard_created_at,
         )
         if standard is not None:
             report.standard_result = standard
