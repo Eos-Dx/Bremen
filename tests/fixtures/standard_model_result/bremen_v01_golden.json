@@ -1,0 +1,23 @@
+{
+  "analysis_author": "Synthetic Author",
+  "created_at": "2026-09-04T19:48:36+02:00",
+  "eoscan_version": "",
+  "hardware_version": "",
+  "model_method": "0.2.0-paper-reference",
+  "model_metrics": {
+    "sensitivity": null,
+    "specificity": null
+  },
+  "model_name": "bremen_paper_reference_symmetry_logreg",
+  "model_version": "0.2.0-paper-reference",
+  "operator_id": "",
+  "patient_age": null,
+  "patient_id": "PAT-SYNTH-1",
+  "prediction_comment": "synthetic note",
+  "report_id": "report-bremen",
+  "risk_probability": 0.7388733541967353,
+  "scan_date_time": "",
+  "specific_output": {},
+  "target_class_risk_level": "high",
+  "threshold_value": 0.3585907282566089
+}

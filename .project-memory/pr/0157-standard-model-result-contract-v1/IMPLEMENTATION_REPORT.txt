@@ -1,0 +1,221 @@
+PR0157 — Standard Model Result Contract v1 — Implementation Report
+
+Branch: 0157-standard-model-result-contract-v1
+HEAD at start: 4f643337110e70365e64a162ec4f183077de73ae (docs PR0157 contract).
+No commit / push / PR. Do NOT claim READY FOR COMMIT (reviewer decides).
+
+SUMMARY
+Implemented Standard Model Result Contract v1 (docs/standard_model_result_contract_v1.md,
+ADR-0018) for both Bremen and Aramina BEHIND the existing API surface. Introduced one
+authoritative platform mapping boundary that consumes already-produced model runtime
+results (never recomputes science) and emits the canonical result envelope, attached
+additively to the existing report at the single get_job_report boundary. HTTP routes,
+methods, auth, request semantics, job/event/report semantics, model_id/workflow_id, and
+legacy report payload fields are unchanged and frozen-verified. No model science changed.
+
+ARCHITECTURE (as implemented)
+  Model package runtime result (native, authoritative)  +  platform/source metadata
+      -> bremen.api.model_result_mapper (build_standard_result; workflow_id dispatch)
+      -> bremen.api.standard_model_result.StandardModelResult (canonical v1 envelope)
+      -> ReportEnvelope.standard_result (OPTIONAL, additive)
+      -> get_job_report -> existing FastAPI + legacy http.server report routes -> consumers
+Mapper is platform/integration only; model packages know nothing about it. Dependency
+direction preserved: api -> package manifest (platform -> package), never the reverse.
+
+MAPPER LOCATION
+src/bremen/api/model_result_mapper.py  (new; single mapping boundary, dispatch table
+_MAPPERS = {bremen, aramina}; shared helpers).
+SCHEMA LOCATION
+src/bremen/api/standard_model_result.py (frozen dataclass + CANONICAL_FIELDS order +
+high/low vocabulary + to_envelope_dict()).
+
+FILES CHANGED (production)
+- NEW  src/bremen/api/standard_model_result.py
+- NEW  src/bremen/api/model_result_mapper.py
+- MOD  src/bremen/api/report_provider.py   (added optional standard_result field;
+      to_dict() includes it ONLY when set -> default/failed envelopes serialize identically)
+- MOD  src/bremen/api/job_api_handler.py   (additive author/comment capture into
+      input_summary; _mapper_job_context; build_standard_result attach in get_job_report;
+      additive kwargs on create_analysis_job + handle_jobs_create call sites; helper
+      _clean_metadata_field sanitizer). _report_job_context + PR0143 key-set UNCHANGED.
+- MOD  src/bremen/api/fastapi_app.py       (forwards body analysis_author/
+      prediction_comment into create_analysis_job; no signature/route change)
+- TESTS + fixtures (below)
+
+AUTHORITATIVE-SOURCE FIELD MAP (also in PLAN.md; classification:
+GEN platform-generated / SRC source-container / RUN model runtime result /
+PKG model package manifest / ART artifact-release / MAP compatibility mapping)
+
+BREMEN (map_bremen_result consumes WorkflowResult.result_summary):
+ report_id GEN(reuse envelope.report_id)
+ created_at GEN(envelope.generated_at) normalized
+ analysis_author SRC(request; sanitized; "" if absent)  prediction_comment same
+ patient_id SRC(patient_display_name from H5 via job context)
+ patient_age  SRC absent -> null (no fabrication; H5 preflight exposes none)
+ scan_date_time SRC absent -> ""   operator_id/hardware_version/eoscan_version ""
+ model_name PKG(bremen_v01.manifest.MODEL_NAME — never registry routing id)
+ model_version RUN(result.model_version) else PKG   model_method MAP(== model_version)
+ model_metrics absent -> {sensitivity: null, specificity: null} (not fabricated)
+ threshold_value RUN(result.threshold_applied, model-owned)
+ risk_probability RUN(result.probability, authoritative; not recalculated)
+ target_class_risk_level RUN(result.prediction 0/1 -> high/low)
+ specific_output {} (contract: Bremen has none)
+
+ARAMINA (map_aramina_result consumes external_report native fields):
+ report_id/created_at/analysis_author/prediction_comment/patient_id — as Bremen
+ patient_age/scan_date_time/operator/hardware/eoscan — SRC absent -> null/""
+ model_name ART(external_report.model_name) else PKG
+ model_version ART else envelope else PKG   model_method MAP(== model_version)
+ model_metrics null (not fabricated)
+ threshold_value RUN(external_report.decision_threshold)
+ risk_probability RUN(external_report.risk_probability; legacy alias risk_score untouched)
+ target_class_risk_level RUN(external_report.target_class_risk_level 0/1 -> high/low)
+ specific_output {target_side, mammography_suspicious_field:""} (semantics unchanged)
+
+MODEL METRICS SOURCE
+No authoritative sensitivity/specificity exists in any package manifest, artifact
+metadata, or runtime result for the current releases. The PR0155 example values in
+the contract doc (0.96053 / 0.49495 / 0.41303) exist nowhere in the repo (verified);
+ADR-0008 defines target_sensitivity as a TRAINING/THRESHOLD-CALIBRATION target, not
+achieved clinical validation, and forbids reporting it as validated. Therefore the
+mapper reports model_metrics = {sensitivity: null, specificity: null} (explicit
+absence). A future release that provides provenance-verified metrics should thread
+them through _empty_metrics/manifest; the mapper never hardcodes them.
+
+MODEL_METHOD RULE
+Implemented ONCE: mapper._model_method(model_version) -> returns model_version.
+Documented + tested. No per-provider constant duplication.
+
+TIMESTAMP RULE
+Shared mapper.normalize_timestamp(value): parse ISO/RFC3339; strip microsecond to 0
+(remove fractional seconds); emit datetime.isoformat() preserving any offset the
+source carried. Preserves the source instant; does NOT coerce naive values to local
+time or invent a zone (naive input -> naive output). created_at derives from tz-aware
+generated_at so it is always tz-aware; absent scan_date_time -> "".
+Tests: tz-aware, fractional strip (Z + +02:00), already-normalized idempotent,
+naive-preserved, empty/unparseable -> "".
+
+BREMEN MAPPING DETAILS
+Consumes result_summary {probability, threshold_applied, prediction}; returns None for
+non-scientific/empty results so unavailable reports stay unchanged. specific_output {}.
+model_name from PKG manifest (independent of routing id bremen-current).
+Golden end-to-end (create_analysis_job -> get_job_report) reproduces
+risk_probability == 0.7388733541967353 exactly, threshold 0.3585907282566089, level high.
+
+ARAMINA MAPPING DETAILS
+Consumes external_report native numbers; legacy alias risk_score and decision semantics
+untouched; target_side moves under specific_output with the same left/right semantics
+(allowlisted); mammography_suspicious_field is "" because the current result has no such
+value (never fabricated).
+
+SPECIFIC_OUTPUT BEHAVIOR
+Bremen -> {}. Aramina -> {"target_side": <normalized>, "mammography_suspicious_field": ""}.
+
+LEGACY COMPATIBILITY
+- report.payload.risk_score (Aramina) and technical_demo_only: preserved (payload dict
+  untouched).
+- report.payload.score_and_threshold.p_mri_needed (Bremen v0.2 nested payload): untouched.
+- ReportEnvelope default/unavailable/failed serialize with the EXACT pre-PR0157 key set
+  (test asserts no standard_result key present for unavailable/failed).
+- _report_job_context key set ({patient_id, target_side}) UNCHANGED (a separate
+  _mapper_job_context adds author/comment only for the mapper), so test_pr0143
+  job-context private-field guard still holds.
+- create_analysis_job signature gained default-valued kwargs only (back-compat).
+
+ROUTE INVENTORY BEFORE / AFTER
+Baseline (independently captured, not trusted from PR0156): 29 routes.
+After implementation: 29 routes, identical method+path set. Test
+test_route_inventory_identical_to_pr0156 asserts set equality vs the frozen 29;
+test_no_standard_result_endpoint_added proves no new endpoint. No endpoint added,
+renamed, removed, moved, or versioned.
+
+REQUEST COMPATIBILITY
+POST /demo/api/jobs request model unchanged; route reads analysis_author/
+prediction_comment from the RAW body dict (not the Pydantic model), so extra/optional
+fields never alter validation semantics. test_jobs_create_request_schema_unchanged
+confirms the same MISSING_SOURCE 400 behavior.
+
+RESPONSE COMPATIBILITY
+Existing response keys preserved; the ONLY change is a new optional
+report["standard_result"] block on AVAILABLE, scientifically-valid completed reports.
+Route-level report-parity suite (test_bremen_fastapi_jobs_report_parity.py) passes
+unchanged (553 report/job/aramina tests green earlier).
+
+AUTH COMPATIBILITY
+No auth change. report-detail route still gated via _check_auth_gate; /health and
+/model/version still open. Tests confirm auth behavior unchanged.
+
+SCIENTIFIC PARITY EVIDENCE
+- Mapper never recomputes probability/threshold/decision; consumes model-owned values.
+- Bremen PR0151/0152/0154 parity: golden probability exact (atol 1e-10 rtol 0).
+- Aramina science untouched (no package/inference/preprocessing/symmetry change).
+- Direct package regression: 338 passed, 1 skipped across
+  test_bremen_v01_package / 3x3_runtime_parity / 3x3_training_parity / workflow_bremen /
+  model_runtime_contract_v1 / model_package_standard_v1 / aramina_v0213_package /
+  aramina_provider_contract / workflow_aramina_scaffold / model_requirements_api /
+  inference_integration / model_package_deduplication.
+
+BREMEN GOLDEN PROBABILITY RESULT
+0.7388733541967353 (exact), threshold 0.3585907282566089, level "high", specific_output {}.
+
+ARAMINA PARITY EVIDENCE
+Full Aramina runtime/provider/scaffold suites pass unchanged; mapper consumes native
+external_report; report contract + failure taxonomy + target_side semantics preserved.
+
+TEST COUNTS
+New file tests/test_bremen_standard_model_result_v1.py: 37 tests (schema shape/frozen/
+field order; both-model risk_probability & threshold; high & low both models;
+no-recompute; model_method rule; metrics null; no hardcoded Aramina threshold;
+specific_output Bremen {}/Aramina shape; identity-from-manifest; timestamp variants;
+naive preservation; absence behavior; invalid-result -> None; dispatch; single boundary;
+Bremen end-to-end golden (exact); Aramina end-to-end via get_job_report; unavailable
+envelope unchanged; sanitizer rejects private content; route inventory + no-new-route;
+auth unchanged; request-schema unchanged; ModelPackageStandard conformance still holds;
+mapper imports no orchestration; frozen fixtures match mapper).
+Collection reconciliation: HEAD 4259 -> worktree 4296 = +37, 0 removed (verified by
+node-id diff after stashing changes).
+
+COMPILEALL: python -m compileall -q src tests -> exit 0.
+RUFF: All checks passed for every file I created/modified that I touched
+(standard_model_result, model_result_mapper, report_provider, fastapi_app, new test).
+The 6 findings reported in job_api_handler.py are PRE-EXISTING at HEAD (verified
+identical via git show HEAD:...); per scope rules I did not make unrelated fixes.
+MY change introduced zero new findings.
+GIT DIFF --CHECK: exit 0.
+
+DUPLICATION SEARCHES
+- risk_probability / target_class_risk_level mapping defined ONLY in the mapper +
+  schema (standard_model_result.py, model_result_mapper.py). No route-level copies.
+- build_standard_result/StandardModelResult/standard_result referenced only in
+  job_api_handler.py (single integration point); NOT in fastapi_app/server/jobs/
+  report_bremen/report_aramina (verified).
+- No sensitivity/specificity/threshold literals in src/bremen/api.
+
+FORBIDDEN-IMPORT / DIRECTION
+Mapper imports only standard_model_result + the two model-package manifests
+(platform -> package). Mapper imports no report provider / job handler / workflow /
+FastAPI. Model packages unchanged and do not import the mapper/schema (verified by
+test + existing ModelPackageStandard conformance tests still passing).
+
+SECURITY / ARTIFACT SCAN
+No .h5/.joblib/.pkl/.zip/.bin/.npy/.onnx added. Fixtures are JSON mapping outputs with
+synthetic-only values (PAT-SYNTH-1, "Nova_Synth" placeholder — no real patient). New
+source contains no filesystem paths, S3 keys, credentials, tokens, or raw exception text.
+metadata sanitizer collapses paths/URIs/secret-like/oversized/control-char values to "".
+
+WARNINGS
+- model_metrics are null for both models (no authoritative release source exists);
+  documented + tested. Not an error — intentional absence.
+- Aramina MODEL_ID "aramina-target-brest-risk" (provenance-only spelling variant from
+  PR0156) is NOT referenced by the mapper (uses MODEL_NAME for model_name) and no
+  public model_id changes; per guidance left for the release-boundary follow-up.
+- 6 pre-existing ruff findings in job_api_handler.py untouched (out of scope).
+
+REMAINING FOLLOW-UP (roadmap 0159/0160/0161)
+- 0159: package release-boundary hardening; correct non-runtime provenance typos;
+  standalone importability of packages (make bremen root import lazy).
+- 0160: model-release / MLflow packaging of conforming packages.
+- 0161: technical model-native inference API (additive) — future inference endpoints
+  may return StandardModelResult directly; PR0157 does NOT add any endpoint.
+- If/when an authoritative release provides sensitivity/specificity, thread it into
+  the mapper's model_metrics via package manifest (currently null-by-absence).
