@@ -687,6 +687,11 @@ def create_fastapi_app(version: str | None = None) -> FastAPI:
                 source_key=source_key,
                 patient_display_name=patient_display_name,
                 target_side=requested_side,
+                # PR0157 (additive request metadata; Aramina still sources these
+                # from its validated request object, so passing them here is a
+                # no-op for Aramina and enables Bremen Standard Result mapping).
+                analysis_author=body_dict.get("analysis_author") or "",
+                prediction_comment=body_dict.get("prediction_comment") or "",
                 **({"aramina_request": aramina_request}
                    if workflow_id == "aramina" else {}),
             )

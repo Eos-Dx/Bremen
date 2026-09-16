@@ -45,6 +45,7 @@ from .report_provider import (
     REPORT_STATUS_UNAVAILABLE,
     REPORT_STATUS_FAILED,
 )
+from .model_result_mapper import build_standard_result
 from .workflow_orchestrator import run_workflow_request
 from .workflow_registry import WorkflowRegistry
 from .execution_trace import build_trace_from_events
@@ -345,6 +346,30 @@ def _get_report_provider(workflow_id: str) -> ReportProvider | None:
     return providers.get(workflow_id)
 
 
+def _clean_metadata_field(value: Any) -> str:
+    """PR0157: normalize an optional request metadata field for report mapping.
+
+    Free-text author/comment fields must never smuggle paths, URIs, or secrets
+    into the public standard result; oversized or unsafe values collapse to
+    empty string rather than being echoed or truncated to something plausible.
+    """
+    import re
+
+    if not isinstance(value, str):
+        return ""
+    clean = value.strip()
+    if not clean or len(clean) > 240:
+        return ""
+    if "://" in clean or clean.startswith(("/", "\\", "~")):
+        return ""
+    if re.search(r"(aws|token|secret|password|s3|bearer)", clean, re.IGNORECASE):
+        return ""
+    # Allow only printable non-control characters.
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in clean):
+        return ""
+    return clean
+
+
 def _safe_report_identifier(value: Any) -> str:
     """Return a short opaque identifier, or empty string when unsafe.
 
@@ -505,6 +530,8 @@ def create_analysis_job(
     patient_display_name: str = "",
     aramina_request: Any = None,
     target_side: str = "",
+    analysis_author: str = "",
+    prediction_comment: str = "",
 ) -> AnalysisJob:
     """Create and execute an analysis job synchronously.
 
@@ -565,6 +592,22 @@ def create_analysis_job(
             prediction_comment=aramina_request.prediction_comment,
         )
 
+    # Aramina path: analysis_author/prediction_comment are already validated
+    # and normalized into aramina_request above.  For the Standard Model Result
+    # mapping (PR0157), we capture the request metadata on the job regardless
+    # of workflow so the report mapper can surface it.  Missing values remain
+    # "" per the contract's explicit absence convention (never fabricated).
+    if aramina_request is not None:
+        analysis_author = _clean_metadata_field(
+            getattr(aramina_request, "analysis_author", ""),
+        )
+        prediction_comment = _clean_metadata_field(
+            getattr(aramina_request, "prediction_comment", ""),
+        )
+    else:
+        analysis_author = _clean_metadata_field(analysis_author)
+        prediction_comment = _clean_metadata_field(prediction_comment)
+
     input_summary = {
         "container_id": container_id or "",
         "workflow_id": workflow_id,
@@ -574,6 +617,12 @@ def create_analysis_job(
         # PR0141: Aramina inference identity includes the requested side.
         # Bremen leaves this empty so its duplicate identity is unchanged.
         "target_side": target_side if target_side in {"left", "right"} else "",
+        # PR0157: additive request metadata consumed by the Standard Model
+        # Result mapper.  Absent values stay empty strings (never fabricated).
+        # Existing consumers ignore unknown input_summary keys; job identity is
+        # keyed by source_key/workflow_id/model_id/target_side (unchanged).
+        "analysis_author": analysis_author,
+        "prediction_comment": prediction_comment,
     }
 
     job = AnalysisJob(
@@ -850,13 +899,31 @@ def _report_job_context(job: AnalysisJob) -> dict[str, Any]:
     """Return safe job-level metadata for report providers.
 
     PR0143: exposes only the requested patient identifier and target side.
-    Never includes source_key, container paths, or artifact internals.
+    Never includes source_key, container paths, or artifact internals.  Its
+    key set is a locked report-provider contract and is intentionally left
+    unchanged by PR0157.
     """
     summary = job.input_summary or {}
     return {
         "patient_id": summary.get("patient_display_name", ""),
         "target_side": summary.get("target_side", ""),
     }
+
+
+def _mapper_job_context(job: AnalysisJob) -> dict[str, Any]:
+    """Standard Model Result mapper context (PR0157), derived from ``job``.
+
+    Adds sanitized request metadata (author/comment) on top of the locked
+    PR0143 report-provider context.  Only patient_id, target_side,
+    analysis_author and prediction_comment appear; source_key, container paths
+    and artifact internals never enter this mapping, and author/comment were
+    sanitized at ingestion.
+    """
+    context = dict(_report_job_context(job))
+    summary = job.input_summary or {}
+    context["analysis_author"] = summary.get("analysis_author", "")
+    context["prediction_comment"] = summary.get("prediction_comment", "")
+    return context
 
 
 def get_job_report(job_id: str, workflow_id: str) -> dict[str, Any]:
@@ -903,6 +970,23 @@ def get_job_report(job_id: str, workflow_id: str) -> dict[str, Any]:
         readiness_snapshot=wf_run.readiness_snapshot,
         job_context=_report_job_context(job),
     )
+    # PR0157 (additive): map a completed scientific result into Standard Model
+    # Result Contract v1.  Attached only for an available report whose runtime
+    # result carries authoritative probability + threshold (the mapper returns
+    # None otherwise), so default/unavailable/failed envelopes serialize exactly
+    # as before.  The mapper consumes the model-owned result; it recomputes
+    # nothing and adds no new top-level provider field.
+    if report.workflow_status == REPORT_STATUS_AVAILABLE:
+        standard = build_standard_result(
+            workflow_id,
+            wf_run.result_summary,
+            model_identity=wf_run.model_identity,
+            job_context=_mapper_job_context(job),
+            report_id=report.report_id,
+            created_at=report.generated_at,
+        )
+        if standard is not None:
+            report.standard_result = standard
     return {
         "report": report.to_dict(),
         "job_id": job_id,
@@ -1236,6 +1320,11 @@ def handle_jobs_create(handler: BaseHTTPRequestHandler) -> None:
             source_key=source_key,
             patient_display_name=patient_display_name,
             target_side=requested_side,
+            # PR0157 (additive): same fields; Aramina re-sources them from its
+            # validated request so this is a no-op for Aramina, and it lets the
+            # Bremen Standard Result mapper surface them.
+            analysis_author=body.get("analysis_author") or "",
+            prediction_comment=body.get("prediction_comment") or "",
             **({"aramina_request": aramina_request} if workflow_id == "aramina" else {}),
         )
 

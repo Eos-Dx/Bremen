@@ -58,6 +58,12 @@ class ReportEnvelope:
     patient_id: str | None = None
     target_side: str | None = None
     links: dict[str, str] = field(default_factory=dict)
+    # PR0157: optional Standard Model Result Contract v1 envelope mapping.
+    # Omitted entirely when unset (default/unavailable/failed reports keep
+    # their exact pre-PR0157 serialized shape). This is a platform-integration
+    # representation of an already-computed model result; it carries no model
+    # scientific logic and never replaces the existing payload fields.
+    standard_result: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         result = {
@@ -81,6 +87,8 @@ class ReportEnvelope:
             result["target_side"] = self.target_side
         if self.links:
             result["links"] = dict(self.links)
+        if self.standard_result is not None:
+            result["standard_result"] = dict(self.standard_result)
         return result
 
 
