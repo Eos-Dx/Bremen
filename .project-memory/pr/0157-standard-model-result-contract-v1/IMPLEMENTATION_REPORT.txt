@@ -52,7 +52,7 @@ BREMEN (map_bremen_result consumes WorkflowResult.result_summary):
  analysis_author SRC(request; sanitized; "" if absent)  prediction_comment same
  patient_id SRC(patient_display_name from H5 via job context)
  patient_age  SRC absent -> null (no fabrication; H5 preflight exposes none)
- scan_date_time SRC absent -> ""   operator_id/hardware_version/eoscan_version "" 
+ scan_date_time SRC absent -> ""   operator_id/hardware_version/eoscan_version ""
  model_name PKG(bremen_v01.manifest.MODEL_NAME — never registry routing id)
  model_version RUN(result.model_version) else PKG   model_method MAP(== model_version)
  model_metrics absent -> {sensitivity: null, specificity: null} (not fabricated)
@@ -63,7 +63,7 @@ BREMEN (map_bremen_result consumes WorkflowResult.result_summary):
 
 ARAMINA (map_aramina_result consumes external_report native fields):
  report_id/created_at/analysis_author/prediction_comment/patient_id — as Bremen
- patient_age/scan_date_time/operator/hardware/eoscan — SRC absent -> null/"" 
+ patient_age/scan_date_time/operator/hardware/eoscan — SRC absent -> null/""
  model_name ART(external_report.model_name) else PKG
  model_version ART else envelope else PKG   model_method MAP(== model_version)
  model_metrics null (not fabricated)
