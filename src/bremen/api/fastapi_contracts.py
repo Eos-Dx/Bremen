@@ -43,6 +43,14 @@ class ModelRequirementsValidateRequest(BaseModel):
     This is intentionally permissive in PR0122 because validation is a
     no-op/not-available contract. The endpoint echoes safe identifiers but
     must not open H5, create inference jobs, or create reports.
+
+    PR0158a: carries the model-specific request fields the validation layer is
+    authoritative about. ``patient_id`` and ``target_side`` (plus
+    ``analysis_author``/``prediction_comment`` for parity with
+    ``JobCreateRequest``) must survive ``model_dump(exclude_none=True)`` so an
+    Aramina preflight does not spuriously report them missing.  These are plain
+    request-contract fields only; no Aramina scientific validation is performed
+    here and the model-requirements layer remains authoritative.
     """
 
     container_id: Optional[str] = Field(default=None, description="Catalog/display container ID")
@@ -51,3 +59,9 @@ class ModelRequirementsValidateRequest(BaseModel):
     h5_path: Optional[str] = Field(default=None, description="Legacy explicit H5 path")
     workflow_id: Optional[str] = Field(default=None, description="Workflow routing key")
     storage: Optional[dict[str, Any]] = Field(default=None, description="Future direct storage reference")
+    # Model-specific request fields preserved through model_dump(exclude_none=True).
+    # All default None so a request omitting them is unchanged (Bremen no-op path).
+    patient_id: Optional[str] = Field(default=None, description="Patient identifier (Aramina)")
+    target_side: Optional[str] = Field(default=None, description="Target side: left or right (Aramina)")
+    analysis_author: Optional[str] = Field(default=None, description="Analysis author (Aramina)")
+    prediction_comment: Optional[str] = Field(default=None, description="Prediction comment (Aramina)")
