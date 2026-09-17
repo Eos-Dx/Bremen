@@ -12,6 +12,7 @@
   "model_version": "0.2.0-paper-reference",
   "operator_id": "",
   "patient_age": null,
+  "referring_physician": "",
   "patient_id": "PAT-SYNTH-1",
   "prediction_comment": "synthetic note",
   "report_id": "report-bremen",

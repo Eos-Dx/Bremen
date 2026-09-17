@@ -937,28 +937,44 @@ def get_job_report(job_id: str, workflow_id: str) -> dict[str, Any]:
             "workflow_id": workflow_id,
         }
 
-    # Failed jobs do not have valid reports
-    if job.overall_status in ("failed", "normalization_failed"):
-        return {
-            "report": {
-                "status": REPORT_STATUS_UNAVAILABLE,
-                "reason_code": "REPORT_NOT_AVAILABLE",
-            },
-            "job_id": job_id,
-            "workflow_id": workflow_id,
-        }
-
-    provider = _get_report_provider(workflow_id)
-    # Snapshot the workflow run AND the already-stored report identity metadata
-    # under the same lock.  ``_generate_job_reports``/report-delete mutate
-    # ``job.reports`` under this lock, so reading the stored ReportMetadata here
-    # is consistent.  The stored report_id/generated_at are the authoritative,
-    # stable Standard Model Result identity (PR0158a): they never change across
-    # repeated GETs, unlike the freshly-generated envelope below.
+    # Snapshot only the requested run. A failed sibling must not hide a
+    # completed workflow's report. Diagnostics are projected, never mutated.
     with _jobs_lock:
         wf_run = job.workflow_runs.get(workflow_id)
         stored_report = job.reports.get(workflow_id)
+        overall_status = job.overall_status
+        context = dict(_report_job_context(job))
+        requested = workflow_id in job.requested_workflows or wf_run is not None
+        failed_run = wf_run is not None and wf_run.status in {
+            "failed", "workflow_unavailable", "workflow_incompatible",
+            "workflow_configuration_required", "model_invalid", "inference_failed",
+            "report_failed",
+        }
+        failed_job = overall_status in {"failed", "normalization_failed"}
+        failure = wf_run.failure if wf_run is not None else None
+        details = dict(wf_run.failure_details) if wf_run is not None else {}
+        identity = dict(wf_run.model_identity) if wf_run is not None else {
+            "model_id": job.input_summary.get("model_id", ""),
+        }
+    if requested and (failed_run or (failed_job and wf_run is None)):
+        from .report_failures import build_failure_report
 
+        return {
+            "report": build_failure_report(
+                workflow_id, failure=failure, failure_details=details,
+                model_identity=identity, job_context=context,
+                normalization_failed=overall_status == "normalization_failed",
+            ),
+            "job_id": job_id,
+            "workflow_id": workflow_id,
+        }
+    if failed_job and wf_run is None:
+        return {
+            "report": {"status": REPORT_STATUS_UNAVAILABLE, "reason_code": "REPORT_NOT_AVAILABLE"},
+            "job_id": job_id, "workflow_id": workflow_id,
+        }
+
+    provider = _get_report_provider(workflow_id)
     if provider is None or wf_run is None:
         return {
             "report": {

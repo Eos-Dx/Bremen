@@ -38,10 +38,11 @@ The initial implementation is an internal mapping boundary.
   "prediction_comment": "",
   "patient_id": "Nova_214",
   "patient_age": 47,
+  "referring_physician": "",
   "scan_date_time": "2025-05-14T12:55:46+02:00",
   "operator_id": "",
   "hardware_version": "",
-  "eoscan_version": "",
+  "eoscan_version": null,
   "model_name": "aramina_target_breast_risk",
   "model_version": "0.2.12-beta",
   "model_method": "0.2.12-beta",
@@ -101,11 +102,22 @@ Patient age from authoritative patient metadata. This field must also be mapped 
 
 When genuinely unavailable, absence must be represented explicitly rather than fabricated.
 
+### referring_physician
+
+Common patient/source metadata for Bremen and Aramina, immediately after
+`patient_age` in serialization; never under `specific_output`. The package-owned
+source adapter supplies the normalized field through `SourceMetadata`. Current
+supported source contracts provide no authoritative physician value, so it is
+exactly `""`. Future packages may supply a real authoritative value. No physician
+request field or generic H5 alias is introduced.
+
 ### scan_date_time
 
-Timestamp of the scan or acquisition. This field must also be mapped for Bremen.
-
-Format: RFC3339-compatible timestamp with timezone and without fractional seconds.
+Timestamp of acquisition, supplied verbatim by the package source adapter and
+normalized by the common mapper. A known timezone offset is preserved. A naive
+source timestamp stays naive and means **timezone unknown**, not UTC. This is an
+explicit ISO8601 exception to the former strict RFC3339 wording; fabricating a
+timezone to satisfy that wording is prohibited. See Timestamp normalization.
 
 ### operator_id
 
@@ -213,6 +225,7 @@ Contract v1 requires mapping Bremen metadata including:
 - `prediction_comment`
 - `patient_id`
 - `patient_age`
+- `referring_physician`
 - `scan_date_time`
 - `operator_id`
 - `hardware_version`
@@ -231,11 +244,85 @@ The Bremen model runtime remains authoritative for probability, threshold, and d
 
 ## Timestamp normalization
 
-All timestamps exposed by Standard Model Result Contract v1 use a consistent RFC3339-compatible representation with timezone information and no fractional seconds.
+Both workflows use the same `normalize_timestamp` function at the common mapper
+boundary. Inputs must contain a calendar date and a clock time including seconds.
+The separator is normalized to `T`, fractional seconds are omitted (truncated,
+not rounded), and explicit minute offsets are preserved without UTC conversion.
+`Z` becomes `+00:00`; `-00:00` retains its RFC3339 unknown-offset meaning.
 
-Example: `2026-09-04T19:48:36+02:00`
+Examples:
 
-The mapping layer may normalize representation. It must not invent missing acquisition times or change timestamp meaning.
+- `2025-05-28 10:19:55` -> `2025-05-28T10:19:55` (timezone unknown).
+- `2025-05-14T12:55:46.123+02:00` -> `2025-05-14T12:55:46+02:00`.
+- `2025-05-14T12:55:46Z` -> `2025-05-14T12:55:46+00:00`.
+
+Missing, invalid, date-only, or unsupported timestamp representations produce
+`""`; the mapper never invents midnight, an acquisition time, or a timezone.
+Platform-generated `created_at` is timezone-aware. Source `scan_date_time` is
+RFC3339 when its offset is known, or ISO8601 without an offset when unknown.
+Both package adapters currently read their supported acquisition timestamp
+verbatim; neither establishes UTC for a naive source value.
+
+## Missing metadata (PR0161)
+
+| Field | Unavailable value |
+| --- | --- |
+| `referring_physician` | `""` |
+| `scan_date_time` | `""` |
+| `patient_age` | `null` |
+| `eoscan_version` | `null` (not an invented version string) |
+| Aramina `specific_output.mammography_suspicious_field` | `""` (unchanged) |
+
+These fields are present, not omitted. Other legacy conventions are unchanged.
+`analysis_author` and `prediction_comment` remain caller-provided REST metadata;
+they are not inferred from source metadata or model output.
+
+## Failed workflow reports (PR0161)
+
+The existing workflow report endpoint now returns an additive safe failure
+envelope for failed Bremen and Aramina runs. The outer `job_id`/`workflow_id`
+fields and existing `status: unavailable`, `reason_code: REPORT_NOT_AVAILABLE`
+remain. No `payload` or `standard_result` is fabricated for a failed run.
+
+Example (Bremen):
+
+```json
+{
+  "report": {
+    "status": "unavailable",
+    "reason_code": "REPORT_NOT_AVAILABLE",
+    "failure": "Feature construction failed: raw_peak_gate_failed",
+    "failure_stage": "features",
+    "failure_reason_code": "raw_peak_gate_failed",
+    "failure_detail": "Feature construction failed: raw_peak_gate_failed",
+    "remediation": "Review the selected source and model configuration before retrying.",
+    "workflow_id": "bremen",
+    "model_id": "bremen-paper-reference-v0-2-0",
+    "model_version": "0.2.0-paper-reference",
+    "patient_id": "SYNTH-1",
+    "target_side": "",
+    "safe_details": {}
+  },
+  "job_id": "example-job",
+  "workflow_id": "bremen"
+}
+```
+
+Only exact known public failure strings are preserved. Unknown failures use
+`WORKFLOW_EXECUTION_FAILED` with fixed detail/remediation; no exception text is
+returned. Explicit normalization failures use `SOURCE_PREPARATION_FAILED`.
+Unavailable identifiers/stages use explicit empty metadata where appropriate.
+Aramina unsupported-input stage/detail/remediation and preprocessing diagnostics
+are regenerated using its existing public allowlists. They appear in the same
+`failure_*`, `remediation`, `safe_details` structure as safe job diagnostics.
+Unknown diagnostic keys are excluded. No paths, S3 locations, tokens, tracebacks,
+checksums, arbitrary package internals, or unallowlisted details are copied.
+
+Job-detail diagnostics are unchanged. A failed sibling workflow does not hide
+a completed workflow's report. Unknown jobs/workflows and pending jobs retain
+their existing behavior. Successful provider payloads and scientific values
+remain unchanged apart from the additive common physician field and documented
+timestamp syntax validation.
 
 ## Model metrics ownership
 

@@ -24,6 +24,7 @@ absence convention (empty string / ``None``) and are never invented.
 from __future__ import annotations
 
 from datetime import datetime
+import re
 from typing import Any
 
 from bremen.api.standard_model_result import (
@@ -43,20 +44,30 @@ from bremen.model_packages.aramina_v0213 import manifest as _aramina_manifest
 
 
 def normalize_timestamp(value: Any) -> str:
-    """Return an RFC3339-compatible string: timezone preserved, no fractional seconds.
+    """Normalize acquisition syntax to seconds, preserving timezone knowledge.
 
-    Preserves the source instant; never coerces a naive value to local time and
-    never invents a timezone.  Returns ``""`` for empty/unparseable input.
+    Offset-aware values retain their offset; naive values remain ISO8601 local
+    wall times with unknown timezone (not strict RFC3339). No clock time or
+    timezone is invented. Empty, date-only, and invalid values return ``""``.
     """
     if not isinstance(value, str) or not value.strip():
         return ""
     text = value.strip()
+    if not re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)?",
+        text,
+    ):
+        return ""
     try:
         parsed = datetime.fromisoformat(text)
     except ValueError:
         return ""
     # Strip fractional seconds only (timezone/offset preserved by isoformat()).
-    return parsed.replace(microsecond=0).isoformat()
+    normalized = parsed.replace(microsecond=0).isoformat()
+    # RFC3339 -00:00 explicitly means unknown local offset, not known UTC.
+    if text.endswith("-00:00"):
+        return normalized[:-6] + "-00:00"
+    return normalized
 
 
 def _model_method(model_version: str) -> str:
@@ -212,6 +223,7 @@ def map_bremen_result(
         prediction_comment=_clean_str(context.get("prediction_comment")),
         patient_id=_clean_str(context.get("patient_id")),
         patient_age=_clean_age(source_metadata.get("patient_age")),
+        referring_physician=_clean_str(source_metadata.get("referring_physician")),
         scan_date_time=normalize_timestamp(source_metadata.get("scan_date_time")),
         operator_id=_clean_str(source_metadata.get("operator_id")),
         hardware_version=_clean_str(source_metadata.get("hardware_version")),
@@ -306,6 +318,7 @@ def map_aramina_result(
         prediction_comment=_clean_str(context.get("prediction_comment")),
         patient_id=_clean_str(context.get("patient_id")),
         patient_age=_clean_age(source_metadata.get("patient_age")),
+        referring_physician=_clean_str(source_metadata.get("referring_physician")),
         scan_date_time=normalize_timestamp(source_metadata.get("scan_date_time")),
         operator_id=_clean_str(source_metadata.get("operator_id")),
         hardware_version=_clean_str(source_metadata.get("hardware_version")),
