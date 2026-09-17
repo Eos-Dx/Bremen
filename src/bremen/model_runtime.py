@@ -21,12 +21,12 @@ serving-framework concepts.  Runtime errors use safe constant categories;
 public API error codes remain owned by platform adapters (backward
 compatibility is the adapters' responsibility, never the runtime's).
 
-Remaining platform coupling intentionally left for PR0154 (inference-complete
-model package): ``ModelInput.container_path`` (a platform-staged container
-path is still an input to artifact-owned preprocessing) and
-``ModelInput.patient_id`` (identity binding performed inside the model
-pipeline).  PR0154 removes the need for both by packaging inference-complete
-model releases.
+Ownership rule (PR0160): a model package may receive the staged raw source
+(``ModelInput.container_path``).  The platform must not scientifically
+interpret that source before model execution; the package owns preprocessing,
+feature, gate, estimator, and source-metadata interpretation.  Platform-side
+source integrity / request-source identity binding is performed by the
+platform before invoking the package.
 """
 from __future__ import annotations
 
@@ -70,10 +70,17 @@ class ModelInput:
     FastAPI request objects, job-handler objects and workflow result envelopes.
 
     Model runtimes consume the parts their contract requires:
-    ``BremenRuntime`` uses ``measurements`` (the exact 3+3 scientific input);
-    the Aramina runtime uses ``canonical``, ``patient_id``, ``target_side``,
-    ``container_path`` and the model-specific ``parameters``.  Unused fields
-    stay at their defaults so runtimes never depend on each other's shape.
+    ``BremenRuntime`` uses ``measurements`` (the exact 3+3 scientific input)
+    or, for the raw-container path (PR0160), ``container_path`` plus the
+    artifact-owned preprocessing; the Aramina runtime uses ``canonical``,
+    ``patient_id``, ``target_side``, ``container_path`` and the model-specific
+    ``parameters``.  Unused fields stay at their defaults so runtimes never
+    depend on each other's shape.
+
+    A model package may receive the staged raw source (``container_path``).
+    The platform must not scientifically interpret that source before model
+    execution. Source integrity and request/source identity binding remain
+    platform responsibilities, performed before package invocation.
     """
 
     workflow_id: str

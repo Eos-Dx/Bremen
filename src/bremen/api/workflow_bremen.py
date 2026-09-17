@@ -130,6 +130,11 @@ class BremenProvider(WorkflowProvider):
         """Return the Model Runtime Contract v1 implementation for this workflow."""
         return self._runtime
 
+    @property
+    def requires_raw_container(self) -> bool:
+        """Package-declared raw input ownership, used before normalization."""
+        return bool(getattr(self._runtime, "requires_raw_container", False))
+
     # ---- Readiness ----
 
     def readiness(self) -> WorkflowReadiness:
@@ -268,10 +273,18 @@ class BremenProvider(WorkflowProvider):
 
         ``h5_path`` is the platform-staged container path passed through the
         documented ``ModelInput.container_path`` bridge so the model package
-        can interpret its own container metadata (PR0159).
+        can execute artifact-owned preprocessing and interpret metadata.
         """
         # --- Compatibility check ---
-        compat = self.validate_compatibility(canonical)
+        if self.requires_raw_container:
+            validation = self._runtime.validate_model_input(ModelInput(
+                workflow_id=self.workflow_id, container_path=h5_path,
+            ))
+            compat = CompatibilityResult(
+                compatible=validation.compatible, reason=validation.safe_reason,
+            )
+        else:
+            compat = self.validate_compatibility(canonical)
         if not compat.compatible:
             reason = compat.reason or "incompatible"
             if context:
@@ -300,7 +313,13 @@ class BremenProvider(WorkflowProvider):
         # --- Artifact + input preparation (tracing only) ---
         if context:
             self.prepare_artifact(context)
-            self.prepare_input(canonical, context)
+            if self.requires_raw_container:
+                context.emit(
+                    "runtime.input.preparation.completed", "input", "completed",
+                    details={"layout": "raw_container", "compatible": True},
+                )
+            else:
+                self.prepare_input(canonical, context)
 
         # --- Model validation ---
         if not self._validate_model_internal():
@@ -404,8 +423,12 @@ class BremenProvider(WorkflowProvider):
             right_count = sum(
                 1 for m in measurements if getattr(m, "side", None) == "RIGHT"
             )
-            result.payload["left_measurement_count"] = left_count
-            result.payload["right_measurement_count"] = right_count
+            result.payload["left_measurement_count"] = prediction.result.get(
+                "left_measurement_count", left_count,
+            )
+            result.payload["right_measurement_count"] = prediction.result.get(
+                "right_measurement_count", right_count,
+            )
 
         if context and result.status == "completed":
             payload = result.payload or {}

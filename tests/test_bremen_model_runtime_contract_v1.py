@@ -392,6 +392,10 @@ def test_bremen_provider_preserves_execution_envelope_from_runtime_error():
 
 
 def test_aramina_provider_delegates_predict_to_runtime(monkeypatch):
+    monkeypatch.setattr(
+        "bremen.api.workflow_orchestrator._validate_aramina_source",
+        lambda *args: None,
+    )
     import bremen.model_packages.aramina_v0213.inference as inference
     wa = _aramina()
     monkeypatch.setattr(

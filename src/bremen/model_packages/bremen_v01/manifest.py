@@ -57,8 +57,8 @@ REQUEST_FIELDS: tuple[str, ...] = ("container_id", "source_id")
 OPTIONAL_REQUEST_FIELDS: tuple[str, ...] = ()
 
 INPUT_NOTES: tuple[str, ...] = (
-    "Bremen requires exactly 3 LEFT and 3 RIGHT canonical "
-    "measurements (six total) before any scientific work.",
+    "Bremen requires exactly 3 LEFT and 3 RIGHT profiles after "
+    "artifact-owned preprocessing of the raw staged container.",
 )
 
 # ---------------------------------------------------------------------------

@@ -220,12 +220,29 @@ def run_workflow_request(
     _emit(event_store, job_id, request_id,
           EventType.REQUEST_ACCEPTED, "request", "accepted")
 
-    # 1. Normalize the H5 exactly once
+    # Resolve input ownership before touching source content. Raw-container
+    # runtimes receive only staged bytes and generic checksum provenance.
+    resolved_registry = registry or get_default_registry()
+    try:
+        selected_provider = resolved_registry.resolve(workflow_id)
+    except WorkflowNotFoundError:
+        selected_provider = None
+
+    # 1. Prepare the input exactly once
     _emit(event_store, job_id, request_id,
           EventType.NORMALIZATION_STARTED, "normalization", "started")
 
     try:
-        canonical = _normalize_h5(h5_path, request_id=request_id, workflow_id=workflow_id)
+        if getattr(selected_provider, "requires_raw_container", False):
+            with open(h5_path, "rb") as source:
+                checksum = hashlib.file_digest(source, "sha256").hexdigest()
+            canonical = CanonicalXRDCase(
+                source_layout="raw_container", source_layout_version="",
+                source_checksum=checksum, calibration_provenance="none",
+                measurements=(),
+            )
+        else:
+            canonical = _normalize_h5(h5_path, request_id=request_id, workflow_id=workflow_id)
     except NormalizationError:
         _log.warning(
             "runtime.normalization.failed\t"
@@ -278,7 +295,6 @@ def run_workflow_request(
           })
 
     # 2. Resolve provider through registry
-    resolved_registry = registry or get_default_registry()
     try:
         provider = resolved_registry.resolve(workflow_id)
     except WorkflowNotFoundError:
@@ -450,9 +466,21 @@ def run_workflow_request(
 
 
 def _validate_aramina_source(
-    h5_path: str, canonical: CanonicalXRDCase, patient_id: str,
+    h5_path: str,
+    canonical: CanonicalXRDCase,
+    patient_id: str,
 ) -> None:
-    """Ensure local model input belongs to the staged, normalized patient case."""
+    """Platform-side source integrity / request-source identity binding.
+
+    Called by the platform BEFORE invoking the Aramina package (PR0160), so
+    the package never imports ``bremen.api``.  Verifies that the staged file
+    bytes match the canonical checksum and that the container's patient
+    identifier matches the requested patient.  Raises ``ValueError`` on
+    mismatch so the platform translates it into the established
+    ``h5_patient_contract`` failure semantics.
+
+    This remains a PLATFORM concern; it must never move into Aramina science.
+    """
     from .preflight import resolve_patient_metadata
 
     with open(h5_path, "rb") as source:
