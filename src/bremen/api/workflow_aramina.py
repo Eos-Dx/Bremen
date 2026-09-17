@@ -141,6 +141,24 @@ class AraminaWorkflowProvider(WorkflowProvider):
         try:
             if aramina_request is None:
                 raise AraminaWorkflowError("ARAMINA_INVALID_REQUEST")
+            # Validate the request contract FIRST (ARAMINA_INVALID_REQUEST
+            # must take precedence over source binding), then perform the
+            # platform source/patient binding.
+            request_fields = _build_aramina_request_json(
+                patient_id=aramina_request.patient_id,
+                target_side=aramina_request.target_side,
+                analysis_author=aramina_request.analysis_author,
+                prediction_comment=aramina_request.prediction_comment,
+            )
+            # Source integrity and patient binding belong to the platform.
+            from .workflow_orchestrator import _validate_aramina_source  # noqa: PLC0415
+            try:
+                _validate_aramina_source(h5_path, canonical, request_fields["patient_id"])
+            except Exception as exc:  # noqa: BLE001 -- preserve the public failure taxonomy
+                raise AraminaWorkflowError(
+                    "ARAMINA_UNSUPPORTED_INPUT", "h5_patient_contract",
+                    type(exc).__name__,
+                ) from None
             model_input = ModelInput(
                 workflow_id=self.workflow_id,
                 measurements=tuple(getattr(canonical, "measurements", ()) or ()),

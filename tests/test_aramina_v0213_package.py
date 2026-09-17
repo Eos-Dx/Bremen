@@ -132,7 +132,7 @@ def wired(monkeypatch):
     import bremen.model_packages.aramina_v0213.inference as inference
     import bremen.model_packages.aramina_v0213.preprocessing as preprocessing
 
-    monkeypatch.setattr(inference, "_validate_aramina_source",
+    monkeypatch.setattr("bremen.api.workflow_orchestrator._validate_aramina_source",
                         lambda h5, canonical, patient_id: None)
     monkeypatch.setattr(preprocessing, "preprocess_aramina", _deterministic_frame)
     return inference
@@ -291,9 +291,8 @@ def test_direct_package_threshold_flips_decision(tmp_path, wired):
 
 
 def test_package_scientific_failure_taxonomy_and_no_leak(tmp_path, monkeypatch):
-    import bremen.model_packages.aramina_v0213.inference as inference
 
-    monkeypatch.setattr(inference, "_validate_aramina_source",
+    monkeypatch.setattr("bremen.api.workflow_orchestrator._validate_aramina_source",
                         lambda h5, canonical, patient_id: None)
 
     def boom(h5_path, config_yaml):

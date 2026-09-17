@@ -388,9 +388,41 @@ def build_bremen_features(measurements) -> dict[str, float]:
              "radial_profile_data": np.asarray(m.intensity)}
             for m in measurements
         ])
+    except Exception:
+        raise BremenFeatureError("invalid_scientific_profiles") from None
+    return build_bremen_features_from_frame(frame)
+
+
+def build_bremen_features_from_frame(frame: pd.DataFrame) -> dict[str, float]:
+    """Consume a measurement frame produced by the package-owned preprocessing.
+
+    The frame carries the authoritative radial profiles/q ranges (and side
+    labels) produced by the artifact-owned xrd-preprocessing pipeline.  The
+    feature construction below is byte-identical to the frozen PR0151 sequence;
+    only the input carrier differs (a DataFrame instead of canonical
+    measurements).  The 0.6 raw-peak gate and the 15-feature contract are
+    unchanged.
+    """
+    if not isinstance(frame, pd.DataFrame) or frame.empty:
+        raise BremenFeatureError("invalid_scientific_profiles")
+    try:
+        # Normalize side labels to the frozen vocabulary and enforce the frozen
+        # 3 LEFT + 3 RIGHT product contract on the preprocessed frame.
+        if "patientId" in frame and (
+            frame["patientId"].isna().any() or frame["patientId"].astype(str).nunique() != 1
+        ):
+            raise BremenFeatureError("invalid_scientific_profiles")
+        work = frame.copy()
+        work["side_norm"] = work["side"].map(_side_to_bremen)
+        if work["side_norm"].isna().any():
+            raise BremenFeatureError("invalid_scientific_profiles")
+        sides = list(work["side_norm"])
+        if len(sides) != 6 or sides.count("LEFT") != 3 or sides.count("RIGHT") != 3:
+            raise BremenFeatureError("requires_exactly_3_left_3_right")
+        work = work.assign(side=work["side_norm"], patient_id="case")
         config = AnalysisConfig()
-        narrow = patient_lr_mean_metrics(frame, "case", config, config.q_roi)
-        wide = patient_lr_mean_metrics(frame, "case", config, config.cosine_q_roi)
+        narrow = patient_lr_mean_metrics(work, "case", config, config.q_roi)
+        wide = patient_lr_mean_metrics(work, "case", config, config.cosine_q_roi)
         q = narrow["q_common"]
         left, right = narrow["mu_left"], narrow["mu_right"]
         sl, sr = narrow["std_left"], narrow["std_right"]
@@ -405,14 +437,26 @@ def build_bremen_features(measurements) -> dict[str, float]:
         values["peak14_intensity"] = peak14_intensity_from_means(
             q, left, right, config.peak_center, config.peak_halfwidth, config.peak_mode
         )
-        values["mean_peak_value_raw"] = patient_mean_raw_peak14(frame, "case", config)
+        values["mean_peak_value_raw"] = patient_mean_raw_peak14(work, "case", config)
         values["wasserstein_distance_muLR"] = wasserstein_distance(q, left, right)
         values["cosine_distance_full_q2"] = cosine_distance(wide["mu_left"], wide["mu_right"])
         values["wasserstein_distance_full_q2"] = wasserstein_distance(
             wide["q_common"], wide["mu_left"], wide["mu_right"]
         )
+    except BremenFeatureError:
+        raise
     except Exception:
         raise BremenFeatureError("invalid_scientific_profiles") from None
     if not values["mean_peak_value_raw"] >= config.raw_peak_threshold:
         raise BremenFeatureError("raw_peak_gate_failed")
     return {name: values[name] for name in FEATURE_COLS}
+
+
+def _side_to_bremen(value) -> str | None:
+    """Map a preprocessing frame side label to the frozen LEFT/RIGHT vocabulary."""
+    text = str(value).strip().upper()
+    if text == "LEFT":
+        return "LEFT"
+    if text == "RIGHT":
+        return "RIGHT"
+    return None

@@ -223,6 +223,11 @@ class BremenRuntime:
         reason).  This is the contract-facing form of ``validate_input``; the
         frozen validation implementation is unchanged.
         """
+        if self.requires_raw_container:
+            return ModelValidation(
+                compatible=bool(input.container_path),
+                safe_reason="" if input.container_path else "raw_container_required",
+            )
         measurements = input.measurements
         if measurements is None:
             raise ModelInputInvalidError("not_a_canonical_case")
@@ -240,13 +245,29 @@ class BremenRuntime:
     ) -> RuntimePrediction:
         """Run the complete frozen model contract and return a runtime result.
 
-        The scientific sequence is exactly ``run()`` (validate → build features
-        → score → decide).  Safe failures are translated into Model Runtime
-        Contract error categories without changing their established
-        ``safe_reason`` constants.
+        PR0160: when the carrier provides the raw staged container
+        (``container_path``), the scientific sequence is package-owned:
+        validate -> artifact-owned preprocessing (from the active artifact's
+        ``prediction_preprocessing_yaml``) -> frozen feature construction ->
+        gate -> score -> decide. Artifacts requiring raw input cannot fall
+        back to integrated profiles. Legacy artifacts without raw preprocessing
+        retain the frozen ``run()`` integrated-profile sequence.  Safe failures are translated into Model Runtime Contract
+        error categories without changing their established ``safe_reason``
+        constants.
         """
         try:
-            model_result = self.run(input.measurements, on_features=on_features)
+            if self.requires_raw_container:
+                if not input.container_path:
+                    raise ModelInputInvalidError("raw_container_required")
+                model_result = self._predict_from_raw_container(
+                    input, on_features=on_features,
+                )
+            else:
+                # No raw-container science configured: use the legacy frozen
+                # integrated-profile sequence (synthetic fixture boundary and
+                # package-level direct tests).  The synthetic MODEL fixture has
+                # no prediction_preprocessing_yaml.
+                model_result = self.run(input.measurements, on_features=on_features)
         except (BremenFeatureError, ModelRuntimeError) as exc:
             raise _runtime_error_for(exc) from None
         except Exception:
@@ -259,15 +280,73 @@ class BremenRuntime:
         # internals.  Absent fields keep the contract's explicit absence.
         from . import source_metadata as _source_metadata  # noqa: PLC0415
 
+        result = _bremen_result_mapping(model_result)
+        if self.requires_raw_container:
+            # Prediction can succeed only after the package's exact shape gate.
+            counts = dict(manifest.MEASUREMENT_SIDES)
+            result.update(left_measurement_count=counts["LEFT"],
+                          right_measurement_count=counts["RIGHT"])
         return RuntimePrediction(
             workflow_id=manifest.WORKFLOW_ID,
             model_id=str(metadata.get("model_id") or manifest.MODEL_ID),
             model_version=str(metadata.get("model_version") or ""),
-            result=_bremen_result_mapping(model_result),
+            result=result,
             source_metadata=_source_metadata.extract_source_metadata(input.container_path),
             model_metadata=_source_metadata.extract_model_metadata(self.package),
             model_metrics=_source_metadata.extract_model_metrics(self.package),
         )
+
+    @property
+    def requires_raw_container(self) -> bool:
+        """Artifacts declaring raw preprocessing must never fall back to profiles."""
+        return (self._has_artifact_preprocessing() or
+                isinstance(self.package, dict) and
+                self.package.get("kind") == "bremen_paper_reference_model")
+
+    def _has_artifact_preprocessing(self) -> bool:
+        """True when the active artifact declares package-owned preprocessing.
+
+        The synthetic/frozen integrated-profile fixture (MODEL) has no
+        ``prediction_preprocessing_yaml``; the real paper-reference artifact
+        does.  The raw-container path is only used when the artifact itself
+        owns the preprocessing configuration.
+        """
+        package = self.package if isinstance(self.package, dict) else {}
+        config_yaml = package.get("prediction_preprocessing_yaml")
+        return isinstance(config_yaml, str) and bool(config_yaml.strip())
+
+    def _predict_from_raw_container(
+        self,
+        input: ModelInput,
+        *,
+        on_features: Callable[[BremenFeatures], None] | None = None,
+    ) -> BremenModelResult:
+        """Execute the package-owned raw-container scientific sequence.
+
+        The artifact's ``prediction_preprocessing_yaml`` is the authoritative
+        preprocessing configuration; the pinned xrd-preprocessing worker
+        (``preprocess_bremen``) produces the measurement frame; the frozen
+        feature/gate/estimator sequence is then identical to ``run()``.  The
+        platform never reconstructs Bremen scientific preprocessing.
+        """
+        if not self.model_ready():
+            raise BremenRuntimeError("model_not_ready")
+        package = self.package if isinstance(self.package, dict) else {}
+        config_yaml = package.get("prediction_preprocessing_yaml")
+        if not isinstance(config_yaml, str) or not config_yaml.strip():
+            raise BremenRuntimeError("model_not_ready")
+        from .preprocessing import preprocess_bremen  # noqa: PLC0415
+        from .features import build_bremen_features_from_frame  # noqa: PLC0415
+
+        frame = preprocess_bremen(input.container_path, config_yaml)
+        values = build_bremen_features_from_frame(frame)
+        features = BremenFeatures(
+            self.feature_names,
+            tuple(values[name] for name in self.feature_names),
+        )
+        if on_features is not None:
+            on_features(features)
+        return self.score(features.feature_names, features.feature_values)
 
     @property
     def model_metadata(self) -> Mapping[str, object]:

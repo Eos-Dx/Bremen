@@ -72,6 +72,9 @@ RUN if [ -n "$BREMEN_CI_GITHUB_TOKEN" ]; then \
             "https://github.com/"; \
     fi && \
     pip install --no-cache-dir "." && \
+    python -m venv /opt/bremen-preprocess && \
+    /opt/bremen-preprocess/bin/pip install --no-cache-dir \
+        "xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@45d5568248e9774b7938a36e028d80e72b130b19" && \
     python -m venv /opt/aramina-preprocess && \
     /opt/aramina-preprocess/bin/pip install --no-cache-dir \
         "xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@v0.1.7-beta" && \

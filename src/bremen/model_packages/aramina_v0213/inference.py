@@ -16,11 +16,8 @@ The only structural changes (import retargeting; no behavior change):
 - the controlled joblib loader comes from the narrow platform bridge
   ``bremen.model_packages_bridge.load_staged_artifact`` (error contract
   preserved);
-- H5 source/patient identity binding is called through the module global
-  ``_validate_aramina_source``, which defaults to the platform orchestrator
-  (lazy import).  Identity/source binding and container resolution remain
-  PLATFORM concerns; only the call remains reachable from here for behavior
-  parity.  Tests patch this module attribute to inject behavior.
+- Source integrity and patient binding are performed by the platform provider
+  before package invocation (PR0160); no package-to-API dependency remains.
 
 No HTTP, no FastAPI, no auth, no job objects, no report providers, no S3
 credentials, no frontend.  Research decision support requiring radiologist
@@ -44,13 +41,6 @@ from bremen.model_packages_bridge import load_staged_artifact as _load_staged_ar
 ARTIFACT_TYPE = manifest.ARTIFACT_TYPE
 _ARTIFACT_KIND = manifest.ARTIFACT_KIND
 _DEFAULT_AUTHOR = manifest.DEFAULT_AUTHOR
-
-
-def _validate_aramina_source(h5_path: str, canonical: CanonicalXRDCase, patient_id: str) -> None:
-    """Default platform source/patient binding (lazy import; monkeypatchable)."""
-    from bremen.api.workflow_orchestrator import _validate_aramina_source as _impl  # noqa: PLC0415
-
-    _impl(h5_path, canonical, patient_id)
 
 
 # ---- moved verbatim from bremen.api.workflow_aramina ----
@@ -265,17 +255,6 @@ def _prepare_features(
         )
         with _debug_stage("canonical_validation"):
             validate_canonical_case(canonical)
-        with _debug_stage("source_validation"):
-            try:
-                _validate_aramina_source(h5_path, canonical, request_json["patient_id"])
-            except Exception as exc:  # noqa: BLE001 -- boundary translation only
-                # The staged H5 does not belong to the requested patient, or
-                # its bytes changed after normalization. Both are H5 patient
-                # contract failures, not generic input failures.
-                raise AraminaWorkflowError(
-                    "ARAMINA_UNSUPPORTED_INPUT", "h5_patient_contract",
-                    type(exc).__name__,
-                ) from None
 
         models = package["models"]
         selected_model_name = next(iter(models))
