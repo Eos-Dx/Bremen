@@ -185,3 +185,45 @@ Do not expose non-deployed endpoints as production SDK calls.
 Do not make clinical claims.
 
 Do not require clients to send model_version.
+
+
+R-0161A: Standard Result Contract Hardening documentation and spike
+
+Status:
+Documentation/spike only.
+
+Purpose:
+Freeze the production evidence and implementation direction before changing the Standard Model Result contract again.
+
+Recorded scope:
+- scan_date_time representation/timezone debt;
+- failed workflow report contract debt;
+- missing-value semantics debt;
+- referring_physician spike and ownership decision.
+
+No runtime behavior changes in 0161A.
+
+R-0161: Standard Result Contract Hardening + referring_physician
+
+Planned implementation:
+- add common Standard Result field referring_physician for Bremen and Aramina;
+- current unavailable value is an empty string;
+- keep real source extraction package-owned;
+- reconcile scan_date_time serialization with Contract v1 without fabricating timezone;
+- add a safe normalized failed-report envelope;
+- document/normalize missing-value semantics for touched fields;
+- preserve existing REST endpoints, auth, model IDs, legacy payloads, jobs, scientific behavior, probabilities, thresholds, gates and decisions.
+
+Architecture rule:
+Adding referring_physician must not add H5 paths or aliases to generic mapper/API/runtime code.
+
+Current data-flow target:
+model package source adapter
+-> SourceMetadata
+-> RuntimePrediction
+-> generic Standard Result mapper
+-> StandardModelResult
+
+Roadmap correction:
+The older 0157-0162 draft that described 0161 as a Technical Model-native Inference API is stale relative to the work actually delivered in 0159 and 0160.
+0161 is now reserved for Standard Result contract hardening described above.
