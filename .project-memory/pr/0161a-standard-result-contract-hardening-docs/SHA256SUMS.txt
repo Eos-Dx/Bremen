@@ -1,0 +1,8 @@
+21abefd094fbf1203a3ab8195ff8f2ee3c23e836c1978d3ada26c1681549a62d  .project-memory/pr/0161a-standard-result-contract-hardening-docs/INSTALL.md
+a33f8e37176b07746f6df89897eaf4737eab99841935904a7d8f2d6e64c63cf6  .project-memory/pr/0161a-standard-result-contract-hardening-docs/PLAN.md
+91a6ffce920eca0c1826f2d4d025a543a5f1a1a45de8fb281c80b638e3d9120d  .project-memory/pr/0161a-standard-result-contract-hardening-docs/REAL_CONTRACT_EVIDENCE.md
+5283158dde52278193f4ad3f014680d265b0d7887798cec924e024f1a2c8261b  .project-memory/pr/0161a-standard-result-contract-hardening-docs/REFERRING_PHYSICIAN_SPIKE.md
+b5fe7cc4b12fe3929f0a4c10ecc61f6940dbb950346a72eb8640baafb9b6c142  .project-memory/pr/0161a-standard-result-contract-hardening-docs/ROADMAP_APPEND.txt
+3915996fc327c634299c9be46c1061f6ac4462f3d91d5dc07a2c4fdf524acdde  .project-memory/pr/0161a-standard-result-contract-hardening-docs/TECHNICAL_DEBT.md
+0d860123dd8217d50daf6f4113173737abd9ce8c6eceaf18e734804765b801ad  .project-memory/pr/0161a-standard-result-contract-hardening-docs/TECHNICAL_DEBT_APPEND.txt
+971827527026fa5ccb417f0575a6637541df20c38286002de185ea1e277b0a89  .project-memory/pr/0161a-standard-result-contract-hardening-docs/scripts/apply-register-updates.sh

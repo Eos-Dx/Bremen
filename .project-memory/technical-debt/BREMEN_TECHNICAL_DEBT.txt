@@ -143,3 +143,49 @@ Do not claim clinical validation.
 Do not claim diagnosis.
 
 Do not claim deployed endpoints that still return 404.
+
+
+TD-0161-01: Standard Result scan_date_time format/timezone drift
+
+Contract v1 requires RFC3339-compatible timestamps with timezone and no fractional seconds.
+
+Observed production:
+- Bremen source metadata: 2025-05-28 10:19:55
+- Bremen Standard Result: 2025-05-28T10:19:55
+- Aramina Standard Result: 2025-05-14T12:55:46+00:00
+
+Debt:
+The common contract is not represented consistently.
+The mapper must not invent timezone information merely to satisfy the documented format.
+
+Target:
+Resolve in PR0161 with a truthful deterministic common policy.
+
+TD-0161-02: Failed workflow report endpoint is too sparse
+
+Observed failed report:
+- status=unavailable
+- reason_code=REPORT_NOT_AVAILABLE
+- no payload
+- no standard_result
+- approximately 6 scalar fields
+
+Job detail already carries useful safe structured failure diagnostics.
+
+Debt:
+Report consumers cannot obtain a normalized failure explanation from the workflow report endpoint.
+
+Target:
+Define and implement an additive safe failed-report envelope for Bremen and Aramina in PR0161.
+Do not expose raw exceptions, tracebacks, paths, S3 details, tokens or artifact internals.
+
+TD-0161-03: Missing-value representation is not fully explicit
+
+Observed values mix null and empty string, including eoscan_version=null and mammography_suspicious_field="".
+
+Debt:
+Clients should not need model-specific conventions for unavailable metadata.
+
+Target:
+Document field-level null/empty/omit rules for fields touched by PR0161.
+The requested referring_physician behavior is an empty string when unavailable.
