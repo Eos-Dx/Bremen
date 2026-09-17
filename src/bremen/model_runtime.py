@@ -175,6 +175,7 @@ class SourceMetadata:
     """
 
     patient_age: int | float | None = None
+    referring_physician: str = field(default="", kw_only=True)
     scan_date_time: str = ""
     operator_id: str = ""
     hardware_version: str = ""
@@ -184,6 +185,7 @@ class SourceMetadata:
         """JSON-safe view of the normalized source metadata."""
         return {
             "patient_age": self.patient_age,
+            "referring_physician": self.referring_physician,
             "scan_date_time": self.scan_date_time,
             "operator_id": self.operator_id,
             "hardware_version": self.hardware_version,

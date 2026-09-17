@@ -89,6 +89,7 @@ def test_bremen_and_aramina_adapters_produce_identical_canonical_source(tmp_path
     assert bremen.to_dict() == aramina.to_dict()
     assert bremen.to_dict() == {
         "patient_age": 44,
+        "referring_physician": "",
         "scan_date_time": "2025-05-28 10:19:55",
         "operator_id": "backfill",
         "hardware_version": "v1.0.1",
@@ -306,7 +307,7 @@ def test_aramina_model_metrics_never_hardcoded_from_other_version():
 
 def test_normalized_contract_types_are_transport_neutral():
     assert SourceMetadata().to_dict() == {
-        "patient_age": None, "scan_date_time": "", "operator_id": "",
+        "patient_age": None, "referring_physician": "", "scan_date_time": "", "operator_id": "",
         "hardware_version": "", "eoscan_version": None,
     }
     assert ModelMetadata().to_dict() == {"model_method": ""}

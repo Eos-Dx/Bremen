@@ -38,6 +38,7 @@ CANONICAL_FIELDS: tuple[str, ...] = (
     "prediction_comment",
     "patient_id",
     "patient_age",
+    "referring_physician",
     "scan_date_time",
     "operator_id",
     "hardware_version",
@@ -69,6 +70,7 @@ class StandardModelResult:
     prediction_comment: str = ""
     patient_id: str = ""
     patient_age: int | float | None = None
+    referring_physician: str = field(default="", kw_only=True)
     scan_date_time: str = ""
     operator_id: str = ""
     hardware_version: str = ""
@@ -101,6 +103,7 @@ class StandardModelResult:
             "prediction_comment": self.prediction_comment,
             "patient_id": self.patient_id,
             "patient_age": self.patient_age,
+            "referring_physician": self.referring_physician,
             "scan_date_time": self.scan_date_time,
             "operator_id": self.operator_id,
             "hardware_version": self.hardware_version,
