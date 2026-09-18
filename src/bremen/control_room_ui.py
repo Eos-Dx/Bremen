@@ -312,7 +312,7 @@ function loadContainerCatalog(){
       var prevSelectedId=selectedSource&&selectedSource.type==='container'?selectedSource.id:null;
       var prevSelectedStillAvailable=false;
       containers.forEach(function(c){
-        var name=c.display_name||c.source_id||'unknown';
+        var name=c.patient_display_name||c.display_name||c.source_id||'unknown';
         var size=c.size_bytes||0;
         var sizeLabel=size>1048576?(size/1048576).toFixed(1)+' MB':(size>1024?(size/1024).toFixed(1)+' KB':size+' B');
         var modified=c.last_modified?c.last_modified.substring(0,10):'';
@@ -549,7 +549,7 @@ function startAnalysis(){
     body:JSON.stringify(body)
   }).then(function(r){return r.json()}).then(function(data){
     var job=data.job||{};
-    var jid=job.job_id||'';
+    var jid=job.job_id||(data.error==='report_already_exists'?data.job_id:'')||'';
     if(!jid){
       isSubmitting=false;
       updateReadiness();

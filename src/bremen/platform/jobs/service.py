@@ -7,6 +7,8 @@ from bremen.platform.reports.service import _register_default_providers
 from bremen.platform.jobs.values import _utc_now
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 import uuid as _uuid
 from typing import Any
 
@@ -42,6 +44,8 @@ from bremen.platform.jobs.repository import (
 )
 
 _log = logging.getLogger(__name__)
+_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="bremen-job")
+_submission_lock = Lock()
 
 # Staged uploads registry
 # ---------------------------------------------------------------------------
@@ -94,6 +98,8 @@ def create_analysis_job(
     target_side: str = "",
     analysis_author: str = "",
     prediction_comment: str = "",
+    patient_id: str = "",
+    background: bool = False,
 ) -> AnalysisJob:
     """Create and execute an analysis job synchronously.
 
@@ -182,6 +188,7 @@ def create_analysis_job(
         "model_id": model_id,
         "source_key": source_key or "",
         "patient_display_name": patient_display_name or "",
+        "patient_id": getattr(aramina_request, "patient_id", patient_id) or patient_display_name,
         # PR0141: Aramina inference identity includes the requested side.
         # Bremen leaves this empty so its duplicate identity is unchanged.
         "target_side": target_side if target_side in {"left", "right"} else "",
@@ -197,8 +204,7 @@ def create_analysis_job(
         job_id=job_id,
         request_id=request_id,
         created_at=created_at,
-        started_at=_utc_now(),
-        overall_status="running",
+        overall_status="queued",
         input_summary=input_summary,
         normalization_summary={},
         requested_workflows=(workflow_id,),
@@ -207,6 +213,56 @@ def create_analysis_job(
     with _jobs_lock:
         _jobs[job_id] = job
 
+    execution_args = dict(
+        container_id=container_id, workflow_id=workflow_id, h5_path=h5_path,
+        model_id=model_id, registry=registry, aramina_request=aramina_request,
+        patient_display_name=patient_display_name, analysis_author=analysis_author,
+        prediction_comment=prediction_comment,
+    )
+    if background:
+        try:
+            _executor.submit(_execute_analysis_job, job, **execution_args)
+        except Exception:
+            _fail_job(job)
+    else:
+        _execute_analysis_job(job, **execution_args)
+    return job
+
+
+def _fail_job(job):
+    """Terminate infrastructure failures without exposing exception contents."""
+    with _jobs_lock:
+        job.overall_status = "failed"
+        job.completed_at = _utc_now()
+        for wid in job.requested_workflows:
+            job.workflow_runs[wid] = WorkflowRun(
+                wid, "failed", failure="JOB_EXECUTION_FAILED",
+            )
+    _event_store.append(job.job_id, JobEvent(
+        job_id=job.job_id, request_id=job.request_id,
+        workflow_id=job.requested_workflows[0], stage="execution",
+        event_type="runtime.workflow.failed", status="failed",
+        details={"failure_stage": "execution", "reason_code": "JOB_EXECUTION_FAILED"},
+    ))
+
+
+def _execute_analysis_job(job, **kwargs):
+    """Run outside the HTTP request; every accepted job reaches a terminal state."""
+    with _jobs_lock:
+        job.started_at = _utc_now()
+        job.overall_status = "running"
+    try:
+        return _run_analysis_job(job, **kwargs)
+    except Exception:
+        _log.exception("Analysis worker failed")
+        _fail_job(job)
+        return job
+
+
+def _run_analysis_job(job, *, container_id, workflow_id, h5_path, model_id,
+                      registry, aramina_request, patient_display_name,
+                      analysis_author, prediction_comment):
+    job_id, request_id = job.job_id, job.request_id
     # Run the orchestrator with event capture (no lock held — may take seconds)
     # In catalog mode, construct a fresh provider for the selected model
     from bremen.platform.models.registry import get_registry  # noqa: PLC0415
@@ -269,7 +325,7 @@ def create_analysis_job(
 
         if wf_result:
             if wf_result.status == "completed":
-                job.overall_status = "completed"
+                job.overall_status = "running"
             elif wf_result.status == "failed":
                 # Propagate orchestrator overall_status when it is more
                 # specific than plain "failed" (e.g. workflow_configuration
@@ -338,6 +394,11 @@ def create_analysis_job(
     _register_default_providers()
     _generate_job_reports(job)
 
+    with _jobs_lock:
+        if wf_result and wf_result.status == "completed":
+            job.overall_status = "completed"
+        job.completed_at = _utc_now()
+
     # Emit report-completed event only when at least one report is available
     for wid, rm in job.reports.items():
         if rm.status == REPORT_STATUS_AVAILABLE:
@@ -358,6 +419,33 @@ def create_analysis_job(
             break  # one report-completed per job
 
     return job
+
+
+def submit_analysis_job(**kwargs):
+    """Atomically reuse or reserve an analysis in this process, then schedule it.
+
+    Metadata such as author/comments is deliberately not part of identity.
+    The repository and executor are process-local; no durable queue is claimed.
+    """
+    if not kwargs.get("model_id"):
+        from bremen.platform.models.catalog import resolve_model
+        kwargs["model_id"] = resolve_model(None, workflow_id=kwargs["workflow_id"])
+    request = kwargs.get("aramina_request")
+    patient = getattr(request, "patient_id", kwargs.get("patient_id", ""))
+    patient = patient or kwargs.get("patient_display_name", "")
+    identity = (kwargs.get("source_key", ""), kwargs["workflow_id"],
+                kwargs["model_id"], patient, kwargs.get("target_side", ""))
+    with _submission_lock:
+        with _jobs_lock:
+            for job in _jobs.values():
+                summary = job.input_summary
+                existing = (summary.get("source_key", ""), summary.get("workflow_id"),
+                            summary.get("model_id"),
+                            summary.get("patient_id", summary.get("patient_display_name", "")),
+                            summary.get("target_side", ""))
+                if identity[0] and existing == identity:
+                    return job, True
+        return create_analysis_job(**kwargs, background=True), False
 
 
 def list_analysis_jobs(

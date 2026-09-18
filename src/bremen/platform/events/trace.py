@@ -10,6 +10,7 @@ PR0078 — model runtime plugin tracing and investor showcase.
 from __future__ import annotations
 
 from typing import Any
+from datetime import datetime
 
 from bremen.platform.events.store import BoundedEventStore
 from bremen.contracts.trace import (
@@ -18,7 +19,6 @@ from bremen.contracts.trace import (
 )
 from bremen.platform.events_trace import (
     BREMEN_STAGE_ORDER,
-    ARAMINA_STAGE_ORDER,
     ALL_STAGE_LABELS,
 )
 
@@ -38,6 +38,11 @@ _STAGE_EVENT_MAP: dict[str, str] = {
     "runtime.output.validation.completed": "output_validated",
     "runtime.decision.completed": "decision_completed",
     "runtime.report.completed": "report_completed",
+    "runtime.model.execution.completed": "inference_completed",
+    "runtime.output.completed": "output_validated",
+    "runtime.input.preparation.failed": "input_prepared",
+    "runtime.features.failed": "features_produced",
+    "runtime.model.execution.failed": "inference_completed",
 }
 
 
@@ -57,116 +62,64 @@ def build_trace_from_events(
     if not wf_events:
         return None
 
-    # Determine stage order
-    if workflow_id == "bremen":
-        stage_order = BREMEN_STAGE_ORDER
-    elif workflow_id == "aramina":
-        stage_order = ARAMINA_STAGE_ORDER
-    else:
-        stage_order = BREMEN_STAGE_ORDER  # default
-
-    # Map events to stages
+    # Only recorded events prove execution. Aramina has no readiness-only
+    # pipeline anymore; never invent unobserved scientific stages.
     stage_info: dict[str, dict[str, Any]] = {}
-    started_times: dict[str, str] = {}
-
+    terminal = None
+    failing_stage = None
     for ev in wf_events:
         sid = _STAGE_EVENT_MAP.get(ev.event_type)
+        if ev.event_type in {"runtime.workflow.completed", "runtime.workflow.failed",
+                             "runtime.workflow.not_found"}:
+            terminal = ev
+            if ev.status == "failed":
+                sid = ev.details.get("failure_stage") or failing_stage or "workflow"
+            elif not stage_info:
+                sid = "workflow"
         if sid is None:
             continue
+        status = "failed" if ev.status == "failed" else "completed"
+        if status == "failed":
+            failing_stage = sid
+        previous = stage_info.get(sid, {})
+        stage_info[sid] = dict(
+            stage_id=sid, label=ALL_STAGE_LABELS.get(sid, sid), status=status,
+            started_at=previous.get("started_at", ev.timestamp),
+            completed_at=ev.timestamp, duration_ms=ev.duration_ms,
+            safe_summary=dict(ev.details),
+            reason_code=ev.details.get("reason_code") or ev.details.get("reason")
+                        or previous.get("reason_code"),
+        )
 
-        if sid not in stage_info:
-            stage_info[sid] = {
-                "stage_id": sid,
-                "status": "completed",
-                "duration_ms": ev.duration_ms or 0,
-                "safe_summary": dict(ev.details),
-            }
-
-        # Capture started_at from the first event of this stage
-        if sid not in started_times:
-            started_times[sid] = ev.timestamp
-            stage_info[sid]["started_at"] = ev.timestamp
-
-        stage_info[sid]["completed_at"] = ev.timestamp
-
-    # Build trace
-    stages: list[ExecutionStage] = []
-    completed_count = 0
-
-    for sid in stage_order:
-        info = stage_info.get(sid)
-        if info and info.get("status") == "completed":
-            stages.append(ExecutionStage(
-                stage_id=sid,
-                label=ALL_STAGE_LABELS.get(sid, sid),
-                status="completed",
-                started_at=info.get("started_at"),
-                completed_at=info.get("completed_at"),
-                duration_ms=info.get("duration_ms"),
-                safe_summary=info.get("safe_summary", {}),
-            ))
-            completed_count += 1
-        else:
-            stages.append(ExecutionStage(
-                stage_id=sid,
-                label=ALL_STAGE_LABELS.get(sid, sid),
-                status="not_started",
-            ))
-
-    first = wf_events[0]
-    last = wf_events[-1]
-    current = stages[-1].stage_id if stages else ""
-
-    # Determine trace status.
-    # If all canonical stages have events, the workflow fully completed.
-    # Otherwise, check for terminal workflow completion events that signal
-    # overall completion even if some individual stage events are sparse
-    # (e.g. missing runtime.features.completed due to legacy emission gaps).
-    terminal_event_types = {
-        "runtime.workflow.completed",
-        "runtime.request.completed",
-    }
-    has_terminal_completed = any(
-        ev.event_type in terminal_event_types
-        and ev.status == "completed"
-        for ev in wf_events
-    )
-    has_terminal_failed = any(
-        ev.event_type == "runtime.workflow.failed"
-        and ev.status == "failed"
-        for ev in wf_events
-    )
-
-    if completed_count == len(stage_order):
-        trace_status = "completed"
-    elif has_terminal_failed:
-        trace_status = "failed"
-        # When no stages completed but the workflow failed, set current
-        # to the workflow stage rather than the last canonical stage
-        # (which would misleadingly be "report_completed").
-        if completed_count == 0:
-            current = "workflow"
-    elif has_terminal_completed and completed_count > 0:
-        # Terminal event signals workflow completed even if some
-        # individual stages are missing events.
-        trace_status = "completed"
-    elif completed_count > 0:
-        trace_status = "running"
-    else:
-        trace_status = "not_started"
-
+    order = list(BREMEN_STAGE_ORDER) if workflow_id == "bremen" else []
+    order.extend(sid for sid in stage_info if sid not in order)
+    stages = [ExecutionStage(**stage_info[sid]) if sid in stage_info else
+              ExecutionStage(sid, ALL_STAGE_LABELS.get(sid, sid), "not_started")
+              for sid in order]
+    completed_count = sum(stage.status == "completed" for stage in stages)
+    status = "running"
+    if failing_stage:
+        status = "failed"
+    elif terminal is not None and terminal.status == "completed":
+        status = "completed"
+    elif stages and completed_count == len(stages):
+        status = "completed"
+    first, last = wf_events[0], wf_events[-1]
+    duration = (datetime.fromisoformat(last.timestamp) -
+                datetime.fromisoformat(first.timestamp)).total_seconds() * 1000
+    # The executor records full elapsed duration on request completion, which
+    # is deliberately not workflow-scoped. Do not lose it in the filter above.
+    recorded_duration = next((e.duration_ms for e in reversed(all_events)
+                              if e.event_type == "runtime.request.completed"
+                              and e.duration_ms is not None), None)
     return ExecutionTraceSummary(
         workflow_id=workflow_id,
-        current_stage=current,
-        status=trace_status,
-        started_at=first.timestamp,
-        completed_at=last.timestamp,
-        duration_ms=sum(
-            s.duration_ms or 0 for s in stages
-        ),
+        current_stage=failing_stage or next(reversed(stage_info), "workflow"),
+        status=status, started_at=first.timestamp,
+        completed_at=last.timestamp if status in {"completed", "failed"} else None,
+        duration_ms=recorded_duration if recorded_duration is not None else round(duration),
         completed_stage_count=completed_count,
-        total_applicable_stage_count=len(stage_order),
-        stages=stages,
+        total_applicable_stage_count=len(stages), stages=stages,
     )
 
 

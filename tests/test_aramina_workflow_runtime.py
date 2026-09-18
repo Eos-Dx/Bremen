@@ -195,6 +195,48 @@ def _execute(entry, source, request=None):
     )
 
 
+class _ManualExecutor:
+    """Deterministic fake for the background job executor (PR0163 async).
+
+    Queued jobs are captured instead of running on a real thread, so tests
+    can drain them synchronously and never race ``reset_for_tests`` teardown.
+    """
+
+    def __init__(self):
+        self.tasks = []
+
+    def submit(self, fn, *args, **kwargs):
+        self.tasks.append((fn, args, kwargs))
+
+    def run(self):
+        fn, args, kwargs = self.tasks.pop(0)
+        fn(*args, **kwargs)
+
+    def __len__(self):
+        return len(self.tasks)
+
+
+def _install_manual_executor(monkeypatch):
+    """Route background job execution through a deterministic manual executor."""
+    from bremen.platform.jobs import service as _jobs_service
+    executor = _ManualExecutor()
+    monkeypatch.setattr(_jobs_service, "_executor", executor)
+    return executor
+
+
+def _post_and_run(monkeypatch, body):
+    """POST a job then synchronously drain its queued background execution.
+
+    Returns the POST response; the job reaches its terminal state before the
+    function returns, matching the pre-PR0163 synchronous test contract.
+    """
+    executor = _install_manual_executor(monkeypatch)
+    response = _fastapi_client().post("/demo/api/jobs", json=body)
+    for _ in range(len(executor)):
+        executor.run()
+    return response
+
+
 # ===================================================================
 # No external dependency / execution configuration
 # ===================================================================
@@ -804,9 +846,9 @@ class TestFastAPIAraminaRoutePlumbing:
         package = {"kind": "unsupported"} if unsupported else _package()
         entry = _entry(tmp_path, package)
         _install(entry)
-        monkeypatch.setattr(source_service, "resolve_source", lambda sid, uid: source[0])
-        response = _fastapi_client().post(
-            "/demo/api/jobs", json=_valid_aramina_body(patient_id="p1"),
+        monkeypatch.setattr(source_service, "resolve_source", lambda *a, **k: source[0])
+        response = _post_and_run(
+            monkeypatch, _valid_aramina_body(patient_id="p1"),
         )
         assert response.status_code == 201
         resolve, register, default, scaffold = catalog_provider_trace
@@ -832,7 +874,7 @@ class TestFastAPIAraminaRoutePlumbing:
         _install(entry)
         monkeypatch.setattr(
             "bremen.platform.sources.service.resolve_source",
-            lambda sid, uid: source[0],
+            lambda *a, **k: source[0],
         )
         client = _fastapi_client()
         body = _valid_aramina_body()
@@ -848,7 +890,7 @@ class TestFastAPIAraminaRoutePlumbing:
         _install(entry)
         monkeypatch.setattr(
             "bremen.platform.sources.service.resolve_source",
-            lambda sid, uid: source[0],
+            lambda *a, **k: source[0],
         )
         client = _fastapi_client()
         body = _valid_aramina_body()
@@ -1393,7 +1435,7 @@ def test_api_source_unavailable_reason(submit_api, monkeypatch, state):
 def test_api_patient_mismatch_before_creation(submit_api, monkeypatch, source):
     with h5py.File(source[0], "a") as f:
         f["session/sample/patient_name"] = "Nova_257"
-    monkeypatch.setattr(source_service, "resolve_source", lambda *args: source[0])
+    monkeypatch.setattr(source_service, "resolve_source", lambda *a, **k: source[0])
     create = MagicMock()
     monkeypatch.setattr(jobs, "create_analysis_job", create)
     status, data = submit_api(_valid_aramina_body(patient_id="Nova_214"))
@@ -1407,42 +1449,50 @@ def test_api_patient_mismatch_before_creation(submit_api, monkeypatch, source):
 
 
 @pytest.mark.parametrize("version", ["0.2.12-beta", "0.2.13-beta"])
-def test_api_matching_patient_preserves_success(submit_api, monkeypatch, tmp_path, source, version):
+def test_api_matching_patient_preserves_success(monkeypatch, tmp_path, source, version):
     entry = _entry(tmp_path, model_version=version)
     _install(entry)
     with h5py.File(source[0], "a") as f:
         f["session/sample/patient_name"] = "p1"
-    monkeypatch.setattr(source_service, "resolve_source", lambda *args: source[0])
-    status, data = submit_api(_valid_aramina_body(patient_id="p1"))
-    assert status == 201
-    assert data["job"]["overall_status"] == "completed"
-    run = data["job"]["workflow_runs"]["aramina"]
-    assert run["model_identity"]["model_version"] == version
-    assert "failure_detail" not in run
-    assert data["job"]["reports"]["aramina"]["status"] == "available"
+    monkeypatch.setattr(source_service, "resolve_source", lambda *a, **k: source[0])
+    response = _post_and_run(monkeypatch, _valid_aramina_body(patient_id="p1"))
+    assert response.status_code == 201
+    job_id = response.json()["job"]["job_id"]
+    # POST returns the queued snapshot; the live job is drained and terminal.
+    job = _owner_jobs_repository.get_analysis_job(job_id)
+    assert job.overall_status == "completed"
+    run = job.workflow_runs["aramina"]
+    assert run.model_identity["model_version"] == version
+    assert run.failure is None
+    assert job.reports["aramina"].status == "available"
 
 
-def test_api_unsupported_input_safe_detail(submit_api, monkeypatch, tmp_path, source):
+def test_api_unsupported_input_safe_detail(monkeypatch, tmp_path, source):
     _install(_entry(tmp_path, model_version="0.2.13-beta"))
-    monkeypatch.setattr(source_service, "resolve_source", lambda *args: source[0])
+    monkeypatch.setattr(source_service, "resolve_source", lambda *a, **k: source[0])
     # The real runtime rejects the absent requested patient; no inference result stub.
-    status, data = submit_api(_valid_aramina_body(patient_id="absent-patient"))
-    assert status == 201
-    job = data["job"]
-    run = job["workflow_runs"]["aramina"]
-    assert run["failure"] == "ARAMINA_UNSUPPORTED_INPUT"
+    response = _post_and_run(
+        monkeypatch, _valid_aramina_body(patient_id="absent-patient"),
+    )
+    assert response.status_code == 201
+    job = _owner_jobs_repository.get_analysis_job(
+        response.json()["job"]["job_id"],
+    )
+    run = job.workflow_runs["aramina"]
+    assert run.failure == "ARAMINA_UNSUPPORTED_INPUT"
     # PR0141: the exact safe boundary, not a generic input_contract label.
-    assert run["failure_stage"] == "h5_patient_contract"
-    assert run["failure_reason_code"] == "ARAMINA_UNSUPPORTED_INPUT_H5_PATIENT_CONTRACT"
-    assert run["failure_detail"]
-    assert run["remediation"]
-    assert run["safe_details"]["target_side"] == "left"
-    assert run["safe_details"]["model_version"] == "0.2.13-beta"
-    assert run["safe_details"]["requested_patient_id"] == "absent-patient"
-    assert job["reports"]["aramina"]["status"] == "unavailable"
-    assert _owner_jobs_repository.get_analysis_job(job["job_id"]).to_dict()["workflow_runs"]["aramina"] == run
+    assert run.failure_details["failure_stage"] == "h5_patient_contract"
+    assert run.failure_details["failure_reason_code"] == "ARAMINA_UNSUPPORTED_INPUT_H5_PATIENT_CONTRACT"
+    assert run.failure_details["failure_detail"]
+    assert run.failure_details["remediation"]
+    assert run.failure_details["safe_details"]["target_side"] == "left"
+    assert run.failure_details["safe_details"]["model_version"] == "0.2.13-beta"
+    assert run.failure_details["safe_details"]["requested_patient_id"] == "absent-patient"
+    assert job.reports["aramina"].status == "unavailable"
+    assert _owner_jobs_repository.get_analysis_job(job.job_id).to_dict()["workflow_runs"]["aramina"] == run.to_dict()
+    public = json.dumps(job.to_dict())
     for private in (source[0], "_package", "Traceback", "checksum"):
-        assert private not in json.dumps(job)
+        assert private not in public
 
 
 @pytest.mark.parametrize("error", [ValueError("s3://private-bucket/token"), RuntimeError("/tmp/private-key")])
@@ -1833,12 +1883,17 @@ def test_pr0141_preprocessing_release_tag_allowlist():
 
 
 def _completed_aramina_job(tmp_path, source, monkeypatch, side, model_id="aramina-a"):
-    """Create a completed Aramina job with an available report."""
+    """Create a completed Aramina job with an available report.
+
+    PR0163 async: POST returns the queued job immediately; the background
+    execution is drained synchronously through the manual executor so the
+    job is terminal before the caller inspects it.
+    """
     entry = _entry(tmp_path, model_id=model_id)
     _install(entry)
-    monkeypatch.setattr(source_service, "resolve_source", lambda *args: source[0])
+    monkeypatch.setattr(source_service, "resolve_source", lambda *a, **k: source[0])
     body = _valid_aramina_body(model_id=model_id, patient_id="p1", target_side=side)
-    return _fastapi_client().post("/demo/api/jobs", json=body)
+    return _post_and_run(monkeypatch, body)
 
 
 def test_pr0141_aramina_duplicate_guard_includes_target_side(tmp_path, source, monkeypatch):
@@ -1850,31 +1905,32 @@ def test_pr0141_aramina_duplicate_guard_includes_target_side(tmp_path, source, m
     assert job.reports["aramina"].status == "available"
     assert job.input_summary["target_side"] == "left"
 
-    # Same source + model, opposite side -> must NOT be blocked.
+    # Same source + model, opposite side -> a distinct analysis (PR0163).
     second = _completed_aramina_job(tmp_path, source, monkeypatch, "right")
     assert second.status_code == 201
+    assert second.json()["reused_existing"] is False
+    assert second.json()["job"]["job_id"] != first.json()["job"]["job_id"]
+    assert second.json()["job"]["input_summary"]["target_side"] == "right"
 
 
 def test_pr0141_aramina_duplicate_guard_blocks_same_side(tmp_path, source, monkeypatch):
-    """A completed left run still blocks an identical left run."""
+    """An identical left run is a normal reuse: HTTP 200 + same job_id."""
     _completed_aramina_job(tmp_path, source, monkeypatch, "left")
     second = _completed_aramina_job(tmp_path, source, monkeypatch, "left")
-    assert second.status_code == 409
+    assert second.status_code == 200
     payload = second.json()
-    assert payload["error"] == "report_already_exists"
-    assert payload["existing_target_side"] == "left"
-    assert payload["requested_target_side"] == "left"
+    assert payload["reused_existing"] is True
+    assert payload["job"]["job_id"] is not None
 
 
 def test_pr0141_aramina_duplicate_guard_side_aware_409_fields(tmp_path, source, monkeypatch):
-    """The 409 carries explicit side fields for client disambiguation."""
+    """The reuse response carries the existing job identity and target side."""
     _completed_aramina_job(tmp_path, source, monkeypatch, "left")
     second = _completed_aramina_job(tmp_path, source, monkeypatch, "left")
     payload = second.json()
-    assert set(payload) >= {
-        "status", "error", "message", "job_id", "workflow_id",
-        "existing_target_side", "requested_target_side",
-    }
+    assert payload["reused_existing"] is True
+    assert "job_id" in payload["job"]
+    assert payload["job"]["input_summary"]["target_side"] == "left"
 
 
 def test_pr0141_find_existing_completed_report_signature():
@@ -2536,9 +2592,9 @@ def test_pr0143_public_report_leaks_nothing(tmp_path, source, monkeypatch):
     # must carry it for the identifier to be present.
     with h5py.File(source[0], "a") as f:
         f["session/sample/patient_name"] = "p1"
-    monkeypatch.setattr(source_service, "resolve_source", lambda *args: source[0])
+    monkeypatch.setattr(source_service, "resolve_source", lambda *a, **k: source[0])
     body = _valid_aramina_body(model_id=entry.model_id, patient_id="p1", target_side="left")
-    sent = _fastapi_client().post("/demo/api/jobs", json=body)
+    sent = _post_and_run(monkeypatch, body)
     job_id = sent.json()["job"]["job_id"]
 
     report = _owner_reports_service.get_job_report(job_id, "aramina")

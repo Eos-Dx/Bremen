@@ -191,7 +191,9 @@ def execute(request: ExecutionRequest, *, registry=None, event_store=None):
         details=(
             {"reason": "workflow_configuration_required"}
             if status == "workflow_configuration_required"
-            else {"reason": result.error}
+            else {"reason": result.error,
+                  "failure_stage": result.failure_stage,
+                  "reason_code": result.error}
             if status == "failed" and descriptor.failure_event_reason
             else None
         ),

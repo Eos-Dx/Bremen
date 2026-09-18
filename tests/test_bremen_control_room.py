@@ -1215,13 +1215,14 @@ class TestAppendixAModelReportBinding:
     pass
 
     def test_pr0099c_trace_finalization_preserved(self):
-        """PR0099C: Terminal event detection still finalizes trace."""
+        """PR0099C: Terminal events still finalize the trace (PR0163 rewrite)."""
         import inspect
         from bremen.platform.events.trace import build_trace_from_events
         src = inspect.getsource(build_trace_from_events)
-        assert 'terminal_event_types' in src
         assert 'runtime.workflow.completed' in src
+        assert 'runtime.workflow.failed' in src
         assert 'runtime.request.completed' in src
+        assert 'terminal = ev' in src
 
 
 class TestPR0099DReportDeleteAndRerunGuard:

@@ -13,7 +13,6 @@ No persistent state is created during a dry run.
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -55,6 +54,7 @@ class DryRunResult:
     failure_stage: str | None = None
     safe_reason: str = ""
     error_class: str = ""
+    failure_reason_code: str | None = None
 
 
 def _safe_failure_stage(exc: Exception) -> str:
@@ -395,7 +395,7 @@ def _resolve_source_for_dry_run(source_id: str) -> str:
     tests can mock it without needing real S3 configuration.
     """
     from bremen.platform.sources.service import resolve_source
-    return resolve_source(source_id=source_id, upload_id=None)
+    return resolve_source(source_id=source_id, upload_id=None, consume=False)
 
 
 def run_model_pipeline_dry_run(
@@ -403,6 +403,10 @@ def run_model_pipeline_dry_run(
     container_id: str,
     source_id: str,
     workflow_id: str,
+    patient_id: str = "",
+    target_side: str = "",
+    analysis_author: str = "",
+    prediction_comment: str = "",
 ) -> DryRunResult:
     """Execute a read-only dry run of the real model pipeline.
 
@@ -431,7 +435,6 @@ def run_model_pipeline_dry_run(
     """
     checked_stages: list[str] = []
     h5_path: str = ""
-    staged = False
 
     try:
         # --- Stage 1: Model resolution ---
@@ -449,7 +452,6 @@ def run_model_pipeline_dry_run(
             )
 
         h5_path = _resolve_source_for_dry_run(source_id)
-        staged = True
 
         # --- Stage 3: Container resolution confirmed ---
         checked_stages.append("container_resolution")
@@ -480,7 +482,10 @@ def run_model_pipeline_dry_run(
 
         from bremen.platform.runtime.executor import run_workflow_request
         outcome = run_workflow_request(h5_path, workflow_id, model_id=model_id,
-                                      registry=_single_runtime_registry(provider))
+                                      registry=_single_runtime_registry(provider),
+                                      patient_id=patient_id, target_side=target_side,
+                                      parameters={"analysis_author": analysis_author,
+                                                  "prediction_comment": prediction_comment})
         wf_result = outcome.workflows.get(workflow_id)
         if wf_result is None:
             raise ValueError("Input preparation failed")
@@ -509,7 +514,8 @@ def run_model_pipeline_dry_run(
                 status="failed",
                 ready_to_run=False,
                 checked_stages=checked_stages,
-                failure_stage=fs,
+                failure_stage=getattr(wf_result, "failure_stage", None) or fs,
+                failure_reason_code=wf_result.error if workflow_id == "aramina" else None,
                 safe_reason="Selected container failed read-only pipeline dry run.",
                 error_class="workflow_failed",
             )
@@ -531,15 +537,6 @@ def run_model_pipeline_dry_run(
             safe_reason="Selected container failed read-only pipeline dry run.",
             error_class=type(exc).__name__,
         )
-    finally:
-        # Clean up staged H5 file if we downloaded one
-        if staged and h5_path:
-            try:
-                # Only clean up files in temp directories
-                if h5_path.startswith("/tmp/") or "staging" in h5_path:
-                    os.unlink(h5_path)
-            except OSError:
-                pass
 
 
 # ---------------------------------------------------------------------------
@@ -581,6 +578,7 @@ def build_model_requirements_validation_response(
     invalid_fields: list[str] = []
     can_submit_job: bool | None = None
     failure_stage: str | None = None
+    failure_reason_code = None
     checked_stages: list[str] = []
     next_step_reason = (
         "Model-specific requirements validation is not implemented yet. "
@@ -621,11 +619,15 @@ def build_model_requirements_validation_response(
                 container_id=container_id,
                 source_id=source_id,
                 workflow_id=workflow_id,
+                **({key: request_payload.get(key, "") for key in (
+                    "patient_id", "target_side", "analysis_author", "prediction_comment"
+                )} if workflow_id == "aramina" else {}),
             )
 
             validation_status = dry_result.status
             ready_to_run = dry_result.ready_to_run
             failure_stage = dry_result.failure_stage
+            failure_reason_code = dry_result.failure_reason_code
             can_submit_job = dry_result.ready_to_run
 
             if dry_result.status == "passed":
@@ -670,6 +672,7 @@ def build_model_requirements_validation_response(
         "missing_required_fields": missing_required_fields,
         "invalid_fields": invalid_fields,
         "failure_stage": failure_stage,
+        "failure_reason_code": failure_reason_code,
         "next_step": {
             "can_submit_job": can_submit_job,
             "reason": next_step_reason,

@@ -38,6 +38,7 @@ class StagedSource:
         prefix: str,
         consumed: bool = False,
         patient_display_name: str = "",
+        source_version: str = "",
     ) -> None:
         self.source_id = source_id
         self.bucket = bucket
@@ -48,6 +49,7 @@ class StagedSource:
         self.prefix = prefix
         self.consumed = consumed
         self.patient_display_name = patient_display_name
+        self.source_version = source_version
 
 
 # ---------------------------------------------------------------------------
@@ -71,6 +73,7 @@ def register_source(
     size_bytes: int,
     prefix: str,
     patient_display_name: str = "",
+    source_version: str = "",
 ) -> str:
     """Register an S3 catalog object and return an opaque source_id.
 
@@ -92,6 +95,7 @@ def register_source(
         created_at=now,
         prefix=prefix,
         patient_display_name=patient_display_name,
+        source_version=source_version,
     )
     with _lock:
         _registry[source_id] = source
@@ -102,6 +106,7 @@ def resolve_source_id(
     source_id: str,
     current_bucket: str,
     current_prefix: str,
+    *, consume: bool = True,
 ) -> tuple[str, str, int]:
     """Resolve an opaque source_id against current configuration.
 
@@ -187,7 +192,8 @@ def resolve_source_id(
             )
 
         # Mark as consumed
-        source.consumed = True
+        if consume:
+            source.consumed = True
 
         return (source.object_key, source.filename, source.size_bytes)
 
@@ -213,6 +219,8 @@ def get_source_info(source_id: str) -> dict[str, Any] | None:
             return None
         pdn = source.patient_display_name or ""
         raw = f"{source.bucket}:{source.object_key}"
+        if source.source_version:
+            raw += f":{source.source_version}"
         stable_key = hashlib.sha256(raw.encode()).hexdigest()[:16]
         return {
             "source_id": source.source_id,
@@ -273,6 +281,8 @@ def get_stable_source_key(source_id: str) -> str:
             return ""
         # Derive stable key from object_key
         raw = f"{source.bucket}:{source.object_key}"
+        if source.source_version:
+            raw += f":{source.source_version}"
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
