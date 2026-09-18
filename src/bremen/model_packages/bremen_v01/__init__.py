@@ -1,7 +1,7 @@
 """Bremen v0.1 inference-complete model package (PR0154).
 
 One clear runtime entry point implementing Model Runtime Contract v1
-(``bremen.model_runtime.ModelRuntime``):
+(``bremen.contracts.model_runtime.ModelRuntime``):
 
 - ``BremenRuntime`` — requirements / validate / predict over the frozen
   PR0151/PR0152 scientific sequence.

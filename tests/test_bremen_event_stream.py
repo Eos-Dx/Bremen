@@ -21,22 +21,20 @@ Covers:
 
 from __future__ import annotations
 
-import json
 import threading
 import time as _time
 from datetime import datetime, timezone
-from pathlib import Path
 
 import pytest
 
-from bremen.api.event_schema import (
+from bremen.contracts.events import (
     JobEvent,
     EventType,
     SCHEMA_VERSION,
     validate_event_details,
     allowed_event_details,
 )
-from bremen.api.event_store import BoundedEventStore
+from bremen.platform.events.store import BoundedEventStore
 
 
 # ---------------------------------------------------------------------------
@@ -351,10 +349,8 @@ class TestBoundedEventStoreModuleReload:
         import sys
         import importlib
 
-        from bremen.api.job_api_handler import (
-            _event_store as original_store,
-            reset_for_tests,
-        )
+        from bremen.platform.jobs.service import _event_store as original_store
+        from bremen.platform.jobs.service import reset_for_tests
 
         reset_for_tests()
         original_store.append("j1", _make_event(job_id="j1"))
@@ -365,9 +361,7 @@ class TestBoundedEventStoreModuleReload:
                 del sys.modules[key]
         importlib.import_module("bremen.api")
 
-        from bremen.api.job_api_handler import (
-            _event_store as reloaded_store,
-        )
+        from bremen.platform.jobs.service import _event_store as reloaded_store
 
         # The same module-level store should be authoritative
         assert reloaded_store.has_job("j1")

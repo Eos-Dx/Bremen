@@ -194,7 +194,7 @@ class TestPayloadStablePrediction:
     def test_payload_produces_stable_prediction_result(self):
         """Payload run through the synthetic model produces a stable
         prediction."""
-        from bremen.inference import predict_proba_portable
+        from bremen.model_packages.bremen_v01.predictor import predict_proba_portable
 
         payload = build_demo_feature_artifact_payload()
         predictor = _make_synthetic_predictor()
@@ -213,7 +213,7 @@ class TestPayloadStablePrediction:
 
     def test_payload_prediction_is_deterministic(self):
         """Two predictions with the same payload produce identical results."""
-        from bremen.inference import predict_proba_portable
+        from bremen.model_packages.bremen_v01.predictor import predict_proba_portable
 
         payload = build_demo_feature_artifact_payload()
         predictor = _make_synthetic_predictor()

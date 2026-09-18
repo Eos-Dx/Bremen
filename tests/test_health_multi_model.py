@@ -6,16 +6,18 @@ Uses the registry directly. No real AWS calls.
 
 from __future__ import annotations
 
+from fastapi.testclient import TestClient
+from bremen.api.http.app import create_app
+
 import pytest
 
-from bremen.api.model_registry import (
+from bremen.platform.models.registry import (
     RegistryModelEntry,
     ModelRegistry,
     initialize_registry,
     reset_for_tests,
 )
-from bremen.api.model_state import ModelState
-from bremen.api.app import handle_health
+from bremen.platform.models.state import ModelState
 
 
 @pytest.fixture(autouse=True)
@@ -52,69 +54,33 @@ def _make_entry(model_id: str = "test-model") -> RegistryModelEntry:
     )
 
 
-# ---------------------------------------------------------------------------
-# Zero models
-# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("count", [0, 1, 2])
+def test_catalog_health_contract(count):
+    initialize_registry(ModelRegistry(
+        entries=tuple(_make_entry(str(i)) for i in range(count)),
+        available_count=count, catalog_status="available",
+    ))
+    client = TestClient(create_app(version="contract-test"))
+    try:
+        response = client.get("/health")
+    finally:
+        client.close()
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body) == {"status", "service", "version", "timestamp", "model_ready"}
+    assert body["status"] == "ok"
+    assert body["service"] == "bremen"
+    assert body["version"] == "contract-test"
+    assert body["model_ready"] is (count > 0)
+    from datetime import datetime
+    assert datetime.fromisoformat(body["timestamp"]).tzinfo is not None
 
 
-class TestZeroModels:
-    def test_zero_models_returns_200(self):
-        """Zero models gives HTTP 200 and model_ready false."""
-        reset_for_tests()
-        reg = ModelRegistry()
-        initialize_registry(reg)
-        health = handle_health()
-        assert health.status == "ok"
-        assert health.model_ready is False
-
-    def test_discovery_failure_returns_200(self):
-        """Discovery failure gives HTTP 200 and model_ready false."""
-        reset_for_tests()
-        reg = ModelRegistry(catalog_status="discovery_failed")
-        initialize_registry(reg)
-        health = handle_health()
-        assert health.status == "ok"
-        assert health.model_ready is False
-
-
-# ---------------------------------------------------------------------------
-# One model
-# ---------------------------------------------------------------------------
-
-
-class TestOneModel:
-    def test_one_model_ready(self):
-        """One model gives model_ready true."""
-        reset_for_tests()
-        entry = _make_entry()
-        reg = ModelRegistry(
-            entries=(entry,),
-            catalog_status="available",
-            available_count=1,
-        )
-        initialize_registry(reg)
-        health = handle_health()
-        assert health.status == "ok"
-        assert health.model_ready is True
-
-
-# ---------------------------------------------------------------------------
-# Multiple models
-# ---------------------------------------------------------------------------
-
-
-class TestMultipleModels:
-    def test_multiple_models_ready(self):
-        """Multiple models gives model_ready true."""
-        reset_for_tests()
-        e1 = _make_entry(model_id="model-a")
-        e2 = _make_entry(model_id="model-b")
-        reg = ModelRegistry(
-            entries=(e1, e2),
-            catalog_status="available",
-            available_count=2,
-        )
-        initialize_registry(reg)
-        health = handle_health()
-        assert health.status == "ok"
-        assert health.model_ready is True
+@pytest.mark.parametrize("ready", [False, True])
+def test_uncatalogued_health_uses_model_state(monkeypatch, ready):
+    monkeypatch.setattr(ModelState, "is_ready", lambda: ready)
+    client = TestClient(create_app())
+    try:
+        assert client.get("/health").json()["model_ready"] is ready
+    finally:
+        client.close()

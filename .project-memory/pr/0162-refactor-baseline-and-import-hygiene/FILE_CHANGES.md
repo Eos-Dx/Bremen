@@ -1,0 +1,180 @@
+# Exact file inventory
+
+Comparison base: `dc6e99d8fa0a7f1a5cf641e6da6533f759a11d18`. No staging or commit.
+
+## Tracked diff versus merge-base
+
+- `M	.gitignore`
+- `M	docs/refactor/module_inventory.csv`
+- `M	scripts/check_auth_activation_readiness.py`
+- `M	scripts/check_fastapi_release_readiness.py`
+- `M	scripts/run_local_control_room.sh`
+- `M	scripts/smoke_fastapi_asgi.py`
+- `M	src/bremen/__init__.py`
+- `M	src/bremen/__main__.py`
+- `D	src/bremen/api/app.py`
+- `D	src/bremen/api/aramina_api_errors.py`
+- `D	src/bremen/api/aramina_artifact_compat.py`
+- `D	src/bremen/api/aramina_preprocessing.py`
+- `D	src/bremen/api/aramina_provider.py`
+- `D	src/bremen/api/aramina_symmetry.py`
+- `D	src/bremen/api/decision_contract.py`
+- `D	src/bremen/api/decision_support.py`
+- `D	src/bremen/api/event_schema.py`
+- `D	src/bremen/api/event_store.py`
+- `D	src/bremen/api/execution_context.py`
+- `D	src/bremen/api/execution_trace.py`
+- `D	src/bremen/api/fastapi_app.py`
+- `M	src/bremen/api/fastapi_server.py`
+- `M	src/bremen/api/feature_artifact_prediction.py`
+- `D	src/bremen/api/h5_layouts.py`
+- `D	src/bremen/api/inference_handler.py`
+- `D	src/bremen/api/job_api_handler.py`
+- `D	src/bremen/api/job_models.py`
+- `D	src/bremen/api/lifecycle_contracts.py`
+- `D	src/bremen/api/model_catalog.py`
+- `D	src/bremen/api/model_registry.py`
+- `M	src/bremen/api/model_requirements.py`
+- `D	src/bremen/api/model_result_mapper.py`
+- `D	src/bremen/api/model_state.py`
+- `D	src/bremen/api/preflight.py`
+- `D	src/bremen/api/preprocessing_bridge.py`
+- `D	src/bremen/api/report_aramina.py`
+- `D	src/bremen/api/report_bremen.py`
+- `D	src/bremen/api/report_failures.py`
+- `D	src/bremen/api/report_provider.py`
+- `D	src/bremen/api/runtime_plugin.py`
+- `D	src/bremen/api/s3_model_discovery.py`
+- `D	src/bremen/api/server.py`
+- `D	src/bremen/api/source_registry.py`
+- `D	src/bremen/api/standard_model_result.py`
+- `D	src/bremen/api/symmetry_signals.py`
+- `D	src/bremen/api/workflow_aramina.py`
+- `D	src/bremen/api/workflow_aramina_scaffold.py`
+- `D	src/bremen/api/workflow_bremen.py`
+- `D	src/bremen/api/workflow_orchestrator.py`
+- `D	src/bremen/api/workflow_provider.py`
+- `D	src/bremen/api/workflow_registry.py`
+- `D	src/bremen/api/xrd_normalization.py`
+- `D	src/bremen/bremen_features.py`
+- `D	src/bremen/bremen_runtime.py`
+- `D	src/bremen/canonical_input.py`
+- `M	src/bremen/demo_run.py`
+- `D	src/bremen/inference.py`
+- `M	src/bremen/model_packages/__init__.py`
+- `M	src/bremen/model_packages/aramina_v0213/__init__.py`
+- `M	src/bremen/model_packages/aramina_v0213/errors.py`
+- `M	src/bremen/model_packages/aramina_v0213/inference.py`
+- `M	src/bremen/model_packages/aramina_v0213/runtime.py`
+- `M	src/bremen/model_packages/aramina_v0213/source_metadata.py`
+- `M	src/bremen/model_packages/bremen_v01/__init__.py`
+- `M	src/bremen/model_packages/bremen_v01/features.py`
+- `M	src/bremen/model_packages/bremen_v01/runtime.py`
+- `M	src/bremen/model_packages/bremen_v01/source_metadata.py`
+- `M	src/bremen/model_packages_bridge.py`
+- `D	src/bremen/model_runtime.py`
+- `M	tests/bremen_3x3_helpers.py`
+- `D	tests/test_aramina_provider_contract.py`
+- `M	tests/test_aramina_v0213_package.py`
+- `M	tests/test_aramina_workflow_runtime.py`
+- `M	tests/test_bremen_3x3_runtime_parity.py`
+- `M	tests/test_bremen_3x3_training_parity.py`
+- `M	tests/test_bremen_access_logging.py`
+- `M	tests/test_bremen_api_freeze_pr0156.py`
+- `M	tests/test_bremen_api_model_source.py`
+- `M	tests/test_bremen_api_server.py`
+- `D	tests/test_bremen_api_skeleton.py`
+- `M	tests/test_bremen_auth_activation_readiness.py`
+- `M	tests/test_bremen_auth_credential_storage_contract.py`
+- `D	tests/test_bremen_calibration_preprocessing.py`
+- `D	tests/test_bremen_concurrent_server.py`
+- `M	tests/test_bremen_config_governance.py`
+- `M	tests/test_bremen_control_room.py`
+- `M	tests/test_bremen_data_selection.py`
+- `M	tests/test_bremen_decision_support.py`
+- `M	tests/test_bremen_decision_support_output.py`
+- `M	tests/test_bremen_decision_vocabulary.py`
+- `M	tests/test_bremen_demo_evidence.py`
+- `M	tests/test_bremen_demo_run.py`
+- `M	tests/test_bremen_event_stream.py`
+- `M	tests/test_bremen_execution_showcase.py`
+- `M	tests/test_bremen_fastapi_asgi_smoke_readiness.py`
+- `M	tests/test_bremen_fastapi_auth_enforcement.py`
+- `M	tests/test_bremen_fastapi_auth_workspace_routes.py`
+- `M	tests/test_bremen_fastapi_demo_routes.py`
+- `M	tests/test_bremen_fastapi_jobs_report_parity.py`
+- `M	tests/test_bremen_fastapi_model_api_docs_parity.py`
+- `M	tests/test_bremen_fastapi_model_guide_page.py`
+- `M	tests/test_bremen_fastapi_model_playground_page.py`
+- `M	tests/test_bremen_fastapi_phase1.py`
+- `M	tests/test_bremen_fastapi_phase2_catalog.py`
+- `M	tests/test_bremen_fastapi_phase3_write_routes.py`
+- `M	tests/test_bremen_fastapi_phase4_event_streaming.py`
+- `M	tests/test_bremen_fastapi_public_demo_surface_smoke.py`
+- `D	tests/test_bremen_fastapi_release_readiness.py`
+- `M	tests/test_bremen_fastapi_report_data_routes.py`
+- `M	tests/test_bremen_fastapi_report_html_route.py`
+- `D	tests/test_bremen_fastapi_serve_mode.py`
+- `M	tests/test_bremen_h5_input_staging.py`
+- `M	tests/test_bremen_h5_layouts.py`
+- `M	tests/test_bremen_h5_preflight.py`
+- `M	tests/test_bremen_h5_sample_metadata.py`
+- `M	tests/test_bremen_inference_integration.py`
+- `M	tests/test_bremen_job_api_handler.py`
+- `M	tests/test_bremen_logging.py`
+- `M	tests/test_bremen_model_catalog.py`
+- `M	tests/test_bremen_model_package_deduplication.py`
+- `M	tests/test_bremen_model_package_source.py`
+- `M	tests/test_bremen_model_package_standard_v1.py`
+- `M	tests/test_bremen_model_requirements_api.py`
+- `M	tests/test_bremen_model_runtime_contract_v1.py`
+- `M	tests/test_bremen_model_startup_staging.py`
+- `M	tests/test_bremen_package_metadata_adapters_pr0159.py`
+- `M	tests/test_bremen_package_owned_preprocessing_pr0160.py`
+- `D	tests/test_bremen_predictions.py`
+- `D	tests/test_bremen_preprocessing_bridge.py`
+- `M	tests/test_bremen_production_smoke.py`
+- `M	tests/test_bremen_runtime_plugin.py`
+- `D	tests/test_bremen_server_helpers.py`
+- `M	tests/test_bremen_standard_model_result_v1.py`
+- `M	tests/test_bremen_standard_result_hardening_pr0158a.py`
+- `M	tests/test_bremen_standard_result_hardening_pr0161.py`
+- `M	tests/test_bremen_standard_result_metadata_pr0159.py`
+- `M	tests/test_bremen_symmetry_signals.py`
+- `M	tests/test_bremen_v01_package.py`
+- `D	tests/test_bremen_v01_schema_rebaseline.py`
+- `D	tests/test_bremen_workflow_aramina_scaffold.py`
+- `D	tests/test_bremen_workflow_bremen.py`
+- `D	tests/test_bremen_workflow_registry.py`
+- `M	tests/test_bremen_workspace_ui.py`
+- `M	tests/test_bremen_xrd_normalization.py`
+- `M	tests/test_catalog_api_multi_model.py`
+- `M	tests/test_health_multi_model.py`
+- `M	tests/test_model_registry.py`
+- `M	tests/test_model_version_multi_model.py`
+- `M	tests/test_multi_model_execution.py`
+- `M	tests/test_s3_model_discovery.py`
+
+## Untracked PR0162 files present in the working tree
+
+- `.project-memory/pr/0162-refactor-baseline-and-import-hygiene/`
+- `src/bremen/api/http/`
+- `src/bremen/contracts/`
+- `src/bremen/model_packages/bremen_v01/decision.py`
+- `src/bremen/model_packages/bremen_v01/symmetry_signals.py`
+- `src/bremen/platform/`
+- `tests/runtime_inputs.py`
+- `tests/test_platform_architecture_pr0162.py`
+
+## Cut 5 test compatibility deletion
+
+- `tests/_legacy_jobs_support.py` — deleted test-only copy; no replacement helper.
+- `tests/_api_app_support.py` — deleted test-only copy; no replacement helper.
+
+## Ownership summary
+
+- HTTP composition is `src/bremen/api/http/app.py`; route groups are under `src/bremen/api/http/routers/`.
+- Job/source/report state is under `src/bremen/platform/{jobs,sources,reports}`.
+- Runtime selection/execution is under `src/bremen/platform/{models,runtime}`.
+- Neutral envelopes are under `src/bremen/contracts/`; model-owned science remains under `src/bremen/model_packages/`.
+- `src/bremen/api/http/system_support.py` is retained as the non-trivial model metadata lookup used by the system router.

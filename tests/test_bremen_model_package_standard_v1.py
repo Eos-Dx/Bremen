@@ -5,7 +5,7 @@ packages (Bremen v0.1 and Aramina v0.2.13) without forcing identical internals
 or file layouts.  For each package it asserts:
 
 - the package exposes a Model Runtime Contract v1-compatible runtime entry
-  point (``bremen.model_runtime.ModelRuntime``);
+  point (``bremen.contracts.model_runtime.ModelRuntime``);
 - requirements are available (model-declared input contract);
 - validation is callable;
 - prediction is callable;
@@ -27,7 +27,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from bremen.model_runtime import (
+from bremen.contracts.model_runtime import (
     ModelInput,
     ModelRequirements,
     ModelRuntime,
@@ -164,7 +164,7 @@ def test_package_never_imports_orchestration(pkg):
 )
 def test_provider_routes_through_package_runtime(provider_factory, runtime_class_path):
     provider = provider_factory()
-    runtime = provider.model_runtime()
+    runtime = provider.runtime
     assert isinstance(runtime, ModelRuntime)
     klass = type(runtime)
     full = f"{klass.__module__}.{klass.__name__}"
@@ -173,18 +173,18 @@ def test_provider_routes_through_package_runtime(provider_factory, runtime_class
 
 
 def _bremen_provider():
-    from bremen.api.workflow_bremen import BremenProvider
-    return BremenProvider(model_package=MODEL)
+    from bremen.platform.runtime.registry import bremen_descriptor
+    return bremen_descriptor(model_package=MODEL)
 
 
 def _aramina_provider():
-    from bremen.api.workflow_aramina import AraminaWorkflowProvider
+    from bremen.platform.runtime.registry import aramina_descriptor
     entry = SimpleNamespace(
         model_id="aramina-a", model_version="0.2.13-beta",
         feature_schema_version="v0.1", artifact_type="aramina.joblib.model_package",
         _artifact_path="x", _checksum="", _clinical_stage="",
     )
-    return AraminaWorkflowProvider(entry=entry)
+    return aramina_descriptor(entry=entry)
 
 
 # ---------------------------------------------------------------------------

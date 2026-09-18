@@ -1,6 +1,10 @@
 """PR0161: additive metadata, truthful timestamps and safe failed reports."""
 from __future__ import annotations
 
+import bremen.platform.reports.service as _owner_reports_service
+
+
+
 import copy
 import json
 from pathlib import Path
@@ -8,11 +12,11 @@ from pathlib import Path
 import h5py
 import pytest
 
-from bremen.api import job_api_handler as jobs
-from bremen.api.job_models import AnalysisJob, WorkflowRun
-from bremen.api.model_result_mapper import build_standard_result, normalize_timestamp
-from bremen.api.report_failures import build_failure_report
-from bremen.model_runtime import SourceMetadata
+from bremen.platform.jobs import service as jobs
+from bremen.platform.jobs.models import AnalysisJob, WorkflowRun
+from bremen.platform.reports.mapper import build_standard_result, normalize_timestamp
+from bremen.platform.reports.failures import build_failure_report
+from bremen.contracts.model_runtime import SourceMetadata
 from tests.test_bremen_standard_model_result_v1 import BREMEN_SUMMARY, ARAMINA_SUMMARY
 
 
@@ -65,7 +69,7 @@ def test_shared_timestamp_policy(value, expected):
 
 
 def test_generic_mapping_has_no_source_aliases():
-    for path in ('src/bremen/api/model_result_mapper.py', 'src/bremen/api/report_failures.py'):
+    for path in ('src/bremen/platform/reports/mapper.py', 'src/bremen/platform/reports/failures.py'):
         text = Path(path).read_text()
         for forbidden in ('h5py', '/session', 'operator_username', 'started_at', 'backfill_provenance'):
             assert forbidden not in text
@@ -98,7 +102,7 @@ def _insert(workflow, failure, *, details=None, status='failed', overall='failed
 def test_failed_bremen_report_and_unchanged_job_diagnostics(job_store):
     job, run = _insert('bremen', 'Feature construction failed: raw_peak_gate_failed')
     before = copy.deepcopy(run.to_dict())
-    report = jobs.get_job_report(job.job_id, 'bremen')['report']
+    report = _owner_reports_service.get_job_report(job.job_id, 'bremen')['report']
     assert report['status'] == 'unavailable'
     assert report['reason_code'] == 'REPORT_NOT_AVAILABLE'
     assert report['failure_reason_code'] == 'raw_peak_gate_failed'
@@ -110,7 +114,7 @@ def test_failed_bremen_report_and_unchanged_job_diagnostics(job_store):
 
 
 def test_failed_aramina_preserves_safe_preprocessing_diagnostics(job_store):
-    from bremen.api.aramina_api_errors import unsupported_input_details
+    from bremen.platform.reports.diagnostics import unsupported_input_details
     details = unsupported_input_details('SYNTH-1', 'left', 'test-version',
         stage='preprocessing_contract', model_id='aramina-test',
         requested_patient_id='SYNTH-1', preprocessing_release='v0.1.7-beta',
@@ -119,7 +123,7 @@ def test_failed_aramina_preserves_safe_preprocessing_diagnostics(job_store):
                                   'transformer': 'AzimuthalIntegration'})
     job, run = _insert('aramina', 'ARAMINA_UNSUPPORTED_INPUT', details=details)
     before = copy.deepcopy(run.to_dict())
-    report = jobs.get_job_report(job.job_id, 'aramina')['report']
+    report = _owner_reports_service.get_job_report(job.job_id, 'aramina')['report']
     for key in ('failure_stage', 'failure_reason_code', 'failure_detail', 'remediation', 'safe_details'):
         assert report[key] == details[key]
     assert report['target_side'] == 'left'
@@ -139,7 +143,7 @@ def test_failure_report_never_echoes_raw_material(job_store, workflow, malicious
     job, run = _insert(workflow, 'ARAMINA_UNSUPPORTED_INPUT' if workflow == 'aramina' else malicious,
                        details=details)
     run.model_identity = {'model_id': '/private/model', 'model_version': 's3://bucket/key'}
-    report = jobs.get_job_report(job.job_id, workflow)['report']
+    report = _owner_reports_service.get_job_report(job.job_id, workflow)['report']
     text = json.dumps(report)
     for forbidden in ('/private', 's3://', 'Traceback', 'token', 'SECRET', 'PRIVATE_CHECKSUM', 'standard_result'):
         assert forbidden not in text
@@ -149,19 +153,19 @@ def test_failure_report_never_echoes_raw_material(job_store, workflow, malicious
 def test_configuration_failure_and_normalization_failure(job_store):
     job, run = _insert('bremen', 'Workflow configuration required for multi-position input',
                        overall='workflow_configuration_required')
-    assert jobs.get_job_report(job.job_id, 'bremen')['report']['failure_reason_code'] == 'workflow_configuration_required'
+    assert _owner_reports_service.get_job_report(job.job_id, 'bremen')['report']['failure_reason_code'] == 'workflow_configuration_required'
     job.workflow_runs.clear()
     job.overall_status = 'normalization_failed'
-    assert jobs.get_job_report(job.job_id, 'bremen')['report']['failure_reason_code'] == 'SOURCE_PREPARATION_FAILED'
+    assert _owner_reports_service.get_job_report(job.job_id, 'bremen')['report']['failure_reason_code'] == 'SOURCE_PREPARATION_FAILED'
 
 
 @pytest.mark.parametrize('workflow,summary', [('bremen', BREMEN_SUMMARY), ('aramina', ARAMINA_SUMMARY)])
 def test_successful_report_preserves_legacy_science_and_failed_sibling(job_store, workflow, summary):
     job, run = _insert(workflow, None, status='completed', overall='failed')
     run.result_summary = copy.deepcopy(summary)
-    jobs._register_default_providers()
-    jobs._generate_job_reports(job)
-    report = jobs.get_job_report(job.job_id, workflow)['report']
+    _owner_reports_service._register_default_providers()
+    _owner_reports_service._generate_job_reports(job)
+    report = _owner_reports_service.get_job_report(job.job_id, workflow)['report']
     assert 'payload' in report
     standard = report['standard_result']
     assert standard['referring_physician'] == ''
@@ -172,9 +176,9 @@ def test_successful_report_preserves_legacy_science_and_failed_sibling(job_store
 
 
 def test_unknown_pending_and_absent_workflow_unchanged(job_store):
-    assert jobs.get_job_report('missing', 'bremen')['report'] == {'status': 'job_not_found'}
+    assert _owner_reports_service.get_job_report('missing', 'bremen')['report'] == {'status': 'job_not_found'}
     job, _ = _insert('bremen', None, status='running', overall='running')
-    report = jobs.get_job_report(job.job_id, 'aramina')['report']
+    report = _owner_reports_service.get_job_report(job.job_id, 'aramina')['report']
     assert report['reason_code'] == 'WORKFLOW_OR_REPORT_PROVIDER_NOT_CONFIGURED'
     assert 'failure' not in report
 

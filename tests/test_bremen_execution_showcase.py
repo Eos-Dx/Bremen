@@ -26,16 +26,11 @@ no real server, no sockets, no localhost HTTP requests.
 
 from __future__ import annotations
 
-import json
 
 import pytest
 
-from bremen.api.job_api_handler import reset_for_tests
-from bremen.api.workflow_orchestrator import run_workflow_request
-from bremen.api.workflow_provider import (
-    WorkflowProvider, WorkflowResult, WorkflowReadiness,
-    CompatibilityResult, WorkflowFeatureVector,
-)
+from bremen.platform.jobs.service import reset_for_tests
+from bremen.platform.runtime.executor import run_workflow_request
 
 
 # ---------------------------------------------------------------------------
@@ -43,45 +38,11 @@ from bremen.api.workflow_provider import (
 # ---------------------------------------------------------------------------
 
 
-class SyntheticUnavailableProvider(WorkflowProvider):
-    """Synthetic provider that always reports model_ready=False."""
-
-    workflow_id: str = "synthetic_unavailable"
-
-    def readiness(self) -> WorkflowReadiness:
-        return WorkflowReadiness(
-            workflow_id=self.workflow_id,
-            configured=True,
-            model_ready=False,
-            scientifically_certified=False,
-        )
-
-    def validate_compatibility(self, canonical) -> CompatibilityResult:
-        return CompatibilityResult(compatible=True)
-
-    def build_features(self, canonical):
-        return WorkflowFeatureVector(
-            workflow_id=self.workflow_id,
-            feature_names=(),
-            feature_values=(),
-        )
-
-    def run_inference(self, features):
-        return WorkflowResult(
-            workflow_id=self.workflow_id,
-            status="failed",
-            error="Unavailable",
-        )
-
-    def execute(self, canonical, context=None):
-        return WorkflowResult(
-            workflow_id=self.workflow_id,
-            status="failed",
-            error="Workflow unavailable",
-        )
+def SyntheticUnavailableProvider():
+    from bremen.platform.runtime.registry import ModelDescriptor
+    return ModelDescriptor("synthetic_unavailable", None, None, None, model_ready=False)
 
 
-# ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
@@ -89,8 +50,8 @@ class SyntheticUnavailableProvider(WorkflowProvider):
 @pytest.fixture
 def showcase_html():
     """Provide workspace page HTML in showcase mode (via build_workspace_page)."""
-    from bremen.api.model_state import ModelState
-    from bremen.api.server import _load_synthetic_model
+    from bremen.platform.models.state import ModelState
+    from bremen.api.http.dev_support import _load_synthetic_model
     from bremen.workspace_ui import build_workspace_page
 
     reset_for_tests()
@@ -184,8 +145,8 @@ class TestOrchestratorBehavior:
         """Synthetic unavailable provider returns failed status."""
         import h5py
         import numpy as np
-        from bremen.api.workflow_registry import WorkflowRegistry
-        from bremen.api.event_store import BoundedEventStore
+        from bremen.platform.runtime.registry import RuntimeRegistry
+        from bremen.platform.events.store import BoundedEventStore
 
         # Create minimal H5 file
         h5_path = tmp_path / "test.h5"
@@ -197,7 +158,7 @@ class TestOrchestratorBehavior:
                 grp.create_dataset("measurements", data=arr.reshape(1, -1))
 
         provider = SyntheticUnavailableProvider()
-        registry = WorkflowRegistry()
+        registry = RuntimeRegistry()
         registry.register(provider)
 
         event_store = BoundedEventStore()

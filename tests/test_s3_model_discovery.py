@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from bremen.api.s3_model_discovery import (
+from bremen.platform.models.discovery import (
     discover_models,
     _validate_catalog_uri,
     _list_candidate_manifests,

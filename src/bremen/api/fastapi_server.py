@@ -7,7 +7,7 @@ Safety
 ------
 - Safe error messages — never prints raw exception details.
   credentials, S3 keys, or JWT secrets.
-- Uses the existing ``create_fastapi_app`` factory — never creates
+- Uses the existing ``create_app`` factory — never creates
   a second FastAPI application.
 - Defaults to loopback (127.0.0.1) binding.
 """
@@ -15,14 +15,13 @@ Safety
 from __future__ import annotations
 
 import sys
-from typing import Any
 
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-_FACTORY_TARGET = "bremen.api.fastapi_app:create_fastapi_app"
+_FACTORY_TARGET = "bremen.api.http.app:create_app"
 _DEFAULT_HOST = "127.0.0.1"
 _DEFAULT_PORT = 8080
 _DEFAULT_LOG_LEVEL = "info"

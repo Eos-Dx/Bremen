@@ -18,12 +18,16 @@ Synthetic data only; no real patients; no scientific change.
 """
 from __future__ import annotations
 
+import bremen.platform.reports.service as _owner_reports_service
+
+
+
 import copy
 
 import pytest
 
-from bremen.api.model_result_mapper import normalize_timestamp
-from bremen.api.standard_model_result import RISK_LEVEL_HIGH
+from bremen.platform.reports.mapper import normalize_timestamp
+from bremen.contracts.results import RISK_LEVEL_HIGH
 
 
 # ---------------------------------------------------------------------------
@@ -51,15 +55,14 @@ ARAMINA_SUMMARY = {
 
 
 def _register_providers():
-    from bremen.api import job_api_handler as jobs
 
-    jobs._register_default_providers()
+    _owner_reports_service._register_default_providers()
 
 
 def _bremen_report():
     """Run a completed Bremen job through create_analysis_job + report read."""
-    from bremen.api import model_registry as registry
-    from bremen.api import job_api_handler as jobs
+    from bremen.platform.models import registry
+    from bremen.platform.jobs import service as jobs
     import os
     import tempfile
     from tests.bremen_3x3_helpers import MODEL, make_case, write_session_h5
@@ -91,9 +94,9 @@ def _bremen_report():
 
 def _insert_completed_aramina_job():
     """Insert a synthetic completed Aramina job + populate stored reports."""
-    from bremen.api import model_registry as registry
-    from bremen.api import job_api_handler as jobs
-    from bremen.api.job_models import AnalysisJob, WorkflowRun
+    from bremen.platform.models import registry
+    from bremen.platform.jobs import service as jobs
+    from bremen.platform.jobs.models import AnalysisJob, WorkflowRun
 
     jobs.reset_for_tests()
     registry.reset_for_tests()
@@ -115,7 +118,7 @@ def _insert_completed_aramina_job():
         workflow_runs={"aramina": wf},
     )
     # Mirror the completed-job path: generate + STORE report metadata.
-    jobs._generate_job_reports(job)
+    _owner_reports_service._generate_job_reports(job)
     with jobs._jobs_lock:
         jobs._jobs[job.job_id] = job
     return jobs, job
@@ -129,8 +132,8 @@ def _insert_completed_aramina_job():
 def test_bremen_standard_result_identity_stable_across_gets():
     jobs, job = _bremen_report()
     try:
-        first = jobs.get_job_report(job.job_id, "bremen")["report"]
-        second = jobs.get_job_report(job.job_id, "bremen")["report"]
+        first = _owner_reports_service.get_job_report(job.job_id, "bremen")["report"]
+        second = _owner_reports_service.get_job_report(job.job_id, "bremen")["report"]
         s1, s2 = first["standard_result"], second["standard_result"]
         assert s1["report_id"] == s2["report_id"]
         assert s1["created_at"] == s2["created_at"]
@@ -142,7 +145,7 @@ def test_bremen_standard_result_identity_from_stored_report_metadata():
     jobs, job = _bremen_report()
     try:
         stored = job.reports["bremen"]
-        report = jobs.get_job_report(job.job_id, "bremen")["report"]
+        report = _owner_reports_service.get_job_report(job.job_id, "bremen")["report"]
         std = report["standard_result"]
         assert std["report_id"] == stored.report_id
         assert std["created_at"] == normalize_timestamp(stored.generated_at)
@@ -156,7 +159,7 @@ def test_bremen_standard_result_identity_from_stored_report_metadata():
 def test_bremen_scientific_fields_unchanged_after_hardening():
     jobs, job = _bremen_report()
     try:
-        report = jobs.get_job_report(job.job_id, "bremen")["report"]
+        report = _owner_reports_service.get_job_report(job.job_id, "bremen")["report"]
         std = report["standard_result"]
         # authoritative golden values flow through unchanged
         assert std["risk_probability"] == pytest.approx(0.7388733541967353, abs=1e-10)
@@ -179,8 +182,8 @@ def test_bremen_scientific_fields_unchanged_after_hardening():
 def test_aramina_standard_result_identity_stable_across_gets():
     jobs, job = _insert_completed_aramina_job()
     try:
-        first = jobs.get_job_report(job.job_id, "aramina")["report"]
-        second = jobs.get_job_report(job.job_id, "aramina")["report"]
+        first = _owner_reports_service.get_job_report(job.job_id, "aramina")["report"]
+        second = _owner_reports_service.get_job_report(job.job_id, "aramina")["report"]
         s1, s2 = first["standard_result"], second["standard_result"]
         assert s1["report_id"] == s2["report_id"]
         assert s1["created_at"] == s2["created_at"]
@@ -192,7 +195,7 @@ def test_aramina_standard_result_identity_from_stored_report_metadata():
     jobs, job = _insert_completed_aramina_job()
     try:
         stored = job.reports["aramina"]
-        report = jobs.get_job_report(job.job_id, "aramina")["report"]
+        report = _owner_reports_service.get_job_report(job.job_id, "aramina")["report"]
         std = report["standard_result"]
         assert std["report_id"] == stored.report_id
         assert std["created_at"] == normalize_timestamp(stored.generated_at)
@@ -217,8 +220,8 @@ def test_legacy_envelope_report_id_still_freshly_generated():
     envelope report_id keeps its previous fresh-per-GET behavior."""
     jobs, job = _insert_completed_aramina_job()
     try:
-        first = jobs.get_job_report(job.job_id, "aramina")["report"]
-        second = jobs.get_job_report(job.job_id, "aramina")["report"]
+        first = _owner_reports_service.get_job_report(job.job_id, "aramina")["report"]
+        second = _owner_reports_service.get_job_report(job.job_id, "aramina")["report"]
         # legacy envelope report_id is regenerated each read (unchanged behavior)
         assert first["report_id"] != second["report_id"]
         # standard_result identity is stable (the fix)
@@ -290,7 +293,7 @@ def test_requirements_request_model_bremen_absence_unchanged():
 
 try:
     from fastapi.testclient import TestClient
-    from bremen.api.fastapi_app import create_fastapi_app
+    from bremen.api.http.app import create_app
 except Exception:  # pragma: no cover
     TestClient = None
 
@@ -301,7 +304,7 @@ _JWT_SECRET = "r" * 48
 
 
 def _enable_auth(monkeypatch):
-    from bremen.api.server import _reset_auth_config
+    from bremen.api.http.auth_config import _reset_auth_config
     from bremen.auth import create_access_token
     from bremen.config import read_auth_config
 
@@ -315,7 +318,7 @@ def _enable_auth(monkeypatch):
 
 
 def _install_aramina_requirements_entry():
-    from bremen.api import model_registry as registry
+    from bremen.platform.models import registry
 
     registry.reset_for_tests()
     entry = registry.RegistryModelEntry(
@@ -347,9 +350,9 @@ def _install_aramina_requirements_entry():
 @pytest.mark.skipif(TestClient is None, reason="fastapi not installed")
 def test_aramina_requirements_validate_preserves_patient_and_side(monkeypatch):
     """Route-level proof: /requirements/validate keeps patient_id/target_side."""
-    from bremen.api import model_registry as registry
-    from bremen.api import job_api_handler as jobs
-    from bremen.api.server import _reset_auth_config
+    from bremen.platform.models import registry
+    from bremen.platform.jobs import service as jobs
+    from bremen.api.http.auth_config import _reset_auth_config
 
     headers = _enable_auth(monkeypatch)
     _install_aramina_requirements_entry()
@@ -357,11 +360,11 @@ def test_aramina_requirements_validate_preserves_patient_and_side(monkeypatch):
     # Force the read-only dry run to fail at source resolution so we assert the
     # *request_payload* stage specifically (the dry run is not our concern).
     monkeypatch.setattr(
-        jobs, "resolve_source",
+        __import__("bremen.platform.sources.service", fromlist=["resolve_source"]), "resolve_source",
         lambda *a, **k: (_ for _ in ()).throw(ValueError("no such source")),
     )
     try:
-        client = TestClient(create_fastapi_app())
+        client = TestClient(create_app())
         resp = client.post(
             "/demo/api/models/aramina-test/requirements/validate",
             headers=headers,
@@ -389,9 +392,9 @@ def test_aramina_requirements_validate_preserves_patient_and_side(monkeypatch):
 @pytest.mark.skipif(TestClient is None, reason="fastapi not installed")
 def test_bremen_requirements_validate_behavior_unchanged(monkeypatch):
     """A Bremen entry requiring only container_id+source_id is unaffected."""
-    from bremen.api import model_registry as registry
-    from bremen.api import job_api_handler as jobs
-    from bremen.api.server import _reset_auth_config
+    from bremen.platform.models import registry
+    from bremen.platform.jobs import service as jobs
+    from bremen.api.http.auth_config import _reset_auth_config
 
     headers = _enable_auth(monkeypatch)
     registry.reset_for_tests()
@@ -417,11 +420,11 @@ def test_bremen_requirements_validate_behavior_unchanged(monkeypatch):
         candidate_count=1,
     ))
     monkeypatch.setattr(
-        jobs, "resolve_source",
+        __import__("bremen.platform.sources.service", fromlist=["resolve_source"]), "resolve_source",
         lambda *a, **k: (_ for _ in ()).throw(ValueError("no such source")),
     )
     try:
-        client = TestClient(create_fastapi_app())
+        client = TestClient(create_app())
         resp = client.post(
             "/demo/api/models/bremen-test/requirements/validate",
             headers=headers,

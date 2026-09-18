@@ -58,18 +58,7 @@ def test_single_authoritative_scientific_definitions():
         )
 
 
-def test_compatibility_shims_have_no_function_or_class_bodies():
-    shims = [
-        "bremen_features.py", "bremen_runtime.py", "inference.py",
-        "api/aramina_preprocessing.py", "api/aramina_symmetry.py",
-        "api/aramina_artifact_compat.py",
-    ]
-    for rel in shims:
-        tree = ast.parse((SRC / rel).read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            assert not isinstance(
-                node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),
-            ), f"shim {rel} must contain no logic, found {type(node).__name__}"
+
 
 
 def test_no_reverse_import_from_aramina_package_to_platform_workflow():

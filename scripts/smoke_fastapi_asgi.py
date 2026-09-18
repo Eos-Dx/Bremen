@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import signal
 import subprocess
 import sys
@@ -399,7 +398,7 @@ def _build_uvicorn_command(
 ) -> list[str]:
     """Build the uvicorn command line.
 
-    Uses ``bremen.api.fastapi_app:create_fastapi_app`` as the ASGI
+    Uses ``bremen.api.http.app:create_app`` as the ASGI
     application factory.  The factory import is resolved at runtime
     by uvicorn, not by this script directly.
     """
@@ -407,7 +406,7 @@ def _build_uvicorn_command(
         sys.executable,
         "-m",
         "uvicorn",
-        "bremen.api.fastapi_app:create_fastapi_app",
+        "bremen.api.http.app:create_app",
         "--factory",
         "--host", host,
         "--port", str(port),
@@ -518,7 +517,7 @@ def _check_read_only_endpoints(
                 failures += 1
                 continue
 
-            _log_pass(f"GET {ep}", f"status=200, json_ok")
+            _log_pass(f"GET {ep}", "status=200, json_ok")
     return failures
 
 
@@ -574,7 +573,7 @@ def _check_write_event_smoke(
         )
         return 0
 
-    _log_pass("POST /demo/api/h5/containers", f"source_id obtained")
+    _log_pass("POST /demo/api/h5/containers", "source_id obtained")
 
     # -- Step 2: Create analysis job --
     job_payload: dict[str, str | None] = {
@@ -606,7 +605,7 @@ def _check_write_event_smoke(
         _log_skip("POST /demo/api/jobs", "no job_id in response")
         return 0
 
-    _log_pass("POST /demo/api/jobs", f"job_id obtained")
+    _log_pass("POST /demo/api/jobs", "job_id obtained")
 
     # -- Step 3: GET /demo/api/jobs/{job_id}/events (JSON polling) --
     events_url = f"{base}/demo/api/jobs/{job_id}/events"
@@ -616,21 +615,21 @@ def _check_write_event_smoke(
             events_resp = json.loads(body)
             assert "events" in events_resp, "response must contain 'events' key"
         except (json.JSONDecodeError, AssertionError) as exc:
-            _log_fail(f"GET /demo/api/jobs/{{job_id}}/events", f"invalid: {exc}")
+            _log_fail("GET /demo/api/jobs/{job_id}/events", f"invalid: {exc}")
             failures += 1
         else:
             _log_pass(
-                f"GET /demo/api/jobs/{{job_id}}/events",
+                "GET /demo/api/jobs/{job_id}/events",
                 f"status=200, events_count={len(events_resp.get('events', []))}",
             )
     elif status == 404:
         _log_skip(
-            f"GET /demo/api/jobs/{{job_id}}/events",
+            "GET /demo/api/jobs/{job_id}/events",
             "job not found in event store (may have expired)",
         )
     else:
         _log_fail(
-            f"GET /demo/api/jobs/{{job_id}}/events",
+            "GET /demo/api/jobs/{job_id}/events",
             f"status={status}",
         )
         failures += 1
@@ -655,24 +654,24 @@ def _check_write_event_smoke(
         )
         if has_terminal or has_event or has_keepalive:
             _log_pass(
-                f"GET /demo/api/jobs/{{job_id}}/events/stream",
+                "GET /demo/api/jobs/{job_id}/events/stream",
                 f"frames={len(sse_frames)}, "
                 f"terminal={has_terminal}, events={has_event}, "
                 f"keepalive={has_keepalive}",
             )
         else:
             _log_pass(
-                f"GET /demo/api/jobs/{{job_id}}/events/stream",
+                "GET /demo/api/jobs/{job_id}/events/stream",
                 f"status=200, frames={len(sse_frames)}",
             )
     elif sse_status == 404:
         _log_skip(
-            f"GET /demo/api/jobs/{{job_id}}/events/stream",
+            "GET /demo/api/jobs/{job_id}/events/stream",
             "job not found (may have expired)",
         )
     else:
         _log_fail(
-            f"GET /demo/api/jobs/{{job_id}}/events/stream",
+            "GET /demo/api/jobs/{job_id}/events/stream",
             f"status={sse_status}",
         )
         failures += 1

@@ -4,7 +4,7 @@ Each model package owns the interpretation of ITS OWN container/artifact
 metadata.  This module is the Aramina package's adapter: it reads the Aramina
 container's authoritative patient/acquisition fields plus the ACTIVE artifact's
 model-type and held-out evaluation metrics, and maps them to the shared
-normalized contract (``bremen.model_runtime.SourceMetadata`` /
+normalized contract (``bremen.contracts.model_runtime.SourceMetadata`` /
 ``ModelMetadata`` / ``ModelMetrics``).
 
 The platform (orchestrator, providers, job layer, Standard Result mapper)
@@ -51,7 +51,7 @@ import math
 import numbers
 from typing import Any
 
-from bremen.model_runtime import (
+from bremen.contracts.model_runtime import (
     ModelMetadata,
     ModelMetrics,
     SourceMetadata,

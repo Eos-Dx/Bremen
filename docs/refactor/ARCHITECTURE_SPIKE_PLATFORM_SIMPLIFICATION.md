@@ -4,6 +4,12 @@ Status: proposed execution plan
 Date: 2026-09-17
 Scope: repository-wide platform/runtime simplification; no scientific formula change in this spike
 
+> **Final-state note (PR0162 Cut 5):** This spike records the pre-refactor
+> architecture and measured baseline. The active implementation now follows
+> FastAPI routers -> platform services -> generic executor -> `ModelRuntime` ->
+> model package -> result/event projection. Historical module names and
+> measurements below are intentionally preserved.
+
 ## Executive decision
 
 Bremen Platform should stop being a partial model-serving implementation and become a thin product platform around **inference-complete model packages**.

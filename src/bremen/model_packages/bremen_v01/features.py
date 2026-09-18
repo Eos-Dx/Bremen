@@ -5,7 +5,7 @@ are transcribed verbatim from the reviewed PR0151 training reference; no
 scientific behavior changed.  This module is model science only: it imports
 numpy/pandas/scipy/stdlib and performs NO platform work.  The structural
 canonical-measurement validation that PR0152/PR0153B flagged as a lazy
-``bremen.api.xrd_normalization`` import is lifted to the package runtime
+``bremen.contracts.canonical_input`` import is lifted to the package runtime
 boundary (``runtime.BremenRuntime``); the shape gate below stays here.
 
 Research decision support requiring radiologist review.

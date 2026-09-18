@@ -15,7 +15,6 @@ No network calls.  No server startup.
 
 from __future__ import annotations
 
-import sys
 
 
 def check(description: str, ok: bool, detail: str = "") -> int:
@@ -142,8 +141,8 @@ def main() -> int:
 
     # 10. FastAPI app creates successfully
     try:
-        from bremen.api.fastapi_app import create_fastapi_app
-        app = create_fastapi_app()
+        from bremen.api.http.app import create_app
+        app = create_app()
         app_ok = app is not None
     except Exception:
         app_ok = False
@@ -156,7 +155,7 @@ def main() -> int:
     from fastapi.testclient import TestClient
     try:
         from bremen.api import server as _server
-        from bremen.api.server import _reset_auth_config
+        from bremen.api.http.auth_config import _reset_auth_config
         _reset_auth_config()
         # Inject auth config
         from bremen.config import AuthConfig
@@ -172,7 +171,7 @@ def main() -> int:
             access_ttl_seconds=900,
             refresh_ttl_seconds=604800,
         )
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.get("/demo/api/jobs")
         gate_ok = resp.status_code == 401

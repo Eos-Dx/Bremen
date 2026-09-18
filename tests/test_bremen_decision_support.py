@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 
-from bremen.api.decision_support import (
+from bremen.platform.reports.decision_support import (
     _compute_measurement_reliability,
     build_decision_support_report,
 )

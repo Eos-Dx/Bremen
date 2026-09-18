@@ -1,0 +1,118 @@
+[
+  {
+    "method": "GET",
+    "path": "/demo"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/api-docs"
+  },
+  {
+    "method": "POST",
+    "path": "/demo/api/auth/refresh"
+  },
+  {
+    "method": "POST",
+    "path": "/demo/api/auth/token"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/api/h5/containers"
+  },
+  {
+    "method": "POST",
+    "path": "/demo/api/h5/containers"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/api/jobs"
+  },
+  {
+    "method": "POST",
+    "path": "/demo/api/jobs"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/api/jobs/{job_id}"
+  },
+  {
+    "method": "POST",
+    "path": "/demo/api/jobs/{job_id}/auth/ticket"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/api/jobs/{job_id}/events"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/api/jobs/{job_id}/events/stream"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/api/jobs/{job_id}/reports"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/api/jobs/{job_id}/reports/{workflow_id}"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/api/models"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/api/models/{model_id}/requirements"
+  },
+  {
+    "method": "POST",
+    "path": "/demo/api/models/{model_id}/requirements/validate"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/api/reports/{job_id}/external"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/api/reports/{job_id}/internal"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/control-room"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/login"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/model-guide"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/model-playground"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/model-playground/sandpit-0104t-preview"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/report/{job_id}"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/workspace"
+  },
+  {
+    "method": "GET",
+    "path": "/demo/workspace/{job_id}"
+  },
+  {
+    "method": "GET",
+    "path": "/health"
+  },
+  {
+    "method": "GET",
+    "path": "/model/version"
+  }
+]

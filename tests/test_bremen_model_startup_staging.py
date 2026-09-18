@@ -20,7 +20,7 @@ from bremen.model_artifacts import (
     stage_model_artifact,
     stage_s3_model_artifact,
 )
-from bremen.api.model_state import ModelState
+from bremen.platform.models.state import ModelState
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +238,7 @@ class TestModelStateIntegration:
 
         # Create a valid portable_logreg package for ModelState to accept
         from joblib import dump
-        from bremen.api.preprocessing_bridge import BREMEN_V01_FEATURE_COLUMNS
+        from bremen.model_packages.bremen_v01.features import FEATURE_COLS as BREMEN_V01_FEATURE_COLUMNS
 
         n_features = 15
         package = {
@@ -300,7 +300,7 @@ class TestModelStateIntegration:
         ModelState.reset_for_tests()
 
         from joblib import dump
-        from bremen.api.preprocessing_bridge import BREMEN_V01_FEATURE_COLUMNS
+        from bremen.model_packages.bremen_v01.features import FEATURE_COLS as BREMEN_V01_FEATURE_COLUMNS
 
         n_features = 15
         package = {
@@ -345,7 +345,6 @@ class TestImportSafety:
         # Confirm boto3 is not already imported (from previous tests)
         boto3_was_loaded = "boto3" in sys.modules
 
-        import bremen.model_artifacts  # noqa: F811
 
         # The import of model_artifacts should NOT trigger boto3 import
         if not boto3_was_loaded:

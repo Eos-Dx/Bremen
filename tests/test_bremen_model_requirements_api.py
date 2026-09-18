@@ -5,14 +5,14 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from bremen.api.fastapi_app import create_fastapi_app
-from bremen.api.model_registry import (
+from bremen.api.http.app import create_app
+from bremen.platform.models.registry import (
     ModelRegistry,
     RegistryModelEntry,
     initialize_registry,
     reset_for_tests as reset_model_registry_for_tests,
 )
-from bremen.api.server import _reset_auth_config
+from bremen.api.http.auth_config import _reset_auth_config
 from bremen.auth import create_access_token
 from bremen.config import AuthConfig, read_auth_config
 
@@ -26,7 +26,9 @@ def _reset_auth_and_jobs_after_test():
     """Ensure auth config and job state are reset after every test."""
     yield
     _reset_auth_config()
-    from bremen.api.job_api_handler import _jobs, _jobs_lock, _event_store
+    from bremen.platform.jobs.service import _jobs
+    from bremen.platform.jobs.service import _jobs_lock
+    from bremen.platform.jobs.service import _event_store
     with _jobs_lock:
         _jobs.clear()
     _event_store.reset_for_tests()
@@ -93,17 +95,17 @@ def _make_app_with_auth() -> TestClient:
         access_ttl_seconds=900,
         refresh_ttl_seconds=604800,
     )
-    from bremen.api import server as _server
+    from bremen.api.http import auth_config as _server
     _server._auth_config = cfg
-    return TestClient(create_fastapi_app())
+    return TestClient(create_app())
 
 
 def _make_app_no_auth() -> TestClient:
     """Create a FastAPI app with auth disabled."""
     _reset_auth_config()
-    from bremen.api import server as _server
+    from bremen.api.http import auth_config as _server
     _server._auth_config = None
-    return TestClient(create_fastapi_app())
+    return TestClient(create_app())
 
 
 # ---------------------------------------------------------------------------
@@ -304,7 +306,8 @@ def test_post_model_requirements_validate_does_not_create_job():
     )
     token = create_access_token(config, "testuser")
 
-    from bremen.api.job_api_handler import _jobs, _jobs_lock
+    from bremen.platform.jobs.service import _jobs
+    from bremen.platform.jobs.service import _jobs_lock
 
     with _jobs_lock:
         before = set(_jobs)
@@ -586,9 +589,9 @@ def test_existing_post_jobs_unchanged():
 
     # Disable auth by injecting None directly into server singleton
     _reset_auth_config()
-    from bremen.api import server as _server
+    from bremen.api.http import auth_config as _server
     _server._auth_config = None
-    client = TestClient(create_fastapi_app())
+    client = TestClient(create_app())
 
     response = client.post(
         "/demo/api/jobs",
@@ -604,7 +607,7 @@ def test_post_model_requirements_validate_does_not_echo_h5_path(monkeypatch):
     _enable_auth(monkeypatch)
     _install_test_registry()
 
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
         headers=_auth_headers(),
         json={
@@ -680,7 +683,7 @@ def test_get_model_requirements_with_manifest_returns_declared(monkeypatch):
     _enable_auth(monkeypatch)
     _install_test_registry_with_container_requirements()
 
-    response = TestClient(create_fastapi_app()).get(
+    response = TestClient(create_app()).get(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements",
         headers=_auth_headers(),
     )
@@ -709,7 +712,7 @@ def test_post_validate_with_manifest_required_present_returns_passed(monkeypatch
     _enable_auth(monkeypatch)
     _install_test_registry_with_container_requirements()
 
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
         headers=_auth_headers(),
         json={"container_id": "Nova_376.h5", "source_id": "fresh-source-id"},
@@ -743,7 +746,7 @@ def test_post_validate_with_manifest_required_missing_returns_failed(monkeypatch
     _enable_auth(monkeypatch)
     _install_test_registry_with_container_requirements()
 
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
         headers=_auth_headers(),
         json={},
@@ -768,7 +771,7 @@ def test_post_validate_without_manifest_still_noop(monkeypatch):
     _enable_auth(monkeypatch)
     _install_test_registry()
 
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
         headers=_auth_headers(),
         json={"container_id": "Nova_376.h5", "source_id": "fresh-source-id"},
@@ -790,7 +793,7 @@ def test_post_validate_h5_path_not_echoed(monkeypatch):
     _enable_auth(monkeypatch)
     _install_test_registry_with_container_requirements()
 
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
         headers=_auth_headers(),
         json={"container_id": "Nova_376.h5", "h5_path": "/tmp/private/Nova_376.h5"},
@@ -918,7 +921,7 @@ def _register_source_for_test(h5_path: str, filename: str = "test_valid.h5") -> 
 
     Returns the opaque source_id.
     """
-    from bremen.api.source_registry import register_source
+    from bremen.platform.sources.registry import register_source
     import os
 
     size_bytes = os.path.getsize(h5_path)
@@ -944,7 +947,7 @@ def test_dry_run_with_valid_source_passes(tmp_path, monkeypatch):
     from bremen.api import model_requirements as _mr
     monkeypatch.setattr(_mr, "_resolve_source_for_dry_run", lambda sid: h5_path)
 
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
         headers=_auth_headers(),
         json={"container_id": "Nova_376.h5", "source_id": source_id},
@@ -978,7 +981,7 @@ def test_dry_run_with_fake_source_fails_at_container_resolution(monkeypatch):
     _enable_auth(monkeypatch)
     _install_test_registry_with_real_package_and_requirements()
 
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
         headers=_auth_headers(),
         json={"container_id": "Nova_376.h5", "source_id": "fake-source-id-does-not-exist"},
@@ -1013,11 +1016,12 @@ def test_dry_run_does_not_create_job(tmp_path, monkeypatch):
     from bremen.api import model_requirements as _mr
     monkeypatch.setattr(_mr, "_resolve_source_for_dry_run", lambda sid: h5_path)
 
-    from bremen.api.job_api_handler import _jobs, _jobs_lock
+    from bremen.platform.jobs.service import _jobs
+    from bremen.platform.jobs.service import _jobs_lock
     with _jobs_lock:
         before = set(_jobs)
 
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
         headers=_auth_headers(),
         json={"container_id": "Nova_376.h5", "source_id": source_id},
@@ -1042,7 +1046,7 @@ def test_dry_run_does_not_expose_h5_path(tmp_path, monkeypatch):
     from bremen.api import model_requirements as _mr
     monkeypatch.setattr(_mr, "_resolve_source_for_dry_run", lambda sid: h5_path)
 
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
         headers=_auth_headers(),
         json={"container_id": "Nova_376.h5", "source_id": source_id, "h5_path": "/secret/path.h5"},
@@ -1067,7 +1071,7 @@ def test_dry_run_response_no_private_internals(tmp_path, monkeypatch):
     from bremen.api import model_requirements as _mr
     monkeypatch.setattr(_mr, "_resolve_source_for_dry_run", lambda sid: h5_path)
 
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
         headers=_auth_headers(),
         json={"container_id": "Nova_376.h5", "source_id": source_id},
@@ -1094,7 +1098,7 @@ def test_api_models_still_does_not_expose_container_requirements(monkeypatch):
     _enable_auth(monkeypatch)
     _install_test_registry_with_real_package_and_requirements()
 
-    response = TestClient(create_fastapi_app()).get(
+    response = TestClient(create_app()).get(
         "/demo/api/models",
         headers=_auth_headers(),
     )
@@ -1142,7 +1146,7 @@ def test_aramina_workflow_id_remains_unavailable(monkeypatch):
     )
 
     # GET requirements should still work (shows no-op for unavailable model)
-    response = TestClient(create_fastapi_app()).get(
+    response = TestClient(create_app()).get(
         "/demo/api/models/aramina-placeholder/requirements",
         headers=_auth_headers(),
     )
@@ -1152,7 +1156,7 @@ def test_aramina_workflow_id_remains_unavailable(monkeypatch):
     assert data["requirements_available"] is False
 
     # POST validate: no container_requirements → no-op (not_available)
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/aramina-placeholder/requirements/validate",
         headers=_auth_headers(),
         json={"container_id": "test.h5", "source_id": "test-source"},
@@ -1179,7 +1183,7 @@ def test_failed_dry_run_reason_not_duplicated(monkeypatch):
     _enable_auth(monkeypatch)
     _install_test_registry_with_real_package_and_requirements()
 
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
         headers=_auth_headers(),
         json={"container_id": "Nova_376.h5", "source_id": "nonexistent-source"},
@@ -1207,7 +1211,7 @@ def test_checked_stages_not_null_on_pass(tmp_path, monkeypatch):
     from bremen.api import model_requirements as _mr
     monkeypatch.setattr(_mr, "_resolve_source_for_dry_run", lambda sid: h5_path)
 
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
         headers=_auth_headers(),
         json={"container_id": "Nova_376.h5", "source_id": source_id},
@@ -1238,7 +1242,7 @@ def test_checked_stages_not_null_on_failure(monkeypatch):
     _enable_auth(monkeypatch)
     _install_test_registry_with_real_package_and_requirements()
 
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
         headers=_auth_headers(),
         json={"container_id": "Nova_376.h5", "source_id": "nonexistent-source"},
@@ -1260,7 +1264,7 @@ def test_checked_stages_empty_when_no_manifest(monkeypatch):
     _enable_auth(monkeypatch)
     _install_test_registry()  # no container_requirements
 
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
         headers=_auth_headers(),
         json={"container_id": "Nova_376.h5", "source_id": "fresh-source-id"},
@@ -1298,7 +1302,7 @@ def test_nova_103_like_failure_maps_to_input_preparation(tmp_path, monkeypatch):
     from bremen.api import model_requirements as _mr
     monkeypatch.setattr(_mr, "_resolve_source_for_dry_run", lambda sid: h5_path)
 
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
         headers=_auth_headers(),
         json={"container_id": "Nova_103_.h5", "source_id": source_id},
@@ -1335,11 +1339,12 @@ def test_validate_does_not_create_inference_artifacts(tmp_path, monkeypatch):
     from bremen.api import model_requirements as _mr
     monkeypatch.setattr(_mr, "_resolve_source_for_dry_run", lambda sid: h5_path)
 
-    from bremen.api.job_api_handler import _jobs, _jobs_lock
+    from bremen.platform.jobs.service import _jobs
+    from bremen.platform.jobs.service import _jobs_lock
     with _jobs_lock:
         before_jobs = set(_jobs)
 
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
         headers=_auth_headers(),
         json={"container_id": "Nova_376.h5", "source_id": source_id},
@@ -1372,7 +1377,7 @@ def test_no_raw_paths_or_checksum_in_dry_run_response(tmp_path, monkeypatch):
     from bremen.api import model_requirements as _mr
     monkeypatch.setattr(_mr, "_resolve_source_for_dry_run", lambda sid: h5_path)
 
-    response = TestClient(create_fastapi_app()).post(
+    response = TestClient(create_app()).post(
         "/demo/api/models/bremen-mri-triage-logreg-v0-1/requirements/validate",
         headers=_auth_headers(),
         json={"container_id": "Nova_376.h5", "source_id": source_id},

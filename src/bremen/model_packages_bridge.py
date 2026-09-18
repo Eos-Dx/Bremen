@@ -15,9 +15,9 @@ Keeping this single loader here satisfies two goals at once:
 - a model package does not import platform orchestration modules (it imports
   this narrow bridge, whose error vocabulary — ``ValueError("Artifact integrity
   failed")`` / ``RuntimeError("Unsupported artifact")`` — is the established
-  contract preserved from ``bremen.api.s3_model_discovery._load_staged_artifact``).
+  contract preserved from ``bremen.platform.models.discovery._load_staged_artifact``).
 
-``bremen.api.s3_model_discovery._load_staged_artifact`` re-exports this function
+``bremen.platform.models.discovery._load_staged_artifact`` re-exports this function
 so the existing controlled-loading boundary and its error mapping stay
 byte-identical.
 """

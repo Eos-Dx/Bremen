@@ -1,72 +1,72 @@
 module,path,loc,src_incoming,src_outgoing,test_text_refs,flags
-bremen,src/bremen/__init__.py,67,3,0,2335,
-bremen.__main__,src/bremen/__main__.py,438,0,6,16,
+bremen,src/bremen/__init__.py,89,3,0,2335,
+bremen.__main__,src/bremen/__main__.py,333,0,6,16,
 bremen.api,src/bremen/api/__init__.py,8,0,0,716,
-bremen.api.app,src/bremen/api/app.py,415,2,11,11,
-bremen.api.aramina_api_errors,src/bremen/api/aramina_api_errors.py,173,3,4,9,
-bremen.api.aramina_artifact_compat,src/bremen/api/aramina_artifact_compat.py,24,0,1,2,"deprecated,shim"
-bremen.api.aramina_preprocessing,src/bremen/api/aramina_preprocessing.py,35,1,1,16,"deprecated,shim"
-bremen.api.aramina_provider,src/bremen/api/aramina_provider.py,201,2,0,4,scaffold
-bremen.api.aramina_symmetry,src/bremen/api/aramina_symmetry.py,22,0,1,1,"deprecated,shim"
-bremen.api.decision_contract,src/bremen/api/decision_contract.py,282,8,0,4,legacy
-bremen.api.decision_support,src/bremen/api/decision_support.py,219,4,2,8,
-bremen.api.event_schema,src/bremen/api/event_schema.py,244,5,0,10,
-bremen.api.event_store,src/bremen/api/event_store.py,252,2,1,6,
-bremen.api.execution_context,src/bremen/api/execution_context.py,91,3,1,1,
-bremen.api.execution_trace,src/bremen/api/execution_trace.py,192,2,3,4,
-bremen.api.fastapi_app,src/bremen/api/fastapi_app.py,1603,0,23,30,
+bremen.api.app,src/bremen/api/app.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.aramina_api_errors,src/bremen/api/aramina_api_errors.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.aramina_artifact_compat,src/bremen/api/aramina_artifact_compat.py [deleted in PR0162],0,0,0,0,"deprecated,shim,DELETE"
+bremen.api.aramina_preprocessing,src/bremen/api/aramina_preprocessing.py [deleted in PR0162],0,0,0,0,"deprecated,shim,DELETE"
+bremen.api.aramina_provider,src/bremen/api/aramina_provider.py [deleted in PR0162],0,0,0,0,"scaffold,DELETE"
+bremen.api.aramina_symmetry,src/bremen/api/aramina_symmetry.py [deleted in PR0162],0,0,0,0,"deprecated,shim,DELETE"
+bremen.api.decision_contract,src/bremen/api/decision_contract.py [deleted in PR0162],0,0,0,0,"legacy,DELETE"
+bremen.api.decision_support,src/bremen/api/decision_support.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.event_schema,src/bremen/api/event_schema.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.event_store,src/bremen/api/event_store.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.execution_context,src/bremen/api/execution_context.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.execution_trace,src/bremen/api/execution_trace.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.fastapi_app,src/bremen/api/fastapi_app.py [deleted in PR0162],0,0,0,0,DELETE
 bremen.api.fastapi_contracts,src/bremen/api/fastapi_contracts.py,67,1,0,3,legacy
-bremen.api.fastapi_server,src/bremen/api/fastapi_server.py,120,1,1,8,
+bremen.api.fastapi_server,src/bremen/api/fastapi_server.py,119,1,1,8,
 bremen.api.feature_artifact_prediction,src/bremen/api/feature_artifact_prediction.py,236,0,4,1,
-bremen.api.h5_layouts,src/bremen/api/h5_layouts.py,1428,3,2,53,
-bremen.api.inference_handler,src/bremen/api/inference_handler.py,135,1,6,1,legacy
-bremen.api.job_api_handler,src/bremen/api/job_api_handler.py,1683,4,21,143,
-bremen.api.job_models,src/bremen/api/job_models.py,129,1,0,7,
+bremen.api.h5_layouts,src/bremen/api/h5_layouts.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.inference_handler,src/bremen/api/inference_handler.py [deleted in PR0162],0,0,0,0,"legacy,DELETE"
+bremen.api.job_api_handler,src/bremen/api/job_api_handler.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.job_models,src/bremen/api/job_models.py [deleted in PR0162],0,0,0,0,DELETE
 bremen.api.jobs,src/bremen/api/jobs.py,152,3,1,5,
-bremen.api.lifecycle_contracts,src/bremen/api/lifecycle_contracts.py,198,3,0,0,
-bremen.api.model_catalog,src/bremen/api/model_catalog.py,174,4,1,20,
-bremen.api.model_registry,src/bremen/api/model_registry.py,304,10,3,30,
-bremen.api.model_requirements,src/bremen/api/model_requirements.py,678,1,4,8,
-bremen.api.model_result_mapper,src/bremen/api/model_result_mapper.py,391,1,3,3,
+bremen.api.lifecycle_contracts,src/bremen/api/lifecycle_contracts.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.model_catalog,src/bremen/api/model_catalog.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.model_registry,src/bremen/api/model_registry.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.model_requirements,src/bremen/api/model_requirements.py,687,1,4,8,
+bremen.api.model_result_mapper,src/bremen/api/model_result_mapper.py [deleted in PR0162],0,0,0,0,DELETE
 bremen.api.model_source,src/bremen/api/model_source.py,56,1,1,5,
-bremen.api.model_state,src/bremen/api/model_state.py,415,6,2,32,
-bremen.api.preflight,src/bremen/api/preflight.py,583,5,2,9,
-bremen.api.preprocessing_bridge,src/bremen/api/preprocessing_bridge.py,944,2,2,17,
-bremen.api.report_aramina,src/bremen/api/report_aramina.py,90,0,1,0,scaffold
-bremen.api.report_bremen,src/bremen/api/report_bremen.py,289,1,3,3,
-bremen.api.report_failures,src/bremen/api/report_failures.py,88,1,2,1,
-bremen.api.report_provider,src/bremen/api/report_provider.py,138,3,0,3,
-bremen.api.runtime_plugin,src/bremen/api/runtime_plugin.py,243,1,3,1,
-bremen.api.s3_model_discovery,src/bremen/api/s3_model_discovery.py,1165,2,5,3,
+bremen.api.model_state,src/bremen/api/model_state.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.preflight,src/bremen/api/preflight.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.preprocessing_bridge,src/bremen/api/preprocessing_bridge.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.report_aramina,src/bremen/api/report_aramina.py [deleted in PR0162],0,0,0,0,"scaffold,DELETE"
+bremen.api.report_bremen,src/bremen/api/report_bremen.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.report_failures,src/bremen/api/report_failures.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.report_provider,src/bremen/api/report_provider.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.runtime_plugin,src/bremen/api/runtime_plugin.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.s3_model_discovery,src/bremen/api/s3_model_discovery.py [deleted in PR0162],0,0,0,0,DELETE
 bremen.api.schemas,src/bremen/api/schemas.py,315,2,0,7,
-bremen.api.server,src/bremen/api/server.py,1955,3,26,35,
-bremen.api.source_registry,src/bremen/api/source_registry.py,283,4,0,24,
-bremen.api.standard_model_result,src/bremen/api/standard_model_result.py,128,1,0,2,
-bremen.api.symmetry_signals,src/bremen/api/symmetry_signals.py,489,1,0,26,
-bremen.api.workflow_aramina,src/bremen/api/workflow_aramina.py,216,4,9,12,deprecated
-bremen.api.workflow_aramina_scaffold,src/bremen/api/workflow_aramina_scaffold.py,89,0,1,3,scaffold
-bremen.api.workflow_bremen,src/bremen/api/workflow_bremen.py,676,1,6,17,
-bremen.api.workflow_orchestrator,src/bremen/api/workflow_orchestrator.py,565,6,11,29,
-bremen.api.workflow_provider,src/bremen/api/workflow_provider.py,166,6,0,17,
-bremen.api.workflow_registry,src/bremen/api/workflow_registry.py,69,2,1,6,
-bremen.api.xrd_normalization,src/bremen/api/xrd_normalization.py,34,2,1,3,
+bremen.api.server,src/bremen/api/server.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.source_registry,src/bremen/api/source_registry.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.standard_model_result,src/bremen/api/standard_model_result.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.symmetry_signals,src/bremen/api/symmetry_signals.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.workflow_aramina,src/bremen/api/workflow_aramina.py [deleted in PR0162],0,0,0,0,"deprecated,DELETE"
+bremen.api.workflow_aramina_scaffold,src/bremen/api/workflow_aramina_scaffold.py [deleted in PR0162],0,0,0,0,"scaffold,DELETE"
+bremen.api.workflow_bremen,src/bremen/api/workflow_bremen.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.workflow_orchestrator,src/bremen/api/workflow_orchestrator.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.workflow_provider,src/bremen/api/workflow_provider.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.workflow_registry,src/bremen/api/workflow_registry.py [deleted in PR0162],0,0,0,0,DELETE
+bremen.api.xrd_normalization,src/bremen/api/xrd_normalization.py [deleted in PR0162],0,0,0,0,DELETE
 bremen.api_docs_ui,src/bremen/api_docs_ui.py,513,2,0,1,
 bremen.auth,src/bremen/auth.py,407,2,1,20,
-bremen.bremen_features,src/bremen/bremen_features.py,70,0,1,2,"deprecated,shim"
-bremen.bremen_runtime,src/bremen/bremen_runtime.py,33,0,1,5,"deprecated,shim"
-bremen.canonical_input,src/bremen/canonical_input.py,115,3,0,1,
+bremen.bremen_features,src/bremen/bremen_features.py [deleted in PR0162],0,0,0,0,"deprecated,shim,DELETE"
+bremen.bremen_runtime,src/bremen/bremen_runtime.py [deleted in PR0162],0,0,0,0,"deprecated,shim,DELETE"
+bremen.canonical_input,src/bremen/canonical_input.py [deleted in PR0162],0,0,0,0,DELETE
 bremen.config,src/bremen/config.py,588,5,0,30,
 bremen.control_room_ui,src/bremen/control_room_ui.py,1281,2,0,14,
 bremen.demo_capture,src/bremen/demo_capture.py,227,1,0,1,
 bremen.demo_config,src/bremen/demo_config.py,56,2,0,0,
 bremen.demo_evidence,src/bremen/demo_evidence.py,386,2,0,1,
 bremen.demo_presentation,src/bremen/demo_presentation.py,331,1,0,1,
-bremen.demo_run,src/bremen/demo_run.py,325,1,5,16,
+bremen.demo_run,src/bremen/demo_run.py,322,1,5,16,
 bremen.demo_smoke,src/bremen/demo_smoke.py,454,2,1,13,
 bremen.demo_ui,src/bremen/demo_ui.py,587,1,0,1,
 bremen.feature_artifacts,src/bremen/feature_artifacts.py,331,2,0,6,
 bremen.h5_inputs,src/bremen/h5_inputs.py,162,3,1,8,
-bremen.inference,src/bremen/inference.py,28,4,1,7,"deprecated,shim"
+bremen.inference,src/bremen/inference.py [deleted in PR0162],0,0,0,0,"deprecated,shim,DELETE"
 bremen.logging_config,src/bremen/logging_config.py,143,3,0,5,
 bremen.login_ui,src/bremen/login_ui.py,145,2,0,0,
 bremen.mlflow_tracking,src/bremen/mlflow_tracking.py,131,0,0,1,
@@ -97,7 +97,7 @@ bremen.model_packages.bremen_v01.runtime,src/bremen/model_packages/bremen_v01/ru
 bremen.model_packages.bremen_v01.source_metadata,src/bremen/model_packages/bremen_v01/source_metadata.py,202,0,1,0,
 bremen.model_packages_bridge,src/bremen/model_packages_bridge.py,54,2,0,1,
 bremen.model_playground_ui,src/bremen/model_playground_ui.py,31,1,0,0,
-bremen.model_runtime,src/bremen/model_runtime.py,349,6,0,14,
+bremen.model_runtime,src/bremen/model_runtime.py [deleted in PR0162],0,0,0,0,DELETE
 bremen.modeling,src/bremen/modeling.py,1325,0,0,2,
 bremen.pipelines,src/bremen/pipelines.py,513,1,0,5,
 bremen.report_ui,src/bremen/report_ui.py,1541,3,0,82,
@@ -110,3 +110,66 @@ bremen.training.publish_model_package,src/bremen/training/publish_model_package.
 bremen.training.publish_v01,src/bremen/training/publish_v01.py,153,0,0,11,
 bremen.training.train_classifier,src/bremen/training/train_classifier.py,40,0,1,1,
 bremen.workspace_ui,src/bremen/workspace_ui.py,1334,2,0,5,
+bremen.api.http.__init__,src/bremen/api/http/__init__.py,0,0,0,0,ADDED PR0162
+bremen.api.http.app,src/bremen/api/http/app.py,99,0,0,0,ADDED PR0162
+bremen.api.http.auth_config,src/bremen/api/http/auth_config.py,15,0,0,0,ADDED PR0162
+bremen.api.http.dev_support,src/bremen/api/http/dev_support.py,15,0,0,0,ADDED PR0162
+bremen.api.http.http_policy,src/bremen/api/http/http_policy.py,213,0,0,0,ADDED PR0162
+bremen.api.http.routers.__init__,src/bremen/api/http/routers/__init__.py,0,0,0,0,ADDED PR0162
+bremen.api.http.routers.auth,src/bremen/api/http/routers/auth.py,212,0,0,0,ADDED PR0162
+bremen.api.http.routers.events,src/bremen/api/http/routers/events.py,207,0,0,0,ADDED PR0162
+bremen.api.http.routers.jobs,src/bremen/api/http/routers/jobs.py,396,0,0,0,ADDED PR0162
+bremen.api.http.routers.models,src/bremen/api/http/routers/models.py,142,0,0,0,ADDED PR0162
+bremen.api.http.routers.reports,src/bremen/api/http/routers/reports.py,166,0,0,0,ADDED PR0162
+bremen.api.http.routers.sources,src/bremen/api/http/routers/sources.py,55,0,0,0,ADDED PR0162
+bremen.api.http.routers.system,src/bremen/api/http/routers/system.py,49,0,0,0,ADDED PR0162
+bremen.api.http.routers.ui,src/bremen/api/http/routers/ui.py,200,0,0,0,ADDED PR0162
+bremen.api.http.system_support,src/bremen/api/http/system_support.py,189,0,0,0,ADDED PR0162
+bremen.contracts.__init__,src/bremen/contracts/__init__.py,0,0,0,0,ADDED PR0162
+bremen.contracts.canonical_input,src/bremen/contracts/canonical_input.py,114,0,0,0,ADDED PR0162
+bremen.contracts.events,src/bremen/contracts/events.py,244,0,0,0,ADDED PR0162
+bremen.contracts.execution,src/bremen/contracts/execution.py,88,0,0,0,ADDED PR0162
+bremen.contracts.legacy_errors,src/bremen/contracts/legacy_errors.py,13,0,0,0,ADDED PR0162
+bremen.contracts.model_runtime,src/bremen/contracts/model_runtime.py,350,0,0,0,ADDED PR0162
+bremen.contracts.reports,src/bremen/contracts/reports.py,138,0,0,0,ADDED PR0162
+bremen.contracts.request,src/bremen/contracts/request.py,19,0,0,0,ADDED PR0162
+bremen.contracts.results,src/bremen/contracts/results.py,128,0,0,0,ADDED PR0162
+bremen.contracts.trace,src/bremen/contracts/trace.py,68,0,0,0,ADDED PR0162
+bremen.model_packages.bremen_v01.decision,src/bremen/model_packages/bremen_v01/decision.py,282,0,0,0,ADDED PR0162
+bremen.model_packages.bremen_v01.symmetry_signals,src/bremen/model_packages/bremen_v01/symmetry_signals.py,487,0,0,0,ADDED PR0162
+bremen.platform.__init__,src/bremen/platform/__init__.py,0,0,0,0,ADDED PR0162
+bremen.platform.events.__init__,src/bremen/platform/events/__init__.py,1,0,0,0,ADDED PR0162
+bremen.platform.events.context,src/bremen/platform/events/context.py,91,0,0,0,ADDED PR0162
+bremen.platform.events.store,src/bremen/platform/events/store.py,252,0,0,0,ADDED PR0162
+bremen.platform.events.trace,src/bremen/platform/events/trace.py,191,0,0,0,ADDED PR0162
+bremen.platform.events_trace,src/bremen/platform/events_trace.py,155,0,0,0,ADDED PR0162
+bremen.platform.jobs.__init__,src/bremen/platform/jobs/__init__.py,0,0,0,0,ADDED PR0162
+bremen.platform.jobs.models,src/bremen/platform/jobs/models.py,129,0,0,0,ADDED PR0162
+bremen.platform.jobs.repository,src/bremen/platform/jobs/repository.py,107,0,0,0,ADDED PR0162
+bremen.platform.jobs.service,src/bremen/platform/jobs/service.py,479,0,0,0,ADDED PR0162
+bremen.platform.jobs.values,src/bremen/platform/jobs/values.py,36,0,0,0,ADDED PR0162
+bremen.platform.models.__init__,src/bremen/platform/models/__init__.py,1,0,0,0,ADDED PR0162
+bremen.platform.models.catalog,src/bremen/platform/models/catalog.py,174,0,0,0,ADDED PR0162
+bremen.platform.models.discovery,src/bremen/platform/models/discovery.py,1163,0,0,0,ADDED PR0162
+bremen.platform.models.registry,src/bremen/platform/models/registry.py,304,0,0,0,ADDED PR0162
+bremen.platform.models.state,src/bremen/platform/models/state.py,415,0,0,0,ADDED PR0162
+bremen.platform.reports.__init__,src/bremen/platform/reports/__init__.py,0,0,0,0,ADDED PR0162
+bremen.platform.reports.bremen,src/bremen/platform/reports/bremen.py,289,0,0,0,ADDED PR0162
+bremen.platform.reports.decision_support,src/bremen/platform/reports/decision_support.py,219,0,0,0,ADDED PR0162
+bremen.platform.reports.diagnostics,src/bremen/platform/reports/diagnostics.py,175,0,0,0,ADDED PR0162
+bremen.platform.reports.execution_events,src/bremen/platform/reports/execution_events.py,164,0,0,0,ADDED PR0162
+bremen.platform.reports.failures,src/bremen/platform/reports/failures.py,88,0,0,0,ADDED PR0162
+bremen.platform.reports.mapper,src/bremen/platform/reports/mapper.py,391,0,0,0,ADDED PR0162
+bremen.platform.reports.runtime_projection,src/bremen/platform/reports/runtime_projection.py,111,0,0,0,ADDED PR0162
+bremen.platform.reports.service,src/bremen/platform/reports/service.py,420,0,0,0,ADDED PR0162
+bremen.platform.runtime.__init__,src/bremen/platform/runtime/__init__.py,0,0,0,0,ADDED PR0162
+bremen.platform.runtime.executor,src/bremen/platform/runtime/executor.py,241,0,0,0,ADDED PR0162
+bremen.platform.runtime.registry,src/bremen/platform/runtime/registry.py,180,0,0,0,ADDED PR0162
+bremen.platform.sources.__init__,src/bremen/platform/sources/__init__.py,0,0,0,0,ADDED PR0162
+bremen.platform.sources.binding,src/bremen/platform/sources/binding.py,20,0,0,0,ADDED PR0162
+bremen.platform.sources.demo_storage,src/bremen/platform/sources/demo_storage.py,372,0,0,0,ADDED PR0162
+bremen.platform.sources.legacy_input,src/bremen/platform/sources/legacy_input.py,48,0,0,0,ADDED PR0162
+bremen.platform.sources.legacy_layouts,src/bremen/platform/sources/legacy_layouts.py,1506,0,0,0,ADDED PR0162
+bremen.platform.sources.preflight,src/bremen/platform/sources/preflight.py,583,0,0,0,ADDED PR0162
+bremen.platform.sources.registry,src/bremen/platform/sources/registry.py,283,0,0,0,ADDED PR0162
+bremen.platform.sources.service,src/bremen/platform/sources/service.py,230,0,0,0,ADDED PR0162

@@ -14,25 +14,17 @@ import h5py
 import numpy as np
 import pytest
 
-from bremen.api.h5_layouts import (
-    H5PredictionContext,
-    H5LayoutAdapter,
+from bremen.platform.sources.legacy_layouts import (
     CanonicalH5LayoutAdapter,
     CalibrationSampleH5LayoutAdapter,
     detect_layout,
-    register_adapter,
     _validate_ref,
     _breast_type_to_side,
     _count_sets,
     _has_sample_metadata,
-    _read_sample_metadata_str,
 )
-from bremen.api.preflight import (
-    H5ContainerError,
+from bremen.platform.sources.preflight import (
     H5MetadataError,
-    H5PatientMismatchError,
-    H5SideMismatchError,
-    PreflightResult,
     run_h5_preflight,
 )
 
@@ -705,7 +697,7 @@ class TestSessionLayoutDetection:
             c1.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0]))
             c1.create_dataset("integration/i", data=np.array([0.4, 0.5, 0.6]))
 
-        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        from bremen.platform.sources.legacy_layouts import SessionLayoutH5Adapter
         adapter = SessionLayoutH5Adapter()
         with h5py.File(path, "r") as f:
             assert adapter.detect(f) is True
@@ -717,7 +709,7 @@ class TestSessionLayoutDetection:
             tg = f.create_group("/scans/target")
             tg.create_dataset("measurements", data=np.random.rand(3, 10))
 
-        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        from bremen.platform.sources.legacy_layouts import SessionLayoutH5Adapter
         adapter = SessionLayoutH5Adapter()
         with h5py.File(path, "r") as f:
             assert adapter.detect(f) is False
@@ -728,7 +720,7 @@ class TestSessionLayoutDetection:
         with h5py.File(path, "w") as f:
             f.create_dataset("/some_data", data=42)
 
-        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        from bremen.platform.sources.legacy_layouts import SessionLayoutH5Adapter
         adapter = SessionLayoutH5Adapter()
         with h5py.File(path, "r") as f:
             assert adapter.detect(f) is False
@@ -742,7 +734,7 @@ class TestSessionLayoutDetection:
             s1.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0]))
             s1.create_dataset("integration/i", data=np.array([0.1, 0.2, 0.3]))
 
-        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        from bremen.platform.sources.legacy_layouts import SessionLayoutH5Adapter
         adapter = SessionLayoutH5Adapter()
         with h5py.File(path, "r") as f:
             assert adapter.detect(f) is False
@@ -756,7 +748,7 @@ class TestSessionLayoutDetection:
             s1.create_dataset("sample/patient_name", data="P001")
             s1.create_dataset("sample/sample_type", data="RIGHT BREAST")
 
-        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        from bremen.platform.sources.legacy_layouts import SessionLayoutH5Adapter
         adapter = SessionLayoutH5Adapter()
         with h5py.File(path, "r") as f:
             assert adapter.detect(f) is False
@@ -789,7 +781,7 @@ class TestSessionContextResolution:
     def test_resolves_first_pair_by_default(self, tmp_path: Path):
         """Resolves first valid pair when no explicit refs given."""
         path = self._create_session_h5(tmp_path)
-        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        from bremen.platform.sources.legacy_layouts import SessionLayoutH5Adapter
         adapter = SessionLayoutH5Adapter()
         # The adapter requires explicit refs; we pass them directly
         with h5py.File(path, "r") as f:
@@ -803,7 +795,7 @@ class TestSessionContextResolution:
     def test_includes_patient_identifier(self, tmp_path: Path):
         """Resolved context includes patient identifier."""
         path = self._create_session_h5(tmp_path)
-        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        from bremen.platform.sources.legacy_layouts import SessionLayoutH5Adapter
         adapter = SessionLayoutH5Adapter()
         with h5py.File(path, "r") as f:
             ctx = adapter.resolve_prediction_context(
@@ -823,7 +815,7 @@ class TestSessionContextResolution:
             c1.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0]))
             c1.create_dataset("integration/i", data=np.array([0.4, 0.5, 0.6]))
 
-        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        from bremen.platform.sources.legacy_layouts import SessionLayoutH5Adapter
         adapter = SessionLayoutH5Adapter()
         with h5py.File(path, "r") as f:
             with pytest.raises(Exception) as exc_info:
@@ -845,7 +837,7 @@ class TestSessionContextResolution:
             c1.create_dataset("integration/q", data=np.array([4.0, 5.0], dtype=np.float64))
             c1.create_dataset("integration/i", data=np.array([0.4, 0.5], dtype=np.float64))
 
-        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        from bremen.platform.sources.legacy_layouts import SessionLayoutH5Adapter
         adapter = SessionLayoutH5Adapter()
         with h5py.File(path, "r") as f:
             with pytest.raises(Exception) as exc_info:
@@ -898,7 +890,7 @@ class TestNoClinicalLabels:
 
     def test_no_biopsy_or_birads_in_adapter(self):
         """SessionLayoutH5Adapter does not use biopsy/birads as prediction targets."""
-        from bremen.api import h5_layouts as _hl
+        from bremen.platform.sources import legacy_layouts as _hl
         src_path = Path(_hl.__file__)
         source = src_path.read_text(encoding="utf-8")
         # "birads" and "biopsy" may appear in safety comments but NOT as
@@ -918,7 +910,7 @@ class TestNoClinicalLabels:
 
     def test_no_benign_vs_cancer_as_target(self):
         """Adapter does not use BENIGN vs CANCER classification."""
-        from bremen.api import h5_layouts as _hl
+        from bremen.platform.sources import legacy_layouts as _hl
         src_path = Path(_hl.__file__)
         source = src_path.read_text(encoding="utf-8")
         assert "benign" not in source.lower() or "BENIGN" in source
@@ -982,7 +974,7 @@ class TestMatadorRawDetection:
     def test_detects_real_like_matador_raw(self, tmp_path: Path):
         """Detects H5 with 2D images + PONI calibration via structural fallback."""
         h5_path = _create_matador_raw_h5(tmp_path)
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(h5_path, "r") as f:
             assert adapter.detect(f) is True
@@ -990,7 +982,7 @@ class TestMatadorRawDetection:
     def test_detect_returns_false_for_canonical(self, tmp_path: Path):
         """Does NOT claim canonical H5."""
         h5_path = _create_canonical_h5(tmp_path)
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(h5_path, "r") as f:
             assert adapter.detect(f) is False
@@ -1007,7 +999,7 @@ class TestMatadorRawDetection:
             c1.create_dataset("integration/q", data=np.array([1.0, 2.0, 3.0]))
             c1.create_dataset("integration/i", data=np.array([0.4, 0.5, 0.6]))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             assert adapter.detect(f) is False
@@ -1023,7 +1015,7 @@ class TestMatadorRawDetection:
             m2.attrs["side"] = "RIGHT"
             m2.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             assert adapter.detect(f) is False
@@ -1035,7 +1027,7 @@ class TestMatadorRawDetection:
             calib = f.create_group("calibrations")
             calib.create_dataset("poni1", data=np.array([0.1, 0.2, 0.3]))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             assert adapter.detect(f) is False
@@ -1046,7 +1038,7 @@ class TestMatadorRawDetection:
         with h5py.File(path, "w") as f:
             pass
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             assert adapter.detect(f) is False
@@ -1058,7 +1050,7 @@ class TestMatadorRawDetection:
         renamed = tmp_path / "random_name.h5"
         import shutil
         shutil.copy(h5_path, renamed)
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(renamed, "r") as f:
             assert adapter.detect(f) is True
@@ -1079,7 +1071,7 @@ class TestMatadorRawDetection:
             g2.attrs["position"] = "center"
             g2.create_dataset("image", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             assert adapter.detect(f) is True
@@ -1091,7 +1083,7 @@ class TestMatadorRawContextResolution:
     def test_resolves_bilateral_pair(self, tmp_path: Path):
         """Resolves LEFT/RIGHT pair by position key."""
         h5_path = _create_matador_raw_h5(tmp_path)
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(h5_path, "r") as f:
             ctx = adapter.resolve_prediction_context(f, "", "")
@@ -1126,7 +1118,7 @@ class TestMatadorRawContextResolution:
             m3.attrs["position"] = "center"
             m3.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             ctx = adapter.resolve_prediction_context(f, "", "")
@@ -1147,7 +1139,7 @@ class TestMatadorRawContextResolution:
             m2.attrs["position"] = "center"  # no side
             m2.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             with pytest.raises(Exception) as exc_info:
@@ -1169,7 +1161,7 @@ class TestMatadorRawContextResolution:
             m2.attrs["position"] = "top"  # Different position — unique
             m2.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             with pytest.raises(Exception) as exc_info:
@@ -1191,7 +1183,7 @@ class TestMatadorRawContextResolution:
             m2.attrs["position"] = "center"
             m2.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             with pytest.raises(Exception) as exc_info:
@@ -1209,7 +1201,7 @@ class TestMatadorRawContextResolution:
             m1.attrs["position"] = "center"
             m1.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             with pytest.raises(Exception) as exc_info:
@@ -1219,7 +1211,7 @@ class TestMatadorRawContextResolution:
     def test_fails_no_calibration_data(self, tmp_path: Path):
         """No PONI/calibration dataset fails resolution."""
         h5_path = _create_matador_raw_h5(tmp_path, include_calib=False)
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(h5_path, "r") as f:
             with pytest.raises(Exception) as exc_info:
@@ -1229,7 +1221,7 @@ class TestMatadorRawContextResolution:
     def test_context_excludes_identifiers(self, tmp_path: Path):
         """Resolved context does not leak identifiers."""
         h5_path = _create_matador_raw_h5(tmp_path)
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(h5_path, "r") as f:
             ctx = adapter.resolve_prediction_context(f, "", "")
@@ -1392,7 +1384,7 @@ class TestRealLikeMatador:
     def test_organ_side_resolved(self, tmp_path: Path):
         """organSide attribute on measurement groups is resolved correctly."""
         h5_path = _create_real_like_matador_h5(tmp_path, side_attr="organSide")
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(h5_path, "r") as f:
             ctx = adapter.resolve_prediction_context(f, "", "")
@@ -1417,7 +1409,7 @@ class TestRealLikeMatador:
             m2.attrs["position"] = "center"
             m2.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             ctx = adapter.resolve_prediction_context(f, "", "")
@@ -1429,7 +1421,7 @@ class TestRealLikeMatador:
         h5_path = _create_real_like_matador_h5(
             tmp_path, side_attr="organSide", include_calib_image=True,
         )
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(h5_path, "r") as f:
             ctx = adapter.resolve_prediction_context(f, "", "")
@@ -1450,7 +1442,7 @@ class TestRealLikeMatador:
             m2.attrs["side"] = "RIGHT"
             m2.create_dataset("diffraction_P1", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             ctx = adapter.resolve_prediction_context(f, "", "")
@@ -1471,7 +1463,7 @@ class TestRealLikeMatador:
             m2.attrs["position"] = "custom_pos"
             m2.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             ctx = adapter.resolve_prediction_context(f, "", "")
@@ -1491,7 +1483,7 @@ class TestRealLikeMatador:
             m2.attrs["side"] = "RIGHT"
             m2.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             with pytest.raises(Exception) as exc_info:
@@ -1512,7 +1504,7 @@ class TestRealLikeMatador:
             m2.attrs["side"] = "RIGHT"
             m2.create_dataset("diffraction_P1_P2", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             with pytest.raises(Exception) as exc_info:
@@ -1533,7 +1525,7 @@ class TestRealLikeMatador:
             m2.attrs["side"] = "LEFT"
             m2.create_dataset("diffraction_P1", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             with pytest.raises(Exception) as exc_info:
@@ -1554,7 +1546,7 @@ class TestRealLikeMatador:
             m2.attrs["side"] = "RIGHT"
             m2.create_dataset("diffraction_P2", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             with pytest.raises(Exception) as exc_info:
@@ -1603,7 +1595,7 @@ class TestRealLikeMatador:
             m4.attrs["side"] = "RIGHT"
             m4.create_dataset("diffraction_P2", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             ctx = adapter.resolve_prediction_context(f, "", "")
@@ -1628,7 +1620,7 @@ class TestRealLikeMatador:
             m2 = f.create_group("m_right")
             m2.create_dataset("diffraction_P1", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             with pytest.raises(Exception) as exc_info:
@@ -1649,7 +1641,7 @@ class TestRealLikeMatador:
             m2.attrs["organSide"] = "BOTTOM"
             m2.create_dataset("data", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             with pytest.raises(Exception) as exc_info:
@@ -1662,7 +1654,7 @@ class TestRealLikeMatador:
         import hashlib
         h5_path = _create_real_like_matador_h5(tmp_path, side_attr="organSide")
         original = hashlib.sha256(h5_path.read_bytes()).hexdigest()
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(h5_path, "r") as f:
             adapter.resolve_prediction_context(f, "", "")
@@ -1682,7 +1674,7 @@ class TestRealLikeMatador:
             m2.attrs["side"] = "LEFT"
             m2.create_dataset("diffraction_P1", data=np.random.rand(50, 50).astype(np.float32))
 
-        from bremen.api.h5_layouts import MatadorRawH5Adapter
+        from bremen.platform.sources.legacy_layouts import MatadorRawH5Adapter
         adapter = MatadorRawH5Adapter()
         with h5py.File(path, "r") as f:
             with pytest.raises(Exception) as exc_info:
@@ -1717,7 +1709,7 @@ class TestSessionModeSelection:
     def test_no_refs_auto_detects_pair(self, tmp_path: Path):
         """Both refs absent → automatic pair discovery succeeds."""
         path = self._create_session_h5(tmp_path)
-        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        from bremen.platform.sources.legacy_layouts import SessionLayoutH5Adapter
         adapter = SessionLayoutH5Adapter()
         with h5py.File(path, "r") as f:
             ctx = adapter.resolve_prediction_context(f, "", "")
@@ -1728,7 +1720,7 @@ class TestSessionModeSelection:
     def test_blank_refs_auto_detects_pair(self, tmp_path: Path):
         """Whitespace-only refs count as absent → automatic discovery."""
         path = self._create_session_h5(tmp_path)
-        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        from bremen.platform.sources.legacy_layouts import SessionLayoutH5Adapter
         adapter = SessionLayoutH5Adapter()
         with h5py.File(path, "r") as f:
             ctx = adapter.resolve_prediction_context(f, "   ", "\t\n")
@@ -1738,7 +1730,7 @@ class TestSessionModeSelection:
     def test_both_explicit_refs_succeeds(self, tmp_path: Path):
         """Both refs present and nonblank → explicit ref validation."""
         path = self._create_session_h5(tmp_path)
-        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        from bremen.platform.sources.legacy_layouts import SessionLayoutH5Adapter
         adapter = SessionLayoutH5Adapter()
         with h5py.File(path, "r") as f:
             ctx = adapter.resolve_prediction_context(
@@ -1751,7 +1743,7 @@ class TestSessionModeSelection:
     def test_exactly_one_ref_rejected(self, tmp_path: Path):
         """Exactly one ref present → H5ContainerError."""
         path = self._create_session_h5(tmp_path)
-        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        from bremen.platform.sources.legacy_layouts import SessionLayoutH5Adapter
         adapter = SessionLayoutH5Adapter()
         with h5py.File(path, "r") as f:
             with pytest.raises(Exception) as exc_info:
@@ -1765,7 +1757,7 @@ class TestSessionModeSelection:
     def test_exactly_one_ref_target_only_rejected(self, tmp_path: Path):
         """Only target ref provided → rejected."""
         path = self._create_session_h5(tmp_path)
-        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        from bremen.platform.sources.legacy_layouts import SessionLayoutH5Adapter
         adapter = SessionLayoutH5Adapter()
         with h5py.File(path, "r") as f:
             with pytest.raises(Exception) as exc_info:
@@ -1779,7 +1771,7 @@ class TestSessionModeSelection:
     def test_exactly_one_ref_control_only_rejected(self, tmp_path: Path):
         """Only control ref provided → rejected."""
         path = self._create_session_h5(tmp_path)
-        from bremen.api.h5_layouts import SessionLayoutH5Adapter
+        from bremen.platform.sources.legacy_layouts import SessionLayoutH5Adapter
         adapter = SessionLayoutH5Adapter()
         with h5py.File(path, "r") as f:
             with pytest.raises(Exception) as exc_info:

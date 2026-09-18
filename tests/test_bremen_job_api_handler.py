@@ -18,26 +18,23 @@ Uses no HTTPServer, no sockets, no localhost HTTP, no server spawning.
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 
 import pytest
 
 
-from bremen.api.job_api_handler import (
-    StagedUpload,
-    register_staged_upload,
-    resolve_upload,
-    resolve_source,
-    reset_for_tests,
-    _utc_now,
-    _get_or_create_store,
-    _get_or_create_jobs,
-    _get_or_create_providers,
-    _get_or_create_uploads,
-    _cleanup_expired_uploads,
-)
-from bremen.api.event_schema import allowed_event_details
+from bremen.platform.sources.service import StagedUpload
+from bremen.platform.sources.service import register_staged_upload
+from bremen.platform.sources.service import resolve_upload
+from bremen.platform.sources.service import resolve_source
+from bremen.platform.jobs.service import reset_for_tests
+from bremen.platform.jobs.values import _utc_now
+from bremen.platform.jobs.repository import _get_or_create_store
+from bremen.platform.jobs.repository import _get_or_create_jobs
+from bremen.platform.jobs.repository import _get_or_create_providers
+from bremen.platform.jobs.repository import _get_or_create_uploads
+from bremen.platform.sources.service import _cleanup_expired_uploads
+from bremen.contracts.events import allowed_event_details
 
 
 # ===================================================================
@@ -288,7 +285,7 @@ class TestAllowedEventDetails:
         assert result == raw
 
     def test_filters_prohibited_keys(self):
-        from bremen.api.event_schema import _PROHIBITED_DETAIL_KEYS
+        from bremen.contracts.events import _PROHIBITED_DETAIL_KEYS
         raw = {key: "secret" for key in _PROHIBITED_DETAIL_KEYS}
         raw["safe_key"] = "allowed"
         result = allowed_event_details(raw)
@@ -321,15 +318,15 @@ class TestExtractPatientDisplayName:
     """Cover patient display name extraction edge cases."""
 
     def test_empty_path_returns_empty(self):
-        from bremen.api.job_api_handler import extract_patient_display_name
+        from bremen.platform.sources.service import extract_patient_display_name
         assert extract_patient_display_name("") == ""
 
     def test_none_path_returns_empty(self):
-        from bremen.api.job_api_handler import extract_patient_display_name
+        from bremen.platform.sources.service import extract_patient_display_name
         assert extract_patient_display_name(None) == ""
 
     def test_nonexistent_file_returns_empty(self):
-        from bremen.api.job_api_handler import extract_patient_display_name
+        from bremen.platform.sources.service import extract_patient_display_name
         assert extract_patient_display_name("/tmp/nonexistent_12345.h5") == ""
 
 
@@ -341,7 +338,7 @@ class TestExtractPatientDisplayName:
 class TestJobApiHandlerSourceSafety:
     """AST-based safety checks for job_api_handler.py."""
 
-    SRC = Path(__file__).parents[1] / "src" / "bremen" / "api" / "job_api_handler.py"
+    SRC = Path(__file__).parents[1] / "src" / "bremen" / "api" / "../platform/jobs/service.py"
 
     def test_no_urlopen_calls(self):
         import ast

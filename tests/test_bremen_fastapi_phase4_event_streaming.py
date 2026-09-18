@@ -12,11 +12,9 @@ Tests cover:
 
 from __future__ import annotations
 
-import asyncio
 import json
-import time as _time
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -25,8 +23,8 @@ try:
 except ImportError:
     TestClient = None  # type: ignore[assignment,misc]
 
-from bremen.api.fastapi_app import create_fastapi_app
-from bremen.api.event_schema import (
+from bremen.api.http.app import create_app
+from bremen.contracts.events import (
     JobEvent, allowed_event_details, _PROHIBITED_DETAIL_KEYS,
 )
 
@@ -42,7 +40,7 @@ DOCKERFILE = ROOT / "Dockerfile"
 @pytest.fixture()
 def client():
     """Create a TestClient for the FastAPI app."""
-    app = create_fastapi_app()
+    app = create_app()
     return TestClient(app)
 
 
@@ -88,7 +86,7 @@ class TestJobEventsJson:
 
     def test_events_known_job_returns_events(self, client) -> None:
         """Job with events returns events list."""
-        from bremen.api.job_api_handler import _event_store
+        from bremen.platform.jobs.service import _event_store
 
         job_id = "test-events-job"
         # Append a test event directly to the store
@@ -106,7 +104,7 @@ class TestJobEventsJson:
 
     def test_events_empty_job(self, client) -> None:
         """Job with no events returns empty list."""
-        from bremen.api.job_api_handler import _event_store
+        from bremen.platform.jobs.service import _event_store
 
         job_id = "test-empty-job"
         _event_store.append(job_id, _make_event(job_id=job_id, sequence=0))
@@ -119,7 +117,7 @@ class TestJobEventsJson:
 
     def test_events_cursor_filter(self, client) -> None:
         """X-Event-Cursor header filters events."""
-        from bremen.api.job_api_handler import _event_store
+        from bremen.platform.jobs.service import _event_store
 
         job_id = "test-cursor-job"
         _event_store.append(job_id, _make_event(job_id=job_id, sequence=1))
@@ -137,7 +135,7 @@ class TestJobEventsJson:
 
     def test_events_ordered(self, client) -> None:
         """Events returned in sequence order."""
-        from bremen.api.job_api_handler import _event_store
+        from bremen.platform.jobs.service import _event_store
 
         job_id = "test-order-job"
         for i in range(1, 6):
@@ -153,7 +151,7 @@ class TestJobEventsJson:
 
     def test_events_no_raw_internals(self, client) -> None:
         """No prohibited fields in event data."""
-        from bremen.api.job_api_handler import _event_store
+        from bremen.platform.jobs.service import _event_store
 
         job_id = "test-safety-job"
         _event_store.append(job_id, _make_event(job_id=job_id, sequence=1))
@@ -169,7 +167,7 @@ class TestJobEventsJson:
 
     def test_events_request_id(self, client) -> None:
         """Response includes request_id."""
-        from bremen.api.job_api_handler import _event_store
+        from bremen.platform.jobs.service import _event_store
 
         job_id = "test-reqid-job"
         _event_store.append(job_id, _make_event(job_id=job_id, sequence=1))
@@ -205,7 +203,9 @@ class TestJobEventsStream:
 
     def test_stream_known_job_returns_sse(self, client) -> None:
         """Known job returns text/event-stream."""
-        from bremen.api.job_api_handler import _event_store, _jobs, _jobs_lock
+        from bremen.platform.jobs.service import _event_store
+        from bremen.platform.jobs.service import _jobs
+        from bremen.platform.jobs.service import _jobs_lock
 
         job_id = "test-sse-job"
         _event_store.append(job_id, _make_event(job_id=job_id, sequence=1))
@@ -236,8 +236,8 @@ class TestSSEGenerator:
 
     def test_sse_event_format(self) -> None:
         """SSE frames match expected format."""
-        from bremen.api.fastapi_app import create_fastapi_app
-        app = create_fastapi_app()
+        from bremen.api.http.app import create_app
+        app = create_app()
 
         # Find the generator function — we test the SSE frame format directly
         # by constructing frames manually using the same logic
@@ -301,7 +301,7 @@ class TestSSEGenerator:
 class TestEventSourceSharing:
     def test_event_store_singleton(self) -> None:
         """Same _event_store object is used everywhere — stable identity check."""
-        from bremen.api.job_api_handler import _event_store
+        from bremen.platform.jobs.service import _event_store
 
         # Verify required methods exist (stable API surface)
         assert hasattr(_event_store, "append")
@@ -311,12 +311,12 @@ class TestEventSourceSharing:
         assert hasattr(_event_store, "get_job_cursor")
 
         # Verify object identity is stable across imports
-        from bremen.api.job_api_handler import _event_store as es2
+        from bremen.platform.jobs.service import _event_store as es2
         assert _event_store is es2
 
     def test_job_created_by_phase3_visible_to_phase4(self, client) -> None:
         """Job created via Phase 3 POST is visible to Phase 4 events."""
-        from bremen.api.job_api_handler import _event_store
+        from bremen.platform.jobs.service import _event_store
 
         job_id = "test-phase3-phase4-share"
         _event_store.append(
@@ -337,7 +337,9 @@ class TestEventSourceSharing:
 class TestTerminalBehavior:
     def test_terminal_completed(self, client) -> None:
         """Completed job triggers stream_complete."""
-        from bremen.api.job_api_handler import _event_store, _jobs, _jobs_lock
+        from bremen.platform.jobs.service import _event_store
+        from bremen.platform.jobs.service import _jobs
+        from bremen.platform.jobs.service import _jobs_lock
 
         job_id = "test-terminal-completed"
         _event_store.append(job_id, _make_event(job_id=job_id, sequence=1))
@@ -353,7 +355,9 @@ class TestTerminalBehavior:
 
     def test_terminal_failed(self, client) -> None:
         """Failed job triggers stream_complete."""
-        from bremen.api.job_api_handler import _event_store, _jobs, _jobs_lock
+        from bremen.platform.jobs.service import _event_store
+        from bremen.platform.jobs.service import _jobs
+        from bremen.platform.jobs.service import _jobs_lock
 
         job_id = "test-terminal-failed"
         _event_store.append(job_id, _make_event(job_id=job_id, sequence=1))
@@ -376,7 +380,7 @@ class TestTerminalBehavior:
 class TestDedicatedExecutor:
     def test_no_default_executor_usage(self) -> None:
         """fastapi_app.py does not use run_in_executor(None, ...)."""
-        source = (ROOT / "src" / "bremen" / "api" / "fastapi_app.py")
+        source = (ROOT / "src" / "bremen" / "api" / "http" / "routers" / "events.py")
         content = source.read_text(encoding="utf-8")
         # Check only code lines, not comments/docstrings
         code_lines = [
@@ -390,7 +394,7 @@ class TestDedicatedExecutor:
 
     def test_dedicated_executor_present(self) -> None:
         """fastapi_app.py creates a dedicated ThreadPoolExecutor."""
-        source = (ROOT / "src" / "bremen" / "api" / "fastapi_app.py")
+        source = (ROOT / "src" / "bremen" / "api" / "http" / "routers" / "events.py")
         content = source.read_text(encoding="utf-8")
         assert "ThreadPoolExecutor" in content
         assert "_sse_executor" in content
@@ -459,7 +463,7 @@ class TestModuleSafety:
 
     def test_no_eventsource_in_fastapi_app(self) -> None:
         """fastapi_app.py does not use client-side EventSource."""
-        source = (ROOT / "src" / "bremen" / "api" / "fastapi_app.py")
+        source = (ROOT / "src" / "bremen" / "api" / "http" / "routers" / "events.py")
         content = source.read_text(encoding="utf-8")
         # EventSource is a client-side JS API — should not appear in server code
         # But "event_stream" as a variable name is fine

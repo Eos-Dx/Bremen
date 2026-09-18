@@ -12,6 +12,9 @@ Synthetic data only; no real patient fixtures.
 """
 from __future__ import annotations
 
+import bremen.platform.reports.service as _owner_reports_service
+
+
 import copy
 import json
 from pathlib import Path
@@ -19,14 +22,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from bremen.api import model_result_mapper as mapper
-from bremen.api.model_result_mapper import (
+from bremen.platform.reports import mapper
+from bremen.platform.reports.mapper import (
     build_standard_result,
     map_aramina_result,
     map_bremen_result,
     normalize_timestamp,
 )
-from bremen.api.standard_model_result import (
+from bremen.contracts.results import (
     CANONICAL_FIELDS,
     RISK_LEVEL_HIGH,
     RISK_LEVEL_LOW,
@@ -317,8 +320,8 @@ def test_build_standard_result_dispatch_bremen_and_aramina():
 
 
 def _run_bremen_report():
-    from bremen.api import model_registry as registry
-    from bremen.api import job_api_handler as jobs
+    from bremen.platform.models import registry
+    from bremen.platform.jobs import service as jobs
     from tests.bremen_3x3_helpers import MODEL, make_case, write_session_h5
     import os
     import tempfile
@@ -346,7 +349,7 @@ def _run_bremen_report():
                 prediction_comment="int note",
             )
             assert job.overall_status == "completed"
-            return jobs.get_job_report(job.job_id, "bremen")
+            return _owner_reports_service.get_job_report(job.job_id, "bremen")
     finally:
         jobs.reset_for_tests()
         registry.reset_for_tests()
@@ -386,8 +389,8 @@ def test_bremen_report_golden_probability_within_frozen_tolerance_and_verbatim_m
 
 
 def _run_failed_job_report():
-    from bremen.api import model_registry as registry
-    from bremen.api import job_api_handler as jobs
+    from bremen.platform.models import registry
+    from bremen.platform.jobs import service as jobs
 
     jobs.reset_for_tests()
     registry.reset_for_tests()
@@ -412,7 +415,7 @@ def _run_failed_job_report():
             path = write_session_h5(os.path.join(td, "in.h5"), make_case().measurements)
             job = jobs.create_analysis_job(h5_path=path, workflow_id="bremen",
                                            model_id="bremen-current")
-            return jobs.get_job_report(job.job_id, "bremen")
+            return _owner_reports_service.get_job_report(job.job_id, "bremen")
     finally:
         jobs.reset_for_tests()
         registry.reset_for_tests()
@@ -426,8 +429,7 @@ def test_failed_report_envelope_unchanged_no_standard_result():
 
 
 def _register_providers():
-    from bremen.api import job_api_handler as jobs
-    jobs._register_default_providers()
+    _owner_reports_service._register_default_providers()
 
 
 def test_aramina_envelope_integration_via_get_job_report():
@@ -436,9 +438,9 @@ def test_aramina_envelope_integration_via_get_job_report():
 
     A synthetic completed job is inserted directly (no H5 pipeline needed); the
     registered Aramina report provider + mapper boundary are exercised."""
-    from bremen.api import model_registry as registry
-    from bremen.api import job_api_handler as jobs
-    from bremen.api.job_models import AnalysisJob, WorkflowRun
+    from bremen.platform.models import registry
+    from bremen.platform.jobs import service as jobs
+    from bremen.platform.jobs.models import AnalysisJob, WorkflowRun
 
     jobs.reset_for_tests()
     registry.reset_for_tests()
@@ -461,7 +463,7 @@ def test_aramina_envelope_integration_via_get_job_report():
         )
         with jobs._jobs_lock:
             jobs._jobs[job.job_id] = job
-        report = jobs.get_job_report(job.job_id, "aramina")["report"]
+        report = _owner_reports_service.get_job_report(job.job_id, "aramina")["report"]
         # legacy external_report contract untouched
         assert report["payload"]["risk_score"] == 0.265
         assert report["payload"]["technical_demo_only"] is True
@@ -479,7 +481,7 @@ def test_aramina_envelope_integration_via_get_job_report():
 
 
 def test_metadata_sanitizer_rejects_private_content():
-    from bremen.api.job_api_handler import _clean_metadata_field
+    from bremen.platform.jobs.values import _clean_metadata_field
     assert _clean_metadata_field("  Alexey ") == "Alexey"
     assert _clean_metadata_field("/etc/passwd") == ""
     assert _clean_metadata_field("s3://bucket/key") == ""
@@ -494,7 +496,7 @@ def test_metadata_sanitizer_rejects_private_content():
 
 try:
     from fastapi.testclient import TestClient
-    from bremen.api.fastapi_app import create_fastapi_app
+    from bremen.api.http.app import create_app
 except Exception:  # pragma: no cover
     TestClient = None
 
@@ -522,7 +524,7 @@ PR0156_FROZEN_ROUTES = {
 
 
 def _live_routes():
-    app = create_fastapi_app()
+    app = create_app()
     routes = set()
     for route in getattr(app, "routes", []):
         methods = getattr(route, "methods", None)
@@ -550,14 +552,14 @@ def test_no_standard_result_endpoint_added():
 
 @pytest.mark.skipif(TestClient is None, reason="fastapi not installed")
 def test_health_and_model_version_unaffected_auth():
-    client = TestClient(create_fastapi_app())
+    client = TestClient(create_app())
     assert client.get("/health").status_code == 200
     assert client.get("/model/version").status_code == 200
 
 
 @pytest.mark.skipif(TestClient is None, reason="fastapi not installed")
 def test_jobs_create_request_schema_unchanged_rejects_missing_source():
-    client = TestClient(create_fastapi_app())
+    client = TestClient(create_app())
     resp = client.post("/demo/api/jobs", json={"workflow_id": "bremen"})
     # same rejection behavior as before PR0157 (MISSING_SOURCE)
     assert resp.status_code == 400
@@ -598,7 +600,7 @@ def test_aramina_mapping_matches_frozen_fixture():
 
 
 def test_package_runtime_satisfies_contract_unchanged():
-    from bremen.model_runtime import ModelRuntime
+    from bremen.contracts.model_runtime import ModelRuntime
     from bremen.model_packages.bremen_v01.runtime import BremenRuntime
     from tests.bremen_3x3_helpers import MODEL
     assert isinstance(BremenRuntime(MODEL), ModelRuntime)
@@ -618,7 +620,7 @@ def _aramina_pkg_runtime():
 def test_mapper_does_not_import_or_depend_on_orchestration_only_consumes():
     # schema + mapper live in api/ (platform) and never import report providers
     import ast
-    src = Path("src/bremen/api/model_result_mapper.py").read_text()
+    src = Path("src/bremen/platform/reports/mapper.py").read_text()
     tree = ast.parse(src)
     mods = set()
     for node in ast.walk(tree):

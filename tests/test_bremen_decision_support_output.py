@@ -7,7 +7,7 @@ credentials.
 
 from __future__ import annotations
 
-from bremen.api.decision_support import (
+from bremen.platform.reports.decision_support import (
     REPORT_SCHEMA_VERSION,
     INTENDED_USE,
     LIMITATIONS,

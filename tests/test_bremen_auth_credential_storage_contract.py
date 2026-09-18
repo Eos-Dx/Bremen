@@ -20,18 +20,14 @@ from __future__ import annotations
 import inspect
 import re
 
-import pytest
 from argon2 import PasswordHasher as _PH
 
 from bremen.config import AuthConfig, read_auth_config
 from bremen.auth import (
     authenticate_credentials,
     create_access_token,
-    create_refresh_token,
     decode_access_token,
-    decode_refresh_token,
     verify_password,
-    TokenPair,
 )
 
 # ---------------------------------------------------------------------------
@@ -354,7 +350,7 @@ class TestNoInternalLeakage:
 
     def test_auth_error_shape_no_secrets(self):
         """Auth error response doesn't contain secrets."""
-        from bremen.api.server import _AUTH_ERROR_SHAPE, _AUTH_DISABLED_SHAPE
+        from bremen.api.http.auth_config import _AUTH_ERROR_SHAPE, _AUTH_DISABLED_SHAPE
         assert _FAKE_HASH not in _AUTH_ERROR_SHAPE
         assert _FAKE_JWT_SECRET not in _AUTH_ERROR_SHAPE
         assert _FAKE_HASH not in _AUTH_DISABLED_SHAPE
@@ -362,7 +358,7 @@ class TestNoInternalLeakage:
 
     def test_auth_error_shape_generic(self):
         """Auth error response is generic."""
-        from bremen.api.server import _AUTH_ERROR_SHAPE, _AUTH_DISABLED_SHAPE
+        from bremen.api.http.auth_config import _AUTH_ERROR_SHAPE, _AUTH_DISABLED_SHAPE
         error = _AUTH_ERROR_SHAPE
         disabled = _AUTH_DISABLED_SHAPE
         assert "Authentication failed" in error
@@ -405,7 +401,7 @@ class TestNoInternalLeakage:
 
     def test_no_regex_path_in_error(self):
         """Error messages don't contain regex/file paths."""
-        from bremen.api.server import _AUTH_ERROR_SHAPE
+        from bremen.api.http.auth_config import _AUTH_ERROR_SHAPE
         error = _AUTH_ERROR_SHAPE
         assert not re.search(r"/[a-zA-Z]+\.(py|json|yaml)", error)
 
@@ -461,21 +457,21 @@ class TestRouteParityPreserved:
 
     def test_auth_token_route_exists_in_fastapi(self):
         """FastAPI app has /demo/api/auth/token route."""
-        from bremen.api.fastapi_app import create_fastapi_app
-        app = create_fastapi_app()
+        from bremen.api.http.app import create_app
+        app = create_app()
         routes = [r.path for r in app.routes]
         assert "/demo/api/auth/token" in routes
 
     def test_auth_refresh_route_exists_in_fastapi(self):
         """FastAPI app has /demo/api/auth/refresh route."""
-        from bremen.api.fastapi_app import create_fastapi_app
-        app = create_fastapi_app()
+        from bremen.api.http.app import create_app
+        app = create_app()
         routes = [r.path for r in app.routes]
         assert "/demo/api/auth/refresh" in routes
 
     def test_login_route_exists_in_fastapi(self):
         """FastAPI app has /demo/login route."""
-        from bremen.api.fastapi_app import create_fastapi_app
-        app = create_fastapi_app()
+        from bremen.api.http.app import create_app
+        app = create_app()
         routes = [r.path for r in app.routes]
         assert "/demo/login" in routes

@@ -6,15 +6,18 @@ Uses the registry directly. No real AWS calls.
 
 from __future__ import annotations
 
-import pytest
+from fastapi.testclient import TestClient
+from bremen.api.http.app import create_app
 
-from bremen.api.model_registry import (
+import pytest
+from bremen.platform.models.state import ModelState
+
+from bremen.platform.models.registry import (
     RegistryModelEntry,
     ModelRegistry,
     initialize_registry,
     reset_for_tests,
 )
-from bremen.api.app import handle_model_version
 
 
 # ---------------------------------------------------------------------------
@@ -41,97 +44,46 @@ def _make_entry(model_id: str = "test-model") -> RegistryModelEntry:
     )
 
 
-# ---------------------------------------------------------------------------
-# Zero models
-# ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def reset_model_state():
+    reset_for_tests()
+    ModelState.reset_for_tests()
+    yield
+    reset_for_tests()
+    ModelState.reset_for_tests()
 
 
-class TestZeroModels:
-    def teardown_method(self):
-        reset_for_tests()
-
-    def test_zero_models_not_configured(self):
-        """Zero models preserves not_configured behavior."""
-        reg = ModelRegistry()
-        initialize_registry(reg)
-        version = handle_model_version()
-        assert version.model_configured is False
-        assert version.model_status == "not_configured"
-        assert version.model_version is None
-        assert version.model_checksum is None
-        assert version.feature_schema_version is None
-        assert version.threshold_version is None
-        assert version.threshold_value is None
-        assert version.qc_criteria_version is None
-
-
-# ---------------------------------------------------------------------------
-# One model
-# ---------------------------------------------------------------------------
-
-
-class TestOneModel:
-    def teardown_method(self):
-        reset_for_tests()
-
-    def test_one_model_returns_singular_metadata(self):
-        """One model returns that model's safe metadata."""
-        entry = _make_entry()
-        reg = ModelRegistry(
-            entries=(entry,),
-            catalog_status="available",
-            available_count=1,
-        )
-        initialize_registry(reg)
-        version = handle_model_version()
-        assert version.model_configured is True
-        assert version.model_status == "ready"
-        assert version.model_version == "v1.0"
-        assert version.feature_schema_version == "v0.1"
-        # Checksum is private — not exposed
-        assert version.model_checksum is None
+@pytest.mark.parametrize("count,status", [(0, "not_configured"), (1, "ready"), (2, "selection_required")])
+def test_catalog_model_version_contract(count, status):
+    initialize_registry(ModelRegistry(
+        entries=tuple(_make_entry(str(i)) for i in range(count)),
+        available_count=count, catalog_status="available",
+    ))
+    client = TestClient(create_app())
+    try:
+        response = client.get("/model/version")
+    finally:
+        client.close()
+    assert response.status_code == 200
+    assert response.json() == {
+        "model_configured": count > 0,
+        "model_version": "v1.0" if count == 1 else None,
+        "model_checksum": None,
+        "feature_schema_version": "v0.1" if count == 1 else None,
+        "threshold_version": None,
+        "threshold_value": None,
+        "qc_criteria_version": None,
+        "model_status": status,
+    }
 
 
-# ---------------------------------------------------------------------------
-# Multiple models
-# ---------------------------------------------------------------------------
+def test_explicit_package_metadata_without_deserialization(tmp_path):
+    from bremen.api.http.system_support import handle_model_version
+    from tests.test_bremen_model_package_source import _make_package
 
-
-class TestMultipleModels:
-    def teardown_method(self):
-        reset_for_tests()
-
-    def test_multiple_models_selection_required(self):
-        """Multiple models returns selection_required with null fields."""
-        e1 = _make_entry(model_id="model-a")
-        e2 = _make_entry(model_id="model-b")
-        reg = ModelRegistry(
-            entries=(e1, e2),
-            catalog_status="available",
-            available_count=2,
-        )
-        initialize_registry(reg)
-        version = handle_model_version()
-        assert version.model_configured is True
-        assert version.model_status == "selection_required"
-        assert version.model_version is None
-        assert version.model_checksum is None
-        assert version.feature_schema_version is None
-        assert version.threshold_version is None
-        assert version.threshold_value is None
-        assert version.qc_criteria_version is None
-
-    def test_no_arbitrary_model_selected(self):
-        """No arbitrary model may be selected by ordering."""
-        e1 = _make_entry(model_id="a-model")
-        e2 = _make_entry(model_id="z-model")
-        reg = ModelRegistry(
-            entries=(e1, e2),
-            catalog_status="available",
-            available_count=2,
-        )
-        initialize_registry(reg)
-        version = handle_model_version()
-        # Neither model's data should be exposed
-        assert version.model_version is None
-        assert version.model_status == "selection_required"
+    package = _make_package(tmp_path)  # Deliberately invalid pickle bytes.
+    response = handle_model_version(explicit_path=package)
+    assert response.model_configured is True
+    assert response.model_version == "1.0.0"
+    assert response.feature_schema_version == "1.0"
+    assert response.threshold_value == 0.5

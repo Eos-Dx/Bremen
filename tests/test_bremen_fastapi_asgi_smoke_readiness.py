@@ -3,7 +3,7 @@
 Tests cover safe, deterministic pieces of ``scripts/smoke_fastapi_asgi.py``:
 
 - CLI parser defaults and arguments
-- Command construction uses the FastAPI factory (``create_fastapi_app``)
+- Command construction uses the FastAPI factory (``create_app``)
 - Output redaction helper
 - Endpoint list contains Phase 1-4 routes
 - Script has read-only mode
@@ -18,12 +18,9 @@ These tests **never** start a real server.
 from __future__ import annotations
 
 import ast
-import re
 import sys
-import textwrap
 from pathlib import Path
 
-import pytest
 
 # ---------------------------------------------------------------------------
 # Import the script module without executing main
@@ -156,11 +153,11 @@ class TestCommandConstruction:
         uvicorn_idx = cmd.index("-m") + 1
         assert cmd[uvicorn_idx] == "uvicorn"
 
-    def test_uses_create_fastapi_app_factory(self) -> None:
-        """Command references the create_fastapi_app factory."""
+    def test_uses_create_app_factory(self) -> None:
+        """Command references the create_app factory."""
         cmd = _smoke_mod._build_uvicorn_command("127.0.0.1", 8990)
         cmd_str = " ".join(cmd)
-        assert "create_fastapi_app" in cmd_str
+        assert "create_app" in cmd_str
 
     def test_factory_flag_present(self) -> None:
         """Command includes --factory flag for uvicorn."""
@@ -565,9 +562,9 @@ class TestScriptStructure:
                       if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
         assert "redact_display" in func_names
 
-    def test_script_uses_create_fastapi_app(self) -> None:
-        """Script references create_fastapi_app (via uvicorn --factory)."""
-        assert "create_fastapi_app" in SCRIPT_SRC
+    def test_script_uses_create_app(self) -> None:
+        """Script references create_app (via uvicorn --factory)."""
+        assert "create_app" in SCRIPT_SRC
 
     def test_script_uses_uvicorn(self) -> None:
         """Script references uvicorn."""

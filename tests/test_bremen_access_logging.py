@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 
-import pytest
 
 from bremen.logging_config import (
     redact_sensitive_query_params,
@@ -246,9 +245,9 @@ class TestScannerPaths:
     def test_scanner_paths_return_404(self):
         """Scanner paths return 404 (not 500) via FastAPI default routing."""
         from fastapi.testclient import TestClient
-        from bremen.api.fastapi_app import create_fastapi_app
+        from bremen.api.http.app import create_app
 
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         scanner_paths = [
             "/redoc",

@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from bremen.api.model_registry import (
+from bremen.platform.models.registry import (
     CatalogUnavailableEntry,
     RegistryModelEntry,
     ModelRegistry,
@@ -241,7 +241,7 @@ class TestWorkflowIncompatibility:
         entry = _make_entry(workflow_id="aramina")
         reg = ModelRegistry(entries=(entry,), catalog_status="available", available_count=1)
         initialize_registry(reg)
-        from bremen.api.model_catalog import resolve_model, ModelIncompatibleError
+        from bremen.platform.models.catalog import resolve_model, ModelIncompatibleError
         with pytest.raises(ModelIncompatibleError):
             resolve_model("test-model", workflow_id="bremen")
 
@@ -260,24 +260,24 @@ class TestAmbiguousSelection:
         e2 = _make_entry(model_id="model-b", display_name="B")
         reg = ModelRegistry(entries=(e1, e2), catalog_status="available", available_count=2)
         initialize_registry(reg)
-        from bremen.api.model_catalog import resolve_model, AmbiguousModelSelectionError
+        from bremen.platform.models.catalog import resolve_model, AmbiguousModelSelectionError
         with pytest.raises(AmbiguousModelSelectionError):
-            resolve_model(None)
+            resolve_model(None, workflow_id="bremen")
 
     def test_one_model_auto_selects(self):
         entry = _make_entry()
         reg = ModelRegistry(entries=(entry,), catalog_status="available", available_count=1)
         initialize_registry(reg)
-        from bremen.api.model_catalog import resolve_model
-        resolved = resolve_model(None)
+        from bremen.platform.models.catalog import resolve_model
+        resolved = resolve_model(None, workflow_id="bremen")
         assert resolved == "test-model"
 
     def test_zero_models_no_selection(self):
         reg = ModelRegistry()
         initialize_registry(reg)
-        from bremen.api.model_catalog import resolve_model, AmbiguousModelSelectionError
+        from bremen.platform.models.catalog import resolve_model, AmbiguousModelSelectionError
         with pytest.raises(AmbiguousModelSelectionError):
-            resolve_model(None)
+            resolve_model(None, workflow_id="bremen")
 
 
 # ---------------------------------------------------------------------------
@@ -291,7 +291,7 @@ class TestLegacyCompatibility:
 
     def test_legacy_bremen_current(self):
         """build_legacy_registry with no ModelState returns empty."""
-        from bremen.api.model_state import ModelState
+        from bremen.platform.models.state import ModelState
         ModelState.reset_for_tests()
         reg = build_legacy_registry()
         assert reg.catalog_status == "not_configured"
