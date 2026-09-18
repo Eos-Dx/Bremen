@@ -115,7 +115,7 @@ def handle_model_version(
 
     # 1. Explicit local package path
     if explicit_path is not None:
-        from ..model_package_source import resolve_model_package_source  # noqa: PLC0415
+        from bremen.model_package_source import resolve_model_package_source  # noqa: PLC0415
 
         source = resolve_model_package_source(explicit_path=explicit_path)
         return ModelVersionResponse(

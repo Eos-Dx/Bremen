@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypedDict, cast
 
 import h5py
 import numpy as np
@@ -26,6 +26,20 @@ from bremen.contracts.canonical_input import (
 # ---------------------------------------------------------------------------
 # Core types
 # ---------------------------------------------------------------------------
+
+
+class _RawMeasurement(TypedDict):
+    """Raw dataset metadata before bilateral pairing validation."""
+
+    dataset_path: str
+    dataset_name: str
+    group_path: str
+    group_name: str
+    shape: tuple[int, ...]
+    dtype: np.dtype
+    parent_attrs: dict[str, Any]
+    side: str | None
+    pair_key: str | None
 
 
 @dataclass
@@ -1273,7 +1287,7 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
         h5_file.visititems(_calib_finder)
 
         # ---- Phase 2: Discover measurement datasets (exclude calibration) ----
-        measurements: list[dict] = []
+        measurements: list[_RawMeasurement] = []
 
         def _meas_visitor(name: str, obj: object) -> None:
             if not isinstance(obj, h5py.Dataset):
@@ -1299,6 +1313,8 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
                     "shape": obj.shape,
                     "dtype": obj.dtype,
                     "parent_attrs": dict(parent.attrs) if parent is not None else {},
+                    "side": None,
+                    "pair_key": None,
                 }
             )
 
@@ -1343,7 +1359,8 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
 
         # Normalise sides
         for m in measurements:
-            side = m["side"].upper()
+            # The missing-side check above rejects None and empty strings.
+            side = cast(str, m["side"]).upper()
             if side in ("LEFT", "L"):
                 m["side"] = "LEFT"
             elif side in ("RIGHT", "R"):
@@ -1380,13 +1397,14 @@ class MatadorRawH5Adapter(H5LayoutAdapter):
                 )
 
         # ---- Pair by position key (NOT first-two) ----
-        pairs: dict[str, dict[str, dict]] = {}
+        pairs: dict[str, dict[str, _RawMeasurement]] = {}
         for m in measurements:
-            pk = m["pair_key"]
+            pk = cast(str, m["pair_key"])
             pairs.setdefault(pk, {})
-            if m["side"] in pairs[pk]:
+            side = cast(str, m["side"])
+            if side in pairs[pk]:
                 raise H5ContainerError(f"Duplicate side for pair_key {pk!r}")
-            pairs[pk][m["side"]] = m
+            pairs[pk][side] = m
 
         # Find all complete bilateral pairs
         complete_pairs = [
