@@ -132,38 +132,10 @@ def register(app: FastAPI, version=None):
             if stable:
                 source_key = stable
 
-        # Rerun guard: block duplicate analysis
-        # PR0141: Aramina identity includes target_side; Bremen identity is unchanged.
-        from bremen.platform.reports.service import _find_existing_completed_report
-
         requested_side = (
             aramina_request.target_side.strip().lower()
-            if workflow_id == "aramina" and aramina_request is not None
-            else ""
+            if workflow_id == "aramina" and aramina_request is not None else ""
         )
-        if source_key and workflow_id and model_id:
-            existing = _find_existing_completed_report(
-                source_key,
-                workflow_id,
-                model_id,
-                requested_side,
-            )
-            if existing is not None:
-                return JSONResponse(
-                    content={
-                        "status": "blocked",
-                        "error": "report_already_exists",
-                        "message": (
-                            "A report already exists for this source and model. "
-                            "Delete the report to run again."
-                        ),
-                        "job_id": existing[0],
-                        "workflow_id": existing[1],
-                        "existing_target_side": requested_side,
-                        "requested_target_side": requested_side,
-                    },
-                    status_code=409,
-                )
 
         from bremen.model_packages.aramina_v0213.errors import AraminaWorkflowError
 
@@ -197,7 +169,7 @@ def register(app: FastAPI, version=None):
             if source_provided or upload_provided:
                 from bremen.platform.sources.service import resolve_source
 
-                resolved_path = resolve_source(source_id, upload_id)
+                resolved_path = resolve_source(source_id, upload_id, consume=False)
                 h5_path = resolved_path
             elif not has_legacy_path and not container_id:
                 _log_job_rejection(
@@ -217,6 +189,12 @@ def register(app: FastAPI, version=None):
             from bremen.platform.sources.service import extract_patient_display_name
 
             patient_display_name = extract_patient_display_name(h5_path)
+            if not patient_display_name and source_id:
+                patient_display_name = (get_source_info(source_id) or {}).get("patient_display_name", "")
+            # Local/upload inputs use content identity, never the filename.
+            if not source_id:
+                from bremen.platform.sources.binding import source_checksum
+                source_key = source_checksum(h5_path)
             if workflow_id == "aramina":
                 mismatch = patient_mismatch_details(
                     aramina_request.patient_id, patient_display_name
@@ -230,10 +208,10 @@ def register(app: FastAPI, version=None):
 
             _cleanup_expired_uploads()
 
-            from bremen.platform.jobs.service import create_analysis_job
+            from bremen.platform.jobs.service import submit_analysis_job
 
             failure_stage = "job_creation"
-            job = create_analysis_job(
+            job, reused = submit_analysis_job(
                 container_id=effective_container_id,
                 workflow_id=workflow_id,
                 h5_path=h5_path,
@@ -241,6 +219,7 @@ def register(app: FastAPI, version=None):
                 source_key=source_key,
                 patient_display_name=patient_display_name,
                 target_side=requested_side,
+                patient_id=body_dict.get("patient_id") or patient_display_name,
                 # PR0157 (additive request metadata; Aramina still sources these
                 # from its validated request object, so passing them here is a
                 # no-op for Aramina and enables Bremen Standard Result mapping).
@@ -258,9 +237,10 @@ def register(app: FastAPI, version=None):
             return JSONResponse(
                 content={
                     "job": job.to_dict(),
+                    "reused_existing": reused,
                     "storage_mode": _event_store.storage_mode,
                 },
-                status_code=201,
+                status_code=200 if reused else 201,
             )
 
         except ValueError as exc:
@@ -286,6 +266,9 @@ def register(app: FastAPI, version=None):
         except Exception as exc:
             import logging as _log_mod
 
+            _log_mod.getLogger(__name__).exception(
+                "Aramina job creation failed", exc_info=True,
+            )
             if workflow_id == "aramina":
                 return JSONResponse(
                     content={

@@ -134,7 +134,7 @@ def _build_containers_response(request_id: str | None = None) -> dict:
     # Replace raw S3 keys with opaque source_ids from the registry.
     # The browser receives only source_id, display_name, size_bytes,
     # and last_modified — never the S3 key.
-    from bremen.platform.sources.registry import register_source, get_stable_source_key  # noqa: PLC0415
+    from bremen.platform.sources.registry import register_source, get_stable_source_key, update_source_display_name  # noqa: PLC0415
 
     bucket = config["h5_bucket"]
     prefix = config["h5_prefix"]
@@ -150,19 +150,23 @@ def _build_containers_response(request_id: str | None = None) -> dict:
             filename=filename,
             size_bytes=size,
             prefix=prefix,
+            patient_display_name=item.get("patient_display_name", ""),
+            source_version=str(item.get("version_id") or item.get("etag") or last_mod),
         )
         # Determine workflow compatibility
         wf = item.get("workflow_id", "bremen")
 
         # Patient name from cache or extraction
-        cache_key = (bucket, raw_key, size)
-        patient_name = ""
-        if cache_key in _patient_name_cache:
+        cache_key = (bucket, raw_key, size, last_mod)
+        patient_name = item.get("patient_display_name", "")
+        if patient_name:
+            _patient_name_cache[cache_key] = patient_name
+        elif cache_key in _patient_name_cache:
             cached = _patient_name_cache[cache_key]
             patient_name = cached or ""
         else:
             try:
-                from ..h5_inputs import stage_h5_input as _stage  # noqa: PLC0415
+                from bremen.h5_inputs import stage_h5_input as _stage  # noqa: PLC0415
                 from bremen.platform.sources.service import extract_patient_display_name
                 s3_uri = f"s3://{bucket}/{raw_key}"
                 local_path = _stage(s3_uri)
@@ -171,11 +175,12 @@ def _build_containers_response(request_id: str | None = None) -> dict:
                     patient_name = extracted
                     _patient_name_cache[cache_key] = extracted
                 else:
-                    _patient_name_cache[cache_key] = None
+                    pass  # Missing metadata may become available on a later listing.
             except Exception:
-                _patient_name_cache[cache_key] = None
+                pass  # Transient staging failure must not poison future listings.
 
-        display_name = patient_name or filename
+        update_source_display_name(source_id, patient_name)
+        display_name = filename
         safe_containers.append({
             "source_id": source_id,
             "display_name": display_name,

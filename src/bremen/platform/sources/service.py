@@ -74,6 +74,7 @@ def resolve_upload(upload_id: str) -> str | None:
 def resolve_source(
     source_id: str | None,
     upload_id: str | None,
+    *, consume: bool = True,
 ) -> str:
     """Resolve a source reference to a local filesystem path.
 
@@ -114,6 +115,7 @@ def resolve_source(
                 source_id,
                 current_bucket=config["h5_bucket"],
                 current_prefix=config["h5_prefix"],
+                consume=consume,
             )
         except ValueError:
             # Re-raise the safe typed error from the registry
@@ -137,7 +139,12 @@ def resolve_source(
 
     elif upload_id:
         # Resolve upload from registry
-        h5_path = resolve_upload(upload_id)
+        if consume:
+            h5_path = resolve_upload(upload_id)
+        else:
+            with _uploads_lock:
+                upload = _staged_uploads.get(upload_id)
+                h5_path = upload.h5_path if upload and not upload.consumed else None
         if h5_path is None:
             raise ValueError(
                 "The uploaded file is no longer available. Please re-upload the file."
