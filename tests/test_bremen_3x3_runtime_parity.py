@@ -1,4 +1,5 @@
 """Production parity with the independently frozen PR0151 reference."""
+from tests.runtime_inputs import execute_case
 from copy import deepcopy
 from dataclasses import replace
 from itertools import permutations
@@ -8,11 +9,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from bremen.api.workflow_bremen import BremenProvider
-from bremen.api.workflow_orchestrator import run_workflow_request, _normalize_h5
-from bremen.api.workflow_registry import WorkflowRegistry
-from bremen.bremen_features import build_bremen_features, BremenFeatureError
-from bremen.inference import adapt_model_package, predict_proba_portable
+from bremen.platform.runtime.registry import bremen_descriptor
+from bremen.platform.runtime.executor import run_workflow_request
+from bremen.platform.sources.legacy_input import normalize_legacy_input as _normalize_h5
+from bremen.platform.runtime.registry import RuntimeRegistry
+from bremen.model_packages.bremen_v01.features import build_bremen_features, BremenFeatureError
+from bremen.model_packages.bremen_v01.predictor import adapt_model_package, predict_proba_portable
 from tests.bremen_3x3_helpers import GOLD, MODEL, DETAIL, make_case, write_session_h5
 from tests.reference_0151.features import build_feature_frame
 from tests.reference_0151.prediction import predict_proba_portable as reference_score
@@ -33,11 +35,11 @@ def reference_vector(measurements):
 
 
 def test_production_golden_features_and_probability():
-    provider = BremenProvider(model_package=MODEL)
-    features = provider.build_features(make_case())
+    provider = bremen_descriptor(model_package=MODEL)
+    features = provider.runtime.build_features(make_case().measurements)
     assert list(features.feature_names) == GOLD['feature_names']
     assert_close(features.feature_values, GOLD['expected_features'])
-    result = provider.execute(make_case())
+    result = execute_case(provider, make_case())
     assert result.status == 'completed'
     assert_close(result.payload['probability'], GOLD['expected_probability'])
     assert result.payload['threshold_applied'] == MODEL['portable_logreg']['threshold']
@@ -52,10 +54,10 @@ def test_production_permutations(side_offset, order):
     case = make_case()
     ms = list(case.measurements)
     ms[side_offset:side_offset+3] = [case.measurements[side_offset+i] for i in order]
-    provider = BremenProvider(model_package=MODEL)
+    provider = bremen_descriptor(model_package=MODEL)
     case = replace(case, measurements=tuple(ms))
-    assert_close(provider.build_features(case).feature_values, GOLD['expected_features'])
-    assert_close(provider.execute(case).payload['probability'], GOLD['expected_probability'])
+    assert_close(provider.runtime.build_features(case.measurements).feature_values, GOLD['expected_features'])
+    assert_close(execute_case(provider, case).payload['probability'], GOLD['expected_probability'])
 
 
 @pytest.mark.parametrize('index', range(6))
@@ -93,12 +95,12 @@ def test_identical_replicates_preserve_authoritative_variance(identical_sides):
 def test_invalid_shape_rejected_before_science_or_scoring(left, right, monkeypatch):
     case = make_case()
     ms = (case.measurements[0],)*left+(case.measurements[3],)*right
-    provider = BremenProvider(model_package=MODEL)
+    provider = bremen_descriptor(model_package=MODEL)
     science = Mock(side_effect=AssertionError('must not reach science'))
     scorer = Mock(side_effect=AssertionError('must not reach scorer'))
     monkeypatch.setattr('bremen.model_packages.bremen_v01.runtime.build_bremen_features', science)
-    monkeypatch.setattr(provider._runtime, 'score', scorer)
-    result = provider.execute(replace(case, measurements=ms))
+    monkeypatch.setattr(provider.runtime, 'score', scorer)
+    result = execute_case(provider, replace(case, measurements=ms))
     assert result.status == 'failed'
     assert result.error == 'Incompatible: requires_exactly_3_left_3_right'
     science.assert_not_called()
@@ -110,7 +112,7 @@ def test_invalid_shape_rejected_before_science_or_scoring(left, right, monkeypat
 def test_scientific_failure_is_safe(monkeypatch):
     monkeypatch.setattr('bremen.model_packages.bremen_v01.runtime.build_bremen_features',
                         Mock(side_effect=ValueError('/private/source secret token traceback')))
-    result = BremenProvider(model_package=MODEL).execute(make_case())
+    result = execute_case(bremen_descriptor(model_package=MODEL), make_case())
     assert result.status == 'failed'
     assert result.error == 'Feature construction failed: invalid_scientific_profiles'
 
@@ -132,9 +134,9 @@ def test_synthetic_h5_production_job_path(tmp_path):
         for a, b in zip(actual, expected):
             np.testing.assert_array_equal(a.q, b.q)
             np.testing.assert_array_equal(a.intensity, b.intensity)
-    provider = BremenProvider(model_package=MODEL)
-    assert_close(provider.build_features(case).feature_values, GOLD['expected_features'])
-    registry = WorkflowRegistry()
+    provider = bremen_descriptor(model_package=MODEL)
+    assert_close(provider.runtime.build_features(case.measurements).feature_values, GOLD['expected_features'])
+    registry = RuntimeRegistry()
     registry.register(provider)
     result = run_workflow_request(str(path), workflow_id='bremen', registry=registry)
     assert result.normalization_status == 'completed'
@@ -147,18 +149,18 @@ def test_synthetic_h5_production_job_path(tmp_path):
 def test_h5_invalid_shape(tmp_path, left, right):
     ms = make_case().measurements
     path = write_session_h5(tmp_path/'invalid.h5', (ms[0],)*left+(ms[3],)*right)
-    registry = WorkflowRegistry()
-    provider = BremenProvider(model_package=MODEL)
-    provider._runtime.score = Mock(side_effect=AssertionError('must not score'))
+    registry = RuntimeRegistry()
+    provider = bremen_descriptor(model_package=MODEL)
+    provider.runtime.score = Mock(side_effect=AssertionError('must not score'))
     registry.register(provider)
-    result = run_workflow_request(str(path), registry=registry)
+    result = run_workflow_request(str(path), registry=registry, workflow_id="bremen")
     if left == 0 or right == 0:
         # Pair-less session H5 fails the existing layout detector even earlier.
         assert result.overall_status == 'normalization_failed'
         assert result.workflows == {}
     else:
         assert result.workflows['bremen'].error == 'Incompatible: requires_exactly_3_left_3_right'
-    provider._runtime.score.assert_not_called()
+    provider.runtime.score.assert_not_called()
 
 
 def test_paper_artifact_metadata_adaptation_does_not_mutate():
@@ -188,7 +190,7 @@ def test_portable_imputation_zero_scale_and_class_order(classes):
 
 
 def test_runtime_owns_complete_sequence_and_structured_result():
-    from bremen.bremen_runtime import BremenRuntime
+    from bremen.model_packages.bremen_v01.runtime import BremenRuntime
     callback = Mock()
     result = BremenRuntime(MODEL).run(make_case().measurements, on_features=callback)
     assert_close(result.features.feature_values, GOLD['expected_features'])
@@ -202,15 +204,15 @@ def test_provider_executes_through_model_runtime_contract_v1(monkeypatch):
     # PR0153B wiring: provider.execute must route the frozen scientific
     # sequence through exactly one contract predict call; the runtime still
     # composes the exact PR0152 run() internally.
-    from bremen.model_runtime import ModelRuntime, ModelInput, RuntimePrediction
-    provider = BremenProvider(model_package=MODEL)
-    runtime = provider.model_runtime()
+    from bremen.contracts.model_runtime import ModelRuntime, ModelInput, RuntimePrediction
+    provider = bremen_descriptor(model_package=MODEL)
+    runtime = provider.runtime
     assert isinstance(runtime, ModelRuntime)
     predict = Mock(wraps=runtime.predict_model)
     run = Mock(wraps=runtime.run)
     monkeypatch.setattr(runtime, 'predict_model', predict)
     monkeypatch.setattr(runtime, 'run', run)
-    result = provider.execute(make_case())
+    result = execute_case(provider, make_case())
     assert result.status == 'completed'
     assert_close(result.payload['probability'], GOLD['expected_probability'])
     predict.assert_called_once()
@@ -225,7 +227,7 @@ def test_provider_executes_through_model_runtime_contract_v1(monkeypatch):
 
 
 def test_runtime_rejects_reordered_features_and_invalid_classes():
-    from bremen.bremen_runtime import BremenRuntime, BremenRuntimeError
+    from bremen.model_packages.bremen_v01.runtime import BremenRuntime, BremenRuntimeError
     runtime = BremenRuntime(MODEL)
     with pytest.raises(BremenRuntimeError, match='invalid_feature_schema'):
         runtime.score(list(reversed(GOLD['feature_names'])), GOLD['expected_features'])
@@ -249,9 +251,9 @@ def test_calibration_h5_retains_all_native_profiles(tmp_path):
                 group.create_dataset('i', data=m.intensity)
     case = _normalize_h5(str(path), workflow_id='bremen')
     assert len(case.measurements) == 6
-    provider = BremenProvider(model_package=MODEL)
-    assert_close(provider.build_features(case).feature_values, GOLD['expected_features'])
-    assert_close(provider.execute(case).payload['probability'], GOLD['expected_probability'])
+    provider = bremen_descriptor(model_package=MODEL)
+    assert_close(provider.runtime.build_features(case.measurements).feature_values, GOLD['expected_features'])
+    assert_close(execute_case(provider, case).payload['probability'], GOLD['expected_probability'])
 
 
 def test_canonical_h5_preserves_physical_q_and_legacy_path(tmp_path):
@@ -267,7 +269,7 @@ def test_canonical_h5_preserves_physical_q_and_legacy_path(tmp_path):
             group.create_dataset('measurements', data=[m.intensity for m in ms if m.side == side])
     case = _normalize_h5(str(path), workflow_id='bremen')
     assert len(case.measurements) == 6
-    assert_close(BremenProvider().build_features(case).feature_values, reference_vector(ms))
+    assert_close(bremen_descriptor().runtime.build_features(case.measurements).feature_values, reference_vector(ms))
     for m in case.measurements:
         np.testing.assert_array_equal(m.q, q)
     # The unrelated legacy workflow keeps its prior canonicalization semantics.
@@ -287,29 +289,29 @@ def test_h5_enumeration_does_not_change_scientific_output(tmp_path, offset):
         ms[offset:offset+3] = [original[offset+i] for i in order]
         path = write_session_h5(tmp_path/'permuted.h5', ms)
         case = _normalize_h5(str(path), workflow_id='bremen')
-        provider = BremenProvider(model_package=MODEL)
-        assert_close(provider.build_features(case).feature_values, GOLD['expected_features'])
-        assert_close(provider.execute(case).payload['probability'], GOLD['expected_probability'])
+        provider = bremen_descriptor(model_package=MODEL)
+        assert_close(provider.runtime.build_features(case.measurements).feature_values, GOLD['expected_features'])
+        assert_close(execute_case(provider, case).payload['probability'], GOLD['expected_probability'])
 
 
 def test_actual_analysis_job_runs_runtime_once(tmp_path, monkeypatch):
-    from bremen.api import job_api_handler as jobs
-    from bremen.api import model_registry
+    from bremen.platform.jobs import service as jobs
+    from bremen.platform.models import registry as model_registry
     jobs.reset_for_tests()
     model_registry.reset_for_tests()
     try:
         path = write_session_h5(tmp_path/'job-input.h5')
-        provider = BremenProvider(model_package=MODEL)
-        run = Mock(wraps=provider._runtime.run)
-        monkeypatch.setattr(provider._runtime, 'run', run)
-        registry = WorkflowRegistry()
+        provider = bremen_descriptor(model_package=MODEL)
+        run = Mock(wraps=provider.runtime.run)
+        monkeypatch.setattr(provider.runtime, 'run', run)
+        registry = RuntimeRegistry()
         registry.register(provider)
-        job = jobs.create_analysis_job(h5_path=str(path), registry=registry, model_id='synthetic-model')
+        job = jobs.create_analysis_job(h5_path=str(path), registry=registry, model_id='synthetic-model', workflow_id="bremen")
         assert job.overall_status == 'completed'
         result = job.workflow_runs['bremen'].result_summary
         assert_close(result['probability'], GOLD['expected_probability'])
         run.assert_called_once()
-        features = provider._runtime.build_features(run.call_args.args[0])
+        features = provider.runtime.build_features(run.call_args.args[0])
         assert_close(features.feature_values, GOLD['expected_features'])
         events = jobs.get_job_events(job.job_id)
         assert len([e for e in events if e['event_type'] == 'runtime.features.completed']) == 1
@@ -319,7 +321,7 @@ def test_actual_analysis_job_runs_runtime_once(tmp_path, monkeypatch):
 
 
 def test_runtime_canonical_validation_and_feature_gate_fail_closed():
-    from bremen.bremen_runtime import BremenRuntime
+    from bremen.model_packages.bremen_v01.runtime import BremenRuntime
     ms = list(make_case().measurements)
     ms[0] = replace(ms[0], q=ms[0].q[::-1])
     with pytest.raises(BremenFeatureError, match='invalid_scientific_profiles'):

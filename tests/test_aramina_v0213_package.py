@@ -18,6 +18,8 @@ support requiring radiologist review.
 """
 from __future__ import annotations
 
+from tests.runtime_inputs import execute_case
+
 import ast
 import hashlib
 from pathlib import Path
@@ -35,7 +37,7 @@ from bremen.model_packages.aramina_v0213 import manifest
 from bremen.model_packages.aramina_v0213.errors import AraminaWorkflowError
 from bremen.model_packages.aramina_v0213.inference import _build_aramina_request_json
 from bremen.model_packages.aramina_v0213.runtime import AraminaRuntime
-from bremen.model_runtime import (
+from bremen.contracts.model_runtime import (
     ModelInput,
     ModelInputInvalidError,
     ModelRequirements,
@@ -132,7 +134,7 @@ def wired(monkeypatch):
     import bremen.model_packages.aramina_v0213.inference as inference
     import bremen.model_packages.aramina_v0213.preprocessing as preprocessing
 
-    monkeypatch.setattr("bremen.api.workflow_orchestrator._validate_aramina_source",
+    monkeypatch.setattr("bremen.platform.runtime.executor.validate_source_binding",
                         lambda h5, canonical, patient_id: None)
     monkeypatch.setattr(preprocessing, "preprocess_aramina", _deterministic_frame)
     return inference
@@ -226,8 +228,8 @@ def test_validate_valid_request():
 
 
 def test_direct_package_prediction_matches_provider_route(tmp_path, wired):
-    from bremen.api.workflow_aramina import AraminaWorkflowProvider
-    from bremen.api.aramina_provider import AraminaProviderRequest
+    from bremen.platform.runtime.registry import aramina_descriptor
+    from bremen.contracts.request import AnalysisParameters
 
     entry = _entry(tmp_path)
     h5 = _h5(tmp_path)
@@ -235,10 +237,10 @@ def test_direct_package_prediction_matches_provider_route(tmp_path, wired):
         AraminaRuntime(entry=entry).predict_model(_model_input(h5)).result
     )
 
-    provider = AraminaWorkflowProvider(entry=entry)
-    result = provider.execute(
+    provider = aramina_descriptor(entry=entry)
+    result = execute_case(provider,
         _canonical(),
-        aramina_request=AraminaProviderRequest(
+        aramina_request=AnalysisParameters(
             container_id="c", source_id="s", patient_id="p1", target_side="left",
             analysis_author="Bremen Platform", prediction_comment="",
         ),
@@ -292,7 +294,7 @@ def test_direct_package_threshold_flips_decision(tmp_path, wired):
 
 def test_package_scientific_failure_taxonomy_and_no_leak(tmp_path, monkeypatch):
 
-    monkeypatch.setattr("bremen.api.workflow_orchestrator._validate_aramina_source",
+    monkeypatch.setattr("bremen.platform.runtime.executor.validate_source_binding",
                         lambda h5, canonical, patient_id: None)
 
     def boom(h5_path, config_yaml):
@@ -399,7 +401,7 @@ def test_aramina_inference_only_documented_platform_edges():
             "source_registry", "model_registry", "model_state",
         }
     # canonical_input + narrow bridge are the expected generic/platform-neutral edges
-    assert "bremen.canonical_input" in mods or any("canonical_input" in m for m in mods)
+    assert "bremen.contracts.canonical_input" in mods or any("canonical_input" in m for m in mods)
     assert "bremen.model_packages_bridge" in mods
 
 

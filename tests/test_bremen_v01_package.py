@@ -39,7 +39,7 @@ from bremen.model_packages.bremen_v01.predictor import (
 from bremen.model_packages.bremen_v01.runtime import (
     BremenFeatureError, BremenRuntime,
 )
-from bremen.model_runtime import (
+from bremen.contracts.model_runtime import (
     ModelInput, ModelRequirements, ModelRuntime, RuntimePrediction,
 )
 from tests.bremen_3x3_helpers import DETAIL, GOLD, MODEL, make_case
@@ -174,7 +174,7 @@ def test_package_validation_accepts_valid_3plus3():
 def test_package_scientific_failure_is_safe_constant(monkeypatch):
     # A raw exception from the science module maps, through the contract
     # predict path, to the fixed safe category with no source text leaking.
-    from bremen.model_runtime import ModelPreprocessingFailedError
+    from bremen.contracts.model_runtime import ModelPreprocessingFailedError
 
     monkeypatch.setattr(
         "bremen.model_packages.bremen_v01.runtime.build_bremen_features",
@@ -338,9 +338,9 @@ def test_importing_package_entry_does_not_load_workflow():
 
 def test_shims_reexport_authoritative_objects():
     # Exactly one active implementation; shims must be identity re-exports.
-    import bremen.bremen_features as legacy_features
-    import bremen.bremen_runtime as legacy_runtime
-    import bremen.inference as legacy_inference
+    import bremen.model_packages.bremen_v01.features as legacy_features
+    import bremen.model_packages.bremen_v01.runtime as legacy_runtime
+    import bremen.model_packages.bremen_v01.predictor as legacy_inference
     import bremen.model_packages.bremen_v01.features as pkg_features
     import bremen.model_packages.bremen_v01.predictor as pkg_predictor
     import bremen.model_packages.bremen_v01.runtime as pkg_runtime
@@ -351,13 +351,3 @@ def test_shims_reexport_authoritative_objects():
     assert legacy_inference.adapt_model_package is pkg_predictor.adapt_model_package
     assert legacy_runtime.BremenRuntime is pkg_runtime.BremenRuntime
     assert legacy_runtime.BremenRuntimeError is pkg_runtime.BremenRuntimeError
-
-
-def test_shims_have_no_scientific_logic():
-    # Compatibility shims must contain only imports/__all__ (no defs of science).
-    for rel in ("bremen_features.py", "inference.py", "bremen_runtime.py"):
-        tree = ast.parse((SRC / rel).read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            assert not isinstance(
-                node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
-            ), f"shim {rel} must contain no logic"

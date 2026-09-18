@@ -5,7 +5,7 @@ import json
 import h5py
 import numpy as np
 
-from bremen.api.xrd_normalization import CanonicalXRDCase, CanonicalXRDMeasurement
+from bremen.contracts.canonical_input import CanonicalXRDCase, CanonicalXRDMeasurement
 
 FIXTURES = Path(__file__).parent / 'fixtures' / 'bremen_3x3'
 GOLD = json.loads((FIXTURES / 'golden.json').read_text())

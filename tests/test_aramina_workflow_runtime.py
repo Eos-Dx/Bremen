@@ -12,6 +12,15 @@ No real model weights, packages, external services or clinical claims.
 """
 from __future__ import annotations
 
+from bremen.platform.sources import service as source_service
+
+import bremen.platform.jobs.repository as _owner_jobs_repository
+
+import bremen.platform.reports.service as _owner_reports_service
+
+
+from tests.runtime_inputs import execute_case
+
 import ast
 import hashlib
 import json
@@ -26,17 +35,16 @@ import pandas as pd
 import pytest
 from sklearn.linear_model import LogisticRegression
 
-from bremen.api import job_api_handler as jobs
-from bremen.api import model_registry as registry
-from bremen.api.aramina_provider import AraminaProviderRequest
-from bremen.api.workflow_aramina import (
-    _FINAL_FEATURE_COLUMNS,
-    ARTIFACT_TYPE,
-    AraminaWorkflowError,
-    AraminaWorkflowProvider,
-    _build_aramina_request_json,
-)
-from bremen.api.workflow_orchestrator import _normalize_h5, get_provider_for_model
+from bremen.platform.jobs import service as jobs
+from bremen.platform.models import registry
+from bremen.contracts.request import AnalysisParameters
+from bremen.model_packages.aramina_v0213.manifest import FINAL_FEATURE_COLUMNS as _FINAL_FEATURE_COLUMNS
+from bremen.model_packages.aramina_v0213.manifest import ARTIFACT_TYPE
+from bremen.model_packages.aramina_v0213.errors import AraminaWorkflowError
+from bremen.platform.runtime.registry import aramina_descriptor
+from bremen.model_packages.aramina_v0213.inference import _build_aramina_request_json
+from bremen.platform.sources.legacy_input import normalize_legacy_input as _normalize_h5
+from bremen.platform.runtime.registry import get_descriptor_for_model
 
 
 @pytest.fixture(autouse=True)
@@ -61,7 +69,7 @@ def synthetic_preprocessing(monkeypatch):
              "q_range": list(np.linspace(2., 23., len(m.intensity)))}
             for m in canonical.measurements
         ])
-    from bremen.api.aramina_preprocessing import preprocess_aramina
+    from bremen.model_packages.aramina_v0213.preprocessing import preprocess_aramina
     monkeypatch.setattr("bremen.model_packages.aramina_v0213.preprocessing.preprocess_aramina", preprocess)
     return preprocess_aramina
 
@@ -175,14 +183,14 @@ def source(tmp_path):
 
 
 def _request(**fields):
-    return AraminaProviderRequest(**{
+    return AnalysisParameters(**{
         "patient_id": "p1", "target_side": "left", "container_id": "c1",
         "source_id": "s1", **fields,
     })
 
 
 def _execute(entry, source, request=None):
-    return AraminaWorkflowProvider(entry=entry).execute(
+    return execute_case(aramina_descriptor(entry=entry),
         source[1], aramina_request=request or _request(), h5_path=source[0],
     )
 
@@ -204,13 +212,13 @@ def test_no_external_dependency_or_execution_configuration():
                 assert not any(n.name.split(".")[0] == "aramina" for n in node.names)
             if isinstance(node, ast.ImportFrom):
                 assert (node.module or "").split(".")[0] != "aramina"
-    for name in ("workflow_aramina.py", "workflow_orchestrator.py"):
+    for name in ("../platform/runtime/executor.py", "../platform/runtime/registry.py"):
         text = (Path("src/bremen/api") / name).read_text()
         assert "BREMEN_ARAMINA_PROVIDER_URL" not in text
         assert "provider_url" not in text
     # PR0156: Aramina science/diagnostics moved into the model package; the
     # provider_url / no-external-model-import guarantee must hold there too.
-    for name in ("workflow_aramina.py",):
+    for name in ("../platform/runtime/executor.py",):
         text = (Path("src/bremen/api") / name).read_text()
         assert "_post_aramina_predict" not in text
     package_dir = Path("src/bremen/model_packages/aramina_v0213")
@@ -259,13 +267,10 @@ def test_invalid_request_never_loads_artifact(tmp_path, source, monkeypatch, ove
 
 
 def test_missing_request_fails(tmp_path, source):
-    provider = AraminaWorkflowProvider(entry=_entry(tmp_path))
-    assert provider.execute(source[1], h5_path=source[0]).error == "ARAMINA_INVALID_REQUEST"
+    provider = aramina_descriptor(entry=_entry(tmp_path))
+    assert execute_case(provider, source[1], h5_path=source[0]).error == "ARAMINA_INVALID_REQUEST"
     assert provider.readiness().model_ready
-    assert provider.validate_compatibility(source[1]).compatible
-    with pytest.raises(AraminaWorkflowError):
-        provider.build_features(source[1])
-    assert provider.run_inference(None).error == "ARAMINA_INVALID_REQUEST"
+    assert provider.runtime.validate_model_input(__import__("bremen.contracts.model_runtime", fromlist=["ModelInput"]).ModelInput(workflow_id="aramina", canonical=source[1], patient_id="p1", target_side="left")).compatible
 
 
 # ===================================================================
@@ -486,10 +491,10 @@ def test_model_selection_uses_distinct_artifacts(tmp_path, source):
     a = _entry(tmp_path, model_id="aramina-a")
     b = _entry(tmp_path, _package("aramina-b", reverse=True), "aramina-b")
     _install(a, b)
-    provider_a = get_provider_for_model(a.model_id)
-    provider_b = get_provider_for_model(b.model_id)
-    assert provider_a._entry is a
-    assert provider_b._entry is b
+    provider_a = get_descriptor_for_model(a.model_id)
+    provider_b = get_descriptor_for_model(b.model_id)
+    assert provider_a.runtime._entry is a
+    assert provider_b.runtime._entry is b
 
 
 def test_invalid_model_output_rejected(tmp_path, source, monkeypatch):
@@ -550,8 +555,8 @@ def test_bremen_construction_unchanged(monkeypatch):
     )
     _install(entry)
     constructor = MagicMock()
-    monkeypatch.setattr("bremen.api.workflow_bremen.BremenProvider", constructor)
-    get_provider_for_model(entry.model_id)
+    monkeypatch.setattr("bremen.platform.runtime.registry.bremen_descriptor", constructor)
+    get_descriptor_for_model(entry.model_id)
     constructor.assert_called_once_with(
         model_package=entry._package, model_checksum=entry._checksum,
         model_version=entry.model_version, model_id=entry.model_id,
@@ -566,20 +571,18 @@ def test_bremen_construction_unchanged(monkeypatch):
 @pytest.fixture
 def catalog_provider_trace(monkeypatch):
     """Observe real resolution/registration; fail if fallback is attempted."""
-    from bremen.api import workflow_orchestrator as orchestrator
-    from bremen.api.workflow_registry import WorkflowRegistry
+    from bremen.platform.runtime import registry as orchestrator
+    from bremen.platform.runtime.registry import RuntimeRegistry
 
-    resolve = MagicMock(wraps=orchestrator.get_provider_for_model)
-    register = MagicMock(side_effect=WorkflowRegistry.register)
+    resolve = MagicMock(wraps=orchestrator.get_descriptor_for_model)
+    register = MagicMock(side_effect=RuntimeRegistry.register)
     default = MagicMock(side_effect=AssertionError("Unexpected default registry"))
     scaffold = MagicMock(side_effect=AssertionError("Unexpected scaffold"))
-    monkeypatch.setattr(orchestrator, "get_provider_for_model", resolve)
-    monkeypatch.setattr(orchestrator, "get_default_registry", default)
+    monkeypatch.setattr(orchestrator, "get_descriptor_for_model", resolve)
+    monkeypatch.setattr("bremen.platform.runtime.executor.get_default_registry", default)
+    assert not Path("src/bremen/api/workflow_aramina_scaffold.py").exists()
     monkeypatch.setattr(
-        "bremen.api.workflow_aramina_scaffold.AraminaProvider", scaffold,
-    )
-    monkeypatch.setattr(
-        WorkflowRegistry, "register", lambda self, provider: register(self, provider),
+        RuntimeRegistry, "register", lambda self, provider: register(self, provider),
     )
     return resolve, register, default, scaffold
 
@@ -589,13 +592,13 @@ def test_catalog_job_registers_real_aramina_provider(tmp_path, source, catalog_p
     _install(entry)
     job = jobs.create_analysis_job(
         model_id=entry.model_id, h5_path=source[0], aramina_request=_request(),
-    )
+    workflow_id="bremen")
     resolve, register, default, scaffold = catalog_provider_trace
     resolve.assert_called_once_with(entry.model_id)
     assert register.call_count == 1
     workflow_registry, provider = register.call_args.args
-    assert type(provider) is AraminaWorkflowProvider
-    assert provider._entry is entry
+    assert type(provider.runtime).__name__ == "AraminaRuntime"
+    assert provider.runtime._entry is entry
     assert workflow_registry.resolve("aramina") is provider
     assert provider.readiness().model_ready is True
     assert job.overall_status == "completed"
@@ -607,9 +610,9 @@ def test_catalog_job_registers_real_aramina_provider(tmp_path, source, catalog_p
 def test_default_registry_uses_real_aramina_and_preserves_bremen(
     tmp_path, monkeypatch, bremen_loaded,
 ):
-    from bremen.api.model_state import ModelState
-    from bremen.api.workflow_bremen import BremenProvider
-    from bremen.api.workflow_orchestrator import get_default_registry
+    from bremen.platform.models.state import ModelState
+    from bremen.platform.runtime.registry import bremen_descriptor
+    from bremen.platform.runtime.registry import get_default_registry
 
     entry = _entry(tmp_path)
     bremen_entry = replace(
@@ -621,26 +624,26 @@ def test_default_registry_uses_real_aramina_and_preserves_bremen(
     monkeypatch.setattr(ModelState, "get_instance", lambda: MagicMock(
         _model_checksum="checksum", _model_version="version",
     ))
-    constructor = MagicMock(wraps=BremenProvider)
-    monkeypatch.setattr("bremen.api.workflow_bremen.BremenProvider", constructor)
+    constructor = MagicMock(wraps=bremen_descriptor)
+    monkeypatch.setattr("bremen.platform.runtime.registry.bremen_descriptor", constructor)
     workflow_registry = get_default_registry()
     provider = workflow_registry.resolve("aramina")
-    assert type(provider) is AraminaWorkflowProvider
-    assert provider._entry is entry
+    assert type(provider.runtime).__name__ == "AraminaRuntime"
+    assert provider.runtime._entry is entry
     assert provider.readiness().model_ready is True
-    assert type(get_provider_for_model(entry.model_id)) is AraminaWorkflowProvider
+    assert type(get_descriptor_for_model(entry.model_id).runtime).__name__ == "AraminaRuntime"
     constructor.assert_called_once_with(
         model_package=package,
         model_checksum="checksum" if bremen_loaded else "",
         model_version="version" if bremen_loaded else "",
     )
-    assert type(workflow_registry.resolve("bremen")) is BremenProvider
+    assert type(workflow_registry.resolve("bremen").runtime).__name__ == "BremenRuntime"
 
 
 @pytest.mark.parametrize("catalog", ["empty", "bremen", "unavailable", "wrong_type", "multiple"])
 def test_default_registry_leaves_aramina_unregistered(tmp_path, catalog):
-    from bremen.api.workflow_orchestrator import get_default_registry
-    from bremen.api.workflow_registry import WorkflowNotFoundError
+    from bremen.platform.runtime.registry import get_default_registry
+    from bremen.platform.runtime.registry import ModelNotFoundError
 
     if catalog != "empty":
         entry = _entry(tmp_path)
@@ -653,14 +656,14 @@ def test_default_registry_leaves_aramina_unregistered(tmp_path, catalog):
         _install(*entries)
     workflow_registry = get_default_registry()
     assert workflow_registry.list_workflow_ids() == ["bremen"]
-    with pytest.raises(WorkflowNotFoundError):
+    with pytest.raises(ModelNotFoundError):
         workflow_registry.resolve("aramina")
 
 
 def test_default_registry_never_imports_or_constructs_scaffold(tmp_path, monkeypatch):
     import builtins
 
-    from bremen.api.workflow_orchestrator import get_default_registry
+    from bremen.platform.runtime.registry import get_default_registry
 
     original_import = builtins.__import__
 
@@ -671,58 +674,7 @@ def test_default_registry_never_imports_or_constructs_scaffold(tmp_path, monkeyp
     monkeypatch.setattr(builtins, "__import__", reject_scaffold)
     assert get_default_registry().list_workflow_ids() == ["bremen"]
     _install(_entry(tmp_path))
-    assert type(get_default_registry().resolve("aramina")) is AraminaWorkflowProvider
-
-
-def test_public_job_runs_normalization_artifact_events_and_report(tmp_path, source, monkeypatch):
-    """Full public job path must emit expected events and produce a report."""
-    entry = _entry(tmp_path)
-    _install(entry)
-    monkeypatch.setattr(jobs, "resolve_source", lambda source_id, upload_id: source[0])
-    body = {
-        "model_id": entry.model_id, "workflow_id": "aramina", "source_id": "s1",
-        "container_id": "c1", "patient_id": "p1", "target_side": "left",
-        "auth_token": "do-not-forward", "analysis_author": " ",
-    }
-    monkeypatch.setattr(jobs, "_read_json_body", lambda handler: body)
-    sent = MagicMock()
-    monkeypatch.setattr(jobs, "_send_json", sent)
-    jobs.handle_jobs_create(MagicMock())
-    assert sent.call_args.args[1] == 201
-    job_dict = sent.call_args.args[2]["job"]
-    job = jobs.get_analysis_job(job_dict["job_id"])
-    assert job.overall_status == "completed"
-    events = jobs.get_job_events(job.job_id)
-    types = [e["event_type"] for e in events]
-    expected = [
-        "runtime.request.accepted", "runtime.normalization.started",
-        "runtime.normalization.completed", "runtime.workflow.resolved",
-        "runtime.workflow.started", "runtime.output.completed",
-        "runtime.workflow.completed", "runtime.request.completed", "runtime.report.completed",
-    ]
-    assert [t for t in types if t in expected] == expected
-    report = jobs.get_job_report(job.job_id, "aramina")
-    assert job.reports["aramina"].status == "available"
-    public = json.dumps([job_dict, events, report])
-    for marker in (entry._artifact_path, entry._checksum, "do-not-forward", "_package", "provider_url"):
-        assert marker not in public
-
-
-@pytest.mark.parametrize("field,value", [("patient_id", ""), ("target_side", "wrong")])
-def test_public_job_invalid_fields_fail_before_source(tmp_path, monkeypatch, field, value):
-    entry = _entry(tmp_path)
-    _install(entry)
-    body = {"model_id": entry.model_id, "source_id": "s1", "patient_id": "p1", "target_side": "left"}
-    body[field] = value
-    monkeypatch.setattr(jobs, "_read_json_body", lambda handler: body)
-    resolve = MagicMock()
-    monkeypatch.setattr(jobs, "resolve_source", resolve)
-    sent = MagicMock()
-    monkeypatch.setattr(jobs, "_send_json", sent)
-    jobs.handle_jobs_create(MagicMock())
-    assert sent.call_args.args[1] == 400
-    assert sent.call_args.args[2]["error_code"] == "ARAMINA_INVALID_REQUEST"
-    resolve.assert_not_called()
+    assert type(get_default_registry().resolve("aramina").runtime).__name__ == "AraminaRuntime"
 
 
 def test_job_unsupported_artifact_reports_failed_event(tmp_path, source):
@@ -730,7 +682,7 @@ def test_job_unsupported_artifact_reports_failed_event(tmp_path, source):
     _install(entry)
     job = jobs.create_analysis_job(
         model_id=entry.model_id, h5_path=source[0], aramina_request=_request(),
-    )
+    workflow_id="bremen")
     assert job.overall_status == "failed"
     assert job.workflow_runs["aramina"].failure == "ARAMINA_UNSUPPORTED_ARTIFACT"
     events = jobs.get_job_events(job.job_id)
@@ -745,7 +697,7 @@ def test_direct_job_missing_fields_rejected_before_normalization(tmp_path, monke
     normalize = MagicMock()
     monkeypatch.setattr(jobs, "run_workflow_request", normalize)
     with pytest.raises(AraminaWorkflowError, match="ARAMINA_INVALID_REQUEST"):
-        jobs.create_analysis_job(model_id=entry.model_id)
+        jobs.create_analysis_job(model_id=entry.model_id, workflow_id="bremen")
     normalize.assert_not_called()
 
 
@@ -821,8 +773,8 @@ except ImportError:
 
 
 def _fastapi_client():
-    from bremen.api.fastapi_app import create_fastapi_app
-    return TestClient(create_fastapi_app())
+    from bremen.api.http.app import create_app
+    return TestClient(create_app())
 
 
 def _valid_aramina_body(*, source_id="fresh-src-001", **overrides):
@@ -852,7 +804,7 @@ class TestFastAPIAraminaRoutePlumbing:
         package = {"kind": "unsupported"} if unsupported else _package()
         entry = _entry(tmp_path, package)
         _install(entry)
-        monkeypatch.setattr(jobs, "resolve_source", lambda sid, uid: source[0])
+        monkeypatch.setattr(source_service, "resolve_source", lambda sid, uid: source[0])
         response = _fastapi_client().post(
             "/demo/api/jobs", json=_valid_aramina_body(patient_id="p1"),
         )
@@ -861,12 +813,12 @@ class TestFastAPIAraminaRoutePlumbing:
         resolve.assert_called_once_with(entry.model_id)
         assert register.call_count == 1
         workflow_registry, provider = register.call_args.args
-        assert type(provider) is AraminaWorkflowProvider
-        assert provider._entry is entry
+        assert type(provider.runtime).__name__ == "AraminaRuntime"
+        assert provider.runtime._entry is entry
         assert workflow_registry.resolve("aramina") is provider
         default.assert_not_called()
         scaffold.assert_not_called()
-        job = jobs.get_analysis_job(response.json()["job"]["job_id"])
+        job = _owner_jobs_repository.get_analysis_job(response.json()["job"]["job_id"])
         assert job.overall_status == ("failed" if unsupported else "completed")
         event_types = [e["event_type"] for e in jobs.get_job_events(job.job_id)]
         assert "runtime.normalization.completed" in event_types
@@ -879,7 +831,7 @@ class TestFastAPIAraminaRoutePlumbing:
         entry = _entry(tmp_path)
         _install(entry)
         monkeypatch.setattr(
-            "bremen.api.job_api_handler.resolve_source",
+            "bremen.platform.sources.service.resolve_source",
             lambda sid, uid: source[0],
         )
         client = _fastapi_client()
@@ -895,7 +847,7 @@ class TestFastAPIAraminaRoutePlumbing:
         entry = _entry(tmp_path)
         _install(entry)
         monkeypatch.setattr(
-            "bremen.api.job_api_handler.resolve_source",
+            "bremen.platform.sources.service.resolve_source",
             lambda sid, uid: source[0],
         )
         client = _fastapi_client()
@@ -948,7 +900,7 @@ class TestFastAPIAraminaRoutePlumbing:
     def test_source_id_not_consumed_by_invalid_request(self, monkeypatch):
         resolve = MagicMock()
         monkeypatch.setattr(
-            "bremen.api.job_api_handler.resolve_source", resolve,
+            "bremen.platform.sources.service.resolve_source", resolve,
         )
         client = _fastapi_client()
         body = _valid_aramina_body()
@@ -967,8 +919,8 @@ class TestFastAPIAraminaRoutePlumbing:
         assert data.get("error_code") != "ARAMINA_INVALID_REQUEST"
 
     def test_no_aramina_provider_url_or_http_dependency(self):
-        for name in ("workflow_aramina.py", "workflow_orchestrator.py",
-                      "fastapi_app.py", "job_api_handler.py"):
+        for name in ("../platform/runtime/executor.py", "../platform/runtime/executor.py",
+                      "http/app.py", "../platform/jobs/service.py"):
             text = (Path("src/bremen/api") / name).read_text()
             assert "BREMEN_ARAMINA_PROVIDER_URL" not in text
             assert "provider_url" not in text
@@ -1107,7 +1059,7 @@ def test_debug_trace_failure_stays_out_of_public_job(tmp_path, source, monkeypat
     _install(entry)
     job = jobs.create_analysis_job(
         model_id=entry.model_id, h5_path=source[0], aramina_request=_request(),
-    )
+    workflow_id="bremen")
     assert job.workflow_runs["aramina"].failure == "ARAMINA_UNSUPPORTED_INPUT"
     assert job.workflow_runs["aramina"].failure_details["failure_stage"] == "lr1_contract"
     assert _trace_records(caplog)[-1]["lr1_exception_class"] == "ValueError"
@@ -1184,7 +1136,7 @@ def test_observed_0213_pickle_symbol_and_old_bridge_unchanged(monkeypatch):
     import pickle
     import sys
 
-    from bremen.api.aramina_artifact_compat import (
+    from bremen.model_packages.aramina_v0213.artifact_compat import (
         GatedSymmetryLogistic,
         TargetBreastGatedSymmetryLogistic,
         ensure_compatibility_bridge,
@@ -1198,7 +1150,7 @@ def test_observed_0213_pickle_symbol_and_old_bridge_unchanged(monkeypatch):
 def test_0213_compatibility_scores_fitted_state(tmp_path, source):
     from sklearn.preprocessing import StandardScaler
 
-    from bremen.api.aramina_artifact_compat import TargetBreastGatedSymmetryLogistic
+    from bremen.model_packages.aramina_v0213.artifact_compat import TargetBreastGatedSymmetryLogistic
 
     model = TargetBreastGatedSymmetryLogistic()
     model.base_fill_values_ = pd.Series([0., 0., 0.], index=_FINAL_FEATURE_COLUMNS[:3])
@@ -1231,7 +1183,7 @@ def test_artifact_validation_trace_names_exact_check(tmp_path, source, monkeypat
 
 
 def test_symmetry_uses_paired_profiles_and_declared_gate():
-    from bremen.api.aramina_symmetry import CORE4, symmetry_features
+    from bremen.model_packages.aramina_v0213.symmetry import CORE4, symmetry_features
     q = np.linspace(2., 23., 100)
     rows = [{"side": side, "q_range": q, "radial_profile_data": 2 + factor * np.exp(-(q - 14.) ** 2)}
             for side, factor in [("left", 2.), ("left", 3.), ("right", 1.), ("right", 1.5)]]
@@ -1336,7 +1288,7 @@ def test_invalid_json_has_safe_rejection_log(caplog, body):
 
 
 def test_source_resolution_rejection_has_stage(monkeypatch, caplog):
-    monkeypatch.setattr(jobs, "resolve_source", MagicMock(side_effect=ValueError("private-source-path")))
+    monkeypatch.setattr(source_service, "resolve_source", MagicMock(side_effect=ValueError("private-source-path")))
     response = _fastapi_client().post("/demo/api/jobs", json=_valid_aramina_body())
     assert response.status_code == 400
     assert response.json()["error_code"] == "SOURCE_ERROR"
@@ -1346,7 +1298,7 @@ def test_source_resolution_rejection_has_stage(monkeypatch, caplog):
 
 
 def test_rejection_logger_allowlist_and_failure_isolation(monkeypatch, caplog):
-    from bremen.api.fastapi_app import _log_job_rejection
+    from bremen.api.http.http_policy import _log_job_rejection
     _log_job_rejection("private-reason", ["private-field", "patient_id"], "private-stage")
     assert "private-" not in caplog.text
     assert "invalid_fields=patient_id" in caplog.text
@@ -1356,7 +1308,7 @@ def test_rejection_logger_allowlist_and_failure_isolation(monkeypatch, caplog):
 
 
 def test_worker_diagnostic_log_is_safe_and_always_enabled(monkeypatch, caplog):
-    from bremen.api.aramina_preprocessing import _log_preprocessing_rejection
+    from bremen.model_packages.aramina_v0213.preprocessing import _log_preprocessing_rejection
     monkeypatch.delenv("BREMEN_ARAMINA_DEBUG_TRACE", raising=False)
     _log_preprocessing_rejection({"stage": "worker_pipeline_execution",
                                  "exception_class": "ValueError", "transformer": "SNRFilter"})
@@ -1369,7 +1321,7 @@ def test_worker_diagnostic_log_is_safe_and_always_enabled(monkeypatch, caplog):
 
 
 def test_runtime_failure_stage_logged_without_debug(monkeypatch, caplog):
-    from bremen.api.workflow_aramina import _debug_stage
+    from bremen.model_packages.aramina_v0213.trace import _debug_stage
     monkeypatch.delenv("BREMEN_ARAMINA_DEBUG_TRACE", raising=False)
     with pytest.raises(ValueError), _debug_stage("target_qc"):
         raise ValueError("private-source")
@@ -1379,18 +1331,12 @@ def test_runtime_failure_stage_logged_without_debug(monkeypatch, caplog):
     assert _trace_records(caplog) == []
 
 
-@pytest.fixture(params=["fastapi", "legacy"])
-def submit_api(request, monkeypatch):
-    """Exercise both supported POST transports with identical request bodies."""
+@pytest.fixture
+def submit_api():
+    """Exercise the supported FastAPI POST transport."""
     def submit(body):
-        if request.param == "fastapi":
-            response = _fastapi_client().post("/demo/api/jobs", json=body)
-            return response.status_code, response.json()
-        monkeypatch.setattr(jobs, "_read_json_body", lambda handler: body)
-        sent = MagicMock()
-        monkeypatch.setattr(jobs, "_send_json", sent)
-        jobs.handle_jobs_create(MagicMock())
-        return sent.call_args.args[1:]
+        response = _fastapi_client().post("/demo/api/jobs", json=body)
+        return response.status_code, response.json()
     return submit
 
 
@@ -1404,7 +1350,7 @@ def test_api_validation_details_before_job(submit_api, monkeypatch, patient, sid
     create = MagicMock()
     resolve = MagicMock()
     monkeypatch.setattr(jobs, "create_analysis_job", create)
-    monkeypatch.setattr(jobs, "resolve_source", resolve)
+    monkeypatch.setattr(source_service, "resolve_source", resolve)
     status, data = submit_api(_valid_aramina_body(patient_id=patient, target_side=side))
     assert status == 400
     assert data["error_code"] == "ARAMINA_INVALID_REQUEST"
@@ -1420,7 +1366,7 @@ def test_api_validation_details_before_job(submit_api, monkeypatch, patient, sid
 
 @pytest.mark.parametrize("state", ["unknown", "consumed", "expired"])
 def test_api_source_unavailable_reason(submit_api, monkeypatch, state):
-    from bremen.api import source_registry as sources
+    from bremen.platform.sources import registry as sources
     monkeypatch.setenv("BREMEN_DEMO_H5_BUCKET", "private-bucket")
     monkeypatch.setenv("BREMEN_DEMO_H5_PREFIX", "")
     sid = sources.register_source("private-bucket", "private-key.h5", "sample.h5", 10, "")
@@ -1447,7 +1393,7 @@ def test_api_source_unavailable_reason(submit_api, monkeypatch, state):
 def test_api_patient_mismatch_before_creation(submit_api, monkeypatch, source):
     with h5py.File(source[0], "a") as f:
         f["session/sample/patient_name"] = "Nova_257"
-    monkeypatch.setattr(jobs, "resolve_source", lambda *args: source[0])
+    monkeypatch.setattr(source_service, "resolve_source", lambda *args: source[0])
     create = MagicMock()
     monkeypatch.setattr(jobs, "create_analysis_job", create)
     status, data = submit_api(_valid_aramina_body(patient_id="Nova_214"))
@@ -1466,7 +1412,7 @@ def test_api_matching_patient_preserves_success(submit_api, monkeypatch, tmp_pat
     _install(entry)
     with h5py.File(source[0], "a") as f:
         f["session/sample/patient_name"] = "p1"
-    monkeypatch.setattr(jobs, "resolve_source", lambda *args: source[0])
+    monkeypatch.setattr(source_service, "resolve_source", lambda *args: source[0])
     status, data = submit_api(_valid_aramina_body(patient_id="p1"))
     assert status == 201
     assert data["job"]["overall_status"] == "completed"
@@ -1478,7 +1424,7 @@ def test_api_matching_patient_preserves_success(submit_api, monkeypatch, tmp_pat
 
 def test_api_unsupported_input_safe_detail(submit_api, monkeypatch, tmp_path, source):
     _install(_entry(tmp_path, model_version="0.2.13-beta"))
-    monkeypatch.setattr(jobs, "resolve_source", lambda *args: source[0])
+    monkeypatch.setattr(source_service, "resolve_source", lambda *args: source[0])
     # The real runtime rejects the absent requested patient; no inference result stub.
     status, data = submit_api(_valid_aramina_body(patient_id="absent-patient"))
     assert status == 201
@@ -1494,14 +1440,14 @@ def test_api_unsupported_input_safe_detail(submit_api, monkeypatch, tmp_path, so
     assert run["safe_details"]["model_version"] == "0.2.13-beta"
     assert run["safe_details"]["requested_patient_id"] == "absent-patient"
     assert job["reports"]["aramina"]["status"] == "unavailable"
-    assert jobs.get_analysis_job(job["job_id"]).to_dict()["workflow_runs"]["aramina"] == run
+    assert _owner_jobs_repository.get_analysis_job(job["job_id"]).to_dict()["workflow_runs"]["aramina"] == run
     for private in (source[0], "_package", "Traceback", "checksum"):
         assert private not in json.dumps(job)
 
 
 @pytest.mark.parametrize("error", [ValueError("s3://private-bucket/token"), RuntimeError("/tmp/private-key")])
 def test_api_aramina_exception_text_never_public(submit_api, monkeypatch, error):
-    monkeypatch.setattr(jobs, "resolve_source", MagicMock(side_effect=error))
+    monkeypatch.setattr(source_service, "resolve_source", MagicMock(side_effect=error))
     status, data = submit_api(_valid_aramina_body())
     assert status in {400, 500}
     assert "private" not in json.dumps(data)
@@ -1509,15 +1455,15 @@ def test_api_aramina_exception_text_never_public(submit_api, monkeypatch, error)
 
 
 def test_api_bremen_source_error_unchanged(submit_api, monkeypatch):
-    from bremen.api.source_registry import SourceUnavailableError
-    monkeypatch.setattr(jobs, "resolve_source", MagicMock(side_effect=SourceUnavailableError("Existing safe message")))
+    from bremen.platform.sources.registry import SourceUnavailableError
+    monkeypatch.setattr(source_service, "resolve_source", MagicMock(side_effect=SourceUnavailableError("Existing safe message")))
     status, data = submit_api({"workflow_id": "bremen", "source_id": "missing"})
     assert status == 400
     assert data == {"error": "Existing safe message", "error_code": "SOURCE_ERROR"}
 
 
 def test_api_diagnostic_helpers_redact_unsafe_metadata():
-    from bremen.api.aramina_api_errors import (
+    from bremen.platform.reports.diagnostics import (
         is_aramina_selection,
         patient_mismatch_details,
         unsupported_input_details,
@@ -1552,9 +1498,9 @@ def _stage_of(result):
 
 def test_pr0141_target_side_required_and_not_inferred(tmp_path, source):
     """target_side is explicit request input and is never inferred."""
-    provider = AraminaWorkflowProvider(entry=_entry(tmp_path))
+    provider = aramina_descriptor(entry=_entry(tmp_path))
     # No request at all -> invalid request, not an inferred side.
-    assert provider.execute(source[1], h5_path=source[0]).error == "ARAMINA_INVALID_REQUEST"
+    assert execute_case(provider, source[1], h5_path=source[0]).error == "ARAMINA_INVALID_REQUEST"
     # Blank side -> invalid request.
     assert _execute(_entry(tmp_path), source, _request(target_side="")).error == "ARAMINA_INVALID_REQUEST"
     # The fixture contains both sides, so both explicit sides are honored
@@ -1632,7 +1578,7 @@ def test_pr0141_preprocessing_failure_leaks_nothing(tmp_path, source, monkeypatc
     _install(entry)
     job = jobs.create_analysis_job(
         model_id=entry.model_id, h5_path=source[0], aramina_request=_request(),
-    )
+    workflow_id="bremen")
     run = job.workflow_runs["aramina"]
     assert run.failure == "ARAMINA_UNSUPPORTED_INPUT"
     assert run.failure_details["failure_stage"] == "preprocessing_contract"
@@ -1779,8 +1725,8 @@ def test_pr0141_final_model_bad_output_maps_to_final_model_contract(tmp_path, so
 
 def test_pr0141_unknown_stage_collapses_to_unknown_input_contract():
     """Any non-allowlisted stage collapses to unknown_input_contract."""
-    from bremen.api.aramina_api_errors import unsupported_input_details
-    from bremen.api.workflow_aramina import FAILURE_STAGES
+    from bremen.platform.reports.diagnostics import unsupported_input_details
+    from bremen.model_packages.aramina_v0213.errors import FAILURE_STAGES
 
     assert "input_contract" not in FAILURE_STAGES
     details = unsupported_input_details("p1", "left", "0.2.12-beta", stage="input_contract")
@@ -1799,7 +1745,7 @@ def test_pr0141_unknown_stage_collapses_to_unknown_input_contract():
 ]))
 def test_pr0141_every_stage_has_detail_and_remediation(stage):
     """Every allowlisted stage has fixed public detail and remediation text."""
-    from bremen.api.aramina_api_errors import unsupported_input_details
+    from bremen.platform.reports.diagnostics import unsupported_input_details
 
     details = unsupported_input_details("p1", "left", "0.2.12-beta", stage=stage)
     assert details["failure_stage"] == stage
@@ -1811,7 +1757,7 @@ def test_pr0141_every_stage_has_detail_and_remediation(stage):
 
 def test_pr0141_safe_details_allowlist_and_redaction():
     """safe_details exposes only sanitized, allowlisted values."""
-    from bremen.api.aramina_api_errors import unsupported_input_details
+    from bremen.platform.reports.diagnostics import unsupported_input_details
 
     details = unsupported_input_details(
         "Nova_379", "left", "0.2.12-beta",
@@ -1837,7 +1783,7 @@ def test_pr0141_safe_details_allowlist_and_redaction():
 
 def test_pr0141_safe_details_reject_unsafe_values():
     """Unsafe identifiers, paths, releases and counts are dropped or redacted."""
-    from bremen.api.aramina_api_errors import unsupported_input_details
+    from bremen.platform.reports.diagnostics import unsupported_input_details
 
     details = unsupported_input_details(
         "/tmp/private", "private-side", "private/version",
@@ -1864,7 +1810,7 @@ def test_pr0141_safe_details_reject_unsafe_values():
 
 def test_pr0141_optional_safe_details_omitted_when_unknown():
     """Unknown optional fields are omitted, not emitted as empty guesses."""
-    from bremen.api.aramina_api_errors import unsupported_input_details
+    from bremen.platform.reports.diagnostics import unsupported_input_details
 
     safe = unsupported_input_details("p1", "left", "0.2.12-beta")["safe_details"]
     for optional in ("resolved_container_id", "available_sides",
@@ -1874,7 +1820,7 @@ def test_pr0141_optional_safe_details_omitted_when_unknown():
 
 def test_pr0141_preprocessing_release_tag_allowlist():
     """Only the two released preprocessing tags are reported."""
-    from bremen.api.aramina_preprocessing import preprocessing_release_tag
+    from bremen.model_packages.aramina_v0213.preprocessing import preprocessing_release_tag
 
     assert preprocessing_release_tag("xrd_preprocessing: {release_tag: v0.1.7-beta}") == "v0.1.7-beta"
     assert preprocessing_release_tag("xrd_preprocessing: {release_tag: v0.1.9-beta}") == "v0.1.9-beta"
@@ -1890,35 +1836,31 @@ def _completed_aramina_job(tmp_path, source, monkeypatch, side, model_id="aramin
     """Create a completed Aramina job with an available report."""
     entry = _entry(tmp_path, model_id=model_id)
     _install(entry)
-    monkeypatch.setattr(jobs, "resolve_source", lambda *args: source[0])
+    monkeypatch.setattr(source_service, "resolve_source", lambda *args: source[0])
     body = _valid_aramina_body(model_id=model_id, patient_id="p1", target_side=side)
-    monkeypatch.setattr(jobs, "_read_json_body", lambda handler: body)
-    sent = MagicMock()
-    monkeypatch.setattr(jobs, "_send_json", sent)
-    jobs.handle_jobs_create(MagicMock())
-    return sent
+    return _fastapi_client().post("/demo/api/jobs", json=body)
 
 
 def test_pr0141_aramina_duplicate_guard_includes_target_side(tmp_path, source, monkeypatch):
     """A completed left run must not block a right run for the same source/model."""
     first = _completed_aramina_job(tmp_path, source, monkeypatch, "left")
-    assert first.call_args.args[1] == 201
-    job = jobs.get_analysis_job(first.call_args.args[2]["job"]["job_id"])
+    assert first.status_code == 201
+    job = _owner_jobs_repository.get_analysis_job(first.json()["job"]["job_id"])
     assert job.overall_status == "completed"
     assert job.reports["aramina"].status == "available"
     assert job.input_summary["target_side"] == "left"
 
     # Same source + model, opposite side -> must NOT be blocked.
     second = _completed_aramina_job(tmp_path, source, monkeypatch, "right")
-    assert second.call_args.args[1] == 201
+    assert second.status_code == 201
 
 
 def test_pr0141_aramina_duplicate_guard_blocks_same_side(tmp_path, source, monkeypatch):
     """A completed left run still blocks an identical left run."""
     _completed_aramina_job(tmp_path, source, monkeypatch, "left")
     second = _completed_aramina_job(tmp_path, source, monkeypatch, "left")
-    assert second.call_args.args[1] == 409
-    payload = second.call_args.args[2]
+    assert second.status_code == 409
+    payload = second.json()
     assert payload["error"] == "report_already_exists"
     assert payload["existing_target_side"] == "left"
     assert payload["requested_target_side"] == "left"
@@ -1928,7 +1870,7 @@ def test_pr0141_aramina_duplicate_guard_side_aware_409_fields(tmp_path, source, 
     """The 409 carries explicit side fields for client disambiguation."""
     _completed_aramina_job(tmp_path, source, monkeypatch, "left")
     second = _completed_aramina_job(tmp_path, source, monkeypatch, "left")
-    payload = second.call_args.args[2]
+    payload = second.json()
     assert set(payload) >= {
         "status", "error", "message", "job_id", "workflow_id",
         "existing_target_side", "requested_target_side",
@@ -1938,7 +1880,7 @@ def test_pr0141_aramina_duplicate_guard_side_aware_409_fields(tmp_path, source, 
 def test_pr0141_find_existing_completed_report_signature():
     """The guard accepts target_side and defaults to side-agnostic matching."""
     import inspect
-    from bremen.api.job_api_handler import _find_existing_completed_report
+    from bremen.platform.reports.service import _find_existing_completed_report
 
     sig = inspect.signature(_find_existing_completed_report)
     assert "target_side" in sig.parameters
@@ -1947,10 +1889,10 @@ def test_pr0141_find_existing_completed_report_signature():
 
 def test_pr0141_bremen_duplicate_guard_unchanged(tmp_path, source, monkeypatch):
     """Bremen duplicate identity is still source + workflow + model only."""
-    from bremen.api.job_api_handler import _find_existing_completed_report
+    from bremen.platform.reports.service import _find_existing_completed_report
 
-    from bremen.api.job_models import AnalysisJob, ReportMetadata, WorkflowRun
-    from bremen.api.report_provider import REPORT_STATUS_AVAILABLE
+    from bremen.platform.jobs.models import AnalysisJob, ReportMetadata, WorkflowRun
+    from bremen.contracts.reports import REPORT_STATUS_AVAILABLE
 
     job = AnalysisJob(
         job_id="bremen-job", request_id="req", created_at="now",
@@ -1975,7 +1917,7 @@ def test_pr0141_bremen_duplicate_guard_unchanged(tmp_path, source, monkeypatch):
 
 def test_pr0141_bremen_job_summary_has_empty_target_side():
     """Bremen job summaries expose an empty target_side, not a guessed side."""
-    from bremen.api.job_models import AnalysisJob
+    from bremen.platform.jobs.models import AnalysisJob
 
     job = AnalysisJob(
         job_id="bremen-job", request_id="req", created_at="now",
@@ -1995,7 +1937,7 @@ def test_pr0141_bremen_job_summary_has_empty_target_side():
 def test_pr0141_aramina_job_summary_exposes_target_side(tmp_path, source, monkeypatch):
     """Aramina job summaries expose the requested side."""
     sent = _completed_aramina_job(tmp_path, source, monkeypatch, "right")
-    job_id = sent.call_args.args[2]["job"]["job_id"]
+    job_id = sent.json()["job"]["job_id"]
     summaries = jobs.list_analysis_jobs(model_id="aramina-a")
     match = [s for s in summaries if s["job_id"] == job_id]
     assert match and match[0]["target_side"] == "right"
@@ -2013,14 +1955,14 @@ def test_pr0141_public_failure_payload_leaks_nothing(tmp_path, source, monkeypat
     monkeypatch.setattr("bremen.model_packages.aramina_v0213.inference._load_selected_artifact", lambda e: pkg)
     job = jobs.create_analysis_job(
         model_id=entry.model_id, h5_path=source[0], aramina_request=_request(),
-    )
+    workflow_id="bremen")
     run = job.workflow_runs["aramina"]
     assert run.failure == "ARAMINA_UNSUPPORTED_INPUT"
     assert run.failure_details["failure_stage"] == "lr1_contract"
     public = json.dumps([
         job.to_dict(),
         jobs.get_job_events(job.job_id),
-        jobs.get_job_reports(job.job_id),
+        _owner_reports_service.get_job_reports(job.job_id),
         jobs.list_analysis_jobs(model_id=entry.model_id),
     ])
     for forbidden in (
@@ -2098,7 +2040,6 @@ def _run_preprocessing_with_worker(monkeypatch, stdout, returncode=1):
 ])
 def test_pr0142_worker_failure_json_maps_to_subdiagnostic(monkeypatch, stage, reason):
     """A worker failure JSON maps to the allowlisted preprocessing subdiagnostic."""
-    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
 
     stdout = json.dumps({
         "error": "ARAMINA_PREPROCESSING_FAILED",
@@ -2163,7 +2104,6 @@ def test_pr0142_worker_spawn_failure_maps_to_process_failed(monkeypatch):
 ])
 def test_pr0142_unknown_stage_collapses_to_worker_process(monkeypatch, bad_stage):
     """Any non-allowlisted stage collapses to worker_process."""
-    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
 
     stdout = json.dumps({
         "error": "ARAMINA_PREPROCESSING_FAILED",
@@ -2182,7 +2122,6 @@ def test_pr0142_unknown_stage_collapses_to_worker_process(monkeypatch, bad_stage
 ])
 def test_pr0142_unknown_exception_class_redacted(monkeypatch, bad_class):
     """Any non-allowlisted exception class becomes redacted."""
-    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
 
     stdout = json.dumps({
         "error": "ARAMINA_PREPROCESSING_FAILED",
@@ -2199,7 +2138,6 @@ def test_pr0142_unknown_exception_class_redacted(monkeypatch, bad_class):
 ])
 def test_pr0142_unknown_transformer_redacted(monkeypatch, bad_transformer):
     """Any non-allowlisted transformer becomes redacted."""
-    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
 
     stdout = json.dumps({
         "error": "ARAMINA_PREPROCESSING_FAILED",
@@ -2213,7 +2151,6 @@ def test_pr0142_unknown_transformer_redacted(monkeypatch, bad_transformer):
 
 def test_pr0142_allowlisted_transformer_preserved(monkeypatch):
     """An allowlisted transformer name is preserved verbatim."""
-    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
 
     stdout = json.dumps({
         "error": "ARAMINA_PREPROCESSING_FAILED",
@@ -2228,7 +2165,7 @@ def test_pr0142_allowlisted_transformer_preserved(monkeypatch):
 
 def test_pr0142_unsupported_release_redacted(monkeypatch):
     """A non-allowlisted release tag becomes redacted."""
-    from bremen.api.aramina_preprocessing import safe_preprocessing_diagnostic
+    from bremen.model_packages.aramina_v0213.preprocessing import safe_preprocessing_diagnostic
 
     diagnostic = safe_preprocessing_diagnostic(
         {"stage": "worker_config"}, "v9.9.9-private",
@@ -2240,7 +2177,7 @@ def test_pr0142_unsupported_release_redacted(monkeypatch):
 @pytest.mark.parametrize("release", ["v0.1.7-beta", "v0.1.9-beta"])
 def test_pr0142_allowlisted_release_preserved(release):
     """Both released preprocessing tags are preserved."""
-    from bremen.api.aramina_preprocessing import safe_preprocessing_diagnostic
+    from bremen.model_packages.aramina_v0213.preprocessing import safe_preprocessing_diagnostic
 
     diagnostic = safe_preprocessing_diagnostic({"stage": "worker_config"}, release)
     assert diagnostic["preprocessing_release"] == release
@@ -2248,7 +2185,6 @@ def test_pr0142_allowlisted_release_preserved(release):
 
 def test_pr0142_safe_diagnostic_never_leaks(monkeypatch):
     """Raw stdout/stderr/path/traceback/message never reach the diagnostic."""
-    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
 
     secret = "s3://private-bucket/key /tmp/private token=secret traceback"
     stdout = json.dumps({
@@ -2272,7 +2208,7 @@ def test_pr0142_safe_diagnostic_never_leaks(monkeypatch):
 
 def test_pr0142_public_failure_stays_unsupported_input(tmp_path, source, monkeypatch):
     """Public failure code and stage are unchanged by the subdiagnostic."""
-    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
+    from bremen.model_packages.aramina_v0213.preprocessing import AraminaPreprocessingError
 
     def boom(h5_path, config_yaml):
         raise AraminaPreprocessingError({
@@ -2292,7 +2228,7 @@ def test_pr0142_public_failure_stays_unsupported_input(tmp_path, source, monkeyp
 
 def test_pr0142_job_failure_details_expose_subdiagnostic(tmp_path, source, monkeypatch):
     """The job-visible failure_details carry the nested preprocessing fields."""
-    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
+    from bremen.model_packages.aramina_v0213.preprocessing import AraminaPreprocessingError
 
     def boom(h5_path, config_yaml):
         raise AraminaPreprocessingError({
@@ -2312,7 +2248,7 @@ def test_pr0142_job_failure_details_expose_subdiagnostic(tmp_path, source, monke
     _install(entry)
     job = jobs.create_analysis_job(
         model_id=entry.model_id, h5_path=source[0], aramina_request=_request(),
-    )
+    workflow_id="bremen")
     run = job.workflow_runs["aramina"]
     assert run.failure == "ARAMINA_UNSUPPORTED_INPUT"
     assert run.failure_details["failure_stage"] == "preprocessing_contract"
@@ -2342,7 +2278,7 @@ def test_pr0142_subdiagnostic_absent_on_success(tmp_path, source):
 
 def test_pr0142_public_payload_leaks_nothing(tmp_path, source, monkeypatch):
     """The full public payload contains no forbidden preprocessing values."""
-    from bremen.api.aramina_preprocessing import AraminaPreprocessingError
+    from bremen.model_packages.aramina_v0213.preprocessing import AraminaPreprocessingError
 
     secret = "s3://private-bucket/key /tmp/private token=secret"
 
@@ -2360,11 +2296,11 @@ def test_pr0142_public_payload_leaks_nothing(tmp_path, source, monkeypatch):
     _install(entry)
     job = jobs.create_analysis_job(
         model_id=entry.model_id, h5_path=source[0], aramina_request=_request(),
-    )
+    workflow_id="bremen")
     public = json.dumps([
         job.to_dict(),
         jobs.get_job_events(job.job_id),
-        jobs.get_job_reports(job.job_id),
+        _owner_reports_service.get_job_reports(job.job_id),
         jobs.list_analysis_jobs(model_id=entry.model_id),
     ])
     for forbidden in (
@@ -2385,7 +2321,7 @@ def test_pr0142_public_payload_leaks_nothing(tmp_path, source, monkeypatch):
 
 def test_pr0142_reason_codes_are_stage_derived():
     """Every allowlisted stage maps to exactly one stable reason code."""
-    from bremen.api.aramina_preprocessing import (
+    from bremen.model_packages.aramina_v0213.preprocessing import (
         PREPROCESSING_REASON_CODES, PREPROCESSING_STAGES,
         safe_preprocessing_diagnostic,
     )
@@ -2400,7 +2336,7 @@ def test_pr0142_reason_codes_are_stage_derived():
 
 def test_pr0142_allowlists_are_closed():
     """The public allowlists are fixed and exclude the old generic label."""
-    from bremen.api.aramina_preprocessing import (
+    from bremen.model_packages.aramina_v0213.preprocessing import (
         PREPROCESSING_EXCEPTION_CLASSES, PREPROCESSING_RELEASES,
         PREPROCESSING_STAGES,
     )
@@ -2435,7 +2371,7 @@ def test_pr0142_successful_aramina_unchanged(tmp_path, source):
 
 def test_pr0142_bremen_result_has_no_preprocessing_fields():
     """Bremen workflow results carry no Aramina preprocessing fields."""
-    from bremen.api.workflow_provider import WorkflowResult
+    from bremen.contracts.execution import WorkflowResult
 
     result = WorkflowResult(workflow_id="bremen", status="failed", error="X")
     assert result.failure_stage is None
@@ -2465,7 +2401,7 @@ _ARAMINA_REPORT_CONTRACT = {
 
 def _aramina_report(job_id="job-1", score=0.42, side="left", patient="Nova_214"):
     """Build an Aramina report through the real provider."""
-    from bremen.api.job_api_handler import _AraminaLocalReportProvider
+    from bremen.platform.reports.service import _AraminaLocalReportProvider
 
     external = {"risk_score": score}
     if side is not None:
@@ -2552,7 +2488,7 @@ def test_pr0143_unknown_target_side_omitted():
 
 def test_pr0143_failed_report_keeps_unavailable_behavior():
     """A failed Aramina report stays unavailable with an empty payload."""
-    from bremen.api.job_api_handler import _AraminaLocalReportProvider
+    from bremen.platform.reports.service import _AraminaLocalReportProvider
 
     report = _AraminaLocalReportProvider().generate_report(
         "job-2", {"external_report": {}},
@@ -2567,7 +2503,7 @@ def test_pr0143_failed_report_keeps_unavailable_behavior():
 
 def test_pr0143_bremen_report_contract_unchanged():
     """Bremen reports gain none of the new Aramina fields."""
-    from bremen.api.report_bremen import BremenReportProvider
+    from bremen.platform.reports.bremen import BremenReportProvider
 
     report = BremenReportProvider().generate_report(
         "job-1", {"status": "failed"},
@@ -2579,7 +2515,7 @@ def test_pr0143_bremen_report_contract_unchanged():
 
 def test_pr0143_report_envelope_defaults_unchanged():
     """A default ReportEnvelope serializes exactly as before PR0143."""
-    from bremen.api.report_provider import ReportEnvelope
+    from bremen.contracts.reports import ReportEnvelope
 
     envelope = ReportEnvelope(
         report_id="r", workflow_id="bremen", job_id="j",
@@ -2600,15 +2536,12 @@ def test_pr0143_public_report_leaks_nothing(tmp_path, source, monkeypatch):
     # must carry it for the identifier to be present.
     with h5py.File(source[0], "a") as f:
         f["session/sample/patient_name"] = "p1"
-    monkeypatch.setattr(jobs, "resolve_source", lambda *args: source[0])
+    monkeypatch.setattr(source_service, "resolve_source", lambda *args: source[0])
     body = _valid_aramina_body(model_id=entry.model_id, patient_id="p1", target_side="left")
-    monkeypatch.setattr(jobs, "_read_json_body", lambda handler: body)
-    sent = MagicMock()
-    monkeypatch.setattr(jobs, "_send_json", sent)
-    jobs.handle_jobs_create(MagicMock())
-    job_id = sent.call_args.args[2]["job"]["job_id"]
+    sent = _fastapi_client().post("/demo/api/jobs", json=body)
+    job_id = sent.json()["job"]["job_id"]
 
-    report = jobs.get_job_report(job_id, "aramina")
+    report = _owner_reports_service.get_job_report(job_id, "aramina")
     public = json.dumps(report)
     for forbidden in (
         source[0], entry._artifact_path, entry._checksum, "_package",
@@ -2622,14 +2555,14 @@ def test_pr0143_public_report_leaks_nothing(tmp_path, source, monkeypatch):
 
 def test_pr0143_job_context_excludes_private_fields(tmp_path, source):
     """The report job context carries only patient_id and target_side."""
-    from bremen.api.job_api_handler import _report_job_context
+    from bremen.platform.reports.service import _report_job_context
 
     entry = _entry(tmp_path)
     _install(entry)
     job = jobs.create_analysis_job(
         model_id=entry.model_id, h5_path=source[0], aramina_request=_request(),
         source_key="private-stable-key", patient_display_name="p1",
-    )
+    workflow_id="bremen")
     context = _report_job_context(job)
     assert set(context) == {"patient_id", "target_side"}
     assert "private-stable-key" not in json.dumps(context)

@@ -4,7 +4,7 @@ The corrected architecture:
 
     model-specific parser/preprocessing
     -> model-package adapter (Bremen / Aramina)
-    -> common normalized metadata contract (bremen.model_runtime)
+    -> common normalized metadata contract (bremen.contracts.model_runtime)
     -> ModelRuntime transport (RuntimePrediction)
     -> Standard Result mapper
 
@@ -24,7 +24,7 @@ from pathlib import Path
 
 import h5py
 
-from bremen.model_runtime import (
+from bremen.contracts.model_runtime import (
     ModelMetadata,
     ModelMetrics,
     SourceMetadata,
@@ -111,7 +111,7 @@ def test_mapper_consumes_only_normalized_names():
     """API/mapper code never needs model-specific source field names."""
     import inspect
 
-    from bremen.api import model_result_mapper as mapper
+    from bremen.platform.reports import mapper
     source = inspect.getsource(mapper)
     # The mapper references only the canonical normalized keys.
     assert "source_metadata" in source

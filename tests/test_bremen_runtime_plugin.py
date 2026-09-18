@@ -16,18 +16,17 @@ from __future__ import annotations
 
 import pytest
 
-from bremen.api.execution_context import WorkflowExecutionContext
-from bremen.api.event_schema import (
+from bremen.platform.events.context import WorkflowExecutionContext
+from bremen.contracts.events import (
     JobEvent, validate_event_details,
 )
-from bremen.api.event_store import BoundedEventStore
-from bremen.api.runtime_plugin import (
+from bremen.platform.events.store import BoundedEventStore
+from bremen.platform.events_trace import (
     BREMEN_STAGE_ORDER, validate_stage_order,
 )
-from bremen.api.execution_trace import (
+from bremen.platform.events.trace import (
     build_trace_from_events, measure_event_budget,
 )
-from bremen.api.workflow_bremen import BremenProvider, BREMEN_V01_FEATURE_COLUMNS
 
 
 # ---------------------------------------------------------------------------
@@ -90,29 +89,6 @@ class TestExecutionContext:
 # ---------------------------------------------------------------------------
 
 
-class TestArtifactStage:
-    def test_prepare_artifact_no_model(self):
-        provider = BremenProvider()
-        sink = _FakeSink()
-        ctx = WorkflowExecutionContext(
-            job_id="j1", request_id="r1", workflow_id="bremen",
-            event_sink=sink,
-        )
-        artifact = provider.prepare_artifact(ctx)
-        assert artifact.checksum_status == "not_configured"
-        assert artifact.validation_status == "failed"
-        assert not artifact.adaptation_applied
-
-    def test_artifact_event_emitted(self):
-        provider = BremenProvider()
-        sink = _FakeSink()
-        ctx = WorkflowExecutionContext(
-            job_id="j1", request_id="r1", workflow_id="bremen",
-            event_sink=sink,
-        )
-        provider.prepare_artifact(ctx)
-        assert len(sink.events) >= 1
-        assert sink.events[0].event_type == "runtime.artifact.verification.completed"
 
 
 # ---------------------------------------------------------------------------
@@ -120,26 +96,6 @@ class TestArtifactStage:
 # ---------------------------------------------------------------------------
 
 
-class TestFeatureStage:
-    def test_validate_features_with_vector(self):
-        from bremen.api.workflow_provider import WorkflowFeatureVector
-        provider = BremenProvider()
-        sink = _FakeSink()
-        ctx = WorkflowExecutionContext(
-            job_id="j1", request_id="r1", workflow_id="bremen",
-            event_sink=sink,
-        )
-        fv = WorkflowFeatureVector(
-            workflow_id="bremen",
-            feature_names=tuple(BREMEN_V01_FEATURE_COLUMNS),
-            feature_values=tuple([0.5] * 15),
-        )
-        result = provider.validate_features(fv, ctx)
-        assert result.expected_count == 15
-        assert result.produced_count == 15
-        assert result.order_valid is True
-        assert result.all_finite is True
-        assert result.schema_matched is True
 
 
 # ---------------------------------------------------------------------------
@@ -147,50 +103,6 @@ class TestFeatureStage:
 # ---------------------------------------------------------------------------
 
 
-class TestDecisionStage:
-    def test_execute_emits_decision_event(self):
-        """Execute with context emits decision events via the single path."""
-
-        model = {
-            "portable_logreg": {
-                "feature_columns": list(BREMEN_V01_FEATURE_COLUMNS),
-                "imputer_statistics": [0.0] * 15,
-                "scaler_mean": [0.0] * 15,
-                "scaler_scale": [1.0] * 15,
-                "coef": [0.1] * 15,
-                "intercept": 0.0,
-                "threshold": 0.5,
-            },
-        }
-        provider = BremenProvider(model_package=model, model_version="test-v1")
-        sink = _FakeSink()
-        ctx = WorkflowExecutionContext(
-            job_id="j1", request_id="r1", workflow_id="bremen",
-            event_sink=sink,
-        )
-        from tests.bremen_3x3_helpers import make_case
-        case = make_case()
-        result = provider.execute(case, ctx)
-        assert result.status == "completed"
-        decision_events = [
-            e for e in sink.events
-            if e.event_type == "runtime.decision.completed"
-        ]
-        assert len(decision_events) == 1
-        assert decision_events[0].details.get("scientifically_certified") is False
-
-    def test_nova_three_positions_use_frozen_contract(self):
-        """P1/P2/P3 now execute all six profiles without a selection policy."""
-        from tests.bremen_3x3_helpers import make_case, MODEL
-        provider = BremenProvider(model_package=MODEL)
-        sink = _FakeSink()
-        ctx = WorkflowExecutionContext(
-            job_id="j1", request_id="r1", workflow_id="bremen", event_sink=sink,
-        )
-        result = provider.execute(make_case(source_layout="nova"), ctx)
-        assert result.status == "completed"
-        assert not [e for e in sink.events if e.event_type == "runtime.input.preparation.failed"]
-        assert len([e for e in sink.events if e.event_type == "runtime.features.completed"]) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -300,23 +212,3 @@ class TestPrivacyExtended:
 # ---------------------------------------------------------------------------
 # Provider isolation
 # ---------------------------------------------------------------------------
-
-
-class TestProviderIsolation:
-    def test_bremen_plugin_methods_exist(self):
-        provider = BremenProvider()
-        assert hasattr(provider, "prepare_artifact")
-        assert hasattr(provider, "prepare_input")
-        assert hasattr(provider, "validate_features")
-        # execute() is the single authoritative path
-        assert hasattr(provider, "execute")
-
-    def test_plugin_id_set(self):
-        provider = BremenProvider()
-        assert provider.plugin_id == "bremen_mri_triage_plugin"
-        assert provider.plugin_version == "v0.1"
-
-    def test_plugin_provenance_no_private_paths(self):
-        provider = BremenProvider()
-        assert "/" not in provider.plugin_id
-        assert "." not in provider.plugin_id  # no Python module paths

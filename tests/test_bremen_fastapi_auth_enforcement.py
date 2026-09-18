@@ -17,13 +17,12 @@ No real server, socket, localhost HTTP, uvicorn launch.
 
 from __future__ import annotations
 
-import json
 from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
 
-from bremen.api.fastapi_app import create_fastapi_app
+from bremen.api.http.app import create_app
 
 
 # ---------------------------------------------------------------------------
@@ -42,9 +41,10 @@ _FAKE_JWT_SECRET = "z" * 48  # 48-char fake secret for testing only
 def _reset_auth_after_test():
     """Ensure auth config singleton is reset after every test."""
     yield
-    from bremen.api.server import _reset_auth_config  # noqa: PLC0415
-    from bremen.api.job_api_handler import _jobs, _jobs_lock  # noqa: PLC0415
-    from bremen.api.job_api_handler import _event_store  # noqa: PLC0415
+    from bremen.api.http.auth_config import _reset_auth_config  # noqa: PLC0415
+    from bremen.platform.jobs.service import _jobs
+    from bremen.platform.jobs.service import _jobs_lock
+    from bremen.platform.jobs.service import _event_store
     _reset_auth_config()
     with _jobs_lock:
         _jobs.clear()
@@ -53,14 +53,14 @@ def _reset_auth_after_test():
 
 def _make_app(auth_enabled: bool = False):
     """Create a FastAPI app with optional auth config."""
-    from bremen.api.server import _reset_auth_config  # noqa: PLC0415
+    from bremen.api.http.auth_config import _reset_auth_config  # noqa: PLC0415
     from bremen.config import AuthConfig as _AuthConfig  # noqa: PLC0415
 
     _reset_auth_config()
 
     if auth_enabled:
         # Inject auth config into the server singleton
-        from bremen.api import server as _server  # noqa: PLC0415
+        from bremen.api.http import auth_config as _server  # noqa: PLC0415
         cfg = _AuthConfig(
             enabled=True,
             username=_FAKE_USERNAME,
@@ -73,10 +73,10 @@ def _make_app(auth_enabled: bool = False):
         )
         _server._auth_config = cfg
     else:
-        from bremen.api import server as _server  # noqa: PLC0415
+        from bremen.api.http import auth_config as _server  # noqa: PLC0415
         _server._auth_config = None
 
-    return create_fastapi_app()
+    return create_app()
 
 
 def _make_token():
@@ -543,10 +543,10 @@ class TestTicketMintingEndpoint:
 
     def _inject_job(self, client, job_id: str = "test-job") -> None:
         """Inject a test job so the mint endpoint can find it."""
-        from bremen.api.job_api_handler import _jobs, _jobs_lock  # noqa: PLC0415
-        from bremen.api.job_api_handler import _event_store  # noqa: PLC0415
-        from bremen.api.job_models import AnalysisJob  # noqa: PLC0415
-        import time as _time
+        from bremen.platform.jobs.service import _jobs
+        from bremen.platform.jobs.service import _jobs_lock
+        from bremen.platform.jobs.service import _event_store
+        from bremen.platform.jobs.models import AnalysisJob  # noqa: PLC0415
 
         now = datetime.now(timezone.utc).isoformat()
         job = AnalysisJob(
@@ -559,7 +559,7 @@ class TestTicketMintingEndpoint:
         with _jobs_lock:
             _jobs[job_id] = job
         # Also emit a minimal event so _event_store knows about the job
-        from bremen.api.event_schema import JobEvent  # noqa: PLC0415
+        from bremen.contracts.events import JobEvent  # noqa: PLC0415
         _event_store.append(job_id, JobEvent(
             job_id=job_id,
             request_id="test",

@@ -22,3 +22,7 @@ examples/__marimo__/
 *.pkl
 *.npy
 *.npz
+
+# Application report code is source, not generated report output.
+!src/bremen/platform/reports/
+!src/bremen/platform/reports/*.py

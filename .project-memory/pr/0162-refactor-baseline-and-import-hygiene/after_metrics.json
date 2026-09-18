@@ -1,0 +1,92 @@
+{
+  "source_loc": 35477,
+  "test_loc": 56105,
+  "test_files": 117,
+  "collected_tests": 4248,
+  "passed": 4237,
+  "skipped": 11,
+  "pytest_seconds": 34.76,
+  "wall_seconds": 35.528,
+  "largest_source_modules": [
+    [
+      "src/bremen/api/server.py",
+      1952
+    ],
+    [
+      "src/bremen/report_ui.py",
+      1541
+    ],
+    [
+      "src/bremen/platform/sources/legacy_layouts.py",
+      1506
+    ],
+    [
+      "src/bremen/workspace_ui.py",
+      1334
+    ],
+    [
+      "src/bremen/modeling.py",
+      1325
+    ],
+    [
+      "src/bremen/control_room_ui.py",
+      1281
+    ],
+    [
+      "src/bremen/api/s3_model_discovery.py",
+      1163
+    ],
+    [
+      "src/bremen/training/pipeline.py",
+      736
+    ],
+    [
+      "src/bremen/api/model_requirements.py",
+      687
+    ],
+    [
+      "src/bremen/platform/api/legacy_jobs.py",
+      599
+    ],
+    [
+      "src/bremen/config.py",
+      588
+    ],
+    [
+      "src/bremen/demo_ui.py",
+      587
+    ],
+    [
+      "src/bremen/api/preflight.py",
+      583
+    ],
+    [
+      "src/bremen/model_packages/aramina_v0213/inference.py",
+      544
+    ],
+    [
+      "src/bremen/api_docs_ui.py",
+      513
+    ],
+    [
+      "src/bremen/pipelines.py",
+      513
+    ],
+    [
+      "src/bremen/model_packages/bremen_v01/symmetry_signals.py",
+      487
+    ],
+    [
+      "src/bremen/platform/jobs/service.py",
+      479
+    ],
+    [
+      "src/bremen/model_packages/bremen_v01/features.py",
+      462
+    ],
+    [
+      "src/bremen/demo_smoke.py",
+      454
+    ]
+  ]
+}

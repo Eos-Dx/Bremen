@@ -6,6 +6,8 @@ for the real evidence checks. Synthetic fixtures test wiring, not H5 parity.
 """
 from __future__ import annotations
 
+from tests.runtime_inputs import execute_case
+
 import ast
 import hashlib
 import json
@@ -28,7 +30,7 @@ from bremen.model_packages.bremen_v01.features import (
 )
 from bremen.model_packages.bremen_v01.manifest import ARTIFACT_SHA256
 from bremen.model_packages.bremen_v01.runtime import BremenRuntime
-from bremen.model_runtime import ModelInput, ModelInputInvalidError, ModelPreprocessingFailedError
+from bremen.contracts.model_runtime import ModelInput, ModelInputInvalidError, ModelPreprocessingFailedError
 from tests.bremen_3x3_helpers import GOLD, MODEL, make_case
 
 CONFIG = "xrd_preprocessing: {release_tag: v0.1.7-beta}\npipeline: {steps: [artifact-owned]}\n"
@@ -47,9 +49,9 @@ def _runtime():
 
 
 def test_orchestrator_passes_raw_source_without_platform_science(tmp_path, monkeypatch):
-    from bremen.api import workflow_orchestrator as orchestrator
-    from bremen.api.workflow_bremen import BremenProvider
-    from bremen.api.workflow_registry import WorkflowRegistry
+    from bremen.platform.runtime import executor as orchestrator
+    from bremen.platform.runtime.registry import bremen_descriptor
+    from bremen.platform.runtime.registry import RuntimeRegistry
     path = tmp_path / "opaque.h5"
     path.write_bytes(b"source parsing belongs to the package")
     calls = []
@@ -62,11 +64,11 @@ def test_orchestrator_passes_raw_source_without_platform_science(tmp_path, monke
         pytest.fail("platform scientific normalization executed")
 
     monkeypatch.setattr(prep, "preprocess_bremen", preprocess)
-    monkeypatch.setattr(orchestrator, "_normalize_h5", forbidden)
-    monkeypatch.setattr(orchestrator, "detect_layout", forbidden)
-    registry = WorkflowRegistry()
-    registry.register(BremenProvider(runtime=_runtime()))
-    result = orchestrator.run_workflow_request(str(path), registry=registry)
+    monkeypatch.setattr("bremen.platform.sources.legacy_input.normalize_legacy_input", forbidden)
+    monkeypatch.setattr("bremen.platform.sources.legacy_input.detect_layout", forbidden)
+    registry = RuntimeRegistry()
+    registry.register(bremen_descriptor(runtime=_runtime()))
+    result = orchestrator.run_workflow_request(str(path), registry=registry, workflow_id="bremen")
     assert result.overall_status == "completed"
     assert result.source_checksum == hashlib.sha256(path.read_bytes()).hexdigest()
     assert calls == [(str(path), CONFIG)]
@@ -228,25 +230,25 @@ def test_dependency_commit_and_release_are_enforced(monkeypatch, commit, version
 
 @pytest.mark.parametrize('binding', ['match', 'checksum', 'patient', 'missing_checksum'])
 def test_aramina_platform_binding_precedes_package(tmp_path, monkeypatch, binding):
-    from bremen.api.workflow_aramina import AraminaWorkflowProvider
-    from bremen.model_runtime import RuntimePrediction
+    from bremen.platform.runtime.registry import aramina_descriptor
+    from bremen.contracts.model_runtime import RuntimePrediction
     path = tmp_path / 'source.h5'
     path.write_bytes(b'staged source')
     checksum = hashlib.sha256(path.read_bytes()).hexdigest()
     # Identity extraction is an existing platform concern, tested independently
     # by the Aramina workflow suite; here isolate its ordering and integrity gate.
-    monkeypatch.setattr('bremen.api.workflow_orchestrator.h5py.File',
+    monkeypatch.setattr('h5py.File',
                         lambda *a, **k: _Context())
-    monkeypatch.setattr('bremen.api.preflight.resolve_patient_metadata',
+    monkeypatch.setattr('bremen.platform.sources.preflight.resolve_patient_metadata',
                         lambda f: SimpleNamespace(patient_identifier='p1'))
-    provider = AraminaWorkflowProvider(entry=SimpleNamespace(
+    provider = aramina_descriptor(entry=SimpleNamespace(
         model_id='aramina', model_version='test', _clinical_stage='research draft'))
     calls = []
-    def predict(model_input):
+    def predict(model_input, *, on_features=None):
         calls.append(model_input)
         return RuntimePrediction(workflow_id='aramina', result={}, model_version='test')
-    monkeypatch.setattr(provider._runtime, 'predict_model', predict)
-    result = provider.execute(
+    monkeypatch.setattr(provider.runtime, 'predict_model', predict)
+    result = execute_case(provider,
         SimpleNamespace(measurements=(), source_checksum=(
             'wrong' if binding == 'checksum' else '' if binding == 'missing_checksum' else checksum)),
         h5_path=str(path), aramina_request=SimpleNamespace(

@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 
 # ---------------------------------------------------------------------------
 # Minimal valid reference statistics fixture
@@ -66,7 +65,7 @@ class TestComputeSymmetrySignals:
 
     def test_all_not_available_when_ref_stats_is_none(self):
         """When ref_stats is None, all signals are not_available."""
-        from bremen.api.symmetry_signals import compute_symmetry_signals
+        from bremen.model_packages.bremen_v01.symmetry_signals import compute_symmetry_signals
 
         result = compute_symmetry_signals(
             feature_values={"sigma_l1": 0.1},
@@ -79,7 +78,7 @@ class TestComputeSymmetrySignals:
 
     def test_all_not_available_when_feature_values_is_none(self):
         """When feature_values is None, all signals are not_available."""
-        from bremen.api.symmetry_signals import compute_symmetry_signals
+        from bremen.model_packages.bremen_v01.symmetry_signals import compute_symmetry_signals
 
         ref_stats = _make_valid_ref_stats()
         result = compute_symmetry_signals(
@@ -91,7 +90,7 @@ class TestComputeSymmetrySignals:
 
     def test_all_signals_present(self):
         """All 5 signal families are always present in the output."""
-        from bremen.api.symmetry_signals import compute_symmetry_signals
+        from bremen.model_packages.bremen_v01.symmetry_signals import compute_symmetry_signals
 
         result = compute_symmetry_signals()
         assert len(result["signals"]) == 5
@@ -104,7 +103,7 @@ class TestComputeSymmetrySignals:
 
     def test_only_allowed_difference_levels(self):
         """Every difference_level is in the allowed set."""
-        from bremen.api.symmetry_signals import (
+        from bremen.model_packages.bremen_v01.symmetry_signals import (
             compute_symmetry_signals,
             ALLOWED_DIFFERENCE_LEVELS,
         )
@@ -134,7 +133,7 @@ class TestComputeSymmetrySignals:
 
     def test_signal_missing_from_artifact_is_not_available(self):
         """When a signal is missing from the artifact, it is not_available."""
-        from bremen.api.symmetry_signals import compute_symmetry_signals
+        from bremen.model_packages.bremen_v01.symmetry_signals import compute_symmetry_signals
 
         # Artifact missing one signal
         ref_stats = _make_valid_ref_stats()
@@ -150,7 +149,7 @@ class TestComputeSymmetrySignals:
 
     def test_invalid_ref_stats_schema_status_error(self):
         """Invalid artifact shape returns schema_status: error."""
-        from bremen.api.symmetry_signals import compute_symmetry_signals
+        from bremen.model_packages.bremen_v01.symmetry_signals import compute_symmetry_signals
 
         result = compute_symmetry_signals(
             ref_stats={"not": "valid"},
@@ -161,7 +160,7 @@ class TestComputeSymmetrySignals:
 
     def test_checksum_prefix_not_full(self):
         """checksum_prefix is at most 8 chars, never full checksum."""
-        from bremen.api.symmetry_signals import compute_symmetry_signals
+        from bremen.model_packages.bremen_v01.symmetry_signals import compute_symmetry_signals
 
         ref_stats = _make_valid_ref_stats()
         ref_stats["_artifact_checksum"] = "a" * 64
@@ -173,8 +172,8 @@ class TestComputeSymmetrySignals:
 
     def test_feature_to_signal_map_covers_all_15_columns(self):
         """Every feature in BREMEN_V01_FEATURE_COLUMNS is mapped."""
-        from bremen.api.preprocessing_bridge import BREMEN_V01_FEATURE_COLUMNS
-        from bremen.api.symmetry_signals import FEATURE_TO_SIGNAL_MAP
+        from bremen.model_packages.bremen_v01.features import FEATURE_COLS as BREMEN_V01_FEATURE_COLUMNS
+        from bremen.model_packages.bremen_v01.symmetry_signals import FEATURE_TO_SIGNAL_MAP
 
         for feat in BREMEN_V01_FEATURE_COLUMNS:
             assert feat in FEATURE_TO_SIGNAL_MAP, (
@@ -183,7 +182,7 @@ class TestComputeSymmetrySignals:
 
     def test_no_mockup_sample_values_in_code(self):
         """No sample report strings in symmetry_signals module output."""
-        from bremen.api.symmetry_signals import (
+        from bremen.model_packages.bremen_v01.symmetry_signals import (
             _format_external, _format_internal,
         )
         result = {
@@ -215,7 +214,7 @@ class TestDecisionSupportSymmetry:
 
     def test_symmetry_signals_field_exists(self):
         """build_decision_support_report includes symmetry_signals."""
-        from bremen.api.decision_support import build_decision_support_report
+        from bremen.platform.reports.decision_support import build_decision_support_report
 
         report = build_decision_support_report(
             {"model_version": "v1", "feature_schema_version": "v0.1"},
@@ -226,7 +225,7 @@ class TestDecisionSupportSymmetry:
 
     def test_symmetry_signals_not_available_by_default(self):
         """Without feature_values/ref_stats, all not_available."""
-        from bremen.api.decision_support import build_decision_support_report
+        from bremen.platform.reports.decision_support import build_decision_support_report
 
         report = build_decision_support_report({})
         ss = report["symmetry_signals"]
@@ -236,7 +235,7 @@ class TestDecisionSupportSymmetry:
 
     def test_backward_compatible_no_new_required_params(self):
         """Existing callers without feature_values/ref_stats still work."""
-        from bremen.api.decision_support import build_decision_support_report
+        from bremen.platform.reports.decision_support import build_decision_support_report
 
         report = build_decision_support_report(
             {"model_version": "v1"},
@@ -249,7 +248,7 @@ class TestDecisionSupportSymmetry:
 
     def test_external_output_no_raw_features(self):
         """External symmetry_signals has no raw feature values."""
-        from bremen.api.decision_support import build_decision_support_report
+        from bremen.platform.reports.decision_support import build_decision_support_report
 
         report = build_decision_support_report(
             {"model_version": "v1"},
@@ -266,7 +265,7 @@ class TestDecisionSupportSymmetry:
 
     def test_external_no_percentile_cutoffs(self):
         """External symmetry_signals does not expose percentile cutoffs."""
-        from bremen.api.decision_support import build_decision_support_report
+        from bremen.platform.reports.decision_support import build_decision_support_report
 
         report = build_decision_support_report(
             {"model_version": "v1"},
@@ -278,9 +277,9 @@ class TestDecisionSupportSymmetry:
 
     def test_decision_vocabulary_unchanged(self):
         """Decision vocabulary is not modified by symmetry addition."""
-        from bremen.api.decision_support import build_decision_support_report
-        from bremen.api.decision_contract import (
-            POSITIVE_MACHINE_CODE, NEGATIVE_MACHINE_CODE,
+        from bremen.platform.reports.decision_support import build_decision_support_report
+        from bremen.model_packages.bremen_v01.decision import (
+            POSITIVE_MACHINE_CODE,
         )
 
         report = build_decision_support_report({
@@ -301,7 +300,7 @@ class TestInternalReportSymmetry:
 
     def test_symmetry_signal_detail_in_technical_evidence(self):
         """When workflow_result has symmetry_signal_detail, it appears."""
-        from bremen.api.report_bremen import BremenReportProvider
+        from bremen.platform.reports.bremen import BremenReportProvider
 
         provider = BremenReportProvider()
         wf_result = {
@@ -323,7 +322,7 @@ class TestInternalReportSymmetry:
 
     def test_no_symmetry_detail_when_not_present(self):
         """When workflow_result has no symmetry_signal_detail, it's absent."""
-        from bremen.api.report_bremen import BremenReportProvider
+        from bremen.platform.reports.bremen import BremenReportProvider
 
         provider = BremenReportProvider()
         wf_result = {
@@ -340,7 +339,7 @@ class TestInternalReportSymmetry:
 
     def test_internal_output_no_raw_feature_values(self):
         """Internal symmetry_signal_detail has no raw feature values."""
-        from bremen.api.symmetry_signals import compute_symmetry_signals, _format_internal
+        from bremen.model_packages.bremen_v01.symmetry_signals import compute_symmetry_signals, _format_internal
 
         result = compute_symmetry_signals(
             feature_values={"sigma_l1": 0.5},
@@ -353,7 +352,7 @@ class TestInternalReportSymmetry:
 
     def test_internal_output_no_percentile_cutoffs(self):
         """Internal symmetry_signal_detail has no percentile cutoffs."""
-        from bremen.api.symmetry_signals import compute_symmetry_signals, _format_internal
+        from bremen.model_packages.bremen_v01.symmetry_signals import compute_symmetry_signals, _format_internal
 
         result = compute_symmetry_signals(
             ref_stats=_make_valid_ref_stats(),
@@ -365,7 +364,7 @@ class TestInternalReportSymmetry:
 
     def test_internal_output_no_full_checksum(self):
         """Internal checksum_prefix is never full checksum."""
-        from bremen.api.symmetry_signals import compute_symmetry_signals, _format_internal
+        from bremen.model_packages.bremen_v01.symmetry_signals import compute_symmetry_signals, _format_internal
 
         ref_stats = _make_valid_ref_stats()
         ref_stats["_artifact_checksum"] = "a" * 64
@@ -376,7 +375,7 @@ class TestInternalReportSymmetry:
 
     def test_internal_includes_feature_family(self):
         """Internal signals include feature_family."""
-        from bremen.api.symmetry_signals import compute_symmetry_signals, _format_internal
+        from bremen.model_packages.bremen_v01.symmetry_signals import compute_symmetry_signals, _format_internal
 
         result = compute_symmetry_signals(ref_stats=_make_valid_ref_stats())
         internal = _format_internal(result)
@@ -386,7 +385,7 @@ class TestInternalReportSymmetry:
 
     def test_external_excludes_feature_family(self):
         """External signals do NOT include feature_family."""
-        from bremen.api.symmetry_signals import compute_symmetry_signals, _format_external
+        from bremen.model_packages.bremen_v01.symmetry_signals import compute_symmetry_signals, _format_external
 
         result = compute_symmetry_signals(ref_stats=_make_valid_ref_stats())
         external = _format_external(result)
@@ -403,29 +402,28 @@ class TestPercentileBucket:
     """Percentile bucketing logic tests."""
 
     def test_small_when_below(self):
-        from bremen.api.symmetry_signals import _percentile_bucket
+        from bremen.model_packages.bremen_v01.symmetry_signals import _percentile_bucket
         assert _percentile_bucket(0.1, {"small": 0.33, "moderate": 0.67}) == "small"
 
     def test_moderate_when_between(self):
-        from bremen.api.symmetry_signals import _percentile_bucket
+        from bremen.model_packages.bremen_v01.symmetry_signals import _percentile_bucket
         assert _percentile_bucket(0.5, {"small": 0.33, "moderate": 0.67}) == "moderate"
 
     def test_larger_when_above(self):
-        from bremen.api.symmetry_signals import _percentile_bucket
+        from bremen.model_packages.bremen_v01.symmetry_signals import _percentile_bucket
         assert _percentile_bucket(0.8, {"small": 0.33, "moderate": 0.67}) == "larger"
 
     def test_not_available_when_bounds_is_none(self):
-        from bremen.api.symmetry_signals import _percentile_bucket
+        from bremen.model_packages.bremen_v01.symmetry_signals import _percentile_bucket
         assert _percentile_bucket(0.5, None) == "not_available"
 
     def test_not_available_when_non_finite(self):
-        from bremen.api.symmetry_signals import _percentile_bucket
-        import math
+        from bremen.model_packages.bremen_v01.symmetry_signals import _percentile_bucket
         assert _percentile_bucket(float("nan"), {"small": 0.33, "moderate": 0.67}) == "not_available"
         assert _percentile_bucket(float("inf"), {"small": 0.33, "moderate": 0.67}) == "not_available"
 
     def test_not_available_when_not_number(self):
-        from bremen.api.symmetry_signals import _percentile_bucket
+        from bremen.model_packages.bremen_v01.symmetry_signals import _percentile_bucket
         assert _percentile_bucket("string", {"small": 0.33, "moderate": 0.67}) == "not_available"
 
 
@@ -438,26 +436,26 @@ class TestLoadReferenceStatistics:
     """Reference statistics loader tests."""
 
     def test_returns_none_when_no_arg(self):
-        from bremen.api.symmetry_signals import _load_reference_statistics
+        from bremen.model_packages.bremen_v01.symmetry_signals import _load_reference_statistics
         assert _load_reference_statistics() is None
 
     def test_returns_none_when_none(self):
-        from bremen.api.symmetry_signals import _load_reference_statistics
+        from bremen.model_packages.bremen_v01.symmetry_signals import _load_reference_statistics
         assert _load_reference_statistics(None) is None
 
     def test_returns_valid_dict(self):
-        from bremen.api.symmetry_signals import _load_reference_statistics
+        from bremen.model_packages.bremen_v01.symmetry_signals import _load_reference_statistics
         valid = _make_valid_ref_stats()
         result = _load_reference_statistics(valid)
         assert result is not None
         assert result["artifact_type"] == "bremen_reference_statistics"
 
     def test_returns_none_for_invalid_dict(self):
-        from bremen.api.symmetry_signals import _load_reference_statistics
+        from bremen.model_packages.bremen_v01.symmetry_signals import _load_reference_statistics
         assert _load_reference_statistics({"bad": "data"}) is None
 
     def test_returns_none_for_nonexistent_path(self):
-        from bremen.api.symmetry_signals import _load_reference_statistics
+        from bremen.model_packages.bremen_v01.symmetry_signals import _load_reference_statistics
         assert _load_reference_statistics("/nonexistent/path/ref_stats.json") is None
 
 
@@ -471,7 +469,7 @@ class TestNoRenderingLeak:
 
     def test_no_html_in_symmetry_output(self):
         """Symmetry output dicts contain no HTML."""
-        from bremen.api.symmetry_signals import compute_symmetry_signals
+        from bremen.model_packages.bremen_v01.symmetry_signals import compute_symmetry_signals
 
         result = compute_symmetry_signals(ref_stats=_make_valid_ref_stats())
         result_str = json.dumps(result)
@@ -484,7 +482,7 @@ class TestNoRenderingLeak:
         import ast
         from pathlib import Path
 
-        src = Path(__file__).parents[1] / "src" / "bremen" / "api" / "symmetry_signals.py"
+        src = Path(__file__).parents[1] / "src" / "bremen" / "model_packages" / "bremen_v01" / "symmetry_signals.py"
         tree = ast.parse(src.read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

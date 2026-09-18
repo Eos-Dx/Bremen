@@ -21,7 +21,7 @@ try:
 except ImportError:
     TestClient = None  # type: ignore[assignment,misc]
 
-from bremen.api.fastapi_app import create_fastapi_app
+from bremen.api.http.app import create_app
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCKERFILE = ROOT / "Dockerfile"
@@ -35,7 +35,7 @@ DOCKERFILE = ROOT / "Dockerfile"
 @pytest.fixture()
 def client():
     """Create a TestClient for the FastAPI app."""
-    app = create_fastapi_app()
+    app = create_app()
     return TestClient(app)
 
 
@@ -95,7 +95,7 @@ class TestDemoModelsRoute:
 
     def test_demo_models_empty_catalog(self, client) -> None:
         """Empty catalog (no models configured) returns valid response."""
-        from bremen.api.model_registry import reset_for_tests
+        from bremen.platform.models.registry import reset_for_tests
         reset_for_tests()
         resp = client.get("/demo/api/models")
         body = resp.json()
@@ -104,7 +104,7 @@ class TestDemoModelsRoute:
 
     def test_demo_models_preserves_catalog_discovery_failure(self) -> None:
         """Startup S3 discovery failures surface as safe catalog status."""
-        from bremen.api.model_registry import reset_for_tests
+        from bremen.platform.models.registry import reset_for_tests
 
         reset_for_tests()
         with patch.dict(
@@ -112,7 +112,7 @@ class TestDemoModelsRoute:
             {"BREMEN_MODEL_CATALOG_URI": "invalid-uri"},
             clear=False,
         ):
-            app = create_fastapi_app()
+            app = create_app()
             with TestClient(app) as scoped_client:
                 resp = scoped_client.get("/demo/api/models")
 
@@ -249,7 +249,7 @@ class TestPhase1RoutesStillWork:
 class TestNoUploadOrAnalyzeRoutes:
     def test_no_upload_routes(self) -> None:
         """FastAPI app has no upload-like routes."""
-        app = create_fastapi_app()
+        app = create_app()
         routes = [r.path for r in app.routes if hasattr(r, "path")]
         upload_routes = [r for r in routes if "analyze" in r or "stage" in r]
         assert upload_routes == [], f"Unexpected upload-like routes: {upload_routes}"
@@ -283,7 +283,7 @@ class TestFastAPIModuleSafety:
     def test_no_boto3_import(self) -> None:
         """FastAPI app module does not import boto3."""
         import ast
-        source = ROOT / "src" / "bremen" / "api" / "fastapi_app.py"
+        source = ROOT / "src" / "bremen" / "api" / "http" / "app.py"
         source_text = source.read_text(encoding="utf-8")
         tree = ast.parse(source_text)
         for node in ast.walk(tree):
@@ -299,7 +299,7 @@ class TestFastAPIModuleSafety:
     def test_no_h5py_import(self) -> None:
         """FastAPI app module does not import h5py."""
         import ast
-        source = ROOT / "src" / "bremen" / "api" / "fastapi_app.py"
+        source = ROOT / "src" / "bremen" / "api" / "http" / "app.py"
         source_text = source.read_text(encoding="utf-8")
         tree = ast.parse(source_text)
         for node in ast.walk(tree):

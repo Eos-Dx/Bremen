@@ -19,7 +19,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from bremen.api.fastapi_app import create_fastapi_app
+from bremen.api.http.app import create_app
 from bremen.config import AuthConfig, read_auth_config
 
 
@@ -47,7 +47,7 @@ def _make_test_hash() -> str:
 def _reset_auth_singleton():
     """Reset auth config singleton after each test."""
     yield
-    from bremen.api.server import _reset_auth_config  # noqa: PLC0415
+    from bremen.api.http.auth_config import _reset_auth_config  # noqa: PLC0415
     _reset_auth_config()
 
 
@@ -62,8 +62,8 @@ def _inject_auth_config(
     refresh_ttl: int = 604800,
 ) -> AuthConfig:
     """Inject auth config into the server singleton for testing."""
-    from bremen.api import server as _server  # noqa: PLC0415
-    from bremen.api.server import _reset_auth_config  # noqa: PLC0415
+    from bremen.api.http import auth_config as _server  # noqa: PLC0415
+    from bremen.api.http.auth_config import _reset_auth_config  # noqa: PLC0415
 
     _reset_auth_config()
 
@@ -338,7 +338,7 @@ class TestTokenAccessesProtectedRoute:
     def test_token_grants_jobs_list_access(self):
         """Valid token allows access to GET /demo/api/jobs."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         cfg = _inject_auth_config()
         token = _make_token(cfg)
@@ -353,7 +353,7 @@ class TestTokenAccessesProtectedRoute:
     def test_token_grants_h5_containers_access(self):
         """Valid token allows access to GET /demo/api/h5/containers."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         cfg = _inject_auth_config()
         token = _make_token(cfg)
@@ -366,7 +366,7 @@ class TestTokenAccessesProtectedRoute:
     def test_token_grants_workspace_access(self):
         """Valid token allows access to GET /demo/workspace."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         cfg = _inject_auth_config()
         token = _make_token(cfg)
@@ -380,7 +380,7 @@ class TestTokenAccessesProtectedRoute:
     def test_token_grants_report_access(self):
         """Valid token allows access to GET /demo/report/{id}."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         cfg = _inject_auth_config()
         token = _make_token(cfg)
@@ -394,7 +394,7 @@ class TestTokenAccessesProtectedRoute:
     def test_token_grants_external_report_access(self):
         """Valid token allows access to GET /demo/api/reports/{id}/external."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         cfg = _inject_auth_config()
         token = _make_token(cfg)
@@ -407,7 +407,7 @@ class TestTokenAccessesProtectedRoute:
     def test_token_grants_workspace_job_access(self):
         """Valid token allows access to GET /demo/workspace/{id}."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         cfg = _inject_auth_config()
         token = _make_token(cfg)
@@ -430,7 +430,7 @@ class TestMissingInvalidToken401:
     def test_missing_token_401(self):
         """No Authorization header → 401 on protected route."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.get("/demo/api/jobs")
         assert resp.status_code == 401
@@ -438,7 +438,7 @@ class TestMissingInvalidToken401:
     def test_malformed_token_401(self):
         """Malformed Bearer token → 401."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.get(
             "/demo/api/jobs",
@@ -449,7 +449,7 @@ class TestMissingInvalidToken401:
     def test_wrong_secret_token_401(self):
         """Token signed with wrong secret → 401."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         # Create token with different secret
         from bremen.auth import create_access_token  # noqa: PLC0415
@@ -470,7 +470,7 @@ class TestMissingInvalidToken401:
     def test_401_shape_is_safe(self):
         """401 response contains only safe fields."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.get("/demo/api/jobs")
         body = resp.json()
@@ -482,7 +482,7 @@ class TestMissingInvalidToken401:
     def test_401_no_secrets_in_response(self):
         """401 response does not contain hash, secret, or password."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.get("/demo/api/jobs")
         text = resp.text
@@ -494,7 +494,7 @@ class TestMissingInvalidToken401:
     def test_401_no_traceback(self):
         """401 response contains no traceback."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.get("/demo/api/jobs")
         assert "Traceback" not in resp.text
@@ -524,7 +524,7 @@ class TestPublicPagesStillPublic:
     def test_public_routes_no_auth_required(self):
         """All public routes accessible without token when auth enabled."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         for path in self.PUBLIC_ROUTES:
             resp = client.get(path)
@@ -535,7 +535,7 @@ class TestPublicPagesStillPublic:
     def test_auth_token_endpoint_accessible(self):
         """POST /demo/api/auth/token is accessible without existing token."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.post(
             "/demo/api/auth/token",
@@ -548,7 +548,7 @@ class TestPublicPagesStillPublic:
     def test_auth_refresh_endpoint_accessible(self):
         """POST /demo/api/auth/refresh is accessible without existing token."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         # First get a valid refresh token
         resp = client.post(
@@ -569,7 +569,7 @@ class TestPublicPagesStillPublic:
     def test_auth_token_disabled_returns_503(self):
         """POST /demo/api/auth/token returns 503 when auth disabled."""
         _inject_auth_config(enabled=False)
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.post(
             "/demo/api/auth/token",
@@ -636,7 +636,7 @@ class TestEnforcementScopePreserved:
     def test_protected_routes_require_token(self):
         """Protected fetch-only API routes require valid token when auth enabled."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         protected = [
             "/demo/api/jobs",
@@ -651,7 +651,7 @@ class TestEnforcementScopePreserved:
     def test_browser_nav_routes_redirect_to_login(self):
         """Browser-navigation HTML routes redirect to login instead of raw JSON 401."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False, follow_redirects=False)
         browser_routes = [
             "/demo/workspace",
@@ -669,7 +669,7 @@ class TestEnforcementScopePreserved:
     def test_report_bootstrap_route_returns_shell(self):
         """Bare /demo/report/{job_id} returns a safe bootstrap shell (200 HTML)."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.get("/demo/report/test")
         assert resp.status_code == 200
@@ -680,7 +680,7 @@ class TestEnforcementScopePreserved:
     def test_public_routes_no_token_needed(self):
         """Public routes do not require token when auth enabled."""
         _inject_auth_config()
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app, raise_server_exceptions=False)
         public = ["/demo", "/demo/login", "/health", "/model/version"]
         for path in public:

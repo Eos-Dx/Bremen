@@ -16,6 +16,8 @@ target and the code under test identical regardless of ordering.
 """
 from __future__ import annotations
 
+from tests.runtime_inputs import execute_case
+
 import math
 from copy import deepcopy
 from types import SimpleNamespace
@@ -23,14 +25,13 @@ from typing import Any
 
 import pytest
 
-from bremen.api.model_registry import (
+from bremen.platform.models.registry import (
     ModelRegistry, RegistryModelEntry, initialize_registry, reset_for_tests,
 )
-from bremen.api.workflow_bremen import BremenProvider
-from bremen.api.workflow_provider import WorkflowProvider
-from bremen.api.workflow_orchestrator import get_provider_for_model
-from bremen.bremen_runtime import BremenRuntime
-from bremen.model_runtime import (
+from bremen.platform.runtime.registry import bremen_descriptor
+from bremen.platform.runtime.registry import get_descriptor_for_model
+from bremen.model_packages.bremen_v01.runtime import BremenRuntime
+from bremen.contracts.model_runtime import (
     CONTRACT_VERSION,
     ModelConfigurationRequiredError,
     ModelInferenceFailedError,
@@ -57,7 +58,7 @@ from tests.bremen_3x3_helpers import GOLD, MODEL, make_case
 
 def _aramina():
     """Return the current Aramina runtime module symbols."""
-    import bremen.api.workflow_aramina as wa
+    import bremen.model_packages.aramina_v0213.runtime as wa
 
     return wa
 
@@ -216,7 +217,7 @@ def test_aramina_validation_requires_explicit_target_side():
                     patient_id="P1", target_side=bad_side,
                 ),
             )
-        assert exc.value.safe_reason in wa._SAFE_FAILURES
+        assert exc.value.safe_reason in __import__("bremen.model_packages.aramina_v0213.errors", fromlist=["_SAFE_FAILURES"])._SAFE_FAILURES
     with pytest.raises(ModelInputInvalidError):
         runtime.validate_model_input(
             ModelInput(workflow_id="aramina", canonical=None, patient_id="P1", target_side="left"),
@@ -336,16 +337,16 @@ def test_aramina_predict_preserves_workflow_error_taxonomy(monkeypatch):
 
 
 def test_bremen_provider_returns_contract_runtime():
-    provider = BremenProvider(model_package=MODEL)
-    runtime = provider.model_runtime()
+    provider = bremen_descriptor(model_package=MODEL)
+    runtime = provider.runtime
     assert isinstance(runtime, ModelRuntime)
     assert provider.runtime is runtime
 
 
 def test_bremen_provider_delegates_predict_to_runtime():
     fake = _FakeModelRuntime()
-    provider = BremenProvider(runtime=fake)
-    result = provider.execute(make_case())
+    provider = bremen_descriptor(runtime=fake)
+    result = execute_case(provider, make_case())
     assert result.status == "completed"
     assert len(fake.predict_calls) == 1
     assert len(fake.validate_calls) >= 1
@@ -355,14 +356,14 @@ def test_bremen_provider_delegates_predict_to_runtime():
     assert result.payload["left_measurement_count"] == 3
     assert result.payload["right_measurement_count"] == 3
     # Adding a fake runtime required NO change to provider scientific logic.
-    assert isinstance(provider, WorkflowProvider)
+    assert isinstance(provider.runtime, ModelRuntime)
 
 
 def test_bremen_provider_preserves_incompatible_envelope_from_runtime_error():
     fake = _FakeModelRuntime()
     fake.raise_on_predict = ModelInputInvalidError("requires_exactly_3_left_3_right")
-    provider = BremenProvider(runtime=fake)
-    result = provider.execute(make_case())
+    provider = bremen_descriptor(runtime=fake)
+    result = execute_case(provider, make_case())
     assert result.status == "failed"
     assert result.error == "Incompatible: requires_exactly_3_left_3_right"
 
@@ -370,34 +371,33 @@ def test_bremen_provider_preserves_incompatible_envelope_from_runtime_error():
 def test_bremen_provider_preserves_preprocessing_envelope_from_runtime_error():
     fake = _FakeModelRuntime()
     fake.raise_on_predict = ModelPreprocessingFailedError("invalid_scientific_profiles")
-    provider = BremenProvider(runtime=fake)
-    result = provider.execute(make_case())
+    provider = bremen_descriptor(runtime=fake)
+    result = execute_case(provider, make_case())
     assert result.error == "Feature construction failed: invalid_scientific_profiles"
 
 
 def test_bremen_provider_preserves_configuration_envelope_from_runtime_error():
     fake = _FakeModelRuntime()
     fake.raise_on_predict = ModelConfigurationRequiredError("workflow_configuration_required")
-    provider = BremenProvider(runtime=fake)
-    result = provider.execute(make_case())
+    provider = bremen_descriptor(runtime=fake)
+    result = execute_case(provider, make_case())
     assert result.error == "Workflow configuration required for multi-position input"
 
 
 def test_bremen_provider_preserves_execution_envelope_from_runtime_error():
     fake = _FakeModelRuntime()
     fake.raise_on_predict = ModelInferenceFailedError("model_execution_failed")
-    provider = BremenProvider(runtime=fake)
-    result = provider.execute(make_case())
+    provider = bremen_descriptor(runtime=fake)
+    result = execute_case(provider, make_case())
     assert result.error == "Model execution failed"
 
 
 def test_aramina_provider_delegates_predict_to_runtime(monkeypatch):
     monkeypatch.setattr(
-        "bremen.api.workflow_orchestrator._validate_aramina_source",
+        "bremen.platform.runtime.executor.validate_source_binding",
         lambda *args: None,
     )
     import bremen.model_packages.aramina_v0213.inference as inference
-    wa = _aramina()
     monkeypatch.setattr(
         inference, "_run_local_artifact",
         lambda entry, canonical, request_json, h5_path: (
@@ -407,9 +407,9 @@ def test_aramina_provider_delegates_predict_to_runtime(monkeypatch):
             ModelMetrics(),
         ),
     )
-    provider = wa.AraminaWorkflowProvider(entry=_aramina_entry())
-    assert isinstance(provider.model_runtime(), ModelRuntime)
-    result = provider.execute(
+    provider = __import__("bremen.platform.runtime.registry", fromlist=["aramina_descriptor"]).aramina_descriptor(entry=_aramina_entry())
+    assert isinstance(provider.runtime, ModelRuntime)
+    result = execute_case(provider,
         SimpleNamespace(measurements=()),
         aramina_request=SimpleNamespace(
             patient_id="P1", target_side="left", analysis_author="", prediction_comment="",
@@ -550,7 +550,7 @@ def test_display_only_aramina_has_no_runtime_derivation():
 
 
 def test_model_runtime_imports_no_platform_or_model_specific_code():
-    import bremen.model_runtime as contract_module
+    import bremen.contracts.model_runtime as contract_module
 
     with open(contract_module.__file__, encoding="utf-8") as handle:
         source = handle.read()
@@ -567,7 +567,7 @@ def test_registry_routing_selects_provider_owning_runtime():
         initialize_registry(ModelRegistry(entries=(_bremen_available_entry(),),
                                           catalog_status="available", available_count=1,
                                           candidate_count=1))
-        provider = get_provider_for_model("bremen-current-test")
-        assert isinstance(provider.model_runtime(), ModelRuntime)
+        provider = get_descriptor_for_model("bremen-current-test")
+        assert isinstance(provider.runtime, ModelRuntime)
     finally:
         reset_for_tests()

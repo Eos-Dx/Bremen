@@ -19,14 +19,14 @@ import h5py
 import numpy as np
 import pytest
 
-from bremen.api.xrd_normalization import (
+from bremen.contracts.canonical_input import (
     CanonicalXRDCase,
     CanonicalXRDMeasurement,
     NormalizationError,
     validate_canonical_measurement,
     validate_canonical_case,
 )
-from bremen.api.h5_layouts import (
+from bremen.platform.sources.legacy_layouts import (
     CanonicalH5LayoutAdapter,
     SessionLayoutH5Adapter,
     detect_layout,

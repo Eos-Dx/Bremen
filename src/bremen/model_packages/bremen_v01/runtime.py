@@ -24,7 +24,7 @@ Boundary notes:
   platform decision-vocabulary authority shared with events/reports) and
   ``canonical_input.validate_canonical_measurement`` (the PR0152 lazy import
   lifted out of the science module in PR0154 and neutralized to
-  ``bremen.canonical_input`` in PR0156 so canonical input validation is a
+  ``bremen.contracts.canonical_input`` in PR0156 so canonical input validation is a
   generic cross-model contract, not an ``api`` import).  The numerical
   threshold comparison stays inside the package predictor.
 - The fitted artifact is never modified or fit.  Research decision support
@@ -33,16 +33,16 @@ Boundary notes:
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
-from bremen.api.decision_contract import BremenDecision, build_decision
-from bremen.canonical_input import validate_canonical_measurement
-from bremen.model_packages.bremen_v01 import manifest
-from bremen.model_packages.bremen_v01.features import (
+from bremen.model_packages.bremen_v01.decision import BremenDecision, build_decision
+from bremen.contracts.canonical_input import validate_canonical_measurement
+from . import manifest
+from .features import (
     FEATURE_COLS, BremenFeatureError, build_bremen_features, validate_bremen_shape,
 )
 from bremen.model_packages.bremen_v01.predictor import (
     adapt_model_package, predict_proba_portable, validate_portable_logreg_model,
 )
-from bremen.model_runtime import (
+from bremen.contracts.model_runtime import (
     CONTRACT_VERSION,
     ModelConfigurationRequiredError,
     ModelInferenceFailedError,
@@ -111,7 +111,7 @@ class BremenRuntimeError(ModelRuntimeError):
 class BremenRuntime:
     """Authoritative Bremen v0.1 runtime implementing Model Runtime Contract v1.
 
-    Reference implementation of ``bremen.model_runtime.ModelRuntime``:
+    Reference implementation of ``bremen.contracts.model_runtime.ModelRuntime``:
     ``model_requirements``, ``validate_model_input`` and ``predict_model``
     expose the three semantic responsibilities without a wrapper layer over
     the frozen PR0152 scientific sequence.  The package release manifest is

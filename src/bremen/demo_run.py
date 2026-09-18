@@ -24,7 +24,6 @@ import json
 import socket
 import threading
 import time
-from http.server import HTTPServer
 from typing import Any
 
 # ---------------------------------------------------------------------------
@@ -50,8 +49,8 @@ def _start_local_server(
     port: int | None = None,
     *,
     load_model: bool = True,
-) -> tuple[HTTPServer, int, threading.Thread]:
-    """Start a Bremen HTTP server on an ephemeral port in a daemon thread.
+) -> tuple[Any, int, threading.Thread]:
+    """Start the FastAPI server on an ephemeral port in a daemon thread.
 
     Parameters
     ----------
@@ -68,16 +67,14 @@ def _start_local_server(
     if port is None:
         port = _find_free_port()
 
-    from .api.jobs import InMemoryJobStore  # noqa: PLC0415
-    from .api.server import _make_handler  # noqa: PLC0415
-
-    job_store = InMemoryJobStore()
-    handler = _make_handler(
-        job_store, version=DEMO_RUN_VERSION, load_model=load_model
-    )
-    server = HTTPServer((host, port), handler)
-
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    import uvicorn
+    from .api.http.app import create_app
+    if load_model:
+        from .api.http.dev_support import _load_synthetic_model
+        _load_synthetic_model()
+    config = uvicorn.Config(create_app(version=DEMO_RUN_VERSION), host=host, port=port, log_level="warning")
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
 
     return server, port, thread

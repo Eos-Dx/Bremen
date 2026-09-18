@@ -9,11 +9,6 @@ from __future__ import annotations
 
 import json
 import uuid
-import os
-import tempfile
-import threading
-from pathlib import Path
-from typing import Any
 from datetime import datetime, timezone
 
 import pytest
@@ -29,7 +24,8 @@ class TestUploadRegistry:
 
     def test_register_upload_returns_uuid(self):
         """register_staged_upload returns a valid UUID string."""
-        from bremen.api.job_api_handler import register_staged_upload, reset_for_tests
+        from bremen.platform.sources.service import register_staged_upload
+        from bremen.platform.jobs.service import reset_for_tests
 
         reset_for_tests()
         upload_id = register_staged_upload(
@@ -43,9 +39,9 @@ class TestUploadRegistry:
 
     def test_resolve_valid_upload(self):
         """resolve_upload returns h5_path for a valid upload_id."""
-        from bremen.api.job_api_handler import (
-            register_staged_upload, resolve_upload, reset_for_tests,
-        )
+        from bremen.platform.sources.service import register_staged_upload
+        from bremen.platform.sources.service import resolve_upload
+        from bremen.platform.jobs.service import reset_for_tests
 
         reset_for_tests()
         upload_id = register_staged_upload(
@@ -59,9 +55,9 @@ class TestUploadRegistry:
 
     def test_upload_consumed_exactly_once(self):
         """Upload can only be consumed once."""
-        from bremen.api.job_api_handler import (
-            register_staged_upload, resolve_upload, reset_for_tests,
-        )
+        from bremen.platform.sources.service import register_staged_upload
+        from bremen.platform.sources.service import resolve_upload
+        from bremen.platform.jobs.service import reset_for_tests
 
         reset_for_tests()
         upload_id = register_staged_upload(
@@ -77,7 +73,8 @@ class TestUploadRegistry:
 
     def test_unknown_upload_returns_none(self):
         """Unknown upload_id returns None."""
-        from bremen.api.job_api_handler import resolve_upload, reset_for_tests
+        from bremen.platform.sources.service import resolve_upload
+        from bremen.platform.jobs.service import reset_for_tests
 
         reset_for_tests()
         result = resolve_upload("nonexistent-upload-id")
@@ -95,9 +92,9 @@ class TestSourceResolution:
 
     def test_resolve_upload_source(self, monkeypatch):
         """Upload source resolves to h5_path."""
-        from bremen.api.job_api_handler import (
-            register_staged_upload, resolve_source, reset_for_tests,
-        )
+        from bremen.platform.sources.service import register_staged_upload
+        from bremen.platform.sources.service import resolve_source
+        from bremen.platform.jobs.service import reset_for_tests
 
         reset_for_tests()
         upload_id = register_staged_upload(
@@ -111,7 +108,8 @@ class TestSourceResolution:
 
     def test_resolve_with_both_source_and_upload_raises(self):
         """Providing both source_id and upload_id raises ValueError."""
-        from bremen.api.job_api_handler import resolve_source, reset_for_tests
+        from bremen.platform.sources.service import resolve_source
+        from bremen.platform.jobs.service import reset_for_tests
 
         reset_for_tests()
         with pytest.raises(ValueError, match="Only one"):
@@ -120,7 +118,8 @@ class TestSourceResolution:
 
     def test_resolve_neither_raises(self):
         """Providing neither source_id nor upload_id raises ValueError."""
-        from bremen.api.job_api_handler import resolve_source, reset_for_tests
+        from bremen.platform.sources.service import resolve_source
+        from bremen.platform.jobs.service import reset_for_tests
 
         reset_for_tests()
         with pytest.raises(ValueError, match="required"):
@@ -129,7 +128,8 @@ class TestSourceResolution:
 
     def test_resolve_unknown_upload_raises(self):
         """Unknown upload_id raises ValueError."""
-        from bremen.api.job_api_handler import resolve_source, reset_for_tests
+        from bremen.platform.sources.service import resolve_source
+        from bremen.platform.jobs.service import reset_for_tests
 
         reset_for_tests()
         with pytest.raises(ValueError, match="no longer available"):
@@ -147,14 +147,13 @@ class TestModelBinding:
 
     def test_model_id_in_job_input_summary(self, monkeypatch):
         """model_id appears in job record input_summary."""
-        from bremen.api.job_api_handler import (
-            create_analysis_job, reset_for_tests,
-        )
+        from bremen.platform.jobs.service import create_analysis_job
+        from bremen.platform.jobs.service import reset_for_tests
 
         reset_for_tests()
 
         # Mock ModelState to be ready and provide a model
-        from bremen.api import model_state as ms
+        from bremen.platform.models import state as ms
         mock_package = {
             "portable_logreg": {
                 "coef": [0.1] * 15, "imputer_statistics": [0.0] * 15,
@@ -186,16 +185,15 @@ class TestModelBinding:
             container_id="test-container",
             h5_path="/tmp/test.h5",
             model_id="bremen-current",
-        )
+        workflow_id="bremen")
         assert job.input_summary.get("model_id") == "bremen-current"
         reset_for_tests()
 
     def test_model_id_in_workflow_run(self, monkeypatch, tmp_path):
         """model_id appears in WorkflowRun.model_identity."""
-        from bremen.api.job_api_handler import (
-            create_analysis_job, reset_for_tests,
-        )
-        from bremen.api import model_state as ms
+        from bremen.platform.jobs.service import create_analysis_job
+        from bremen.platform.jobs.service import reset_for_tests
+        from bremen.platform.models import state as ms
 
         reset_for_tests()
 
@@ -249,7 +247,7 @@ class TestModelBinding:
             container_id="test",
             h5_path=str(h5_path),
             model_id="bremen-current",
-        )
+        workflow_id="bremen")
 
         # Check model_identity in workflow runs
         if "bremen" in job.workflow_runs:
@@ -261,10 +259,9 @@ class TestModelBinding:
 
     def test_no_model_id_with_multiple_models_fails_closed(self, monkeypatch):
         """When no model_id and catalog unavailable, job fails closed."""
-        from bremen.api.job_api_handler import (
-            create_analysis_job, reset_for_tests,
-        )
-        from bremen.api import model_state as ms
+        from bremen.platform.jobs.service import create_analysis_job
+        from bremen.platform.jobs.service import reset_for_tests
+        from bremen.platform.models import state as ms
 
         reset_for_tests()
 
@@ -291,7 +288,7 @@ class TestModelBinding:
             container_id="test",
             h5_path="/tmp/test.h5",
             model_id=None,
-        )
+        workflow_id="bremen")
         # Job should have failed
         assert job.overall_status == "failed"
         reset_for_tests()
@@ -307,8 +304,8 @@ class TestPrivacy:
 
     def test_model_catalog_no_h5_paths(self, monkeypatch):
         """Model catalog does not expose filesystem paths."""
-        from bremen.api.model_catalog import build_model_catalog
-        from bremen.api import model_state as ms
+        from bremen.platform.models.catalog import build_model_catalog
+        from bremen.platform.models import state as ms
 
         mock_package = {
             "portable_logreg": {
@@ -343,9 +340,8 @@ class TestPrivacy:
 
     def test_upload_response_no_local_path(self):
         """Upload response must not contain local filesystem paths."""
-        from bremen.api.job_api_handler import (
-            register_staged_upload, reset_for_tests,
-        )
+        from bremen.platform.sources.service import register_staged_upload
+        from bremen.platform.jobs.service import reset_for_tests
 
         reset_for_tests()
         upload_id = register_staged_upload(
@@ -369,12 +365,12 @@ class TestJobListSummary:
 
     def test_list_includes_decision_info(self, monkeypatch):
         """list_analysis_jobs includes decision information."""
-        from bremen.api.job_api_handler import (
-            create_analysis_job, list_analysis_jobs, reset_for_tests,
-        )
+        from bremen.platform.jobs.service import create_analysis_job
+        from bremen.platform.jobs.service import list_analysis_jobs
+        from bremen.platform.jobs.service import reset_for_tests
 
         reset_for_tests()
-        from bremen.api import model_state as ms
+        from bremen.platform.models import state as ms
 
         mock_package = {
             "portable_logreg": {
@@ -406,7 +402,7 @@ class TestJobListSummary:
             container_id="test",
             h5_path="/tmp/test.h5",
             model_id="bremen-current",
-        )
+        workflow_id="bremen")
         summaries = list_analysis_jobs()
         # At minimum the job list is not empty
         assert len(summaries) > 0
@@ -416,7 +412,7 @@ class TestJobListSummary:
 
     def test_job_summary_has_model_id(self):
         """Job summary includes model_id from input_summary."""
-        from bremen.api.job_api_handler import list_analysis_jobs
+        from bremen.platform.jobs.service import list_analysis_jobs
 
         summaries = list_analysis_jobs()
         # No crash — even if empty
@@ -424,7 +420,7 @@ class TestJobListSummary:
 
     def test_job_summary_created_at(self):
         """Job summary includes created_at."""
-        from bremen.api.job_api_handler import list_analysis_jobs
+        from bremen.platform.jobs.service import list_analysis_jobs
 
         summaries = list_analysis_jobs()
         for s in summaries:
@@ -442,10 +438,9 @@ class TestBackwardCompatibility:
 
     def test_legacy_h5_path_accepted(self, monkeypatch):
         """Legacy h5_path parameter is still accepted."""
-        from bremen.api.job_api_handler import (
-            create_analysis_job, reset_for_tests,
-        )
-        from bremen.api import model_state as ms
+        from bremen.platform.jobs.service import create_analysis_job
+        from bremen.platform.jobs.service import reset_for_tests
+        from bremen.platform.models import state as ms
 
         reset_for_tests()
 
@@ -480,7 +475,7 @@ class TestBackwardCompatibility:
             container_id="test",
             h5_path="/tmp/test.h5",
             model_id=None,
-        )
+        workflow_id="bremen")
         # Job should still be created (will fail at staging, but not at validation)
         assert job.job_id is not None
         assert job.overall_status is not None
@@ -490,8 +485,8 @@ class TestOpaqueSourceRegistry:
 
     def test_register_returns_opaque_id(self):
         """register_source returns an opaque UUID, not the S3 key."""
-        from bremen.api.source_registry import (
-            register_source, resolve_source_id, reset_for_tests,
+        from bremen.platform.sources.registry import (
+            register_source, reset_for_tests,
         )
 
         reset_for_tests()
@@ -513,7 +508,7 @@ class TestOpaqueSourceRegistry:
 
     def test_catalog_json_no_raw_keys(self, monkeypatch):
         """Catalog JSON returned to browser contains only source_id, never raw keys."""
-        from bremen.api.source_registry import register_source, reset_for_tests
+        from bremen.platform.sources.registry import register_source, reset_for_tests
 
         reset_for_tests()
         source_id = register_source(
@@ -542,7 +537,7 @@ class TestOpaqueSourceRegistry:
 
     def test_known_source_id_resolves_correctly(self):
         """Known source_id resolves to correct object_key, filename, size."""
-        from bremen.api.source_registry import (
+        from bremen.platform.sources.registry import (
             register_source, resolve_source_id, reset_for_tests,
         )
 
@@ -566,7 +561,7 @@ class TestOpaqueSourceRegistry:
 
     def test_unknown_source_id_raises(self):
         """Unknown source_id is rejected with typed error."""
-        from bremen.api.source_registry import resolve_source_id, reset_for_tests
+        from bremen.platform.sources.registry import resolve_source_id, reset_for_tests
 
         reset_for_tests()
         with pytest.raises(ValueError, match="no longer available"):
@@ -579,7 +574,7 @@ class TestOpaqueSourceRegistry:
 
     def test_expired_source_id_raises(self):
         """Expired source_id is rejected."""
-        from bremen.api.source_registry import (
+        from bremen.platform.sources.registry import (
             register_source, resolve_source_id, _lock, _registry as reg,
             StagedSource, reset_for_tests,
         )
@@ -619,7 +614,7 @@ class TestOpaqueSourceRegistry:
 
     def test_tampered_bucket_raises(self):
         """Mismatched bucket raises ValueError."""
-        from bremen.api.source_registry import (
+        from bremen.platform.sources.registry import (
             register_source, resolve_source_id, reset_for_tests,
         )
 
@@ -641,7 +636,7 @@ class TestOpaqueSourceRegistry:
 
     def test_tampered_prefix_raises(self):
         """Mismatched prefix raises ValueError."""
-        from bremen.api.source_registry import (
+        from bremen.platform.sources.registry import (
             register_source, resolve_source_id, reset_for_tests,
         )
 
@@ -663,7 +658,7 @@ class TestOpaqueSourceRegistry:
 
     def test_consumed_source_id_raises(self):
         """Already-consumed source_id cannot be reused."""
-        from bremen.api.source_registry import (
+        from bremen.platform.sources.registry import (
             register_source, resolve_source_id, reset_for_tests,
         )
 
@@ -693,7 +688,7 @@ class TestOpaqueSourceRegistry:
 
     def test_out_of_prefix_object_raises(self):
         """Object registered under one prefix cannot be resolved under another."""
-        from bremen.api.source_registry import (
+        from bremen.platform.sources.registry import (
             register_source, resolve_source_id, reset_for_tests,
         )
 
@@ -724,10 +719,11 @@ class TestUploadCleanupRaceSafety:
 
     def test_resolve_upload_removes_entry(self):
         """resolve_upload removes entry from registry (ownership transfer)."""
-        from bremen.api.job_api_handler import (
-            register_staged_upload, resolve_upload, reset_for_tests,
-            _staged_uploads, _uploads_lock,
-        )
+        from bremen.platform.sources.service import register_staged_upload
+        from bremen.platform.sources.service import resolve_upload
+        from bremen.platform.jobs.service import reset_for_tests
+        from bremen.platform.jobs.service import _staged_uploads
+        from bremen.platform.jobs.service import _uploads_lock
 
         reset_for_tests()
         upload_id = register_staged_upload(
@@ -748,10 +744,10 @@ class TestUploadCleanupRaceSafety:
 
     def test_cleanup_skips_already_consumed(self):
         """Cleanup does not attempt to delete files already transferred."""
-        from bremen.api.job_api_handler import (
-            register_staged_upload, resolve_upload, _cleanup_expired_uploads,
-            reset_for_tests,
-        )
+        from bremen.platform.sources.service import register_staged_upload
+        from bremen.platform.sources.service import resolve_upload
+        from bremen.platform.sources.service import _cleanup_expired_uploads
+        from bremen.platform.jobs.service import reset_for_tests
 
         reset_for_tests()
         # Register and consume an upload (ownership transferred)
@@ -776,7 +772,7 @@ class TestSubmissionRevalidation:
 
     def test_extension_validation_in_registry(self):
         """Non-H5 extension is rejected by source_registry.resolve_source_id."""
-        from bremen.api.source_registry import (
+        from bremen.platform.sources.registry import (
             register_source, resolve_source_id, reset_for_tests,
         )
 
@@ -960,12 +956,12 @@ class TestControlRoomLaunchWorkflowCompat:
 
     def test_containers_have_workflow_id_on_server(self):
         """Container response includes workflow_id field server-side."""
-        with open("src/bremen/api/server.py") as f:
+        with open("src/bremen/platform/sources/demo_storage.py") as f:
             s = f.read()
         assert "workflow_id" in s
 
     def test_workflow_id_in_response_dict(self):
         """The container response dict builder includes workflow_id."""
-        with open("src/bremen/api/server.py") as f:
+        with open("src/bremen/platform/sources/demo_storage.py") as f:
             s = f.read()
         assert '"workflow_id"' in s

@@ -7,9 +7,7 @@ with various ModelState configurations.  Uses synthetic non-private fixtures.
 from __future__ import annotations
 
 import json
-import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -44,9 +42,9 @@ def mock_model_state_ready(monkeypatch, minimal_model_package):
     """Mock ModelState to appear as fully loaded and ready.
     Also initializes the registry for catalog reads.
     """
-    from bremen.api import model_state as ms
-    from bremen.api.model_registry import initialize_registry, ModelRegistry, RegistryModelEntry
-    from bremen.api.decision_contract import DECISION_POLICY_ID, DECISION_POLICY_VERSION
+    from bremen.platform.models import state as ms
+    from bremen.platform.models.registry import initialize_registry, ModelRegistry, RegistryModelEntry
+    from bremen.model_packages.bremen_v01.decision import DECISION_POLICY_ID, DECISION_POLICY_VERSION
 
     class FakeState:
         _model_version = "smoke-v0.1"
@@ -109,8 +107,8 @@ def mock_model_state_not_configured(monkeypatch):
     """Mock ModelState to appear as not configured.
     Also resets the registry.
     """
-    from bremen.api import model_state as ms
-    from bremen.api.model_registry import reset_for_tests as reset_registry
+    from bremen.platform.models import state as ms
+    from bremen.platform.models.registry import reset_for_tests as reset_registry
 
     reset_registry()
 
@@ -148,9 +146,9 @@ def mock_model_state_unavailable(monkeypatch, minimal_model_package):
     """Mock ModelState where model exists but is not ready.
     Also initializes the registry with an unavailable entry.
     """
-    from bremen.api import model_state as ms
-    from bremen.api.model_registry import initialize_registry, ModelRegistry, RegistryModelEntry
-    from bremen.api.decision_contract import DECISION_POLICY_ID, DECISION_POLICY_VERSION
+    from bremen.platform.models import state as ms
+    from bremen.platform.models.registry import initialize_registry, ModelRegistry, RegistryModelEntry
+    from bremen.model_packages.bremen_v01.decision import DECISION_POLICY_ID, DECISION_POLICY_VERSION
 
     class FakeState:
         _model_version = "smoke-v0.1"
@@ -218,7 +216,7 @@ class TestModelEntry:
 
     def test_model_entry_to_dict(self):
         """to_dict() returns safe fields only."""
-        from bremen.api.model_catalog import ModelEntry
+        from bremen.platform.models.catalog import ModelEntry
 
         entry = ModelEntry(
             model_id="test-model",
@@ -249,7 +247,7 @@ class TestModelEntry:
 
     def test_model_entry_frozen(self):
         """ModelEntry is frozen (immutable)."""
-        from bremen.api.model_catalog import ModelEntry
+        from bremen.platform.models.catalog import ModelEntry
 
         entry = ModelEntry(
             model_id="test", display_name="Test", workflow_id="bremen",
@@ -276,7 +274,7 @@ class TestBuildModelCatalog:
         self, mock_model_state_ready,
     ):
         """Catalog returns one entry when ModelState has a model."""
-        from bremen.api.model_catalog import build_model_catalog
+        from bremen.platform.models.catalog import build_model_catalog
 
         catalog = build_model_catalog()
         assert catalog["status"] == "available"
@@ -289,7 +287,7 @@ class TestBuildModelCatalog:
 
     def test_catalog_timestamp_is_iso8601(self, mock_model_state_ready):
         """catalog_timestamp is a valid ISO-8601 date string."""
-        from bremen.api.model_catalog import build_model_catalog
+        from bremen.platform.models.catalog import build_model_catalog
 
         catalog = build_model_catalog()
         ts = catalog["catalog_timestamp"]
@@ -301,7 +299,7 @@ class TestBuildModelCatalog:
         self, mock_model_state_not_configured,
     ):
         """Catalog returns empty when no model configured."""
-        from bremen.api.model_catalog import build_model_catalog
+        from bremen.platform.models.catalog import build_model_catalog
 
         catalog = build_model_catalog()
         assert catalog["status"] == "not_configured"
@@ -312,7 +310,7 @@ class TestBuildModelCatalog:
         self, mock_model_state_unavailable,
     ):
         """Model shows as unavailable when model exists but is not ready."""
-        from bremen.api.model_catalog import build_model_catalog
+        from bremen.platform.models.catalog import build_model_catalog
 
         catalog = build_model_catalog()
         assert len(catalog["models"]) == 1
@@ -323,7 +321,7 @@ class TestBuildModelCatalog:
 
     def test_catalog_no_artifact_uris(self, mock_model_state_ready):
         """Catalog entries do not expose artifact URIs or paths."""
-        from bremen.api.model_catalog import build_model_catalog
+        from bremen.platform.models.catalog import build_model_catalog
 
         catalog = build_model_catalog()
         body_str = json.dumps(catalog)
@@ -336,7 +334,7 @@ class TestBuildModelCatalog:
 
     def test_catalog_no_model_internals(self, mock_model_state_ready):
         """Catalog does not expose model internal parameters."""
-        from bremen.api.model_catalog import build_model_catalog
+        from bremen.platform.models.catalog import build_model_catalog
 
         catalog = build_model_catalog()
         body_str = json.dumps(catalog)
@@ -359,52 +357,52 @@ class TestResolveModel:
         self, mock_model_state_ready,
     ):
         """When no model_id given and exactly one available, return default."""
-        from bremen.api.model_catalog import resolve_model
+        from bremen.platform.models.catalog import resolve_model
 
-        resolved = resolve_model(None)
+        resolved = resolve_model(None, workflow_id="bremen")
         assert resolved == "bremen-current"
 
     def test_resolve_explicit_valid_model(self, mock_model_state_ready):
         """Explicit valid model_id returns the model."""
-        from bremen.api.model_catalog import resolve_model
+        from bremen.platform.models.catalog import resolve_model
 
-        resolved = resolve_model("bremen-current")
+        resolved = resolve_model("bremen-current", workflow_id="bremen")
         assert resolved == "bremen-current"
 
     def test_resolve_unknown_model_raises(self, mock_model_state_ready):
         """Unknown model_id raises ModelNotFoundError."""
-        from bremen.api.model_catalog import (
+        from bremen.platform.models.catalog import (
             resolve_model, ModelNotFoundError,
         )
 
         with pytest.raises(ModelNotFoundError):
-            resolve_model("nonexistent-model")
+            resolve_model("nonexistent-model", workflow_id="bremen")
 
     def test_resolve_unavailable_model_raises(
         self, mock_model_state_unavailable,
     ):
         """Unavailable model with require_availability=True raises."""
-        from bremen.api.model_catalog import (
+        from bremen.platform.models.catalog import (
             resolve_model, ModelUnavailableError,
         )
 
         with pytest.raises(ModelUnavailableError):
-            resolve_model("bremen-current", require_availability=True)
+            resolve_model("bremen-current", require_availability=True, workflow_id="bremen")
 
     def test_resolve_default_none_configured(
         self, mock_model_state_not_configured,
     ):
         """No model configured — default resolution raises."""
-        from bremen.api.model_catalog import (
+        from bremen.platform.models.catalog import (
             resolve_model, AmbiguousModelSelectionError,
         )
 
         with pytest.raises(AmbiguousModelSelectionError):
-            resolve_model(None)
+            resolve_model(None, workflow_id="bremen")
 
     def test_resolve_wrong_workflow_raises(self, mock_model_state_ready):
         """Model with wrong workflow_id raises ModelIncompatibleError."""
-        from bremen.api.model_catalog import (
+        from bremen.platform.models.catalog import (
             resolve_model, ModelIncompatibleError,
         )
 

@@ -1,0 +1,53 @@
+{
+  "bremen": {
+    "report_id": "baseline",
+    "created_at": "2026-09-18T00:00:00+00:00",
+    "analysis_author": "Synthetic Author",
+    "prediction_comment": "synthetic note",
+    "patient_id": "PAT-SYNTH-1",
+    "patient_age": null,
+    "referring_physician": "",
+    "scan_date_time": "",
+    "operator_id": "",
+    "hardware_version": "",
+    "eoscan_version": null,
+    "model_name": "bremen_paper_reference_symmetry_logreg",
+    "model_version": "0.2.0-paper-reference",
+    "model_method": "0.2.0-paper-reference",
+    "model_metrics": {
+      "sensitivity": null,
+      "specificity": null
+    },
+    "threshold_value": 0.3585907282566089,
+    "risk_probability": 0.7388733541967353,
+    "target_class_risk_level": "high",
+    "specific_output": {}
+  },
+  "aramina": {
+    "report_id": "baseline",
+    "created_at": "2026-09-18T00:00:00+00:00",
+    "analysis_author": "Synthetic Author",
+    "prediction_comment": "synthetic note",
+    "patient_id": "PAT-SYNTH-1",
+    "patient_age": null,
+    "referring_physician": "",
+    "scan_date_time": "",
+    "operator_id": "",
+    "hardware_version": "",
+    "eoscan_version": null,
+    "model_name": "aramina_target_breast_risk",
+    "model_version": "0.2.13-beta",
+    "model_method": "0.2.13-beta",
+    "model_metrics": {
+      "sensitivity": null,
+      "specificity": null
+    },
+    "threshold_value": 0.1,
+    "risk_probability": 0.265,
+    "target_class_risk_level": "high",
+    "specific_output": {
+      "target_side": "left",
+      "mammography_suspicious_field": ""
+    }
+  }
+}

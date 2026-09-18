@@ -132,7 +132,7 @@ class TestChecksumMismatch:
                 s3_client=mock_client,
             )
 
-        # Verify that no invalid staged file was left as valid input
+        # Verify that no invalid staged file was valid input
         # The temp file should have been deleted by verify_file_sha256
         remaining_files = list(staging_dir.iterdir()) if staging_dir.exists() else []
         for f in remaining_files:

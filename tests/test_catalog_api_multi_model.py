@@ -7,18 +7,17 @@ Uses the registry directly. No real AWS calls.
 from __future__ import annotations
 
 import json
-from typing import Any
 
 import pytest
 
-from bremen.api.model_registry import (
+from bremen.platform.models.registry import (
     CatalogUnavailableEntry,
     RegistryModelEntry,
     ModelRegistry,
     initialize_registry,
     reset_for_tests,
 )
-from bremen.api.model_catalog import (
+from bremen.platform.models.catalog import (
     build_model_catalog,
     resolve_model,
     ModelNotFoundError,
@@ -358,7 +357,7 @@ class TestPR0087CatalogApi:
         )
         initialize_registry(reg)
         with pytest.raises(ModelNotFoundError):
-            resolve_model("bad-model")
+            resolve_model("bad-model", workflow_id="bremen")
 
     def test_resolve_available_still_works_with_unavailable_present(self):
         """resolve_model succeeds for available model even with unavailable present."""
@@ -380,7 +379,7 @@ class TestPR0087CatalogApi:
             unavailable_count=1,
         )
         initialize_registry(reg)
-        assert resolve_model("good-model") == "good-model"
+        assert resolve_model("good-model", workflow_id="bremen") == "good-model"
 
     # -- No raw detail in API response ------------------------------------
 
@@ -502,7 +501,7 @@ class TestPR0141AraminaTargetSideDiagnostics:
 
     def test_failure_stage_taxonomy_is_fixed(self):
         """The public failure taxonomy is a closed allowlist."""
-        from bremen.api.workflow_aramina import FAILURE_STAGES
+        from bremen.model_packages.aramina_v0213.errors import FAILURE_STAGES
 
         assert FAILURE_STAGES == {
             "preprocessing_contract",
@@ -521,7 +520,7 @@ class TestPR0141AraminaTargetSideDiagnostics:
 
     def test_unsupported_input_details_are_side_aware(self):
         """Public details name the requested side and the exact boundary."""
-        from bremen.api.aramina_api_errors import unsupported_input_details
+        from bremen.platform.reports.diagnostics import unsupported_input_details
 
         details = unsupported_input_details(
             "Nova_379", "left", "0.2.12-beta", stage="target_side_contract",
@@ -535,7 +534,7 @@ class TestPR0141AraminaTargetSideDiagnostics:
 
     def test_unsupported_input_details_leak_nothing(self):
         """No path, bucket, key, token, or exception text is exposed."""
-        from bremen.api.aramina_api_errors import unsupported_input_details
+        from bremen.platform.reports.diagnostics import unsupported_input_details
 
         details = unsupported_input_details(
             "s3://private-bucket/key", "left", "0.2.12-beta",
@@ -549,14 +548,14 @@ class TestPR0141AraminaTargetSideDiagnostics:
 
     def test_workflow_result_failure_stage_defaults_to_none(self):
         """Non-Aramina workflow results carry no failure stage."""
-        from bremen.api.workflow_provider import WorkflowResult
+        from bremen.contracts.execution import WorkflowResult
 
         result = WorkflowResult(workflow_id="bremen", status="failed", error="X")
         assert result.failure_stage is None
 
     def test_aramina_workflow_error_stage_is_allowlisted(self):
         """AraminaWorkflowError only accepts allowlisted stages."""
-        from bremen.api.workflow_aramina import AraminaWorkflowError
+        from bremen.model_packages.aramina_v0213.errors import AraminaWorkflowError
 
         assert AraminaWorkflowError("ARAMINA_UNSUPPORTED_INPUT", "lr1_contract").stage == "lr1_contract"
         assert AraminaWorkflowError("ARAMINA_UNSUPPORTED_INPUT", "private").stage is None

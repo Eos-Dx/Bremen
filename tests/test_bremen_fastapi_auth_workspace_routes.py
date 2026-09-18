@@ -14,13 +14,13 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from bremen.api.fastapi_app import create_fastapi_app
+from bremen.api.http.app import create_app
 
 
 @pytest.fixture()
 def client() -> TestClient:
     """Create a FastAPI TestClient."""
-    return TestClient(create_fastapi_app(), raise_server_exceptions=False)
+    return TestClient(create_app(), raise_server_exceptions=False)
 
 
 # ===================================================================

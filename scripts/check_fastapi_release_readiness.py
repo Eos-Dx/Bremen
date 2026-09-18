@@ -12,7 +12,6 @@ Exits 0 if all checks pass, 1 if any check fails.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,35 +37,14 @@ def main() -> int:
     print("FastAPI release readiness checks")
     print("=" * 40)
 
-    # 1. Default backend resolves to fastapi
-    from bremen.__main__ import resolve_backend
-
-    check(
-        "Default backend is fastapi",
-        resolve_backend(None, None) == "fastapi",
-        f"got {resolve_backend(None, None)!r}",
-    )
-
-    # 2. --backend http still available
-    check(
-        "--backend http resolves to http",
-        resolve_backend("http", None) == "http",
-    )
-
-    # 3. --backend fastapi works
-    check(
-        "--backend fastapi resolves to fastapi",
-        resolve_backend("fastapi", None) == "fastapi",
-    )
-
-    # 4. serve-fastapi command exists in parser
+    # 1. The single serve command is FastAPI/ASGI.
     from bremen.__main__ import build_parser
 
     parser = build_parser()
-    args = parser.parse_args(["serve-fastapi"])
+    args = parser.parse_args(["serve"])
     check(
-        "serve-fastapi command exists",
-        args.command == "serve-fastapi" and args._cmd_handler == "serve_fastapi",
+        "serve command exists and has no backend selector",
+        args.command == "serve" and args._cmd_handler == "serve" and not hasattr(args, "backend"),
     )
 
     # 5. FastAPI factory target
@@ -74,7 +52,7 @@ def main() -> int:
 
     check(
         "FastAPI factory target is correct",
-        _FACTORY_TARGET == "bremen.api.fastapi_app:create_fastapi_app",
+        _FACTORY_TARGET == "bremen.api.http.app:create_app",
         f"got {_FACTORY_TARGET!r}",
     )
 
@@ -110,64 +88,10 @@ def main() -> int:
         str(GUARD_FILE),
     )
 
-    # 8. Legacy http.server fallback still importable
-    from bremen.api.server import run_server as _legacy_rs
-
-    check("Legacy run_server is importable", callable(_legacy_rs))
-
-    # 9. FastAPI run_fastapi_server still importable
+    # 8. FastAPI run_fastapi_server remains importable
     from bremen.api.fastapi_server import run_fastapi_server as _fastapi_rs
 
     check("FastAPI run_fastapi_server is importable", callable(_fastapi_rs))
-
-    # 10. --backend http parser still works
-    args_http = parser.parse_args(["serve", "--backend", "http"])
-    check(
-        "serve --backend http parser works",
-        args_http.command == "serve" and args_http.backend == "http",
-    )
-
-    # 11. serve parser default backend is None (resolves to fastapi)
-    args_default = parser.parse_args(["serve"])
-    check(
-        "serve default --backend is None (resolves to fastapi)",
-        args_default.backend is None,
-        f"got {args_default.backend!r}",
-    )
-
-    # 12. BREMEN_SERVER_BACKEND=http env fallback works
-    check(
-        "BREMEN_SERVER_BACKEND=http resolves to http",
-        resolve_backend(None, "http") == "http",
-    )
-
-    # 13. BREMEN_SERVER_BACKEND=fastapi env works
-    check(
-        "BREMEN_SERVER_BACKEND=fastapi resolves to fastapi",
-        resolve_backend(None, "fastapi") == "fastapi",
-    )
-
-    # 14. Invalid backend fails closed (raises ValueError, no server)
-    try:
-        resolve_backend(None, "invalid_value")
-        invalid_ok = False
-    except ValueError:
-        invalid_ok = True
-    check(
-        "Invalid BREMEN_SERVER_BACKEND fails closed",
-        invalid_ok,
-    )
-
-    # 15. Invalid CLI backend fails closed
-    try:
-        resolve_backend("grpc", None)
-        invalid_cli_ok = False
-    except ValueError:
-        invalid_cli_ok = True
-    check(
-        "Invalid CLI --backend fails closed",
-        invalid_cli_ok,
-    )
 
     print("=" * 40)
     if errors:

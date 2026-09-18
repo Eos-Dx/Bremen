@@ -24,7 +24,7 @@ No HTTP, jobs, reports, auth, storage or frontend coupling.
 """
 from __future__ import annotations
 
-from bremen.model_runtime import (
+from bremen.contracts.model_runtime import (
     CONTRACT_VERSION,
     ModelInput,
     ModelInputInvalidError,

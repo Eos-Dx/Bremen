@@ -143,7 +143,7 @@ class TestRuntimeConfigGovernance:
 
     # Source files that reference these env keys
     SOURCE_FILES = [
-        SRC_BREMEN / "api" / "model_state.py",
+        SRC_BREMEN / "platform" / "models" / "state.py",
         SRC_BREMEN / "config.py",
     ]
 
@@ -157,7 +157,7 @@ class TestRuntimeConfigGovernance:
 
     def test_model_state_env_constants_defined(self):
         """model_state.py defines _ENV_URI, _ENV_VERSION, _ENV_CHECKSUM."""
-        content = (SRC_BREMEN / "api" / "model_state.py").read_text(encoding="utf-8")
+        content = (SRC_BREMEN / "platform" / "models" / "state.py").read_text(encoding="utf-8")
         assert "_ENV_URI = \"BREMEN_MODEL_URI\"" in content
         assert "_ENV_VERSION = \"BREMEN_MODEL_VERSION\"" in content
         assert "_ENV_CHECKSUM = \"BREMEN_MODEL_CHECKSUM\"" in content

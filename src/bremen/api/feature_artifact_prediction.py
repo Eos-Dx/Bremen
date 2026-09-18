@@ -25,9 +25,9 @@ from bremen.feature_artifacts import (
     FeatureArtifactError,
     validate_feature_artifact,
 )
-from bremen.inference import predict_proba_portable
-from bremen.api.decision_support import build_decision_support_report
-from bremen.api.decision_contract import (
+from bremen.model_packages.bremen_v01.predictor import predict_proba_portable
+from bremen.platform.reports.decision_support import build_decision_support_report
+from bremen.model_packages.bremen_v01.decision import (
     POSITIVE_MACHINE_CODE,
     NEGATIVE_MACHINE_CODE,
 )

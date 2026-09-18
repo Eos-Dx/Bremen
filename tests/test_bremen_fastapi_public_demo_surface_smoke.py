@@ -19,7 +19,7 @@ import re
 import pytest
 from fastapi.testclient import TestClient
 
-from bremen.api.fastapi_app import create_fastapi_app
+from bremen.api.http.app import create_app
 
 
 # ---------------------------------------------------------------------------
@@ -29,7 +29,7 @@ from bremen.api.fastapi_app import create_fastapi_app
 @pytest.fixture()
 def client() -> TestClient:
     """Create a FastAPI TestClient for smoke tests."""
-    return TestClient(create_fastapi_app(), raise_server_exceptions=False)
+    return TestClient(create_app(), raise_server_exceptions=False)
 
 
 # ---------------------------------------------------------------------------
@@ -135,21 +135,17 @@ def _inject_test_job(
     This avoids H5 file requirements and lets us test route behavior
     without real data processing.
     """
-    from bremen.api.job_api_handler import (
-        _jobs,
-        _jobs_lock,
-        _report_providers,
-        _providers_lock,
-        _event_store,
-    )
-    from bremen.api.job_models import AnalysisJob, WorkflowRun, ReportMetadata
+    from bremen.platform.jobs.service import _jobs
+    from bremen.platform.jobs.service import _jobs_lock
+    from bremen.platform.jobs.service import _event_store
+    from bremen.platform.jobs.models import AnalysisJob, WorkflowRun, ReportMetadata
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc).isoformat()
 
     reports = {}
     if report_available:
-        from bremen.api.report_provider import REPORT_STATUS_AVAILABLE
+        from bremen.contracts.reports import REPORT_STATUS_AVAILABLE
         reports["bremen"] = ReportMetadata(
             report_id="report-001",
             workflow_id="bremen",
@@ -197,7 +193,7 @@ def _inject_test_job(
         _jobs[job_id] = job
 
     # Emit a minimal event so event store knows about the job
-    from bremen.api.event_schema import JobEvent, EventType
+    from bremen.contracts.events import JobEvent
     evt = JobEvent(
         job_id=job_id,
         request_id="req-smoke-001",
@@ -216,11 +212,9 @@ def _inject_failed_job(client: TestClient, job_id: str = "failed-job-001") -> No
 
 def _reset_jobs() -> None:
     """Clear all injected test jobs."""
-    from bremen.api.job_api_handler import (
-        _jobs,
-        _jobs_lock,
-        _event_store,
-    )
+    from bremen.platform.jobs.service import _jobs
+    from bremen.platform.jobs.service import _jobs_lock
+    from bremen.platform.jobs.service import _event_store
     with _jobs_lock:
         _jobs.clear()
     _event_store.reset_for_tests()
@@ -323,7 +317,7 @@ class TestGetJobsRoutes:
 
     def _register_providers(self) -> None:
         """Register the default report providers for job/report tests."""
-        from bremen.api.job_api_handler import _register_default_providers
+        from bremen.platform.reports.service import _register_default_providers
         _register_default_providers()
 
     def test_job_report_detail_returns_200(self, client: TestClient) -> None:

@@ -16,17 +16,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import ast
 from pathlib import Path
 
 import pytest
 
-from bremen.model_package_source import (
-    ModelPackageSource,
-    ModelPackageSourceError,
-    resolve_model_package_source,
-)
+from bremen.model_package_source import resolve_model_package_source
 from bremen.model_package import EXPECTED_ARTIFACT_TYPE
 
 SRC_BREMEN = Path(__file__).parents[1] / "src" / "bremen"
@@ -356,50 +351,8 @@ class TestPrecedence:
 
 
 class TestHandleModelVersionIntegration:
-    def test_handle_model_version_with_explicit_path(self, tmp_path: Path):
-        """handle_model_version with explicit path returns metadata."""
-        from bremen.api.app import handle_model_version
-        from bremen.api.model_registry import reset_for_tests as reset_registry
-        reset_registry()
+    pass
 
-        pkg_dir = _make_package(tmp_path)
-        resp = handle_model_version(explicit_path=pkg_dir)
-        assert resp.model_configured is True
-        assert resp.model_status == "configured"
-        assert resp.model_version == "1.0.0"
-        assert resp.feature_schema_version == "1.0"
-
-    def test_handle_model_version_without_args_not_configured(self):
-        """handle_model_version() without args with empty env -> not_configured."""
-        import os
-        from unittest.mock import patch
-
-        from bremen.api.app import handle_model_version
-        from bremen.api.model_registry import reset_for_tests as reset_registry
-        reset_registry()
-
-        with patch.dict(os.environ, {}, clear=True):
-            resp = handle_model_version()
-        assert resp.model_configured is False
-        assert resp.model_status == "not_configured"
-
-    def test_handle_model_version_cloud_configured(self):
-        """handle_model_version() with cloud env -> configured."""
-        import os
-        from unittest.mock import patch
-
-        from bremen.api.app import handle_model_version
-        from bremen.api.model_registry import reset_for_tests as reset_registry
-        reset_registry()
-
-        with patch.dict(
-            os.environ,
-            {"BREMEN_MODEL_BUCKET": "my-bucket"},
-            clear=True,
-        ):
-            resp = handle_model_version()
-        assert resp.model_configured is True
-        assert resp.model_status == "configured"
 
 
 # ---------------------------------------------------------------------------

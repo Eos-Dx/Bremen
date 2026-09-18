@@ -11,9 +11,8 @@ Tests cover:
 
 from __future__ import annotations
 
-import io
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -22,7 +21,7 @@ try:
 except ImportError:
     TestClient = None  # type: ignore[assignment,misc]
 
-from bremen.api.fastapi_app import create_fastapi_app
+from bremen.api.http.app import create_app
 from bremen.api.fastapi_contracts import JobCreateRequest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,7 +36,7 @@ DOCKERFILE = ROOT / "Dockerfile"
 @pytest.fixture()
 def client():
     """Create a TestClient for the FastAPI app."""
-    app = create_fastapi_app()
+    app = create_app()
     return TestClient(app)
 
 
@@ -263,14 +262,14 @@ class TestH5UploadRoute:
 
     def test_upload_h5_extension_accepted(self, client) -> None:
         """Valid .h5 extension is accepted (may fail at S3 but not at validation)."""
-        with patch("bremen.api.server.read_demo_h5_config") as mock_cfg:
+        with patch("bremen.platform.sources.demo_storage.read_demo_h5_config") as mock_cfg:
             mock_cfg.return_value = {
                 "h5_bucket": "test-bucket",
                 "h5_prefix": "test/",
                 "allow_upload": True,
                 "upload_max_bytes": 100 * 1024 * 1024,
             }
-            with patch("bremen.api.server._handle_h5_upload_bytes") as mock_upload:
+            with patch("bremen.platform.sources.demo_storage._handle_h5_upload_bytes") as mock_upload:
                 mock_upload.return_value = (201, {
                     "status": "uploaded",
                     "id": "test/uploaded.h5",
@@ -289,7 +288,7 @@ class TestH5UploadRoute:
 
     def test_upload_size_limit_enforced(self, client) -> None:
         """File exceeding size limit returns 413."""
-        with patch("bremen.api.server.read_demo_h5_config") as mock_cfg:
+        with patch("bremen.platform.sources.demo_storage.read_demo_h5_config") as mock_cfg:
             mock_cfg.return_value = {
                 "h5_bucket": "test-bucket",
                 "h5_prefix": "test/",
@@ -306,7 +305,7 @@ class TestH5UploadRoute:
 
     def test_upload_disabled_returns_403(self, client) -> None:
         """Upload disabled returns 403."""
-        with patch("bremen.api.server.read_demo_h5_config") as mock_cfg:
+        with patch("bremen.platform.sources.demo_storage.read_demo_h5_config") as mock_cfg:
             mock_cfg.return_value = {
                 "h5_bucket": "test-bucket",
                 "h5_prefix": "test/",
@@ -323,7 +322,7 @@ class TestH5UploadRoute:
 
     def test_upload_no_bucket_returns_503(self, client) -> None:
         """No bucket configured returns 503."""
-        with patch("bremen.api.server.read_demo_h5_config") as mock_cfg:
+        with patch("bremen.platform.sources.demo_storage.read_demo_h5_config") as mock_cfg:
             mock_cfg.return_value = {
                 "h5_bucket": None,
                 "h5_prefix": "test/",
@@ -381,7 +380,7 @@ class TestNoNewPostOrAnalyzeRoutes:
         Report read routes were added in Phase 5 (PR0104P) for
         Control Room parity and are excluded from this check.
         """
-        app = create_fastapi_app()
+        app = create_app()
         for route in app.routes:
             if hasattr(route, "path"):
                 p = route.path
@@ -416,7 +415,7 @@ class TestModuleSafety:
     def test_no_boto3_in_fastapi_app(self) -> None:
         """FastAPI app module does not import boto3."""
         import ast
-        source = ROOT / "src" / "bremen" / "api" / "fastapi_app.py"
+        source = ROOT / "src" / "bremen" / "api" / "http" / "app.py"
         source_text = source.read_text(encoding="utf-8")
         tree = ast.parse(source_text)
         for node in ast.walk(tree):

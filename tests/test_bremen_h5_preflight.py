@@ -14,7 +14,7 @@ import h5py
 import numpy as np
 import pytest
 
-from bremen.api.preflight import (
+from bremen.platform.sources.preflight import (
     H5ContainerError,
     H5MeasurementError,
     H5MetadataError,
@@ -160,7 +160,7 @@ class TestOppositeSides:
 class TestMissingContralateral:
     @pytest.fixture(autouse=True)
     def _reset_model_state(self):
-        from bremen.api.model_state import ModelState
+        from bremen.platform.models.state import ModelState
         ModelState.reset_for_tests()
         yield
 
@@ -190,7 +190,7 @@ class TestMissingContralateral:
 class TestMissingMetadata:
     @pytest.fixture(autouse=True)
     def _reset_model_state(self):
-        from bremen.api.model_state import ModelState
+        from bremen.platform.models.state import ModelState
         ModelState.reset_for_tests()
         yield
 
@@ -243,7 +243,7 @@ class TestMissingMetadata:
 class TestMeasurementCount:
     @pytest.fixture(autouse=True)
     def _reset_model_state(self):
-        from bremen.api.model_state import ModelState
+        from bremen.platform.models.state import ModelState
         ModelState.reset_for_tests()
         yield
 
@@ -342,12 +342,12 @@ class TestImportSafety:
         """preflight.py does not import training/inference/model modules directly.
 
         Uses AST inspection rather than sys.modules because importing
-        bremen.api.preflight also triggers bremen.__init__ which
+        bremen.platform.sources.preflight also triggers bremen.__init__ which
         transitively imports modeling and other packages.
         """
         import ast
 
-        src_path = API_SRC / "preflight.py"
+        src_path = API_SRC.parent / "platform" / "sources" / "preflight.py"
         tree = ast.parse(src_path.read_text(encoding="utf-8"))
 
         prohibited_modules = {
@@ -378,7 +378,7 @@ class TestImportSafety:
 
     def test_ast_no_inference_model_references(self):
         """preflight.py must not import inference/model/training modules (AST)."""
-        src = API_SRC / "preflight.py"
+        src = API_SRC.parent / "platform" / "sources" / "preflight.py"
         tree = ast.parse(src.read_text(encoding="utf-8"))
         prohibited_modules = {
             "inference", "model_loader", "model_package", "training",
@@ -427,7 +427,7 @@ class TestExceptionHierarchy:
 class TestInspectContainer:
     def test_inspect_h5_container(self, tmp_path: Path):
         """inspect_h5_container returns structure dict."""
-        from bremen.api.preflight import inspect_h5_container
+        from bremen.platform.sources.preflight import inspect_h5_container
 
         h5_path = _create_synthetic_h5(tmp_path)
         result = inspect_h5_container(h5_path)

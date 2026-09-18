@@ -142,7 +142,7 @@ def test_product_shape_contract(sides, valid):
 
 
 def test_current_platform_probability_against_training_golden():
-    from bremen.inference import predict_proba_portable as platform_predict
+    from bremen.model_packages.bremen_v01.predictor import predict_proba_portable as platform_predict
 
     result = platform_predict(MODEL, GOLD['expected_features'])
     assert_close(result['probability'], GOLD['expected_probability'])

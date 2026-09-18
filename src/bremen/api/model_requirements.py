@@ -134,7 +134,7 @@ def find_model_catalog_row(
     catalog rows without treating them as executable.
     """
     if catalog is None:
-        from bremen.api.model_catalog import build_model_catalog  # noqa: PLC0415
+        from bremen.platform.models.catalog import build_model_catalog  # noqa: PLC0415
 
         catalog = build_model_catalog()
 
@@ -174,19 +174,19 @@ def _runtime_input_requirements(model_id: str) -> dict[str, Any] | None:
       runtime payload is static model-declared values only).
     """
     try:
-        from .model_registry import get_model_entry  # noqa: PLC0415
+        from bremen.platform.models.registry import get_model_entry  # noqa: PLC0415
 
         entry = get_model_entry(model_id)
         if entry is None:
             return None
-        from .workflow_orchestrator import get_provider_for_model  # noqa: PLC0415
+        from bremen.platform.runtime.registry import get_descriptor_for_model  # noqa: PLC0415
 
         try:
-            provider = get_provider_for_model(model_id)
+            provider = get_descriptor_for_model(model_id)
         except ValueError:
             # Unroutable / display-only rows expose no executable runtime.
             return None
-        runtime = getattr(provider, "model_runtime", lambda: None)()
+        runtime = provider.runtime
         if runtime is None:
             return None
         requirements = getattr(runtime, "model_requirements", None)
@@ -220,7 +220,7 @@ def _find_container_requirements(
         ):
             return dict(catalog_row["container_requirements"])
 
-    from bremen.api.model_registry import (  # noqa: PLC0415
+    from bremen.platform.models.registry import (  # noqa: PLC0415
         get_model_container_requirements,
     )
 
@@ -394,7 +394,7 @@ def _resolve_source_for_dry_run(source_id: str) -> str:
     This is a thin wrapper around the production resolve_source so
     tests can mock it without needing real S3 configuration.
     """
-    from .job_api_handler import resolve_source  # noqa: PLC0415
+    from bremen.platform.sources.service import resolve_source
     return resolve_source(source_id=source_id, upload_id=None)
 
 
@@ -408,9 +408,9 @@ def run_model_pipeline_dry_run(
 
     Reuses existing production logic:
     - resolve_source for container/source resolution
-    - _normalize_h5 for H5 open/read/canonical normalization
-    - get_provider_for_model for workflow provider construction
-    - provider.execute for the full pipeline (compatibility, features, inference)
+    - descriptor input policy (raw by default, explicit legacy canonical adapter)
+    - get_descriptor_for_model for package runtime selection
+    - generic executor for the full package pipeline
 
     No persistent job state is created.
     No report is generated.
@@ -437,7 +437,7 @@ def run_model_pipeline_dry_run(
         # --- Stage 1: Model resolution ---
         checked_stages.append("model_resolution")
 
-        from .model_registry import get_model_entry  # noqa: PLC0415
+        from bremen.platform.models.registry import get_model_entry  # noqa: PLC0415
         entry = get_model_entry(model_id)
         if entry is None:
             return DryRunResult(
@@ -457,15 +457,13 @@ def run_model_pipeline_dry_run(
         # --- Stage 4: H5 normalization ---
         checked_stages.append("normalization")
 
-        from .workflow_orchestrator import _normalize_h5  # noqa: PLC0415
-        canonical = _normalize_h5(h5_path, workflow_id=workflow_id)
 
     # --- Stage 5: Workflow resolution ---
         checked_stages.append("workflow_resolution")
 
-        from .workflow_orchestrator import get_provider_for_model  # noqa: PLC0415
+        from bremen.platform.runtime.registry import get_descriptor_for_model  # noqa: PLC0415
         try:
-            provider = get_provider_for_model(model_id)
+            provider = get_descriptor_for_model(model_id)
         except ValueError:
             return DryRunResult(
                 status="failed",
@@ -475,13 +473,17 @@ def run_model_pipeline_dry_run(
                 safe_reason="Workflow provider not found for model",
             )
 
-        # --- Stage 6: Full provider execution ---
-        # provider.execute runs: compatibility → artifact → features → inference
+        # --- Stage 6: Full package runtime execution ---
         checked_stages.append("input_preparation")
         checked_stages.append("feature_production")
         checked_stages.append("model_execution")
 
-        wf_result = provider.execute(canonical)
+        from bremen.platform.runtime.executor import run_workflow_request
+        outcome = run_workflow_request(h5_path, workflow_id, model_id=model_id,
+                                      registry=_single_runtime_registry(provider))
+        wf_result = outcome.workflows.get(workflow_id)
+        if wf_result is None:
+            raise ValueError("Input preparation failed")
 
         if wf_result.status == "completed":
             return DryRunResult(
@@ -676,3 +678,10 @@ def build_model_requirements_validation_response(
     if request_id:
         response["request_id"] = request_id
     return response
+
+
+def _single_runtime_registry(descriptor):
+    from bremen.platform.runtime.registry import RuntimeRegistry
+    registry = RuntimeRegistry()
+    registry.register(descriptor)
+    return registry

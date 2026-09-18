@@ -16,15 +16,13 @@ from __future__ import annotations
 
 import pytest
 
-from bremen.api.decision_contract import (
+from bremen.model_packages.bremen_v01.decision import (
     build_decision,
-    BremenDecision,
     validate_decision_code,
     POSITIVE_MACHINE_CODE,
     NEGATIVE_MACHINE_CODE,
     DECISION_POLICY_ID,
     DECISION_POLICY_VERSION,
-    LEGACY_ALIAS_MAP,
     POSITIVE_DISPLAY_NAME,
     NEGATIVE_DISPLAY_NAME,
     POSITIVE_EXPLANATION,

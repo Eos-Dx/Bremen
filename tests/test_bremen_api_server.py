@@ -1,7 +1,7 @@
 """Tests for the HTTP API server routes via FastAPI TestClient.
 
 Covers routes defined in ``docs/api_contract.md`` and implemented
-in both ``src/bremen/api/server.py`` (http.server) and
+in both ``src/bremen/api/FastAPI app`` (http.server) and
 ``src/bremen/api/fastapi_app.py`` (FastAPI).
 
 Uses FastAPI TestClient (in-process) — no real HTTPServer, no real
@@ -15,16 +15,13 @@ integration tests and manual smoke scripts.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-import h5py
-import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from bremen.api.fastapi_app import create_fastapi_app
-from bremen.api.job_api_handler import reset_for_tests as _reset_jobs_for_tests
+from bremen.api.http.app import create_app
+from bremen.platform.jobs.service import reset_for_tests as _reset_jobs_for_tests
 
 API_SRC = Path(__file__).parents[1] / "src" / "bremen" / "api"
 
@@ -36,9 +33,9 @@ API_SRC = Path(__file__).parents[1] / "src" / "bremen" / "api"
 
 def _reset_model_state() -> None:
     """Reset ModelState + reload the synthetic model + reinit registry."""
-    from bremen.api.model_state import ModelState
-    from bremen.api.model_registry import initialize_registry, build_legacy_registry
-    from bremen.api.server import _load_synthetic_model
+    from bremen.platform.models.state import ModelState
+    from bremen.platform.models.registry import initialize_registry, build_legacy_registry
+    from bremen.api.http.dev_support import _load_synthetic_model
 
     ModelState.reset_for_tests()
     _load_synthetic_model()
@@ -55,17 +52,17 @@ def server_info():
     """
     _reset_model_state()
     _reset_jobs_for_tests()
-    client = TestClient(create_fastapi_app())
+    client = TestClient(create_app())
     yield client, None
 
 
 @pytest.fixture
 def no_model_server_info():
     """Provide a TestClient with model NOT loaded (for 503 tests)."""
-    from bremen.api.model_state import ModelState
+    from bremen.platform.models.state import ModelState
     ModelState.reset_for_tests()
     _reset_jobs_for_tests()
-    client = TestClient(create_fastapi_app())
+    client = TestClient(create_app())
     yield client, None
 
 
@@ -208,48 +205,48 @@ class TestRouteErrors:
 
 
 # ---------------------------------------------------------------------------
-# Import safety (AST-based) for server.py only
+# Import safety (AST-based) for FastAPI app only
 # ---------------------------------------------------------------------------
 
 
 class TestImportSafety:
     def test_no_joblib_import(self):
         import ast
-        src = API_SRC / "server.py"
+        src = API_SRC / "http" / "app.py"
         tree = ast.parse(src.read_text(encoding="utf-8"))
         for node in tree.body:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if "joblib" in alias.name.lower():
-                        pytest.fail("server.py has top-level joblib import")
+                        pytest.fail("FastAPI app has top-level joblib import")
             elif isinstance(node, ast.ImportFrom):
                 module = node.module or ""
                 if "joblib" in module.lower():
-                    pytest.fail(f"server.py has top-level joblib import: from {module}")
+                    pytest.fail(f"FastAPI app has top-level joblib import: from {module}")
 
     def test_no_pickle_import(self):
         import ast
-        src = API_SRC / "server.py"
+        src = API_SRC / "http" / "app.py"
         tree = ast.parse(src.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if "pickle" in alias.name.lower():
-                        pytest.fail("server.py imports pickle")
+                        pytest.fail("FastAPI app imports pickle")
             elif isinstance(node, ast.ImportFrom):
                 module = node.module or ""
                 if "pickle" in module.lower():
-                    pytest.fail(f"server.py imports pickle via {module}")
+                    pytest.fail(f"FastAPI app imports pickle via {module}")
 
     def test_no_h5_references(self):
-        src = API_SRC / "server.py"
+        src = API_SRC / "http" / "app.py"
         content = src.read_text(encoding="utf-8")
-        assert "h5py" not in content, "server.py imports h5py"
+        assert "h5py" not in content, "FastAPI app imports h5py"
 
     def test_no_joblib_load_string(self):
-        src = API_SRC / "server.py"
+        src = API_SRC / "http" / "app.py"
         content = src.read_text(encoding="utf-8")
         if "joblib.load(" in content:
-            pytest.fail("server.py contains 'joblib.load('")
+            pytest.fail("FastAPI app contains 'joblib.load('")
         if "pickle.load(" in content:
-            pytest.fail("server.py contains 'pickle.load('")
+            pytest.fail("FastAPI app contains 'pickle.load('")

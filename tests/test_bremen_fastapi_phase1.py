@@ -2,7 +2,7 @@
 
 Tests cover:
 
-- ``create_fastapi_app`` exists and returns a FastAPI app.
+- ``create_app`` exists and returns a FastAPI app.
 - ``GET /health`` returns 200 with expected safe shape.
 - ``GET /model/version`` returns 200 with expected safe shape.
 - No raw exception traces, filesystem paths, S3 bucket/key values,
@@ -15,8 +15,6 @@ Tests cover:
 
 from __future__ import annotations
 
-import json
-import os
 from pathlib import Path
 
 import pytest
@@ -27,7 +25,7 @@ try:
 except ImportError:
     TestClient = None  # type: ignore[assignment,misc]
 
-from bremen.api.fastapi_app import create_fastapi_app
+from bremen.api.http.app import create_app
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCKERFILE = ROOT / "Dockerfile"
@@ -49,20 +47,20 @@ def test_uvicorn_available() -> None:
 
 
 # ===================================================================
-# Test create_fastapi_app
+# Test create_app
 # ===================================================================
 
 
 class TestCreateFastAPIApp:
-    def test_create_fastapi_app_exists(self) -> None:
-        """create_fastapi_app is callable and returns a FastAPI app."""
-        app = create_fastapi_app()
+    def test_create_app_exists(self) -> None:
+        """create_app is callable and returns a FastAPI app."""
+        app = create_app()
         assert app is not None
         assert "FastAPI" in app.title
 
-    def test_create_fastapi_app_with_version(self) -> None:
+    def test_create_app_with_version(self) -> None:
         """A version string can be passed through."""
-        app = create_fastapi_app(version="1.2.3")
+        app = create_app(version="1.2.3")
         assert app is not None
 
 
@@ -74,14 +72,14 @@ class TestCreateFastAPIApp:
 class TestHealthRoute:
     def test_health_returns_200(self) -> None:
         """GET /health returns 200."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         resp = client.get("/health")
         assert resp.status_code == 200
 
     def test_health_has_expected_fields(self) -> None:
         """GET /health returns expected safe fields."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         resp = client.get("/health")
         body = resp.json()
@@ -95,7 +93,7 @@ class TestHealthRoute:
 
     def test_health_no_raw_exception_traces(self) -> None:
         """GET /health does not expose raw exception traces."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         resp = client.get("/health")
         text = resp.text
@@ -105,7 +103,7 @@ class TestHealthRoute:
 
     def test_health_no_filesystem_paths(self) -> None:
         """GET /health does not expose filesystem paths."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         resp = client.get("/health")
         text = resp.text
@@ -115,7 +113,7 @@ class TestHealthRoute:
 
     def test_health_no_s3_bucket_keys(self) -> None:
         """GET /health does not expose raw S3 bucket/key values."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         resp = client.get("/health")
         text = resp.text
@@ -123,7 +121,7 @@ class TestHealthRoute:
 
     def test_health_no_credentials(self) -> None:
         """GET /health does not expose credentials or secrets."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         resp = client.get("/health")
         text = resp.text
@@ -133,7 +131,7 @@ class TestHealthRoute:
 
     def test_health_model_ready_is_bool(self) -> None:
         """model_ready is a boolean."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         resp = client.get("/health")
         body = resp.json()
@@ -141,7 +139,7 @@ class TestHealthRoute:
 
     def test_health_timestamp_is_string(self) -> None:
         """timestamp is a string."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         resp = client.get("/health")
         body = resp.json()
@@ -157,14 +155,14 @@ class TestHealthRoute:
 class TestModelVersionRoute:
     def test_model_version_returns_200(self) -> None:
         """GET /model/version returns 200."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         resp = client.get("/model/version")
         assert resp.status_code == 200
 
     def test_model_version_has_expected_fields(self) -> None:
         """GET /model/version returns expected safe fields."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         resp = client.get("/model/version")
         body = resp.json()
@@ -181,7 +179,7 @@ class TestModelVersionRoute:
 
     def test_model_version_no_raw_exception_traces(self) -> None:
         """GET /model/version does not expose raw exception traces."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         resp = client.get("/model/version")
         text = resp.text
@@ -191,7 +189,7 @@ class TestModelVersionRoute:
 
     def test_model_version_no_filesystem_paths(self) -> None:
         """GET /model/version does not expose filesystem paths."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         resp = client.get("/model/version")
         text = resp.text
@@ -201,7 +199,7 @@ class TestModelVersionRoute:
 
     def test_model_version_no_s3_bucket_keys(self) -> None:
         """GET /model/version does not expose raw S3 bucket/key values."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         resp = client.get("/model/version")
         text = resp.text
@@ -209,7 +207,7 @@ class TestModelVersionRoute:
 
     def test_model_version_no_credentials(self) -> None:
         """GET /model/version does not expose credentials or secrets."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         resp = client.get("/model/version")
         text = resp.text
@@ -219,7 +217,7 @@ class TestModelVersionRoute:
 
     def test_model_status_is_string(self) -> None:
         """model_status is a string."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         resp = client.get("/model/version")
         body = resp.json()
@@ -227,7 +225,7 @@ class TestModelVersionRoute:
 
     def test_model_configured_is_bool(self) -> None:
         """model_configured is a bool."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         resp = client.get("/model/version")
         body = resp.json()
@@ -242,7 +240,7 @@ class TestModelVersionRoute:
 class TestCoexistence:
     def test_health_and_model_version_distinct(self) -> None:
         """GET /health and GET /model/version return distinct responses."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         health_resp = client.get("/health")
         mv_resp = client.get("/model/version")
@@ -252,7 +250,7 @@ class TestCoexistence:
 
     def test_unknown_route_returns_404(self) -> None:
         """An unknown FastAPI route returns 404 (not 500)."""
-        app = create_fastapi_app()
+        app = create_app()
         client = TestClient(app)
         resp = client.get("/no/such/route")
         assert resp.status_code == 404
@@ -299,7 +297,7 @@ class TestFastAPIModuleSafety:
     def test_no_boto3_import(self) -> None:
         """FastAPI app module does not import boto3."""
         import ast
-        source = Path(__file__).resolve().parents[1] / "src" / "bremen" / "api" / "fastapi_app.py"
+        source = Path(__file__).resolve().parents[1] / "src" / "bremen" / "api" / "http" / "app.py"
         source_text = source.read_text(encoding="utf-8")
         tree = ast.parse(source_text)
         for node in ast.walk(tree):
@@ -315,7 +313,7 @@ class TestFastAPIModuleSafety:
     def test_no_h5py_import(self) -> None:
         """FastAPI app module does not import h5py."""
         import ast
-        source = Path(__file__).resolve().parents[1] / "src" / "bremen" / "api" / "fastapi_app.py"
+        source = Path(__file__).resolve().parents[1] / "src" / "bremen" / "api" / "http" / "app.py"
         source_text = source.read_text(encoding="utf-8")
         tree = ast.parse(source_text)
         for node in ast.walk(tree):

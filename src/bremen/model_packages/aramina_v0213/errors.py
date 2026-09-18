@@ -160,7 +160,7 @@ class AraminaWorkflowError(Exception):
             if original_exception_class in _TRACE_LABELS else None
         )
         # PR0142: allowlisted preprocessing subdiagnostics. Already sanitized
-        # by aramina_preprocessing.safe_preprocessing_diagnostic.
+        # by the package preprocessing worker's safe diagnostic helper.
         self.preprocessing_diagnostic = (
             dict(preprocessing_diagnostic)
             if isinstance(preprocessing_diagnostic, dict) else None

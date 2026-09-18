@@ -22,6 +22,8 @@ Synthetic deterministic H5 fixtures only; no supplied patient H5 binaries.
 """
 from __future__ import annotations
 
+import bremen.platform.reports.service as _owner_reports_service
+
 import copy
 import hashlib
 import json
@@ -33,9 +35,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from bremen.api import job_api_handler as jobs
-from bremen.api import model_registry as registry
-from bremen.api.aramina_provider import AraminaProviderRequest
+from bremen.platform.jobs import service as jobs
+from bremen.platform.models import registry
+from bremen.contracts.request import AnalysisParameters
 from bremen.model_packages.aramina_v0213 import manifest as aramina_manifest
 from tests.bremen_3x3_helpers import MODEL, make_case, write_session_h5
 
@@ -98,7 +100,7 @@ def _synthetic_aramina_preprocessing(monkeypatch):
     """Deterministic frame for the Aramina package pipeline (test-only)."""
 
     def preprocess(h5_path, config_yaml):
-        from bremen.api.workflow_orchestrator import _normalize_h5
+        from bremen.platform.sources.legacy_input import normalize_legacy_input as _normalize_h5
         canonical = _normalize_h5(h5_path)
         return pd.DataFrame([
             {"patientId": "p1", "side": m.side, "age": None,
@@ -183,7 +185,7 @@ def _bremen_job(tmp_path, package=None):
 def test_bremen_standard_result_receives_extracted_h5_metadata(tmp_path):
     job = _bremen_job(tmp_path)
     try:
-        std = jobs.get_job_report(job.job_id, "bremen")["report"]["standard_result"]
+        std = _owner_reports_service.get_job_report(job.job_id, "bremen")["report"]["standard_result"]
         _assert_standard_metadata(std)
     finally:
         _reset()
@@ -192,7 +194,7 @@ def test_bremen_standard_result_receives_extracted_h5_metadata(tmp_path):
 def test_bremen_metrics_source_to_canonical_equality(tmp_path):
     job = _bremen_job(tmp_path)
     try:
-        std = jobs.get_job_report(job.job_id, "bremen")["report"]["standard_result"]
+        std = _owner_reports_service.get_job_report(job.job_id, "bremen")["report"]["standard_result"]
         runtime_metrics = job.workflow_runs["bremen"].result_summary["model_metrics"]
         # Source-to-canonical equality through the ModelRuntime result transport.
         assert std["model_metrics"]["sensitivity"] == runtime_metrics["sensitivity"]
@@ -208,7 +210,7 @@ def test_bremen_metrics_source_to_canonical_equality(tmp_path):
 def test_bremen_model_method_from_package_architecture(tmp_path):
     job = _bremen_job(tmp_path)
     try:
-        std = jobs.get_job_report(job.job_id, "bremen")["report"]["standard_result"]
+        std = _owner_reports_service.get_job_report(job.job_id, "bremen")["report"]["standard_result"]
         assert std["model_method"] == (
             "median_imputer_standard_scaler_balanced_logistic_regression"
         )
@@ -221,7 +223,7 @@ def test_bremen_metrics_absent_preserves_none(tmp_path):
     """A package without metrics keeps explicit absence (null)."""
     job = _bremen_job(tmp_path, package=copy.deepcopy(MODEL))
     try:
-        std = jobs.get_job_report(job.job_id, "bremen")["report"]["standard_result"]
+        std = _owner_reports_service.get_job_report(job.job_id, "bremen")["report"]["standard_result"]
         assert std["model_metrics"] == {"sensitivity": None, "specificity": None}
         # model_method falls back to the documented model_method rule.
         assert std["model_method"] == std["model_version"]
@@ -244,7 +246,7 @@ def test_bremen_scan_date_time_offset_preserved_no_fabrication(tmp_path):
             h5_path=h5_path, workflow_id="bremen", model_id="bremen-meta",
             patient_display_name="Nova_227",
         )
-        std = jobs.get_job_report(job.job_id, "bremen")["report"]["standard_result"]
+        std = _owner_reports_service.get_job_report(job.job_id, "bremen")["report"]["standard_result"]
         assert std["scan_date_time"] == "2025-05-28T10:19:55+02:00"
     finally:
         _reset()
@@ -336,15 +338,15 @@ def test_aramina_standard_result_receives_extracted_h5_metadata(tmp_path):
     h5_path = _aramina_h5(tmp_path / "aramina.h5")
     job = jobs.create_analysis_job(
         model_id=entry.model_id, h5_path=h5_path,
-        aramina_request=AraminaProviderRequest(
+        aramina_request=AnalysisParameters(
             container_id="c", source_id="s", patient_id="p1", target_side="left",
             analysis_author="Aramina Author", prediction_comment="",
         ),
         patient_display_name="p1",
-    )
+    workflow_id="bremen")
     try:
         assert job.overall_status == "completed"
-        std = jobs.get_job_report(job.job_id, "aramina")["report"]["standard_result"]
+        std = _owner_reports_service.get_job_report(job.job_id, "aramina")["report"]["standard_result"]
         _assert_standard_metadata(std)
         assert std["patient_id"] == "p1"
     finally:
@@ -361,14 +363,14 @@ def test_aramina_metrics_source_to_canonical_equality(tmp_path):
     h5_path = _aramina_h5(tmp_path / "aramina.h5")
     job = jobs.create_analysis_job(
         model_id=entry.model_id, h5_path=h5_path,
-        aramina_request=AraminaProviderRequest(
+        aramina_request=AnalysisParameters(
             container_id="c", source_id="s", patient_id="p1", target_side="left",
             analysis_author="Aramina Author", prediction_comment="",
         ),
         patient_display_name="p1",
-    )
+    workflow_id="bremen")
     try:
-        std = jobs.get_job_report(job.job_id, "aramina")["report"]["standard_result"]
+        std = _owner_reports_service.get_job_report(job.job_id, "aramina")["report"]["standard_result"]
         runtime_metrics = job.workflow_runs["aramina"].result_summary["model_metrics"]
         assert std["model_metrics"]["sensitivity"] == runtime_metrics["sensitivity"]
         assert std["model_metrics"]["specificity"] == runtime_metrics["specificity"]
@@ -388,8 +390,8 @@ def test_aramina_metrics_source_to_canonical_equality(tmp_path):
 def test_pr0158a_repeated_get_stability_retained(tmp_path):
     job = _bremen_job(tmp_path)
     try:
-        first = jobs.get_job_report(job.job_id, "bremen")["report"]
-        second = jobs.get_job_report(job.job_id, "bremen")["report"]
+        first = _owner_reports_service.get_job_report(job.job_id, "bremen")["report"]
+        second = _owner_reports_service.get_job_report(job.job_id, "bremen")["report"]
         assert first["standard_result"]["report_id"] == second["standard_result"]["report_id"]
         assert first["standard_result"]["created_at"] == second["standard_result"]["created_at"]
         assert first["standard_result"] == second["standard_result"]

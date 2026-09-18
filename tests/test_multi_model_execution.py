@@ -10,6 +10,8 @@ No real AWS calls. No real model artifacts.
 
 from __future__ import annotations
 
+from tests.runtime_inputs import execute_case
+
 import hashlib
 import json
 import threading
@@ -18,13 +20,13 @@ from typing import Any
 
 from tests.bremen_3x3_helpers import GOLD
 
-from bremen.api.model_registry import (
+from bremen.platform.models.registry import (
     RegistryModelEntry,
     ModelRegistry,
     initialize_registry,
     reset_for_tests,
 )
-from bremen.api.workflow_orchestrator import get_provider_for_model
+from bremen.platform.runtime.registry import get_descriptor_for_model
 
 
 # ---------------------------------------------------------------------------
@@ -114,11 +116,11 @@ class TestTwoModelExecution:
         )
         initialize_registry(reg)
 
-        provider = get_provider_for_model("model-a")
+        provider = get_descriptor_for_model("model-a")
         assert provider is not None
         # Execute with controlled input
         case = _make_canonical_case()
-        result = provider.execute(case)
+        result = execute_case(provider, case)
         assert result.status == "completed"
         payload = result.payload or {}
         prob = payload.get("probability", 0)
@@ -137,10 +139,10 @@ class TestTwoModelExecution:
         )
         initialize_registry(reg)
 
-        provider = get_provider_for_model("model-b")
+        provider = get_descriptor_for_model("model-b")
         assert provider is not None
         case = _make_canonical_case()
-        result = provider.execute(case)
+        result = execute_case(provider, case)
         assert result.status == "completed"
         payload = result.payload or {}
         prob = payload.get("probability", 0)
@@ -162,12 +164,12 @@ class TestTwoModelExecution:
 
         case = _make_canonical_case()
 
-        provider_a = get_provider_for_model("model-a")
-        result_a = provider_a.execute(case)
+        provider_a = get_descriptor_for_model("model-a")
+        result_a = execute_case(provider_a, case)
         prob_a = (result_a.payload or {}).get("probability", 0)
 
-        provider_b = get_provider_for_model("model-b")
-        result_b = provider_b.execute(case)
+        provider_b = get_descriptor_for_model("model-b")
+        result_b = execute_case(provider_b, case)
         prob_b = (result_b.payload or {}).get("probability", 0)
 
         # Different coefficients should produce different probabilities
@@ -193,15 +195,15 @@ class TestTwoModelExecution:
         )
         initialize_registry(reg)
 
-        provider = get_provider_for_model("my-model")
+        provider = get_descriptor_for_model("my-model")
         case = _make_canonical_case()
-        provider.execute(case)
+        execute_case(provider, case)
         # The provider's model_id is set from the entry
-        assert provider._model_id == "my-model"
+        assert provider.model_id == "my-model"
 
     def test_model_state_not_overwritten(self):
         """ModelState is not modified during selection."""
-        from bremen.api import model_state as ms
+        from bremen.platform.models import state as ms
         ms.ModelState.reset_for_tests()
 
         entry = _make_entry("test-model", "Test", PACKAGE_A_COEF, PACKAGE_A_THRESHOLD, intercept=PACKAGE_A_INTERCEPT)
@@ -216,7 +218,7 @@ class TestTwoModelExecution:
         assert ms.ModelState.get_model() is None
 
         # Provider should work from registry, not ModelState
-        provider = get_provider_for_model("test-model")
+        provider = get_descriptor_for_model("test-model")
         assert provider is not None
 
 
@@ -249,10 +251,10 @@ class TestConcurrentExecution:
 
         def run_model(model_id: str) -> None:
             try:
-                provider = get_provider_for_model(model_id)
+                provider = get_descriptor_for_model(model_id)
                 # Synchronize so both jobs overlap
                 barrier.wait()
-                result = provider.execute(case)
+                result = execute_case(provider, case)
                 prob = (result.payload or {}).get("probability", 0)
                 results[model_id] = prob
             except Exception as e:
@@ -290,13 +292,13 @@ class TestConcurrentExecution:
         )
         initialize_registry(reg)
 
-        provider_a = get_provider_for_model("model-a")
-        provider_b = get_provider_for_model("model-b")
+        provider_a = get_descriptor_for_model("model-a")
+        provider_b = get_descriptor_for_model("model-b")
 
         # Each provider has its own package
-        assert provider_a._model_id == "model-a"
-        assert provider_b._model_id == "model-b"
-        assert provider_a._model_package is not provider_b._model_package
+        assert provider_a.model_id == "model-a"
+        assert provider_b.model_id == "model-b"
+        assert provider_a.runtime.package is not provider_b.runtime.package
 
     def test_deterministic_repeated_execution(self):
         """Repeated execution with same model produces same output."""
@@ -309,10 +311,10 @@ class TestConcurrentExecution:
         initialize_registry(reg)
 
         case = _make_canonical_case()
-        provider = get_provider_for_model("test-model")
+        provider = get_descriptor_for_model("test-model")
 
-        result1 = provider.execute(case)
-        result2 = provider.execute(case)
+        result1 = execute_case(provider, case)
+        result2 = execute_case(provider, case)
 
         prob1 = (result1.payload or {}).get("probability", 0)
         prob2 = (result2.payload or {}).get("probability", 0)

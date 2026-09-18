@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from bremen.api.fastapi_app import create_fastapi_app
+from bremen.api.http.app import create_app
 
 try:
     from fastapi.testclient import TestClient
@@ -57,7 +57,7 @@ FROZEN_ROUTES: frozenset[tuple[str, str]] = frozenset({
 
 
 def _live_routes() -> set[tuple[str, str]]:
-    app = create_fastapi_app()
+    app = create_app()
     routes: set[tuple[str, str]] = set()
     for route in getattr(app, "routes", []):
         methods = getattr(route, "methods", None)
@@ -90,7 +90,7 @@ def test_no_standard_or_mlflow_endpoint_added():
 @pytest.mark.skipif(TestClient is None, reason="fastapi not installed")
 def test_model_requirements_response_schema_frozen():
     """GET requirements keeps the bremen.model_requirements.v1 envelope."""
-    from bremen.api import model_registry as registry
+    from bremen.platform.models import registry
 
     registry.reset_for_tests()
     try:

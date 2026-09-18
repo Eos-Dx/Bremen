@@ -11,53 +11,6 @@ import argparse
 
 BUILTIN_COMMANDS = ("preprocess", "serve", "serve-fastapi", "demo_smoke", "demo_run")
 STUB_COMMANDS = ("preflight", "run", "report")
-VALID_BACKENDS = ("http", "fastapi")
-DEFAULT_BACKEND = "fastapi"
-
-
-def resolve_backend(
-    cli_backend: str | None,
-    env_backend: str | None,
-) -> str:
-    """Resolve the server backend from CLI and environment.
-
-    Rules:
-    - explicit CLI backend wins when not None and not empty
-    - valid env backend is used when CLI backend is absent/None
-    - no env means default (http)
-    - invalid values fail closed
-
-    Returns
-    -------
-    A valid backend string: "http" or "fastapi".
-
-    Raises
-    -----
-    ValueError
-        If the resolved value is not a valid backend.
-    """
-    # CLI wins
-    if cli_backend is not None and cli_backend.strip():
-        value = cli_backend.strip().lower()
-        if value not in VALID_BACKENDS:
-            raise ValueError(
-                f"Invalid backend: {value!r}. "
-                f"Valid backends: {', '.join(VALID_BACKENDS)}."
-            )
-        return value
-
-    # Env fallback
-    if env_backend is not None and env_backend.strip():
-        value = env_backend.strip().lower()
-        if value not in VALID_BACKENDS:
-            raise ValueError(
-                f"Invalid backend: {value!r}. "
-                f"Valid backends: {', '.join(VALID_BACKENDS)}."
-            )
-        return value
-
-    # Default
-    return DEFAULT_BACKEND
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -94,10 +47,10 @@ def build_parser() -> argparse.ArgumentParser:
         "Planned for a future PR.",
     )
 
-    # --- Serve command: HTTP server ---
+    # --- Serve command: the single FastAPI/ASGI server ---
     _add_serve_subcommand(subparsers)
 
-    # --- Serve-fastapi command: ASGI server ---
+    # --- Backward-compatible alias for the same ASGI server ---
     _add_serve_fastapi_subcommand(subparsers)
 
     # --- Demo smoke command ---
@@ -198,10 +151,10 @@ def main(argv: list[str] | None = None) -> int:
 def _add_serve_subcommand(
     subparsers: argparse._SubParsersAction,
 ) -> None:
-    """Add the 'serve' subcommand with backend selection (no heavy imports)."""
+    """Add the single FastAPI serving command (no heavy imports)."""
     serve = subparsers.add_parser(
         "serve",
-        help="Start the Bremen HTTP API server (dev/smoke mode).",
+        help="Start the Bremen FastAPI server (dev/smoke mode).",
     )
     serve.add_argument(
         "--host",
@@ -215,71 +168,13 @@ def _add_serve_subcommand(
         default=8000,
         help="Port number to listen on (default: 8000).",
     )
-    serve.add_argument(
-        "--backend",
-        type=str,
-        default=None,
-        choices=["http", "fastapi"],
-        help=(
-            "Server backend: 'http' for legacy http.server, "
-            "'fastapi' for FastAPI/ASGI (default). "
-            "Default: BREMEN_SERVER_BACKEND env var, then 'fastapi'."
-        ),
-    )
     serve.set_defaults(_cmd_handler="serve")
 
 
 def _handle_serve(args: argparse.Namespace) -> int:
-    """Start the Bremen API server (blocking, dev/smoke mode).
-
-    Dispatches to legacy http.server or FastAPI/ASGI backend
-    based on resolved backend (CLI --backend > BREMEN_SERVER_BACKEND > default).
-    """
-    import os
-
-    from .logging_config import get_logger  # noqa: PLC0415
-
-    _log = get_logger(__name__)
-
-    cli_backend = getattr(args, "backend", None)
-    env_backend = os.environ.get("BREMEN_SERVER_BACKEND")
-
-    try:
-        backend = resolve_backend(cli_backend, env_backend)
-    except ValueError as exc:
-        print(f"Error: {exc}")
-        return 1
-
-    if backend == "fastapi":
-        _log.info(
-            "bremen.cli.serve.dispatch.fastapi\t"
-            "stage=startup\tstatus=started\t"
-            "host=%s\tport=%s",
-            args.host, args.port,
-        )
-        from .api.fastapi_server import run_fastapi_server  # noqa: PLC0415
-
-        print(f"Starting Bremen FastAPI server at http://{args.host}:{args.port}")
-        print("Dev/smoke mode only. Not for production use.")
-        return run_fastapi_server(
-            host=args.host,
-            port=args.port,
-        )
-
-    # Default: legacy http.server backend
-    from .api.server import run_server  # noqa: PLC0415
-
-    _log.info(
-        "bremen.cli.serve.dispatch.http\t"
-        "stage=startup\tstatus=started\t"
-        "host=%s\tport=%s",
-        args.host, args.port,
-    )
-
-    print(f"Starting Bremen API server at http://{args.host}:{args.port}")
-    print("Dev/smoke mode only. Not for production use.")
-    run_server(host=args.host, port=args.port)
-    return 0
+    """Start the single FastAPI/ASGI server (blocking)."""
+    from .api.fastapi_server import run_fastapi_server  # noqa: PLC0415
+    return run_fastapi_server(host=args.host, port=args.port)
 
 
 def _add_serve_fastapi_subcommand(

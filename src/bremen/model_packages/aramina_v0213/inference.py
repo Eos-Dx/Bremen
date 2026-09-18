@@ -31,8 +31,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from bremen.canonical_input import CanonicalXRDCase, validate_canonical_case
-from bremen.model_packages.aramina_v0213 import manifest
+from bremen.contracts.canonical_input import CanonicalXRDCase, validate_canonical_case
+from . import manifest
 from bremen.model_packages.aramina_v0213.errors import AraminaWorkflowError
 from bremen.model_packages.aramina_v0213.trace import _debug_checkpoint, _debug_stage
 from bremen.model_packages_bridge import load_staged_artifact as _load_staged_artifact
@@ -43,7 +43,7 @@ _ARTIFACT_KIND = manifest.ARTIFACT_KIND
 _DEFAULT_AUTHOR = manifest.DEFAULT_AUTHOR
 
 
-# ---- moved verbatim from bremen.api.workflow_aramina ----
+# ---- moved verbatim from the retired API workflow module ----
 def _build_aramina_request_json(
     *, patient_id: str, target_side: str,
     analysis_author: str = "", prediction_comment: str = "",

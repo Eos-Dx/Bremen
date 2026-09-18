@@ -146,7 +146,7 @@ class TestOutputShape:
     def test_run_demo_output_has_expected_keys(self):
         """run_demo() output dict contains all expected keys."""
         from bremen.demo_run import run_demo
-        from bremen.api.model_state import ModelState
+        from bremen.platform.models.state import ModelState
 
         ModelState.reset_for_tests()
         # Call with unreachable URL — should return fail with expected shape

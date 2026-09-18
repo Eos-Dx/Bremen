@@ -2,6 +2,13 @@
 
 This roadmap implements `ARCHITECTURE_SPIKE_PLATFORM_SIMPLIFICATION.md` as a sequence of deliberately destructive internal changes while freezing the public HTTP/report contracts.
 
+> **Final-state note (PR0162 Cut 5):** This document is the historical
+> execution roadmap. The completed tree uses FastAPI routers, platform
+> jobs/sources/reports and model discovery/runtime services, one generic
+> executor, neutral contracts, and thick model packages. Deleted `api/server.py`,
+> `api/app.py`, provider modules, and other paths named below are retained here
+> as historical checkpoints; see `module_inventory.csv` for final ownership.
+
 ## R0 — Baseline and guardrails
 
 Purpose: make deletion measurable before moving code.

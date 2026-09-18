@@ -17,12 +17,12 @@ no sockets, no localhost HTTP requests.
 
 from __future__ import annotations
 
-import json
-import re
 
 import pytest
 
-from bremen.api.job_api_handler import reset_for_tests, list_analysis_jobs, _event_store
+from bremen.platform.jobs.service import reset_for_tests
+from bremen.platform.jobs.service import list_analysis_jobs
+from bremen.platform.jobs.service import _event_store
 from bremen.workspace_ui import build_workspace_page
 
 
@@ -37,8 +37,8 @@ def server_info():
 
     Yields ``(html, None)`` where ``html`` is the workspace page content.
     """
-    from bremen.api.model_state import ModelState
-    from bremen.api.server import _load_synthetic_model
+    from bremen.platform.models.state import ModelState
+    from bremen.api.http.dev_support import _load_synthetic_model
     from bremen.workspace_ui import build_workspace_page
 
     reset_for_tests()

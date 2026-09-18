@@ -1,7 +1,7 @@
 """Aramina v0.2.13 inference-complete model package (PR0156).
 
 One clear runtime entry point implementing Model Runtime Contract v1
-(``bremen.model_runtime.ModelRuntime``):
+(``bremen.contracts.model_runtime.ModelRuntime``):
 
 - ``AraminaRuntime`` — requirements / validate / predict over the checksum-
   verified Aramina training artifact pipeline (PR0137 science, PR0153B

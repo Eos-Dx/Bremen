@@ -14,7 +14,7 @@ import h5py
 import numpy as np
 import pytest
 
-from bremen.api.preflight import (
+from bremen.platform.sources.preflight import (
     H5MetadataError,
     PatientMetadata,
     PreflightResult,
@@ -165,7 +165,7 @@ class TestFallbackPath:
 class TestMissingBoth:
     @pytest.fixture(autouse=True)
     def _reset_model_state(self):
-        from bremen.api.model_state import ModelState
+        from bremen.platform.models.state import ModelState
         ModelState.reset_for_tests()
         yield
 
@@ -198,7 +198,7 @@ class TestMissingBoth:
 class TestEmptyPatientName:
     @pytest.fixture(autouse=True)
     def _reset_model_state(self):
-        from bremen.api.model_state import ModelState
+        from bremen.platform.models.state import ModelState
         ModelState.reset_for_tests()
         yield
 
@@ -253,7 +253,7 @@ class TestEmptyPatientName:
 class TestAmbiguousPatientNames:
     @pytest.fixture(autouse=True)
     def _reset_model_state(self):
-        from bremen.api.model_state import ModelState
+        from bremen.platform.models.state import ModelState
         ModelState.reset_for_tests()
         yield
 

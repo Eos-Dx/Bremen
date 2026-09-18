@@ -107,4 +107,4 @@ echo "Starting server..."
 echo "Open: http://$HOST:$PORT/demo/control-room"
 echo
 
-python -m bremen.api.server
+python -m bremen serve --host "$HOST" --port "$PORT"
