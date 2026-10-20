@@ -78,3 +78,14 @@ index:
     kind: directory
     description: "Runtime-captured evidence for a specific PR — populated by human reviewers or automated validation."
     steward: "human reviewers"
+
+active_inference_release_block:
+  status: proposed_documentation_baseline
+  date: "2026-10-20"
+  roadmap: ../ROADMAP.md
+  adr: ../docs/adr/0019-independent-inference-releases-app-runner.md
+  implementation_plan: ../docs/inference-releases/implementation-plan.md
+  inventory: ../docs/inference-releases/five-model-inventory.md
+  pr_plans: pr/ir-01 through pr/ir-07
+  hosting: existing_app_runner
+  implementation_gates_completed: false

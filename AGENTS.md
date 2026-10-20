@@ -208,3 +208,8 @@ replacement for biopsy/MRI/radiologist
 - For marimo notebooks, also run `python -m marimo check <notebook.py>`.
 
 > **Note:** The package was renamed from `src/aramina` to `src/bremen` in PR 0003. All imports now use `bremen`.
+
+
+## Active inference roadmap (2026-10-20)
+
+For the next inference release block, read root ROADMAP.md and docs/adr/0019-independent-inference-releases-app-runner.md before planning changes. Follow IR-01–IR-07 in order; no ECS migration during this block. Five exact variants require separate inventory and parity evidence. The plans in .project-memory/pr/ir-01 through ir-07 are drafts, not review approvals. Existing scientific invariants and project-contract review gates remain binding. If historical planning conflicts with the new sequence, preserve historical evidence and follow the new roadmap only for this block's execution scope.
