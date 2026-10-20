@@ -6,7 +6,7 @@ Status: DRAFT PLAN; not reviewed, not implemented. Assign implementation/review 
 Requires IR-01 accepted inventory. Define contracts before changing runtime execution.
 
 ## Work
-Implement versioned release schema and additive catalog reference validation; exact JSON schemas/codecs for ModelInput, RuntimePrediction, requirements, validation and events; neutral import boundary; explicit error mapping and size limits.
+Implement versioned release schema (including the `golden_tests` manifest field) and additive catalog reference validation; the file-based Worker protocol v1 (`request.json` + `input.h5` -> `result.json`); exact JSON schemas/codecs for ModelInput, RuntimePrediction, requirements, validation and events; the typed error codes (`INPUT_INVALID`, `QC_FAILED`, `MODEL_NOT_READY`, `INFERENCE_FAILED`, `TIMEOUT`, `RESOURCE_EXHAUSTED`, `PROTOCOL_ERROR`); a neutral import boundary that keeps the Harness free of ML plugin imports; explicit error mapping and size limits.
 
 ## Expected change areas
 Paths below are relative to `src/bremen` unless root-level. These are investigation boundaries, not permission to redesign adjacent systems.

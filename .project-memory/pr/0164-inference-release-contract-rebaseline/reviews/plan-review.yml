@@ -1,0 +1,237 @@
+# Plan-review artifact — PR0164 inference-release-contract-rebaseline
+# Written by: reviewer (plan-review role). Mode: plan-review (independent review of PLAN.md).
+# Schema: .project-memory/review-artifact.schema.yml (artifact_types.plan-review)
+
+REVIEW ARTIFACT WRITTEN: ".project-memory/pr/0164-inference-release-contract-rebaseline/reviews/plan-review.yml"
+
+VERDICT: warning
+# warning = authorized to proceed; plan is complete, safe and implementable;
+# two non-blocking clarifications are raised for the coder to resolve while
+# writing the docs (see WARNINGS). No blocker prevents implementation start.
+
+PLAN_SHA256: "e085921b3e0f6de394983706c3e3ec7e21fff0258145d146fb253d791fa891e4"
+PLAN_PATH: ".project-memory/pr/0164-inference-release-contract-rebaseline/PLAN.md"
+PLAN_BYTES: 3380
+
+BLOCKERS: []
+
+WARNINGS:
+  - id: W1
+    topic: "Required Change #8 vs Non-goals/Allowed Files"
+    detail: >
+      PLAN.md Required Change #8 ("Separate Model Release CI/CD from Bremen
+      application CI/CD") could be misread as a directive to modify CI
+      workflow files. The PLAN's own Non-goals explicitly forbid "CI
+      workflows ... changes" and Allowed Files contains no
+      .github/workflows/* path, so #8 is only implementable as a
+      documentation statement (describing the future separation for a later
+      IR gate, most likely IR-03's "new release build workflow"), not an
+      actual CI change in this PR. Recommend the coder explicitly phrase
+      this as descriptive/future-scoped text and not touch any workflow
+      file. Not a blocker because Allowed Files/Non-goals already constrain
+      the coder to docs-only, but the wording in PLAN.md invites
+      misinterpretation.
+  - id: W2
+    topic: "'Agreed' architecture framing lacks in-repo evidence trail"
+    detail: >
+      PLAN.md's Goal states the rebaseline aligns the roadmap with "the
+      agreed Model Release, plugin and isolated Worker architecture," but
+      no prior committed artifact in this repository (ADR, decision record,
+      or prior PLAN) defines or approves "Harness"/"plugin wheel"/
+      file-based result-channel terminology before this PLAN introduces it.
+      Per project_contract.yml source_of_truth_order, the current task
+      prompt is rank 1 and can supply this authority, so this is not
+      treated as a blocker, but the coder should avoid asserting in the
+      rewritten docs that this design was previously "agreed" elsewhere in
+      the repository; it should be framed as newly adopted by this PR,
+      consistent with AGENTS.md's evidence-based claim discipline.
+  - id: W3
+    topic: "ir-01..ir-07 PLAN.md edit scope is open-ended"
+    detail: >
+      Required Change #10 ("Align IR-01 through IR-07 without changing
+      their dependency order") grants edit access to all seven
+      .project-memory/pr/ir-0N/PLAN.md files without stating which specific
+      sentences must change. Current ir-0N PLAN.md files do not name
+      "stdin/stdout JSONL" or contradict a file-based protocol, so in
+      practice little or no edit may be required there. Recommend the
+      coder treat these edits as terminology-only touch-ups (if any) and
+      record "no change required" explicitly per file in
+      IMPLEMENTATION_REPORT.md rather than rewriting stage content, to
+      avoid incidental scope drift inside an otherwise tightly-scoped
+      documentation PR.
+
+VALIDATION:
+  commands_specified_in_plan:
+    - "python -m compileall -q src tests"
+    - "pytest -q"
+    - "git diff --check"
+    - "Verify all tracked, staged and untracked changes"
+    - "Check privacy, security and documentation consistency"
+  assessment: >
+    Adequate for a documentation-only PR: compileall/pytest act as a
+    regression tripwire proving no source file was touched; git diff
+    --check catches whitespace/conflict-marker issues in the doc edits;
+    the manual tracked/staged/untracked review and privacy/security pass
+    match the project's secrets/forbidden-pattern discipline. No
+    additional validation is required given the Allowed Files scope.
+
+FILES READ:
+  - AGENTS.md
+  - ROADMAP.md
+  - .project-memory/project_contract.yml
+  - .project-memory/review-artifact.schema.yml
+  - .project-memory/IMPLEMENTATION_REPORT_WORKFLOW.md
+  - docs/adr/0019-independent-inference-releases-app-runner.md
+  - docs/inference-releases/architecture-and-contract.md
+  - docs/inference-releases/five-model-inventory.md
+  - docs/inference-releases/implementation-plan.md
+  - docs/inference-releases/operations.md
+  - docs/inference-releases/parity-and-rollout.md
+  - docs/inference-releases/source-audit.md
+  - .project-memory/pr/0164-inference-release-contract-rebaseline/PLAN.md
+  - .project-memory/pr/ir-01/PLAN.md
+  - .project-memory/pr/ir-02/PLAN.md
+  - .project-memory/pr/ir-03/PLAN.md
+  - .project-memory/pr/ir-04/PLAN.md
+  - .project-memory/pr/ir-05/PLAN.md
+  - .project-memory/pr/ir-06/PLAN.md
+  - .project-memory/pr/ir-07/PLAN.md
+  - docs/model_runtime_contract_v1.md (existence check only)
+  - docs/standard_model_result_contract_v1.md (existence check only)
+  - git log (docs/adr/0019*, docs/inference-releases/, ROADMAP.md, .project-memory/IMPLEMENTATION_REPORT_WORKFLOW.md)
+
+FILES WRITTEN:
+  - .project-memory/pr/0164-inference-release-contract-rebaseline/reviews/plan-review.yml
+# No other file was created, modified or deleted by this review.
+
+SNAPSHOT DELTA:
+  head_commit: "6588c3b13b5ecfbf2b59790a73268b6603f5f604"
+  branch: "0164-inference-release-contract-rebaseline"
+  git_status_short_at_start:
+    - "?? .project-memory/agents/master_prompt.md"
+    - "?? .project-memory/pr/0163-fix-validation-traces-and-standard-result-contract/"
+    - "?? .project-memory/pr/0164-inference-release-contract-rebaseline/"
+    - "?? results/"
+    - "?? testing_results/"
+  tracked_files_modified_by_this_review: 0
+  new_tracked_files_created_by_this_review: 0
+  note: >
+    Only the new reviews/ subdirectory and this artifact were added under
+    the already-untracked PR0164 folder; no tracked file was touched.
+
+SCOPE CHECK:
+  allowed_files_enumerated: true
+  allowed_files_list:
+    - ROADMAP.md
+    - docs/adr/0019-independent-inference-releases-app-runner.md
+    - docs/inference-releases/architecture-and-contract.md
+    - docs/inference-releases/implementation-plan.md
+    - docs/inference-releases/operations.md
+    - docs/inference-releases/parity-and-rollout.md
+    - .project-memory/pr/ir-01/PLAN.md
+    - .project-memory/pr/ir-02/PLAN.md
+    - .project-memory/pr/ir-03/PLAN.md
+    - .project-memory/pr/ir-04/PLAN.md
+    - .project-memory/pr/ir-05/PLAN.md
+    - .project-memory/pr/ir-06/PLAN.md
+    - .project-memory/pr/ir-07/PLAN.md
+    - .project-memory/pr/0164-inference-release-contract-rebaseline/IMPLEMENTATION_REPORT.md
+  excluded_but_relevant_files_correctly_not_in_scope:
+    - docs/inference-releases/five-model-inventory.md (no required change targets inventory data)
+    - docs/inference-releases/source-audit.md (historical snapshot record; no required change targets it)
+    - docs/model_runtime_contract_v1.md / docs/standard_model_result_contract_v1.md (preserved, not edited)
+    - any src/, tests/, Docker, CI workflow, or dependency file (explicitly excluded by Non-goals)
+  non_goals_consistent_with_allowed_files: true
+  acceptance_criteria_mapped_to_allowed_files: true
+  finding: >
+    Allowed Files is a strict subset of files that can satisfy every
+    Required Change; no Required Change targets a file outside this list.
+    Non-goals (no source/tests/Docker/CI/dependency/infra changes; no
+    scientific/API/production changes; no S3 publication/activation) are
+    consistent with the Allowed Files list and with the Validation
+    commands chosen (compileall/pytest as tripwires, not functional
+    tests of new behavior).
+
+BREMEN CONTRACT CHECK:
+  project_contract_source_of_truth_order_respected: true
+  bremen_safety_invariants_unaffected: true
+  plan_drift_gate_requirements:
+    plan_hash_match: "applicable — PLAN_SHA256 recorded above for committed-PLAN verification"
+    file_list_freeze: "satisfied — Allowed Files explicitly enumerated in PLAN.md"
+    safety_invariant_checklist: "not applicable — PR introduces no runtime behavior (docs only)"
+    legacy_name_policy: "satisfied — no Aramina/Bremen rename proposed"
+    evidence_capture: "deferred to coder — IMPLEMENTATION_REPORT.md is in Allowed Files and is mandatory per IMPLEMENTATION_REPORT_WORKFLOW.md"
+  legacy_project_names_policy_respected: true
+  finding: >
+    No bremen_safety_invariants are touched: this PR does not change
+    joblib loading, target/control validation, feature schema, prediction
+    result fields, Matador system-of-record status, path abstraction, or
+    clinical wording. PLAN.md Contracts to Preserve section explicitly
+    names Model Runtime Contract v1, Model Package Standard v1 and
+    Standard Model Result Contract v1 as unchanged, matching the existing
+    docs/model_runtime_contract_v1.md and
+    docs/standard_model_result_contract_v1.md files verified present in
+    the repository.
+
+VALIDATION STRATEGY CHECK:
+  matches_bremen_contract_requirement: true
+  commands_appropriate_for_docs_only_pr: true
+  gap_found: false
+  note: >
+    No pytest/compileall gap exists because this PR adds no src/tests;
+    the commands function as a negative-change tripwire. git diff --check
+    plus manual tracked/staged/untracked review covers the
+    documentation-specific risk (accidental edits outside Allowed Files).
+
+EVIDENCE COMPLETENESS CHECK:
+  pr0164_plan_internally_consistent: true
+  roadmap_and_adr0019_already_establish_ir01_ir07_sequence: true
+  docs_inference_releases_already_committed_at_4be04ed: true
+  five_model_inventory_and_source_audit_correctly_marked_incomplete_evidence: true
+  discrepancy_identified_and_correctly_scoped_for_fix:
+    description: >
+      docs/inference-releases/architecture-and-contract.md currently
+      specifies protocol identifier bremen.worker.v1 as "UTF-8 JSON Lines
+      over dedicated stdin/stdout pipes" as the result channel. PLAN.md
+      Current State correctly identifies this as the drift to resolve
+      (switch to file-based V1 protocol: request.json + input.h5 ->
+      result.json, with stdout/stderr limited to diagnostics/optional
+      structured events). This file is in Allowed Files, so the fix is
+      implementable within scope.
+  finding: >
+    No fabricated evidence found. PLAN.md's factual claims about current
+    repository state (existing App Runner/S3 catalog, existing
+    stdin/stdout JSONL protocol text, IR-01..IR-07 sequence, three named
+    contracts) were independently verified against the actual files.
+
+BOUNDARY CONFIRMATIONS:
+  "Planner wrote only PLAN.md": "confirmed"
+  "No code written": "confirmed"
+  "No tests written": "confirmed"
+  "No review artifact written (by planner)": "confirmed"
+  "No Aramina-to-Bremen source rename performed": "confirmed"
+  "No Docker/CI/API/H5/model implementation planned": "confirmed"
+  "Plan Drift Gate required": "yes"
+  "No git mutation commands run": "confirmed"
+
+REVIEWER_NOTES: >
+  Independently verified: (1) current branch and HEAD match the task's
+  PRECONDITION; (2) PLAN.md's Allowed Files are a documentation-only
+  subset consistent with ROADMAP.md, ADR 0019, and the existing
+  docs/inference-releases/* bundle committed at 4be04ed; (3) PLAN.md
+  correctly identifies the one real contradiction in the currently
+  committed docs (stdin/stdout JSONL vs the file-based V1 protocol it now
+  requires) and scopes its fix inside the allowed file list; (4) no
+  scientific, API, production, S3-activation, or safety-invariant change
+  is authorized by this PLAN; (5) IR-01 through IR-07 dependency order
+  and gates are unchanged by this rebaseline. Three non-blocking
+  clarifications are recorded under WARNINGS for the coder's attention;
+  none require PLAN.md correction before implementation may begin.
+
+NEXT ACTION: >
+  Coder may proceed with implementation under PLAN.md as written,
+  addressing W1-W3 as implementation guidance (not as required PLAN.md
+  edits). Coder must write
+  .project-memory/pr/0164-inference-release-contract-rebaseline/IMPLEMENTATION_REPORT.md
+  before requesting precommit-review, per
+  .project-memory/IMPLEMENTATION_REPORT_WORKFLOW.md.

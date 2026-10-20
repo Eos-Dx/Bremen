@@ -6,7 +6,7 @@ Status: DRAFT PLAN; not reviewed, not implemented. Assign implementation/review 
 Requires local parity and resource gates. Operator authorization required for deployment/activation.
 
 ## Work
-Deploy candidate-capable image in authorized environment, run sequential paired comparisons with legacy authoritative, verify cold/warm/restart/failure behavior and diagnostics, then activate exact model identities one at a time after review.
+Deploy candidate-capable image in authorized environment, run sequential paired comparisons with legacy authoritative, verify cold/warm/restart/failure behavior and diagnostics, then carry each release through VERIFIED → READY → ACTIVE, activating exact model identities one at a time after review.
 
 ## Expected change areas
 Paths below are relative to `src/bremen` unless root-level. These are investigation boundaries, not permission to redesign adjacent systems.
