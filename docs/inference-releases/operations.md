@@ -14,6 +14,47 @@ Propose explicit limits for active processes, install concurrency, cache bytes, 
 
 Idle App Runner, storage and observability may still cost money. Record current service sizing/scaling, measured usage and an owner-approved cost ceiling; do not claim zero idle costs or savings without billing evidence. Add bounded logs and usage telemetry without patient data or unbounded labels.
 
+### Repository evidence toward the feasibility gate (IR-01, 2026-10-20)
+
+No live App Runner metrics (CPU, RSS, cost) were available in this
+session — no deployment access was granted. The following is
+repository-code evidence only, gathered as a starting point for the
+still-pending live measurement:
+
+- `Dockerfile` builds four Python environments into the image: the main
+  application venv, `/opt/bremen-preprocess` (xrd-preprocessing commit
+  `45d5568248e9774b7938a36e028d80e72b130b19`), `/opt/aramina-preprocess`
+  (`v0.1.7-beta`) and `/opt/aramina-preprocess-019` (`v0.1.9-beta`).
+  Image footprint and simultaneous-environment overhead must be measured
+  against this, not a single-venv assumption.
+- `src/bremen/platform/jobs/service.py` currently bounds concurrency with
+  `ThreadPoolExecutor(max_workers=2)` — i.e. at most 2 concurrent job
+  threads today, in-process, not process-isolated. This is the existing
+  baseline the "one scientific process per instance" target must be
+  measured against; it is not itself evidence that one Worker process
+  fits the same budget as one thread.
+- `infra/terraform/apprunner.tf` defines only a "smoke / proving target
+  only" App Runner service (per its own header comment and ADR-0008,
+  which names ECS Fargate as the then-intended long-term production
+  target). It declares no explicit `instance_configuration` (CPU/memory
+  override), so it would run on provider defaults if it were the
+  deployed service — but this file is explicitly not the production
+  definition, and the actual production App Runner service's sizing is
+  not present anywhere in this repository. Live confirmation of the
+  deployed service's actual CPU/memory/concurrency configuration is
+  still required and is a hard blocker for the resource-budget gate.
+- No OpenResty reference was found anywhere in source, infra, or
+  deployment configuration in this repository (only in this roadmap's
+  own planning documents, which already treat it as an unconfirmed
+  assumption). This is consistent with — but does not prove — the
+  working assumption that "OpenResty" refers to the existing App Runner
+  deployment and not a separate proxy layer. Live topology confirmation
+  is still required.
+
+See
+`.project-memory/pr/0165-ir-01-five-model-inventory/INVENTORY_EVIDENCE.md`
+for the full citation trail.
+
 ## CI/CD separation (documentation only)
 
 Model Release CI/CD (building and publishing an ML plugin wheel, offline wheelhouse, artifacts, provenance and golden tests for one of the five variants) is documented here as a pipeline distinct from the existing Bremen application CI/CD (`.github/workflows/ecr-publish.yml` and related application build/test workflows). This block makes no workflow-file changes; it only records the intended separation so that IR-03's "new release build workflow" is scoped as a release-only pipeline when it is implemented, not as a change to the application's own CI/CD.
