@@ -1,0 +1,187 @@
+# Precommit review artifact — PR0164 inference-release-contract-rebaseline
+# Written by: precommit-reviewer. Mode: precommit-review.
+# Schema: .project-memory/review-artifact.schema.yml (artifact_types.precommit-review)
+
+REVIEW ARTIFACT WRITTEN: ".project-memory/pr/0164-inference-release-contract-rebaseline/reviews/precommit-review.yml"
+
+VERDICT: warning
+# warning: documentation diff is ready for commit; the repository-wide pytest
+# command could not execute because the local Python environments are unusable.
+
+BLOCKERS: []
+
+WARNINGS:
+  - id: W-ENV-1
+    topic: "pytest environment unavailable"
+    detail: >
+      The repository pytest command exits 127 because venv/bin/python and its
+      venv/bin/pytest shebang target a missing Python 3.13 interpreter. Running
+      python3 -m pytest independently exits 2 during collection with missing
+      numpy, h5py, fastapi, jwt, argon2, joblib and related dependencies. This
+      is an environment warning only: the implementation diff contains no
+      source, test, dependency or runtime changes, and compileall and diff
+      checks pass.
+
+VALIDATION:
+  commands:
+    - command: "python3 -m compileall -q src tests"
+      exit_code: 0
+      result: "PASS; no output"
+    - command: "pytest -q"
+      exit_code: 127
+      result: "FAIL/UNAVAILABLE; venv/bin/pytest has a broken interpreter shebang"
+    - command: "python3 -m pytest -q"
+      exit_code: 2
+      result: "FAIL/ENVIRONMENT; 58 collection errors from missing scientific/web dependencies"
+    - command: "git diff --check"
+      exit_code: 0
+      result: "PASS; no whitespace or conflict-marker errors"
+    - command: "git diff --stat"
+      exit_code: 0
+      result: "PASS; 10 tracked documentation files changed, 80 insertions and 25 deletions"
+  environment_findings:
+    - "venv/bin/python, venv/bin/python3 and venv/bin/python3.13 are broken symlinks"
+    - "venv/bin/pytest and venv/bin/pip cannot execute because their interpreter is missing"
+    - "system python3 is /opt/homebrew/bin/python3, version 3.14.7"
+    - "system python3 lacks numpy, h5py, fastapi, jwt, argon2, joblib and other project dependencies"
+  assessment: >
+    The failed pytest commands are demonstrably environmental and unrelated to
+    this documentation-only change. Commit readiness is conditional on the
+    repository environment being repaired before claiming a green test run.
+
+FILES READ:
+  - AGENTS.md
+  - ROADMAP.md
+  - docs/adr/0019-independent-inference-releases-app-runner.md
+  - docs/inference-releases/architecture-and-contract.md
+  - docs/inference-releases/implementation-plan.md
+  - docs/inference-releases/operations.md
+  - docs/inference-releases/parity-and-rollout.md
+  - docs/inference-releases/five-model-inventory.md
+  - docs/inference-releases/source-audit.md
+  - .project-memory/review-artifact.schema.yml
+  - .project-memory/IMPLEMENTATION_REPORT_WORKFLOW.md
+  - .project-memory/pr/0164-inference-release-contract-rebaseline/PLAN.md
+  - .project-memory/pr/0164-inference-release-contract-rebaseline/IMPLEMENTATION_REPORT.md
+  - .project-memory/pr/0164-inference-release-contract-rebaseline/reviews/plan-review.yml
+  - .project-memory/pr/ir-01/PLAN.md
+  - .project-memory/pr/ir-02/PLAN.md
+  - .project-memory/pr/ir-03/PLAN.md
+  - .project-memory/pr/ir-04/PLAN.md
+  - .project-memory/pr/ir-05/PLAN.md
+  - .project-memory/pr/ir-06/PLAN.md
+  - .project-memory/pr/ir-07/PLAN.md
+
+FILES WRITTEN:
+  - .project-memory/pr/0164-inference-release-contract-rebaseline/reviews/precommit-review.yml
+
+SNAPSHOT DELTA:
+  head_commit: "6588c3b13b5ecfbf2b59790a73268b6603f5f604"
+  branch: "0164-inference-release-contract-rebaseline"
+  status_before_review:
+    - "M .project-memory/pr/ir-02/PLAN.md"
+    - "M .project-memory/pr/ir-03/PLAN.md"
+    - "M .project-memory/pr/ir-05/PLAN.md"
+    - "M .project-memory/pr/ir-06/PLAN.md"
+    - "M ROADMAP.md"
+    - "M docs/adr/0019-independent-inference-releases-app-runner.md"
+    - "M docs/inference-releases/architecture-and-contract.md"
+    - "M docs/inference-releases/implementation-plan.md"
+    - "M docs/inference-releases/operations.md"
+    - "M docs/inference-releases/parity-and-rollout.md"
+    - "?? .project-memory/agents/master_prompt.md"
+    - "?? .project-memory/pr/0163-fix-validation-traces-and-standard-result-contract/"
+    - "?? .project-memory/pr/0164-inference-release-contract-rebaseline/"
+    - "?? results/"
+    - "?? testing_results/"
+  implementation_files_untouched_by_review: true
+  unrelated_untracked_files_untouched: true
+  git_mutation_commands_run: false
+
+PLAN COMPLIANCE:
+  result: "PASS"
+  findings:
+    - "Changed tracked files are limited to ROADMAP.md, ADR 0019, docs/inference-releases, and IR-02/03/05/06 PLAN.md files allowed by PLAN.md."
+    - "The required IMPLEMENTATION_REPORT.md exists under the PR0164 project-memory directory."
+    - "IR-01, IR-04 and IR-07 PLAN.md were inspected and remain unchanged because they contained no contradictory protocol or ownership wording."
+    - "No plan requirement was expanded into source, test, Docker, CI, dependency or infrastructure work."
+
+BREMEN CONTRACT CHECK:
+  result: "PASS"
+  findings:
+    - "AWS App Runner remains the deployment target and the existing S3 catalog remains authoritative."
+    - "Model Release is documented as manifest, model artifacts/weights, ML plugin wheel, pinned dependency closure, provenance and golden tests."
+    - "Platform owns Harness, Model Runner, common Worker launcher, supervision and protocol; ML owns the plugin and scientific processing."
+    - "V1 is request.json plus input.h5 to result.json; stdout and stderr are diagnostics only and are not the result channel."
+    - "INPUT_INVALID, QC_FAILED, MODEL_NOT_READY, INFERENCE_FAILED, TIMEOUT, RESOURCE_EXHAUSTED and PROTOCOL_ERROR are listed consistently."
+    - "PUBLISHED to VERIFIED to READY to ACTIVE is explicit and publication does not activate a model."
+    - "Existing requirements/validate/predict operations, result semantics, event names, API projection and legacy route behavior are stated as preserved."
+    - "Final acceptance requires onboarding a new model without rebuilding Bremen or changing Harness code."
+    - "V2 persistent workers and V3 OCI releases are explicitly future, non-binding options."
+
+VALIDATION COMPLETENESS CHECK:
+  result: "WARNING"
+  detail: >
+    All requested commands were attempted. compileall and git diff --check
+    passed. Both pytest invocations were independently run and failed before
+    tests executed because the available interpreters/dependencies are broken;
+    this warning must remain visible in any commit handoff.
+
+EVIDENCE COMPLETENESS CHECK:
+  result: "PASS"
+  findings:
+    - "Coder report file list matches the tracked documentation diff."
+    - "The diff contains no src/, tests/, Dockerfile, CI, dependency or infrastructure paths."
+    - "The actual untracked paths were enumerated and unrelated paths were not modified."
+    - "No secrets, patient data, credentials, arbitrary package paths or unsafe clinical claims were introduced by the documentation edits."
+
+DIFF COMPLETENESS CHECK:
+  result: "PASS"
+  tracked_diff_stat: "10 files changed, 80 insertions(+), 25 deletions(-)"
+  changed_tracked_files:
+    - ".project-memory/pr/ir-02/PLAN.md"
+    - ".project-memory/pr/ir-03/PLAN.md"
+    - ".project-memory/pr/ir-05/PLAN.md"
+    - ".project-memory/pr/ir-06/PLAN.md"
+    - "ROADMAP.md"
+    - "docs/adr/0019-independent-inference-releases-app-runner.md"
+    - "docs/inference-releases/architecture-and-contract.md"
+    - "docs/inference-releases/implementation-plan.md"
+    - "docs/inference-releases/operations.md"
+    - "docs/inference-releases/parity-and-rollout.md"
+  untracked_review_and_report_files:
+    - ".project-memory/pr/0164-inference-release-contract-rebaseline/IMPLEMENTATION_REPORT.md"
+    - ".project-memory/pr/0164-inference-release-contract-rebaseline/reviews/plan-review.yml"
+    - ".project-memory/pr/0164-inference-release-contract-rebaseline/reviews/precommit-review.yml"
+
+BOUNDARY CONFIRMATIONS:
+  - "Implementation followed approved PLAN.md: confirmed"
+  - "No review artifact written before this review: confirmed"
+  - "PLAN.md not modified: confirmed"
+  - "plan-review artifact not modified: confirmed"
+  - "Only PLAN.md-approved paths changed: confirmed"
+  - "Validation commands run and recorded: confirmed"
+  - "No git mutation commands run: confirmed"
+  - "No registry push or secrets introduced: confirmed"
+
+SECURITY_PRIVACY_ASSESSMENT:
+  result: "PASS"
+  detail: >
+    Documentation retains authorized S3 resolution, digest and hash checks,
+    no arbitrary S3 keys or package paths, restricted worker environment,
+    no unnecessary AWS credential inheritance, bounded diagnostics and no
+    patient/source content in logs by default. No secret or clinical release
+    claim was added.
+
+FINAL_VERDICT:
+  value: "READY FOR COMMIT WITH ENVIRONMENT WARNING"
+  rationale: >
+    The documentation rebaseline is coherent, within scope and free of
+    implementation regressions. A repository-wide green pytest result remains
+    unavailable until the broken venv interpreter and missing dependencies are
+    repaired; this is the only warning found.
+  recommended_next_action: >
+    Stage the ten tracked documentation files plus the implementation report
+    and this review artifact (and retain the existing plan-review artifact),
+    repair the local test environment before claiming full validation, then
+    commit with: docs(inference): rebaseline release contracts.

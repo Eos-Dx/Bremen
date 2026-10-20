@@ -20,7 +20,7 @@ Scope rule: preserve the verified scientific behavior of each of five exact vari
 
 **Entry:** Requires IR-01 accepted inventory. Define contracts before changing runtime execution.
 
-**Work:** Implement versioned release schema and additive catalog reference validation; exact JSON schemas/codecs for ModelInput, RuntimePrediction, requirements, validation and events; neutral import boundary; explicit error mapping and size limits.
+**Work:** Implement versioned release schema (including the `golden_tests` manifest field) and additive catalog reference validation; the file-based Worker protocol v1 (`request.json` + `input.h5` -> `result.json`, diagnostics-only stdout/stderr); exact JSON schemas/codecs for ModelInput, RuntimePrediction, requirements, validation and events; the typed error codes (`INPUT_INVALID`, `QC_FAILED`, `MODEL_NOT_READY`, `INFERENCE_FAILED`, `TIMEOUT`, `RESOURCE_EXHAUSTED`, `PROTOCOL_ERROR`); a neutral import boundary that keeps the Harness free of ML plugin imports; explicit error mapping and size limits.
 
 **Gate:** Legacy manifests and result contract tests pass. Invalid identity/hash/path/protocol payloads fail closed. Round-trip actual representative inputs/results without scientific changes. Review every current field mapping.
 
@@ -32,7 +32,7 @@ Scope rule: preserve the verified scientific behavior of each of five exact vari
 
 **Entry:** Requires stable contracts and frozen baselines. No production activation.
 
-**Work:** Extract complete scientific paths into standalone wheels; preserve per-artifact compatibility classes and optional auxiliary environments. Pin observed dependency closures; replace VCS-only provenance guard correctly. Build five immutable descriptors with artifacts/configs and offline wheelhouses in CI; avoid full application dependency.
+**Work:** Extract complete scientific paths into standalone ML plugin wheels; preserve per-artifact compatibility classes and optional auxiliary environments. Pin observed dependency closures; replace VCS-only provenance guard correctly. Build five immutable descriptors with artifacts/configs, golden tests and offline wheelhouses in CI; avoid full application dependency. Build and publish each Model Release through a release-specific CI/CD pipeline kept separate from the Bremen application's own CI/CD (documentation-level separation in this block; no workflow files are added or changed here).
 
 **Gate:** Each of five runs in a clean environment without application checkout/platform imports or network dependency resolution. Per-stage and public-result parity passes for approved fixtures. Wheel/manifest hashes and provenance reproducible and captured.
 
@@ -56,7 +56,7 @@ Scope rule: preserve the verified scientific behavior of each of five exact vari
 
 **Entry:** Requires verified installer and protocol. New execution stays opt-in/disabled by default.
 
-**Work:** Implement runtime proxy for requirements/validate/predict and event translation. Keep platform source authorization/binding, worker scientific validation, report projection and public errors. Bound scientific concurrency; enforce deadlines, process-group termination and cleanup. Workers load artifacts; new path must not deserialize them in parent discovery.
+**Work:** Implement the Harness's runtime proxy (Model Runner + supervisor) for requirements/validate/predict over the file-based protocol, and event translation from Worker diagnostics. Keep platform source authorization/binding, worker scientific validation, report projection and public errors. Bound scientific concurrency; enforce deadlines, process-group termination and cleanup. Workers load artifacts and plugin code; the Harness process must not import or deserialize plugin/artifact objects in parent discovery.
 
 **Gate:** All five pass local end-to-end proxy parity. Crash, timeout, malformed output, wrong identity, capacity pressure and child-process cleanup tests pass. Legacy defaults and API/report contracts remain unchanged.
 
@@ -68,7 +68,7 @@ Scope rule: preserve the verified scientific behavior of each of five exact vari
 
 **Entry:** Requires local parity and resource gates. Operator authorization required for deployment/activation.
 
-**Work:** Deploy candidate-capable image in authorized environment, run sequential paired comparisons with legacy authoritative, verify cold/warm/restart/failure behavior and diagnostics, then activate exact model identities one at a time after review.
+**Work:** Deploy candidate-capable image in authorized environment, run sequential paired comparisons with legacy authoritative, verify cold/warm/restart/failure behavior and diagnostics, then carry each release through VERIFIED → READY → ACTIVE, activating exact model identities one at a time after review.
 
 **Gate:** Each of five has App Runner parity evidence, resource/cost measurements, reviewed activation and rollback record. No duplicate reports. Existing job/polling behavior documented and tested under actual service topology.
 

@@ -36,6 +36,10 @@ The latest mention of “OpenResty” is interpreted as referring to the existin
 
 Each PR depends on the preceding gate. Stop at failed gates and record evidence; do not silently weaken acceptance criteria. A gate requiring deployment/artifact access stays pending until that evidence exists. Existing project-contract plan-review and precommit-review requirements still apply; this bundle provides no reviewer approvals.
 
+## Contract terminology and final acceptance (2026-10-20 rebaseline)
+
+IR-01 through IR-07 and their order are unchanged by this rebaseline. The architecture is now described using the Harness/Model Runner/common Worker (platform-owned) versus ML plugin (ML-team-owned) terminology in [ADR 0019](docs/adr/0019-independent-inference-releases-app-runner.md) and [architecture-and-contract.md](docs/inference-releases/architecture-and-contract.md); the Worker protocol is file-based (`request.json` + `input.h5` -> `result.json`), not stdin/stdout JSON Lines; and each release carries an explicit PUBLISHED → VERIFIED → READY → ACTIVE lifecycle. Final architectural acceptance for this block: a new conforming Model Release can be published and activated without rebuilding Bremen or changing Harness code. V2 persistent workers and V3 OCI-packaged releases are documented in ADR 0019 as optional future directions, not current implementation tasks.
+
 ## Non-goals for all seven PRs
 
 No ECS migration, ECS Terraform/CloudFormation, GPU fleet, queue redesign, new model mathematics, feature standardization, retraining, threshold changes, or mandatory MLflow serving adoption. Existing experiment tracking is preserved. Framework-neutral model contracts and scientific invariants remain binding.

@@ -14,6 +14,10 @@ Propose explicit limits for active processes, install concurrency, cache bytes, 
 
 Idle App Runner, storage and observability may still cost money. Record current service sizing/scaling, measured usage and an owner-approved cost ceiling; do not claim zero idle costs or savings without billing evidence. Add bounded logs and usage telemetry without patient data or unbounded labels.
 
+## CI/CD separation (documentation only)
+
+Model Release CI/CD (building and publishing an ML plugin wheel, offline wheelhouse, artifacts, provenance and golden tests for one of the five variants) is documented here as a pipeline distinct from the existing Bremen application CI/CD (`.github/workflows/ecr-publish.yml` and related application build/test workflows). This block makes no workflow-file changes; it only records the intended separation so that IR-03's "new release build workflow" is scoped as a release-only pipeline when it is implemented, not as a change to the application's own CI/CD.
+
 ## Configuration ownership
 
 | Configuration | Treatment |
@@ -38,4 +42,4 @@ References: https://packaging.python.org/en/latest/specifications/direct-url-dat
 
 ## Required diagnostics
 
-Record request correlation ID, model ID, release digest, image identity, phase, install/cache outcome, queue wait, execution time, exit/error category, peak process-tree memory and free/used disk. Preserve existing feature telemetry semantics without logging sensitive feature values by default. S3 IAM grants runtime read access only to needed release/source prefixes; publication credentials stay outside runtime. Checksums do not make untrusted pickle safe.
+Record request correlation ID, model ID, release digest, image identity, lifecycle phase (PUBLISHED/VERIFIED/READY/ACTIVE), install/cache outcome, queue wait, execution time, exit/error category (including the typed worker error code), peak process-tree memory and free/used disk. Preserve existing feature telemetry semantics without logging sensitive feature values by default. S3 IAM grants runtime read access only to needed release/source prefixes; publication credentials stay outside runtime. Checksums do not make untrusted pickle safe.

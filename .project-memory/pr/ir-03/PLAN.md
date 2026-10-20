@@ -6,7 +6,7 @@ Status: DRAFT PLAN; not reviewed, not implemented. Assign implementation/review 
 Requires stable contracts and frozen baselines. No production activation.
 
 ## Work
-Extract complete scientific paths into standalone wheels; preserve per-artifact compatibility classes and optional auxiliary environments. Pin observed dependency closures; replace VCS-only provenance guard correctly. Build five immutable descriptors with artifacts/configs and offline wheelhouses in CI; avoid full application dependency.
+Extract complete scientific paths into standalone ML plugin wheels; preserve per-artifact compatibility classes and optional auxiliary environments. Pin observed dependency closures; replace VCS-only provenance guard correctly. Build five immutable descriptors with artifacts/configs, golden tests and offline wheelhouses in a release-specific CI pipeline kept separate from Bremen's application CI/CD; avoid full application dependency.
 
 ## Expected change areas
 Paths below are relative to `src/bremen` unless root-level. These are investigation boundaries, not permission to redesign adjacent systems.

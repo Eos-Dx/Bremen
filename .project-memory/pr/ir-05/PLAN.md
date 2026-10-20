@@ -6,7 +6,7 @@ Status: DRAFT PLAN; not reviewed, not implemented. Assign implementation/review 
 Requires verified installer and protocol. New execution stays opt-in/disabled by default.
 
 ## Work
-Implement runtime proxy for requirements/validate/predict and event translation. Keep platform source authorization/binding, worker scientific validation, report projection and public errors. Bound scientific concurrency; enforce deadlines, process-group termination and cleanup. Workers load artifacts; new path must not deserialize them in parent discovery.
+Implement the Harness's runtime proxy (Model Runner + supervisor) for requirements/validate/predict over the file-based protocol, and event translation from Worker diagnostics. Keep platform source authorization/binding, worker scientific validation, report projection and public errors. Bound scientific concurrency; enforce deadlines, process-group termination and cleanup. Workers load artifacts and plugin code; the Harness process must not import or deserialize plugin/artifact objects in parent discovery.
 
 ## Expected change areas
 Paths below are relative to `src/bremen` unless root-level. These are investigation boundaries, not permission to redesign adjacent systems.

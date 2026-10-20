@@ -20,7 +20,7 @@ IR-03 verifies all five releases independently of the application with network p
 
 For comparison runs, keep the old route authoritative. Prefer sequential paired runs to avoid doubling peak memory. Candidate results must not create duplicate reports, external writes or user-visible decisions. Do not mirror production data without the existing authorization/data-handling controls. A shadow result is evidence only.
 
-Activate one exact catalog identity at a time after its evidence is reviewed. Record old and new pointers, image digest, operator, timestamp and rollback trigger. Confirm the resolved digest in diagnostics. Observe the existing service health/error contract and measured latency/memory/disk budget before the next identity. Never treat activation of a workflow family as completion for all its models.
+Activate one exact catalog identity at a time after its evidence is reviewed, moving that release through VERIFIED → READY → ACTIVE (see [Architecture and normative contracts](architecture-and-contract.md)). Record old and new pointers, image digest, operator, timestamp and rollback trigger. Confirm the resolved digest in diagnostics. Observe the existing service health/error contract and measured latency/memory/disk budget before the next identity. Never treat activation of a workflow family as completion for all its models.
 
 ## Rollback
 
