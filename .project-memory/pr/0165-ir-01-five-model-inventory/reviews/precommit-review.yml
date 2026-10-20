@@ -1,0 +1,174 @@
+# Precommit review artifact — PR0165 IR-01 five-model inventory
+# Role: precommit-reviewer. Implementation files were not modified.
+# Review artifact schema: .project-memory/review-artifact.schema.yml
+
+REVIEW ARTIFACT WRITTEN: ".project-memory/pr/0165-ir-01-five-model-inventory/reviews/precommit-review.yml"
+
+VERDICT: pass
+COMMIT_READINESS: READY FOR COMMIT
+IR_01_GATE_STATUS: BLOCKED
+
+BLOCKERS: []
+
+PREVIOUS_BLOCKERS:
+  - id: B1
+    resolution: RESOLVED
+    verification: >
+      Re-read all seven source JSON files and compared both catalog_timestamp
+      and last_discovery_at values with INVENTORY_EVIDENCE.md §1. Every value
+      now agrees exactly; the first row explicitly labels last_discovery_at
+      separately from catalog_timestamp.
+  - id: B2
+    resolution: RESOLVED
+    verification: >
+      The evidence now says seven separately stored historical catalog
+      snapshots and explicitly states that capture-session independence is
+      unproven. BASELINE_EXECUTION.md and FIXTURE_INVENTORY.md describe the
+      /tmp model and fixture directories as operator-supplied local copies and
+      explicitly disclaim export session, endpoint, authorization and
+      immutable S3 object-version provenance. Artifact checksum integrity is
+      kept separate from source provenance.
+
+WARNINGS:
+  - id: W1
+    topic: "Repository venv and system Python remain unusable"
+    detail: >
+      venv/bin/pytest exits 127 because venv/bin/python is a broken symlink to
+      a missing Python 3.13 interpreter. Bare python3 -m pytest exits 2 during
+      collection with 58 errors for missing numpy, h5py, fastapi, jwt,
+      argon2, joblib and related dependencies. This is environmental and not
+      caused by the documentation-only diff. The disposable Python 3.13
+      environment independently passes the full suite; this warning concerns
+      local reproducibility only.
+  - id: W2
+    topic: "Historical captures are not current live evidence"
+    detail: >
+      The implementation correctly records that no live AWS/S3/App Runner
+      call was made and that IR-01 remains blocked. The seven captures span
+      September 2026 and must remain labelled historical snapshots.
+
+VALIDATION:
+  - command: "python3 -m compileall -q src tests"
+    exit_code: 0
+    result: "PASS"
+  - command: "/tmp/bremen-ir01-exec-venv/bin/python -m pytest -q"
+    exit_code: 0
+    result: "PASS; 3975 passed, 8 skipped, 40 warnings in 25.14s"
+  - command: "python3 -m pytest -q"
+    exit_code: 2
+    result: "FAIL during collection; 58 errors caused by missing dependencies"
+  - command: "venv/bin/pytest -q"
+    exit_code: 127
+    result: "FAIL/UNAVAILABLE; broken interpreter shebang"
+  - command: "git diff --check"
+    exit_code: 0
+    result: "PASS"
+  - command: "git diff --stat"
+    exit_code: 0
+    result: "PASS; current diff is 3 tracked documentation files, 295 insertions and 18 deletions"
+  - command: "python3 JSON inspection of all seven catalog captures"
+    exit_code: 0
+    result: >
+      PASS for IDs/counts and timestamps; all seven contain candidate_count=5,
+      available_count=5, rejected_count=0 and the same five model IDs, and
+      every recorded timestamp agrees with its source JSON.
+
+FILES_READ:
+  - AGENTS.md
+  - ROADMAP.md
+  - .project-memory/pr/ir-01/PLAN.md
+  - docs/inference-releases/five-model-inventory.md
+  - docs/inference-releases/operations.md
+  - docs/inference-releases/parity-and-rollout.md
+  - docs/production-contracts-2026-09-18.md
+  - .project-memory/pr/0165-ir-01-five-model-inventory/INVENTORY_EVIDENCE.md
+  - .project-memory/pr/0165-ir-01-five-model-inventory/IMPLEMENTATION_REPORT.md
+  - .project-memory/pr/0165-ir-01-five-model-inventory/FIXTURE_INVENTORY.md
+  - .project-memory/pr/0165-ir-01-five-model-inventory/BASELINE_EXECUTION.md
+  - results/live-pr0160-smoke/models.json
+  - results/all-patients-model-matrix-20260917-121431/models.json
+  - results/post0161-prod-smoke-20260917-163154/models.json
+  - results/post0158-live/models.json
+  - testing_results/results/live-2026-09-16/models.json
+  - results/post0158a-live/models.json
+  - testing_results/results/evidence/pre0157-auth-check.json
+  - src/bremen/model_packages/bremen_v01/manifest.py
+  - infra/terraform/apprunner.tf
+  - src/bremen/platform/jobs/service.py
+
+FILES_WRITTEN:
+  - .project-memory/pr/0165-ir-01-five-model-inventory/reviews/precommit-review.yml
+
+ACTUAL_CHANGED_FILES:
+  tracked:
+    - docs/inference-releases/five-model-inventory.md
+    - docs/inference-releases/operations.md
+    - docs/inference-releases/parity-and-rollout.md
+  PR0165_untracked:
+    - .project-memory/pr/0165-ir-01-five-model-inventory/INVENTORY_EVIDENCE.md
+    - .project-memory/pr/0165-ir-01-five-model-inventory/IMPLEMENTATION_REPORT.md
+    - .project-memory/pr/0165-ir-01-five-model-inventory/FIXTURE_INVENTORY.md
+    - .project-memory/pr/0165-ir-01-five-model-inventory/BASELINE_EXECUTION.md
+    - .project-memory/pr/0165-ir-01-five-model-inventory/reviews/precommit-review.yml
+  unrelated_untracked_preserved:
+    - .project-memory/agents/master_prompt.md
+    - .project-memory/pr/0163-fix-validation-traces-and-standard-result-contract/
+    - results/
+    - testing_results/
+
+PLAN_COMPLIANCE:
+  result: "PASS"
+  findings:
+    - "Only the three allowed documentation files and PR0165 project-memory files were changed or created."
+    - "No source, tests, infrastructure, Docker, CI or production change was made."
+    - "The IR-01 gate is explicitly recorded as blocked pending live operational evidence, while local parity is separately recorded as passed."
+
+EVIDENCE_FINDINGS:
+  verified:
+    - "All seven referenced catalog files exist, parse as JSON, and have distinct SHA256 hashes."
+    - "All seven files report candidate_count=5, available_count=5, rejected_count=0 and the same five IDs."
+    - "B2 checksum 65866f441a119cddeb965e5c414c9f87aafd46ec5fd7a866cf9f0fef408df3b0, threshold 0.3585907282566089, model identity and captured probability 0.7726940329943809 match the referenced files."
+    - "B1's historical captured model_checksum is empty, while the supplied local manifest/artifact pair self-consistently hashes to 8ed0a7c...; live identity is still unverified."
+    - "All five supplied local model manifests match their local artifact SHA256 values; this is local snapshot evidence, not live S3 confirmation."
+    - "B3 is confirmed as a distinct supplied local artifact, with exploratory_proxy_not_clinically_reviewed status preserved."
+    - "Docker, Terraform and runtime findings are explicitly labelled repository/static evidence, not measured App Runner behavior."
+  unverified_or_inaccurate:
+    - "Underlying independence of the seven captures is not claimed because capture provenance is absent."
+    - "No live catalog, S3 artifact, deployed image or App Runner resource measurement was independently available."
+
+CONTRACT_AND_SECURITY_CHECK:
+  result: "PASS with blockers above"
+  findings:
+    - "No patient H5 content, credentials or secrets were introduced in the changed documentation/evidence files."
+    - "The documents retain research/technical-demo language and do not claim clinical validation or autonomous diagnosis."
+    - "Static Docker/Terraform observations are not represented as production measurements."
+    - "The documented blockers prevent migration assumptions, activation and IR-02 entry from being treated as complete."
+
+REGRESSION_CHECK:
+  result: "PASS"
+  findings:
+    - "Five-model mapping remains A1, A2, B1, B2 and B3 with the same IDs and versions."
+    - "The 91-run baseline headline remains 50 completed, 41 typed/expected failures and 0 unexpected exceptions."
+    - "B2 probability 0.7726940329943811, thresholds and checksums were not changed by the wording fixes."
+    - "B3 exploratory_proxy_not_clinically_reviewed wording remains explicit."
+    - "IR-01 remains BLOCKED; local parity is not presented as App Runner acceptance."
+    - "No forbidden repository path changed and no new baseline execution was performed during this review."
+
+REMAINING_OPERATIONAL_BLOCKERS:
+  - "Live catalog/S3/App Runner confirmation of current identities and loaded artifact bytes."
+  - "Production App Runner CPU, memory, concurrency, cost and topology measurements."
+  - "B3 exploratory label clinical review remains open."
+  - "Provenance of the operator-supplied /tmp snapshots remains outside the repository evidence."
+
+FINAL_VERDICT:
+  value: "READY FOR COMMIT"
+  rationale: >
+    Both prior evidence-quality blockers are resolved. The timestamp table
+    matches all source JSON values, and provenance wording now states only
+    what the files prove while separating checksum integrity from source
+    provenance. Regression checks preserve the five-model mapping, the
+    91-run local baseline, B3 safety wording and the BLOCKED IR-01 gate.
+  next_action: >
+    Commit the three documentation files and PR0165 project-memory evidence
+    artifacts. Do not treat this commit readiness verdict as IR-01 gate
+    completion; obtain live operational evidence in the next iteration.
