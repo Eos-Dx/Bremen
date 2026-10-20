@@ -45,3 +45,12 @@ No ECS migration, ECS Terraform/CloudFormation, GPU fleet, queue redesign, new m
 The previous root roadmap is preserved verbatim in [history](docs/roadmap-history/ROADMAP-before-2026-10-20.md). Old ECS scheduling, MLflow-serving sequencing, and in-process/startup-only loading prescriptions do not govern this block. Completed implementation history and numerical contracts are not invalidated. Earlier ADRs remain binding except the execution/deployment boundaries explicitly superseded by ADR 0019. Historical PR numbers must not be reused as new task IDs.
 
 Do not implement an unresolved design by guessing. Record an assumption, its owner, the verification needed, and the gate it blocks. Technical owners are assigned at PR opening; scientific baseline acceptance belongs to the model owner/reviewer, platform acceptance to the service owner, and production activation to the authorized operator.
+
+## Preserved dependency gate
+
+This completed historical gate remains binding. The inference-release
+roadmap does not reopen it or change the container dependency pin.
+
+| Gate | Status | Resolution |
+|---|---|---|
+| G-DEP-1 | CLOSED | feat/v0_3 merged into main; immutable v0.3.0 tag at commit 6af9ab4; Bremen pins v0.3.0; VERSION_REGISTRY maps 0_3 to container.v0_3. |
