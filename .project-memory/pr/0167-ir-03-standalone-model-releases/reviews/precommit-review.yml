@@ -1,0 +1,163 @@
+REVIEW ARTIFACT WRITTEN: confirmed
+VERDICT: pass
+
+PREVIOUS BLOCKERS:
+  - RELEASE-AUX-HASHES: resolved
+  - RELEASE-AUX-PORTABILITY: resolved
+  - RELEASE-SKLEARN-CLOSURE: resolved
+
+BLOCKER RESOLUTION:
+  result: >-
+    All five generated descriptors now use @aux/<tag> and environment_ref;
+    no machine-local interpreter path is embedded. Main and auxiliary locks
+    are fully hash-pinned, and provenance reports hash_locked_aux=true for
+    releases that use an auxiliary environment. Main closure pins
+    scikit-learn==1.9.0, matching the artifact training version.
+
+FILES REVIEWED:
+  - .project-memory/pr/0167-ir-03-standalone-model-releases/IMPLEMENTATION_REPORT.md
+  - .project-memory/pr/0167-ir-03-standalone-model-releases/RELEASE_BUILD_EVIDENCE.md
+  - .project-memory/pr/0167-ir-03-standalone-model-releases/PARITY_EVIDENCE.md
+  - src/bremen/release_build/
+  - src/bremen/ml_plugin/
+  - src/bremen/model_packages/aramina_v0213/aramina_preprocess_worker.py
+  - src/bremen/model_packages/bremen_v01/bremen_preprocess_worker.py
+  - tests/test_ir03_plugin_import_boundary.py
+  - tests/test_ir03_plugin_wheel.py
+  - tests/test_ir03_standalone_runtime.py
+  - tests/test_ir03_parity.py
+
+LOCK INTEGRITY REVIEW:
+  status: pass
+  result: >-
+    A1, A2, B2 and B3 auxiliary locks each contain 54 requirements and 54
+    hashes; all main locks contain 13 requirements and 13 hashes. Independent
+    offline installs with --no-index --only-binary=:all: --require-hashes
+    succeeded for main, v0.1.7-beta and v0.1.9-beta. Missing wheel/hash cases
+    fail closed in the release-build tests. B1 has no auxiliary environment
+    and correctly records hash_locked_aux=false.
+
+PORTABILITY REVIEW:
+  status: pass
+  result: >-
+    All five manifests use environment_ref=@aux/<tag>, and runtime configs
+    use @aux/@release logical references with no absolute interpreter paths.
+    Release-local aux resolution is preferred; BREMEN_IR03_AUX_ENV_ROOT is
+    only a runtime fallback for local materialization. Missing auxiliary
+    environments fail closed. Relocated A1/B2 evidence runs without descriptor
+    edits.
+
+DEPENDENCY CLOSURE REVIEW:
+  status: pass
+  result: >-
+    Main locks and plugin metadata pin scikit-learn==1.9.0 with SHA-256; the
+    exact wheel exists in the offline wheelhouse and clean-190 reports version
+    1.9.0. Auxiliary scikit-learn 1.9.1 is confined to preprocessing workers;
+    it does not load the estimators and is documented as a separate closure.
+
+FIVE-MODEL PARITY REVIEW:
+  status: pass
+  result: >-
+    Independent parity tests pass 21/21. Frozen values remain exact: B1
+    benign 0.8524639494195422, B1 Nova_376 0.5677291934209037, B2
+    0.7726940329943811, B3 0.6848549443589647, and A1/A2 Nova_214 left
+    0.8693870739736473. Typed QC/input failures remain unchanged.
+
+BUILD REPRODUCIBILITY:
+  status: pass
+  result: >-
+    Independent plugin wheel rebuild is byte-identical with SHA-256
+    324902c4a277613034d6cb35997d72833844f20f4777f241b7b5316b8a4fdf9b.
+    All five generated manifests validate, declared file hashes match, and no
+    application distribution or network resolution is required.
+
+SIMPLICITY REVIEW:
+  status: pass
+  result: >-
+    Fixes reuse existing release-build and runtime locations. No redundant
+    registry, factory, adapter, resolver layer or framework was added;
+    @aux resolution is a small extension of release.py and lock generation
+    remains in assemble.py. No hypothetical future requirements were added.
+
+WARNING DECISIONS:
+  matador_raw: >-
+    Non-blocking documented limitation. None of the five IR03 variants or
+    selected parity cases requires matador_raw; support must be added before
+    claiming that path.
+  external_aux_materialization: >-
+    Non-blocking for IR-03. Logical references and fail-closed resolution are
+    implemented; IR-04 owns installation/cache lifecycle.
+  aramina_double_deserialization: non-blocking efficiency issue; no correctness change observed.
+  auxiliary_sklearn_1_9_1: >-
+    Non-blocking because auxiliary workers only perform preprocessing and the
+    estimator-containing main environment is pinned to 1.9.0.
+
+SECURITY REVIEW:
+  status: pass
+  result: >-
+    Plugin imports remain platform/API-free, no AWS/S3 runtime dependency or
+    arbitrary executable path was introduced, artifacts are checksum-verified
+    before controlled loading, and no model/H5/secret files are committed.
+    Scientific preprocessing/model behavior is unchanged.
+
+VALIDATION RESULTS:
+  - command: /tmp/bremen-ir01-exec-venv/bin/python -m compileall -q src tests
+    exit_code: 0
+    result: passed
+  - command: /tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_ir03_plugin_import_boundary.py
+    exit_code: 0
+    result: 13 passed
+  - command: /tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_ir03_plugin_wheel.py
+    exit_code: 0
+    result: 12 passed
+  - command: /tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_ir03_standalone_runtime.py
+    exit_code: 0
+    result: 33 passed
+  - command: /tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_ir03_parity.py
+    exit_code: 0
+    result: 21 passed
+  - command: /tmp/bremen-ir01-exec-venv/bin/python -m pytest -q
+    exit_code: 0
+    result: 4371 passed, 8 skipped, 40 warnings
+  - command: git diff --check
+    exit_code: 0
+    result: passed
+  - command: "offline pip --no-index --only-binary=:all: --require-hashes"
+    exit_code: 0
+    result: main, auxiliary v0.1.7-beta and auxiliary v0.1.9-beta installations passed
+
+BLOCKERS: []
+
+WARNINGS:
+  - Do not stage unrelated files outside PR0167.
+  - matador_raw remains unsupported and explicitly scoped out.
+
+COMMIT READINESS: READY FOR COMMIT
+
+FILES APPROVED FOR STAGING:
+  - src/bremen/ml_plugin/
+  - src/bremen/release_build/
+  - src/bremen/model_packages/aramina_v0213/aramina_preprocess_worker.py
+  - src/bremen/model_packages/bremen_v01/bremen_preprocess_worker.py
+  - tests/test_ir03_plugin_import_boundary.py
+  - tests/test_ir03_plugin_wheel.py
+  - tests/test_ir03_standalone_runtime.py
+  - tests/test_ir03_parity.py
+  - .project-memory/pr/0167-ir-03-standalone-model-releases/IMPLEMENTATION_REPORT.md
+  - .project-memory/pr/0167-ir-03-standalone-model-releases/RELEASE_BUILD_EVIDENCE.md
+  - .project-memory/pr/0167-ir-03-standalone-model-releases/PARITY_EVIDENCE.md
+  - .project-memory/pr/0167-ir-03-standalone-model-releases/reviews/precommit-review.yml
+
+NEXT REQUIRED ACTION: >-
+  Stage only the approved PR0167 paths, inspect the staged diff and commit.
+  Keep unrelated files and generated /tmp evidence outside the commit.
+
+VALIDATION COMPLETENESS CHECK: confirmed
+EVIDENCE COMPLETENESS CHECK: confirmed
+DIFF COMPLETENESS CHECK: confirmed
+PLAN COMPLIANCE: confirmed
+BREMEN CONTRACT CHECK: confirmed
+BOUNDARY CONFIRMATIONS:
+  - No implementation files modified by this review: confirmed
+  - No forbidden repository paths modified: confirmed
+  - No commit, push or PR created: confirmed

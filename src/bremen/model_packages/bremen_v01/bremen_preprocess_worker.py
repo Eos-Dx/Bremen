@@ -73,11 +73,50 @@ def _legacy_container_compat_path(h5_path: str) -> str:
         raise
 
 
+def _read_explicit_provenance(variable: str) -> dict | None:
+    """Read the release-shipped provenance record, when one is configured.
+
+    This is explicit release provenance that travels with a wheel-based
+    install; it does not depend on the VCS-installed ``direct_url.json``.
+    """
+    path = os.environ.get(variable, "")
+    if not path:
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as stream:
+            record = json.load(stream)
+    except Exception:
+        raise ValueError("Unreadable preprocessing provenance") from None
+    if not isinstance(record, dict):
+        raise ValueError("Invalid preprocessing provenance")
+    return record
+
+
 def _validate_dependency(release: str) -> None:
-    """Require the frozen release and exact source commit in the worker."""
+    """Require the frozen release and explicit/exact source provenance.
+
+    The release's shipped provenance record is authoritative when configured;
+    the historical ``direct_url.json`` VCS check remains as the fallback for
+    legacy (source-installed) environments.  A pip wheel has no
+    ``direct_url.json``, which is why the explicit record is required for
+    standalone releases.
+    """
     from importlib.metadata import distribution
 
     installed = distribution("xrd-preprocessing")
+    record = _read_explicit_provenance("BREMEN_PREPROCESS_PROVENANCE")
+    if record is not None:
+        direct = json.loads(installed.read_text("direct_url.json") or "{}")
+        direct_commit = direct.get("vcs_info", {}).get("commit_id")
+        if (release != "v0.1.7-beta" or installed.version != "0.1.7b0"
+                or record.get("release_tag") != release
+                or record.get("version") != installed.version
+                or (direct_commit is not None
+                    and direct_commit != record.get("source_commit"))
+                or record.get("source_commit") !=
+                "45d5568248e9774b7938a36e028d80e72b130b19"):
+            raise ValueError("Unsupported preprocessing dependency")
+        return
     provenance = json.loads(installed.read_text("direct_url.json") or "{}")
     if (release != "v0.1.7-beta" or installed.version != "0.1.7b0"
             or provenance.get("vcs_info", {}).get("commit_id") !=
