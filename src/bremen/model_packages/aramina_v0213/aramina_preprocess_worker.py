@@ -10,6 +10,7 @@ import contextlib
 import io
 import json
 import logging
+import os
 import sys
 
 _DIAGNOSTIC_TRANSFORMERS = frozenset({
@@ -20,6 +21,52 @@ _DIAGNOSTIC_TRANSFORMERS = frozenset({
     "SNRTransformer", "SNRFilter", "PatientSpecimenValidityFilter",
     "QRangeValueNormalizer", "RadialProfileValueFilter", "KeepColumnsTransformer",
 })
+
+
+def _read_explicit_provenance(variable: str) -> dict | None:
+    """Read release-shipped, wheel-suitable preprocessing provenance."""
+    path = os.environ.get(variable, "")
+    if not path:
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as stream:
+            record = json.load(stream)
+    except Exception:
+        raise ValueError("Unreadable preprocessing provenance") from None
+    if not isinstance(record, dict):
+        raise ValueError("Invalid preprocessing provenance")
+    return record
+
+
+def _validate_provenance(
+    release: str, installed_version: str, expected_version: str,
+) -> None:
+    """Validate the explicit record; preserve the known v0.1.7 commit pin."""
+    record = _read_explicit_provenance("BREMEN_ARAMINA_PREPROCESS_PROVENANCE")
+    if record is None:
+        return
+    from importlib.metadata import distribution
+
+    direct = {}
+    try:
+        direct = json.loads(
+            distribution("xrd-preprocessing").read_text("direct_url.json") or "{}"
+        )
+    except Exception:
+        direct = {}
+    direct_commit = (direct.get("vcs_info") or {}).get("commit_id")
+    known_commits = {
+        "v0.1.7-beta": "45d5568248e9774b7938a36e028d80e72b130b19",
+        "v0.1.9-beta": "88dcaa277c5a0d4be2ab637bc5827a14bd106bea",
+    }
+    expected_commit = known_commits[release]
+    if (record.get("release_tag") != release
+            or record.get("version") != installed_version
+            or installed_version != expected_version
+            or (direct_commit is not None
+                and direct_commit != record.get("source_commit"))
+            or record.get("source_commit") != expected_commit):
+        raise ValueError("Unsupported preprocessing provenance")
 
 
 def main() -> None:
@@ -46,6 +93,10 @@ def main() -> None:
             )
             if expected is None or version("xrd-preprocessing") != expected:
                 raise ValueError("Unsupported preprocessing version")
+            _validate_provenance(
+                config.get("xrd_preprocessing", {}).get("release_tag"),
+                version("xrd-preprocessing"), expected,
+            )
             stage = "worker_pipeline_build"
             config["io"] = {}
             pipeline = build_pipeline_from_config(config, verbose=False)
