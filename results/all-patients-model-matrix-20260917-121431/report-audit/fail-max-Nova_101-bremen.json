@@ -1,0 +1,275 @@
+{
+  "category": "fail-max",
+  "label": "Nova_101-bremen",
+  "response": {
+    "job": {
+      "job_id": "e1e77a75-0dc0-47ea-9d1e-005f764ff066",
+      "request_id": "37bda1b0-1f96-4972-8fec-9acc81e5c33f",
+      "created_at": "2026-09-17T11:16:40.251084+00:00",
+      "started_at": "2026-09-17T11:16:40.251275+00:00",
+      "completed_at": "2026-09-17T11:16:52.088340+00:00",
+      "overall_status": "failed",
+      "input_summary": {
+        "container_id": "07ff0a20-d723-4c90-bacf-1629978c6163.h5",
+        "workflow_id": "bremen",
+        "model_id": "bremen-paper-reference-v0-2-0",
+        "source_key": "fdc25c4b8b151e5f",
+        "patient_display_name": "Nova_101",
+        "target_side": "",
+        "analysis_author": "Bremen batch compatibility smoke",
+        "prediction_comment": ""
+      },
+      "normalization_summary": {
+        "measurement_count": null,
+        "layout": null
+      },
+      "requested_workflows": [
+        "bremen"
+      ],
+      "workflow_runs": {
+        "bremen": {
+          "workflow_id": "bremen",
+          "status": "failed",
+          "model_identity": {
+            "model_id": "bremen-paper-reference-v0-2-0",
+            "model_version": "0.2.0-paper-reference"
+          },
+          "readiness_snapshot": {},
+          "started_at": null,
+          "completed_at": null,
+          "duration_ms": null,
+          "result_summary": {},
+          "report_metadata": null,
+          "failure": "Feature construction failed: invalid_scientific_profiles"
+        }
+      },
+      "reports": {
+        "bremen": {
+          "report_id": "7c1ea918-11a7-4ee9-b02e-e7c585a21a74",
+          "workflow_id": "bremen",
+          "report_schema_version": "v0.2",
+          "status": "unavailable",
+          "generated_at": "2026-09-17T11:16:52.088397+00:00",
+          "model_id": "bremen-paper-reference-v0-2-0",
+          "model_version": "0.2.0-paper-reference",
+          "scientifically_certified": false
+        }
+      },
+      "event_cursor": 0
+    },
+    "storage_mode": "ephemeral"
+  },
+  "detail": {
+    "job_id": "e1e77a75-0dc0-47ea-9d1e-005f764ff066",
+    "request_id": "3e219a97-6ef6-4c6d-aba1-57156f1e40ae",
+    "created_at": "2026-09-17T11:16:40.251084+00:00",
+    "started_at": "2026-09-17T11:16:40.251275+00:00",
+    "completed_at": "2026-09-17T11:16:52.088340+00:00",
+    "overall_status": "failed",
+    "input_summary": {
+      "container_id": "07ff0a20-d723-4c90-bacf-1629978c6163.h5",
+      "workflow_id": "bremen",
+      "model_id": "bremen-paper-reference-v0-2-0",
+      "source_key": "fdc25c4b8b151e5f",
+      "patient_display_name": "Nova_101",
+      "target_side": "",
+      "analysis_author": "Bremen batch compatibility smoke",
+      "prediction_comment": ""
+    },
+    "normalization_summary": {
+      "measurement_count": null,
+      "layout": null
+    },
+    "requested_workflows": [
+      "bremen"
+    ],
+    "workflow_runs": {
+      "bremen": {
+        "workflow_id": "bremen",
+        "status": "failed",
+        "model_identity": {
+          "model_id": "bremen-paper-reference-v0-2-0",
+          "model_version": "0.2.0-paper-reference"
+        },
+        "readiness_snapshot": {},
+        "started_at": null,
+        "completed_at": null,
+        "duration_ms": null,
+        "result_summary": {},
+        "report_metadata": null,
+        "failure": "Feature construction failed: invalid_scientific_profiles"
+      }
+    },
+    "reports": {
+      "bremen": {
+        "report_id": "7c1ea918-11a7-4ee9-b02e-e7c585a21a74",
+        "workflow_id": "bremen",
+        "report_schema_version": "v0.2",
+        "status": "unavailable",
+        "generated_at": "2026-09-17T11:16:52.088397+00:00",
+        "model_id": "bremen-paper-reference-v0-2-0",
+        "model_version": "0.2.0-paper-reference",
+        "scientifically_certified": false
+      }
+    },
+    "event_cursor": 0,
+    "storage_mode": "ephemeral",
+    "retention_seconds": 3600,
+    "execution_traces": {
+      "bremen": {
+        "workflow_id": "bremen",
+        "current_stage": "report_completed",
+        "status": "failed",
+        "started_at": "2026-09-17T11:16:40.287621+00:00",
+        "completed_at": "2026-09-17T11:16:52.088192+00:00",
+        "duration_ms": 0,
+        "completed_stage_count": 5,
+        "total_applicable_stage_count": 11,
+        "stages": [
+          {
+            "stage_id": "artifact_verification",
+            "label": "Artifact verification",
+            "status": "completed",
+            "started_at": "2026-09-17T11:16:40.287773+00:00",
+            "completed_at": "2026-09-17T11:16:40.287773+00:00",
+            "duration_ms": 0,
+            "safe_summary": {
+              "model_id": "bremen-paper-reference-v0-2-0",
+              "model_version": "0.2.0-paper-reference",
+              "model_schema_version": "v0.1",
+              "checksum_status": "verified",
+              "adaptation_applied": true,
+              "validation_status": "completed"
+            },
+            "reason_code": null
+          },
+          {
+            "stage_id": "artifact_loaded",
+            "label": "Artifact loaded",
+            "status": "completed",
+            "started_at": "2026-09-17T11:16:40.287796+00:00",
+            "completed_at": "2026-09-17T11:16:40.287796+00:00",
+            "duration_ms": 0,
+            "safe_summary": {
+              "model_id": "bremen-paper-reference-v0-2-0",
+              "model_version": "0.2.0-paper-reference",
+              "checksum_status": "verified"
+            },
+            "reason_code": null
+          },
+          {
+            "stage_id": "artifact_adapted",
+            "label": "Artifact adapted",
+            "status": "completed",
+            "started_at": "2026-09-17T11:16:40.287814+00:00",
+            "completed_at": "2026-09-17T11:16:40.287814+00:00",
+            "duration_ms": 0,
+            "safe_summary": {
+              "model_id": "bremen-paper-reference-v0-2-0",
+              "adaptation_applied": true
+            },
+            "reason_code": null
+          },
+          {
+            "stage_id": "model_validated",
+            "label": "Model validated",
+            "status": "completed",
+            "started_at": "2026-09-17T11:16:40.287831+00:00",
+            "completed_at": "2026-09-17T11:16:40.287831+00:00",
+            "duration_ms": 0,
+            "safe_summary": {
+              "model_id": "bremen-paper-reference-v0-2-0",
+              "model_version": "0.2.0-paper-reference",
+              "model_schema_version": "v0.1",
+              "checksum_status": "verified"
+            },
+            "reason_code": null
+          },
+          {
+            "stage_id": "input_prepared",
+            "label": "Input prepared",
+            "status": "completed",
+            "started_at": "2026-09-17T11:16:40.287858+00:00",
+            "completed_at": "2026-09-17T11:16:40.287858+00:00",
+            "duration_ms": 0,
+            "safe_summary": {
+              "layout": "raw_container",
+              "compatible": true
+            },
+            "reason_code": null
+          },
+          {
+            "stage_id": "features_produced",
+            "label": "Features produced",
+            "status": "not_started",
+            "started_at": null,
+            "completed_at": null,
+            "duration_ms": null,
+            "safe_summary": {},
+            "reason_code": null
+          },
+          {
+            "stage_id": "features_validated",
+            "label": "Features validated",
+            "status": "not_started",
+            "started_at": null,
+            "completed_at": null,
+            "duration_ms": null,
+            "safe_summary": {},
+            "reason_code": null
+          },
+          {
+            "stage_id": "inference_completed",
+            "label": "Inference completed",
+            "status": "not_started",
+            "started_at": null,
+            "completed_at": null,
+            "duration_ms": null,
+            "safe_summary": {},
+            "reason_code": null
+          },
+          {
+            "stage_id": "output_validated",
+            "label": "Output validated",
+            "status": "not_started",
+            "started_at": null,
+            "completed_at": null,
+            "duration_ms": null,
+            "safe_summary": {},
+            "reason_code": null
+          },
+          {
+            "stage_id": "decision_completed",
+            "label": "Decision completed",
+            "status": "not_started",
+            "started_at": null,
+            "completed_at": null,
+            "duration_ms": null,
+            "safe_summary": {},
+            "reason_code": null
+          },
+          {
+            "stage_id": "report_completed",
+            "label": "Report completed",
+            "status": "not_started",
+            "started_at": null,
+            "completed_at": null,
+            "duration_ms": null,
+            "safe_summary": {},
+            "reason_code": null
+          }
+        ]
+      }
+    }
+  },
+  "report": {
+    "report": {
+      "status": "unavailable",
+      "reason_code": "REPORT_NOT_AVAILABLE"
+    },
+    "job_id": "e1e77a75-0dc0-47ea-9d1e-005f764ff066",
+    "workflow_id": "bremen",
+    "request_id": "82ce9018-3477-49f9-82e6-37db4f30c5e3",
+    "technical_demo_only": true
+  }
+}

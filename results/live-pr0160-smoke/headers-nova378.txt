@@ -1,0 +1,7 @@
+HTTP/1.1 401 Unauthorized
+content-length: 82
+content-type: application/json
+date: Thu, 17 Sep 2026 11:05:48 GMT
+server: envoy
+x-envoy-upstream-service-time: 3
+

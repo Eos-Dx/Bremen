@@ -1,0 +1,20 @@
+label	job_status	total_scalars	report_scalars	failure	reason_code
+Nova_101-aramina-left	failed	106	6	ARAMINA_UNSUPPORTED_INPUT 	ARAMINA_UNSUPPORTED_INPUT_PREPROCESSING_CONTRACT
+Nova_101-aramina-right	failed	106	6	ARAMINA_UNSUPPORTED_INPUT 	ARAMINA_UNSUPPORTED_INPUT_PREPROCESSING_CONTRACT
+Nova_101-bremen	failed	138	6	Feature construction failed: invalid_scientific_profiles 	
+Nova_214-bremen	failed	138	6	Feature construction failed: raw_peak_gate_failed 	
+Nova_301-bremen	failed	138	6	Feature construction failed: raw_peak_gate_failed 	
+Nova_376-aramina-left	failed	106	6	ARAMINA_UNSUPPORTED_INPUT 	ARAMINA_UNSUPPORTED_INPUT_PREPROCESSING_CONTRACT
+Nova_376-aramina-right	failed	106	6	ARAMINA_UNSUPPORTED_INPUT 	ARAMINA_UNSUPPORTED_INPUT_PREPROCESSING_CONTRACT
+Nova_376-bremen	failed	138	6	Feature construction failed: invalid_scientific_profiles 	
+Nova_378-aramina-left	failed	106	6	ARAMINA_UNSUPPORTED_INPUT 	ARAMINA_UNSUPPORTED_INPUT_PREPROCESSING_CONTRACT
+Nova_378-aramina-right	failed	106	6	ARAMINA_UNSUPPORTED_INPUT 	ARAMINA_UNSUPPORTED_INPUT_PREPROCESSING_CONTRACT
+Nova_378-bremen	failed	138	6	Feature construction failed: raw_peak_gate_failed 	
+Nova_379-aramina-left	failed	106	6	ARAMINA_UNSUPPORTED_INPUT 	ARAMINA_UNSUPPORTED_INPUT_PREPROCESSING_CONTRACT
+Nova_379-aramina-right	failed	106	6	ARAMINA_UNSUPPORTED_INPUT 	ARAMINA_UNSUPPORTED_INPUT_PREPROCESSING_CONTRACT
+Nova_383-aramina-left	failed	106	6	ARAMINA_UNSUPPORTED_INPUT 	ARAMINA_UNSUPPORTED_INPUT_PREPROCESSING_CONTRACT
+Nova_383-aramina-right	failed	106	6	ARAMINA_UNSUPPORTED_INPUT 	ARAMINA_UNSUPPORTED_INPUT_PREPROCESSING_CONTRACT
+Nova_383-bremen	failed	138	6	Feature construction failed: raw_peak_gate_failed 	
+Nova_384-aramina-left	failed	106	6	ARAMINA_UNSUPPORTED_INPUT 	ARAMINA_UNSUPPORTED_INPUT_PREPROCESSING_CONTRACT
+Nova_384-aramina-right	failed	106	6	ARAMINA_UNSUPPORTED_INPUT 	ARAMINA_UNSUPPORTED_INPUT_PREPROCESSING_CONTRACT
+Nova_384-bremen	failed	138	6	Feature construction failed: raw_peak_gate_failed 	

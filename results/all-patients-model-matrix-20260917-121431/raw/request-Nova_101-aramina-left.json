@@ -1,0 +1,9 @@
+{
+  "workflow_id": "aramina",
+  "model_id": "aramina_target_breast_risk_0_2_13-beta_f5e4a04cad11",
+  "source_id": "cfe8d6d5-4bd7-47d0-90a3-8a58333c62fe",
+  "patient_id": "Nova_101",
+  "target_side": "left",
+  "analysis_author": "Bremen batch compatibility smoke",
+  "prediction_comment": ""
+}

@@ -1,0 +1,40 @@
+label	report_status	report_scalars	report_nulls	has_standard_result	has_payload	reason_code
+Nova_101-aramina-left	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_101-aramina-right	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_101-bremen	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_106-aramina-left	available	38	1	true	true	
+Nova_106-aramina-right	available	38	1	true	true	
+Nova_106-bremen	available	63	1	true	true	
+Nova_214-aramina-left	available	38	1	true	true	
+Nova_214-aramina-right	available	38	1	true	true	
+Nova_214-bremen	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_227-aramina-left	available	38	1	true	true	
+Nova_227-aramina-right	available	38	1	true	true	
+Nova_227-bremen	available	63	1	true	true	
+Nova_257-aramina-left	available	38	1	true	true	
+Nova_257-aramina-right	available	38	1	true	true	
+Nova_257-bremen	available	63	1	true	true	
+Nova_301-aramina-left	available	38	1	true	true	
+Nova_301-aramina-right	available	38	1	true	true	
+Nova_301-bremen	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_376-aramina-left	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_376-aramina-right	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_376-bremen	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_378-aramina-left	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_378-aramina-right	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_378-bremen	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_379-aramina-left	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_379-aramina-right	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_379-bremen	available	63	1	true	true	
+Nova_383-aramina-left	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_383-aramina-right	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_383-bremen	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_384-aramina-left	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_384-aramina-right	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_384-bremen	unavailable	6	0	false	false	REPORT_NOT_AVAILABLE
+Nova_402-aramina-left	available	38	1	true	true	
+Nova_402-aramina-right	available	38	1	true	true	
+Nova_402-bremen	available	63	1	true	true	
+Nova_420-aramina-left	available	38	1	true	true	
+Nova_420-aramina-right	available	38	1	true	true	
+Nova_420-bremen	available	63	1	true	true	

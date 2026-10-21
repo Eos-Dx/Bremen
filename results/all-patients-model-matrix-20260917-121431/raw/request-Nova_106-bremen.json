@@ -1,0 +1,8 @@
+{
+  "workflow_id": "bremen",
+  "model_id": "bremen-paper-reference-v0-2-0",
+  "source_id": "35b373e3-1383-41f8-a5a7-810c83cb373f",
+  "patient_id": "Nova_106",
+  "analysis_author": "Bremen batch compatibility smoke",
+  "prediction_comment": ""
+}

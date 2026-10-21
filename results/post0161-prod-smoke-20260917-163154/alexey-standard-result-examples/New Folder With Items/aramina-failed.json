@@ -1,0 +1,7 @@
+{
+  "error": "standard_result_not_available",
+  "workflow_id": "aramina",
+  "job_id": "8da5cd3a-b927-4c8b-b62f-37aeab82c590",
+  "workflow_status": "failed",
+  "failure_reason_code": "ARAMINA_UNSUPPORTED_INPUT_PREPROCESSING_CONTRACT"
+}

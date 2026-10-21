@@ -1,0 +1,287 @@
+{
+  "storage": "configured",
+  "containers": [
+    {
+      "source_id": "91c47b82-09c3-44e7-9d35-4a25fcbac7df",
+      "display_name": "Nova_301",
+      "patient_display_name": "Nova_301",
+      "stable_source_key": "2d28adba444acc07",
+      "size_bytes": 5290804,
+      "last_modified": "2026-09-17T08:51:09+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "44a3c700-58f7-4d34-8600-4766e4947791",
+      "display_name": "Nova_420",
+      "patient_display_name": "Nova_420",
+      "stable_source_key": "1c877c14a64dc43e",
+      "size_bytes": 6016843,
+      "last_modified": "2026-09-16T17:52:56+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "ba94c194-3796-457d-a9f3-e8e07df49dc1",
+      "display_name": "Nova_420",
+      "patient_display_name": "Nova_420",
+      "stable_source_key": "e5d00b67f97faa71",
+      "size_bytes": 6016843,
+      "last_modified": "2026-09-16T17:52:35+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "28fc3ab1-2c3c-4040-80cc-3966065a70de",
+      "display_name": "Nova_420",
+      "patient_display_name": "Nova_420",
+      "stable_source_key": "cdee02a4d42d58af",
+      "size_bytes": 6016843,
+      "last_modified": "2026-09-16T17:14:15+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "bbd55338-b288-4898-93c6-aa516a4ac8b3",
+      "display_name": "Nova_402",
+      "patient_display_name": "Nova_402",
+      "stable_source_key": "05400a8f9b7b1de3",
+      "size_bytes": 6385952,
+      "last_modified": "2026-09-16T15:53:57+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "6a2793e2-37d0-407d-b707-ce4fe7bd1782",
+      "display_name": "Nova_402",
+      "patient_display_name": "Nova_402",
+      "stable_source_key": "8627cc6fdb7825f5",
+      "size_bytes": 6563536,
+      "last_modified": "2026-09-16T14:55:37+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "4da6d432-101a-4f86-8705-6759b5c9402d",
+      "display_name": "Nova_402",
+      "patient_display_name": "Nova_402",
+      "stable_source_key": "ced130491243b6bf",
+      "size_bytes": 6563536,
+      "last_modified": "2026-09-16T14:29:33+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "1e9ea305-f9d4-4a7a-8f9e-815c527e972c",
+      "display_name": "Nova_420",
+      "patient_display_name": "Nova_420",
+      "stable_source_key": "ea159625870b3c30",
+      "size_bytes": 6194795,
+      "last_modified": "2026-09-16T14:29:22+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "3df9e585-0058-41b3-a7ed-5ab57dc4a356",
+      "display_name": "Nova_402",
+      "patient_display_name": "Nova_402",
+      "stable_source_key": "044c5a62ea1ff251",
+      "size_bytes": 6563536,
+      "last_modified": "2026-09-16T14:28:36+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "16bd147e-8c5d-4540-956b-c92b9260a700",
+      "display_name": "Nova_402",
+      "patient_display_name": "Nova_402",
+      "stable_source_key": "7e67335c6888d45e",
+      "size_bytes": 11401609,
+      "last_modified": "2026-09-16T14:24:22+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "aefa4cbb-1a8d-4ee3-bcc3-d7487449c5ae",
+      "display_name": "Nova_402",
+      "patient_display_name": "Nova_402",
+      "stable_source_key": "a729cb42d79a4c7e",
+      "size_bytes": 11401609,
+      "last_modified": "2026-09-16T14:16:43+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "789814e5-0ec9-47ba-aa63-764bd54ebf3a",
+      "display_name": "Nova_402",
+      "patient_display_name": "Nova_402",
+      "stable_source_key": "e040268195fba817",
+      "size_bytes": 11401609,
+      "last_modified": "2026-09-16T14:13:53+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "9ce571eb-53dc-461f-95ad-6d65d568f9ca",
+      "display_name": "Nova_214",
+      "patient_display_name": "Nova_214",
+      "stable_source_key": "950fe96722039291",
+      "size_bytes": 5110963,
+      "last_modified": "2026-09-11T04:18:36+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "61d05673-f348-453e-bdeb-e2440e2a0ae3",
+      "display_name": "Nova_214",
+      "patient_display_name": "Nova_214",
+      "stable_source_key": "c21bd04dac7815e1",
+      "size_bytes": 5110963,
+      "last_modified": "2026-09-11T04:16:21+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "6c522ebe-e05f-45a1-b169-2a247dc7c0dd",
+      "display_name": "Nova_106",
+      "patient_display_name": "Nova_106",
+      "stable_source_key": "2e02f7c07f2d3cdb",
+      "size_bytes": 6750009,
+      "last_modified": "2026-09-11T03:52:42+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "73d68037-2f70-4bb4-ba19-d4c6c71e3468",
+      "display_name": "Nova_214",
+      "patient_display_name": "Nova_214",
+      "stable_source_key": "6aa7f434ab6e2bde",
+      "size_bytes": 5110963,
+      "last_modified": "2026-09-11T03:40:33+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "7abbdccf-32c6-40c6-b4b1-5d7482f0fab1",
+      "display_name": "Nova_106",
+      "patient_display_name": "Nova_106",
+      "stable_source_key": "b480c9535e32f061",
+      "size_bytes": 6750009,
+      "last_modified": "2026-09-11T03:36:04+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "a8ff2616-5dd8-4800-99fb-92ae5cb4dddc",
+      "display_name": "Nova_101",
+      "patient_display_name": "Nova_101",
+      "stable_source_key": "fdc25c4b8b151e5f",
+      "size_bytes": 6778192,
+      "last_modified": "2026-09-11T03:26:56+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "5b4daa0b-e5bf-45df-97fa-2524b34c751f",
+      "display_name": "Nova_101",
+      "patient_display_name": "Nova_101",
+      "stable_source_key": "b9c18ae222171133",
+      "size_bytes": 6574272,
+      "last_modified": "2026-09-10T23:33:33+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "eb8c10b9-f8ca-4eec-a5c3-81bb97b141e3",
+      "display_name": "Nova_101",
+      "patient_display_name": "Nova_101",
+      "stable_source_key": "41e5419239f0d680",
+      "size_bytes": 6574192,
+      "last_modified": "2026-09-10T22:30:55+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "3df59534-2362-4481-badc-503753951381",
+      "display_name": "Nova_376",
+      "patient_display_name": "Nova_376",
+      "stable_source_key": "be5ce38bfed8d592",
+      "size_bytes": 9579751,
+      "last_modified": "2026-09-02T07:55:04+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "f802aab7-d724-4e69-bdb1-45fd7a4566d5",
+      "display_name": "Nova_376",
+      "patient_display_name": "Nova_376",
+      "stable_source_key": "1277533a75129a34",
+      "size_bytes": 9498081,
+      "last_modified": "2026-09-02T07:17:40+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "b36b4a2b-0ebb-40f1-ba37-5cea7213111e",
+      "display_name": "Nova_376",
+      "patient_display_name": "Nova_376",
+      "stable_source_key": "f477959de1658da2",
+      "size_bytes": 9491937,
+      "last_modified": "2026-08-03T07:31:49+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "488893e7-b66f-4aae-a0bc-4476940447e3",
+      "display_name": "Nova_378",
+      "patient_display_name": "Nova_378",
+      "stable_source_key": "d18a02b73787132e",
+      "size_bytes": 7377188,
+      "last_modified": "2026-08-03T07:31:49+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "c995f584-6e85-41d7-926f-9ff58cee4f26",
+      "display_name": "Nova_379",
+      "patient_display_name": "Nova_379",
+      "stable_source_key": "74e5c5afb1a8f96c",
+      "size_bytes": 7935486,
+      "last_modified": "2026-08-03T07:31:49+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "8925e162-8d75-434b-a09e-5600e1eb565b",
+      "display_name": "Nova_383",
+      "patient_display_name": "Nova_383",
+      "stable_source_key": "c88e43b1d774353a",
+      "size_bytes": 7795914,
+      "last_modified": "2026-08-03T07:31:49+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "0f594cad-27d5-4e01-ba3d-034da0e53404",
+      "display_name": "Nova_384",
+      "patient_display_name": "Nova_384",
+      "stable_source_key": "36ba60040e01c593",
+      "size_bytes": 6621137,
+      "last_modified": "2026-08-03T07:31:49+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "2be90170-ad35-4aff-84b8-766e499fc86d",
+      "display_name": "Nova_257",
+      "patient_display_name": "Nova_257",
+      "stable_source_key": "4f03eb9a9768ad9c",
+      "size_bytes": 9102429,
+      "last_modified": "2026-07-28T10:49:24+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "273588b0-4cc1-4f2b-8f38-e14b68066745",
+      "display_name": "Nova_103_.h5",
+      "patient_display_name": "",
+      "stable_source_key": "f57a562e07c264f9",
+      "size_bytes": 4816408,
+      "last_modified": "2026-07-20T14:07:04+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "ca47082f-2196-48a6-89d9-c212653b9e80",
+      "display_name": "Nova_214",
+      "patient_display_name": "Nova_214",
+      "stable_source_key": "580c02322d0a661c",
+      "size_bytes": 7188555,
+      "last_modified": "2026-07-20T09:16:25+00:00",
+      "workflow_id": "bremen"
+    },
+    {
+      "source_id": "3d857138-f80d-4865-94bf-6e56f56d348d",
+      "display_name": "Nova_227",
+      "patient_display_name": "Nova_227",
+      "stable_source_key": "223f3c83bf2f1011",
+      "size_bytes": 9515227,
+      "last_modified": "2026-07-18T10:05:05+00:00",
+      "workflow_id": "bremen"
+    }
+  ],
+  "upload_max_bytes": 104857600,
+  "technical_demo_only": true,
+  "request_id": "1e23bbff-faf1-47f4-ace0-0003d81e0f12"
+}

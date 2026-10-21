@@ -1,0 +1,102 @@
+{
+  "bremen_success": {
+    "standard_result": {
+      "report_id": "b8e69e2e-e443-4882-bbd5-3c2d515315ef",
+      "created_at": "2026-09-17T15:32:24+00:00",
+      "analysis_author": "PR0161 production smoke",
+      "prediction_comment": "Post-deploy Standard Result contract smoke",
+      "patient_id": "Nova_227",
+      "patient_age": 44,
+      "referring_physician": "",
+      "scan_date_time": "2025-05-28T10:19:55",
+      "operator_id": "backfill",
+      "hardware_version": "v1.0.1",
+      "eoscan_version": null,
+      "model_name": "bremen_paper_reference_symmetry_logreg",
+      "model_version": "0.2.0-paper-reference",
+      "model_method": "median_imputer_standard_scaler_balanced_logistic_regression",
+      "model_metrics": {
+        "sensitivity": 0.9516129032258065,
+        "specificity": 0.391304347826087
+      },
+      "threshold_value": 0.3585907282566089,
+      "risk_probability": 0.7726940329943809,
+      "target_class_risk_level": "high",
+      "specific_output": {}
+    }
+  },
+  "bremen_failure": {
+    "report": {
+      "status": "unavailable",
+      "reason_code": "REPORT_NOT_AVAILABLE",
+      "failure": "Feature construction failed: raw_peak_gate_failed",
+      "failure_stage": "features",
+      "failure_reason_code": "raw_peak_gate_failed",
+      "failure_detail": "Feature construction failed: raw_peak_gate_failed",
+      "remediation": "Review the selected source and model configuration before retrying.",
+      "workflow_id": "bremen",
+      "model_id": "bremen-paper-reference-v0-2-0",
+      "model_version": "0.2.0-paper-reference",
+      "patient_id": "Nova_378",
+      "target_side": "",
+      "safe_details": {}
+    }
+  },
+  "aramina_success": {
+    "standard_result": {
+      "report_id": "9e62a544-a2f6-4549-b92d-0264bbb2d059",
+      "created_at": "2026-09-17T15:33:14+00:00",
+      "analysis_author": "PR0161 production smoke",
+      "prediction_comment": "Post-deploy Standard Result contract smoke",
+      "patient_id": "Nova_214",
+      "patient_age": 47,
+      "referring_physician": "",
+      "scan_date_time": "2025-05-14T12:55:46+00:00",
+      "operator_id": "backfill",
+      "hardware_version": "v1.0.0",
+      "eoscan_version": null,
+      "model_name": "aramina_target_breast_risk",
+      "model_version": "0.2.13-beta",
+      "model_method": "m2q_gated_target_case",
+      "model_metrics": {
+        "sensitivity": 0.8175,
+        "specificity": 0.37630084054979734
+      },
+      "threshold_value": 0.24665932038818544,
+      "risk_probability": 0.869387073973647,
+      "target_class_risk_level": "high",
+      "specific_output": {
+        "target_side": "left",
+        "mammography_suspicious_field": ""
+      }
+    }
+  },
+  "aramina_failure": {
+    "report": {
+      "status": "unavailable",
+      "reason_code": "REPORT_NOT_AVAILABLE",
+      "failure": "ARAMINA_UNSUPPORTED_INPUT",
+      "failure_stage": "preprocessing_contract",
+      "failure_reason_code": "ARAMINA_UNSUPPORTED_INPUT_PREPROCESSING_CONTRACT",
+      "failure_detail": "Artifact-declared preprocessing did not produce usable measurements.",
+      "remediation": "The selected H5 could not be preprocessed with the model's declared preprocessing contract. Verify the container layout and required measurement metadata, then retry with a fresh source_id.",
+      "workflow_id": "aramina",
+      "model_id": "aramina_target_breast_risk_0_2_13-beta_f5e4a04cad11",
+      "model_version": "0.2.13-beta",
+      "patient_id": "Nova_378",
+      "target_side": "left",
+      "safe_details": {
+        "patient_display_name": "Nova_378",
+        "requested_patient_id": "Nova_378",
+        "target_side": "left",
+        "model_id": "aramina_target_breast_risk_0_2_13-beta_f5e4a04cad11",
+        "model_version": "0.2.13-beta",
+        "preprocessing_release": "v0.1.9-beta",
+        "preprocessing_stage": "worker_pipeline_execution",
+        "preprocessing_exception_class": "ValueError",
+        "preprocessing_transformer": "H5PoniGeometryCalculatorTransformer",
+        "preprocessing_reason_code": "ARAMINA_PREPROCESSING_PIPELINE_EXECUTION_FAILED"
+      }
+    }
+  }
+}

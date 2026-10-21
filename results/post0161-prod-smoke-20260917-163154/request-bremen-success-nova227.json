@@ -1,0 +1,8 @@
+{
+  "workflow_id": "bremen",
+  "model_id": "bremen-paper-reference-v0-2-0",
+  "source_id": "bd93bdff-cca9-44c8-920d-98bcade5b62d",
+  "patient_id": "Nova_227",
+  "analysis_author": "PR0161 production smoke",
+  "prediction_comment": "Post-deploy Standard Result contract smoke"
+}

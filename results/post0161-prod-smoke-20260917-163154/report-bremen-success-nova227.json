@@ -1,0 +1,101 @@
+{
+  "report": {
+    "report_id": "35a05962-f335-465e-ba74-55c39578c908",
+    "workflow_id": "bremen",
+    "job_id": "882b405c-9f92-4fe8-a245-d18a954e2513",
+    "report_schema_version": "v0.2",
+    "generated_at": "2026-09-17T15:32:24.173703+00:00",
+    "workflow_status": "available",
+    "model_id": "bremen-paper-reference-v0-2-0",
+    "model_version": "0.2.0-paper-reference",
+    "scientifically_certified": false,
+    "disclaimer": "This is a technical product demo of the Bremen MRI triage decision-support workflow. It is not a clinical result. It is not clinically validated. It does not replace MRI, biopsy, a radiologist, a clinician, or clinical judgment.",
+    "payload": {
+      "report_schema_version": "v0.2",
+      "report_type": "bremen_mri_triage",
+      "analysis_summary": {
+        "product_question": "Should the patient continue to MRI?",
+        "intended_use": "MRI continuation decision support only. This output is not a diagnosis. It is not clinically validated. It does not replace MRI, biopsy, radiologist, clinician, or clinical judgment.",
+        "analysis_type": "mri_triage_decision_support"
+      },
+      "mri_continuation_assessment": {
+        "caution": "This is a decision-support recommendation only. It is not a clinical decision. The final decision must be made by a qualified clinician.",
+        "assessment": "Based on the model output, MRI follow-up may be recommended for this patient."
+      },
+      "score_and_threshold": {
+        "p_mri_needed": 0.7726940329943809,
+        "threshold": 0.3585907282566089,
+        "triage_recommendation": "CONTINUE_MRI"
+      },
+      "measurement_qc_summary": {
+        "qc_status": "passed",
+        "qc_flags": []
+      },
+      "supporting_technical_evidence": {
+        "logistic_regression_probability": 0.7726940329943809,
+        "decision_rule": "probability >= 0.3585907282566089"
+      },
+      "model_identity": {
+        "model_version": "0.2.0-paper-reference",
+        "feature_schema_version": "v0.1",
+        "model_checksum": ""
+      },
+      "feature_schema_identity": {
+        "feature_schema_version": "v0.1"
+      },
+      "workflow_readiness": {
+        "configured": true,
+        "model_ready": true,
+        "scientifically_certified": false
+      },
+      "measurement_reliability": {
+        "tier": "HIGH_TECHNICAL",
+        "reason": "At least three accepted measurements per breast.",
+        "left_measurement_count": 3,
+        "right_measurement_count": 3
+      },
+      "limitations": [
+        "This is decision-support output only.",
+        "Not a diagnostic result.",
+        "Not clinically validated.",
+        "Does not replace MRI, biopsy, radiologist, clinician, or clinical judgment.",
+        "All clinical decisions must be made by qualified clinicians based on full patient history and diagnostic workup."
+      ],
+      "technical_demo_only_disclaimer": "This is a technical product demo of the Bremen MRI triage decision-support workflow. It is not a clinical result. It is not clinically validated. It does not replace MRI, biopsy, a radiologist, a clinician, or clinical judgment.",
+      "audit_information": {
+        "job_id": "882b405c-9f92-4fe8-a245-d18a954e2513",
+        "workflow_id": "bremen",
+        "report_schema_version": "v0.2",
+        "generated_at": "2026-09-17T15:32:24.173629+00:00"
+      }
+    },
+    "standard_result": {
+      "report_id": "b8e69e2e-e443-4882-bbd5-3c2d515315ef",
+      "created_at": "2026-09-17T15:32:24+00:00",
+      "analysis_author": "PR0161 production smoke",
+      "prediction_comment": "Post-deploy Standard Result contract smoke",
+      "patient_id": "Nova_227",
+      "patient_age": 44,
+      "referring_physician": "",
+      "scan_date_time": "2025-05-28T10:19:55",
+      "operator_id": "backfill",
+      "hardware_version": "v1.0.1",
+      "eoscan_version": null,
+      "model_name": "bremen_paper_reference_symmetry_logreg",
+      "model_version": "0.2.0-paper-reference",
+      "model_method": "median_imputer_standard_scaler_balanced_logistic_regression",
+      "model_metrics": {
+        "sensitivity": 0.9516129032258065,
+        "specificity": 0.391304347826087
+      },
+      "threshold_value": 0.3585907282566089,
+      "risk_probability": 0.7726940329943809,
+      "target_class_risk_level": "high",
+      "specific_output": {}
+    }
+  },
+  "job_id": "882b405c-9f92-4fe8-a245-d18a954e2513",
+  "workflow_id": "bremen",
+  "request_id": "92bc6deb-3767-4322-b7b8-b19ab5987482",
+  "technical_demo_only": true
+}

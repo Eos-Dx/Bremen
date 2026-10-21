@@ -1,0 +1,88 @@
+{
+  "job": {
+    "job_id": "882b405c-9f92-4fe8-a245-d18a954e2513",
+    "request_id": "4f9546a0-1f59-402f-b208-8b4f091b3d49",
+    "created_at": "2026-09-17T15:31:58.958370+00:00",
+    "started_at": "2026-09-17T15:31:58.958945+00:00",
+    "completed_at": "2026-09-17T15:32:24.052633+00:00",
+    "overall_status": "completed",
+    "input_summary": {
+      "container_id": "benign_one_patient.h5",
+      "workflow_id": "bremen",
+      "model_id": "bremen-paper-reference-v0-2-0",
+      "source_key": "223f3c83bf2f1011",
+      "patient_display_name": "Nova_227",
+      "target_side": "",
+      "analysis_author": "PR0161 production smoke",
+      "prediction_comment": "Post-deploy Standard Result contract smoke"
+    },
+    "normalization_summary": {
+      "measurement_count": null,
+      "layout": null
+    },
+    "requested_workflows": [
+      "bremen"
+    ],
+    "workflow_runs": {
+      "bremen": {
+        "workflow_id": "bremen",
+        "status": "completed",
+        "model_identity": {
+          "model_id": "bremen-paper-reference-v0-2-0",
+          "model_version": "0.2.0-paper-reference"
+        },
+        "readiness_snapshot": {},
+        "started_at": null,
+        "completed_at": null,
+        "duration_ms": null,
+        "result_summary": {
+          "prediction_id": "7440021d-f067-4310-aee2-dc25cdc9e6dd",
+          "model_version": "0.2.0-paper-reference",
+          "model_checksum": "65866f441a119cddeb965e5c414c9f87aafd46ec5fd7a866cf9f0fef408df3b0",
+          "feature_schema_version": "v0.1",
+          "probability": 0.7726940329943809,
+          "prediction": 1,
+          "threshold_applied": 0.3585907282566089,
+          "triage_recommendation": "CONTINUE_MRI",
+          "decision_code": "CONTINUE_MRI",
+          "decision_display_name": "Continue MRI evaluation",
+          "decision_policy_id": "bremen_mri_continuation_threshold",
+          "decision_policy_version": "0.1.0",
+          "source_metadata": {
+            "patient_age": 44,
+            "referring_physician": "",
+            "scan_date_time": "2025-05-28 10:19:55",
+            "operator_id": "backfill",
+            "hardware_version": "v1.0.1",
+            "eoscan_version": null
+          },
+          "model_metadata": {
+            "model_method": "median_imputer_standard_scaler_balanced_logistic_regression"
+          },
+          "model_metrics": {
+            "sensitivity": 0.9516129032258065,
+            "specificity": 0.391304347826087
+          },
+          "left_measurement_count": 3,
+          "right_measurement_count": 3
+        },
+        "report_metadata": null,
+        "failure": null
+      }
+    },
+    "reports": {
+      "bremen": {
+        "report_id": "b8e69e2e-e443-4882-bbd5-3c2d515315ef",
+        "workflow_id": "bremen",
+        "report_schema_version": "v0.2",
+        "status": "available",
+        "generated_at": "2026-09-17T15:32:24.053678+00:00",
+        "model_id": "bremen-paper-reference-v0-2-0",
+        "model_version": "0.2.0-paper-reference",
+        "scientifically_certified": false
+      }
+    },
+    "event_cursor": 0
+  },
+  "storage_mode": "ephemeral"
+}

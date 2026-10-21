@@ -1,0 +1,32 @@
+{
+  "report": {
+    "status": "unavailable",
+    "reason_code": "REPORT_NOT_AVAILABLE",
+    "failure": "ARAMINA_UNSUPPORTED_INPUT",
+    "failure_stage": "preprocessing_contract",
+    "failure_reason_code": "ARAMINA_UNSUPPORTED_INPUT_PREPROCESSING_CONTRACT",
+    "failure_detail": "Artifact-declared preprocessing did not produce usable measurements.",
+    "remediation": "The selected H5 could not be preprocessed with the model's declared preprocessing contract. Verify the container layout and required measurement metadata, then retry with a fresh source_id.",
+    "workflow_id": "aramina",
+    "model_id": "aramina_target_breast_risk_0_2_13-beta_f5e4a04cad11",
+    "model_version": "0.2.13-beta",
+    "patient_id": "Nova_378",
+    "target_side": "left",
+    "safe_details": {
+      "patient_display_name": "Nova_378",
+      "requested_patient_id": "Nova_378",
+      "target_side": "left",
+      "model_id": "aramina_target_breast_risk_0_2_13-beta_f5e4a04cad11",
+      "model_version": "0.2.13-beta",
+      "preprocessing_release": "v0.1.9-beta",
+      "preprocessing_stage": "worker_pipeline_execution",
+      "preprocessing_exception_class": "ValueError",
+      "preprocessing_transformer": "H5PoniGeometryCalculatorTransformer",
+      "preprocessing_reason_code": "ARAMINA_PREPROCESSING_PIPELINE_EXECUTION_FAILED"
+    }
+  },
+  "job_id": "8da5cd3a-b927-4c8b-b62f-37aeab82c590",
+  "workflow_id": "aramina",
+  "request_id": "ad7db773-9b0e-4d98-a3d0-7e65063ec766",
+  "technical_demo_only": true
+}

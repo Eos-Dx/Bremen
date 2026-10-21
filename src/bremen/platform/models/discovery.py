@@ -29,6 +29,7 @@ from bremen.platform.models.registry import (
     RegistryModelEntry,
 )
 from bremen.model_packages.bremen_v01.predictor import adapt_model_package  # noqa: PLC0415
+from bremen.contracts.inference_release import SCHEMA_ID as _RUNTIME_RELEASE_SCHEMA_ID
 
 _log = logging.getLogger(__name__)
 
@@ -119,6 +120,12 @@ _ARAMINA_ALLOWED_FIELDS = frozenset({
 
 # model_id pattern: lowercase alphanumeric start, max 64 chars
 _MODEL_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
+
+# IR-02: additive, optional manifest extension — see _validate_runtime_release_extension.
+_RUNTIME_RELEASE_ALLOWED_FIELDS = frozenset({
+    "schema_version", "release_id", "manifest_key", "manifest_sha256",
+})
+_RUNTIME_RELEASE_SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
 
 # Supported feature schema versions
 _SUPPORTED_FEATURE_SCHEMA_VERSIONS = frozenset({"v0.1"})
@@ -444,6 +451,15 @@ def _validate_discovery_fields(data: dict[str, Any]) -> dict[str, Any]:
             f"Allowed: {sorted(_ALLOWED_WORKFLOW_IDS)}"
         )
 
+    # IR-02: additive, optional runtime_release catalog extension. Applies
+    # uniformly to both Bremen and Aramina manifests (validated before the
+    # workflow-specific branch below). Absent -> no-op; legacy manifests
+    # validate exactly as before. Present-but-malformed -> fail-closed,
+    # rejecting the whole candidate the same way any other manifest
+    # validation failure does (caller already catches ValueError).
+    if "runtime_release" in data:
+        _validate_runtime_release_extension(data["runtime_release"])
+
     # --- Aramina manifest validation (manifest-gated, no joblib loading) ---
     artifact_type = str(data.get("artifact_type", "portable_logreg"))
     if artifact_type == _ARAMINA_ARTIFACT_TYPE:
@@ -451,6 +467,56 @@ def _validate_discovery_fields(data: dict[str, Any]) -> dict[str, Any]:
 
     # --- Bremen portable_logreg validation (existing path) ---
     return data
+
+
+def _validate_runtime_release_extension(value: Any) -> dict[str, Any]:
+    """Validate the optional, additive IR-02 ``runtime_release`` manifest
+    extension: ``{schema_version, release_id, manifest_key, manifest_sha256}``.
+
+    This block references (but does not fetch or validate) a
+    ``bremen.inference-release.v1`` manifest stored elsewhere in the
+    catalog; IR-04 resolves and installs it. Validated strictly here;
+    raises ``ValueError`` on any malformed field (fail-closed). Returns
+    the validated dict unchanged. Never includes platform/boto3 imports —
+    only the sibling contracts module's schema identifier is referenced.
+    """
+    if not isinstance(value, dict):
+        raise ValueError("runtime_release must be a JSON object")
+
+    unknown = set(value) - _RUNTIME_RELEASE_ALLOWED_FIELDS
+    if unknown:
+        raise ValueError(f"runtime_release has unsupported fields: {sorted(unknown)}")
+
+    missing = _RUNTIME_RELEASE_ALLOWED_FIELDS - set(value)
+    if missing:
+        raise ValueError(f"runtime_release missing required fields: {sorted(missing)}")
+
+    schema_version = value["schema_version"]
+    if schema_version != _RUNTIME_RELEASE_SCHEMA_ID:
+        raise ValueError(
+            f"runtime_release.schema_version must be {_RUNTIME_RELEASE_SCHEMA_ID!r}, "
+            f"got {schema_version!r}"
+        )
+
+    release_id = value["release_id"]
+    if not isinstance(release_id, str) or not _MODEL_ID_PATTERN.match(release_id):
+        raise ValueError(f"runtime_release.release_id is not a valid identity string: {release_id!r}")
+
+    manifest_key = value["manifest_key"]
+    if not isinstance(manifest_key, str) or not manifest_key:
+        raise ValueError("runtime_release.manifest_key must be a non-empty string")
+    if manifest_key.startswith("/") or ".." in manifest_key.split("/"):
+        raise ValueError(f"runtime_release.manifest_key is not a safe S3 key: {manifest_key!r}")
+    if "\n" in manifest_key or "\r" in manifest_key:
+        raise ValueError("runtime_release.manifest_key must not contain control characters")
+
+    manifest_sha256 = value["manifest_sha256"]
+    if not isinstance(manifest_sha256, str) or not _RUNTIME_RELEASE_SHA256_PATTERN.match(manifest_sha256):
+        raise ValueError(
+            "runtime_release.manifest_sha256 must be a lowercase 64-character hex SHA-256 digest"
+        )
+
+    return value
 
 
 def _validate_aramina_discovery_fields(data: dict[str, Any]) -> dict[str, Any]:
@@ -1055,6 +1121,7 @@ def discover_models(
                     _artifact_path=artifact_path,
                     _clinical_stage=str(data.get("clinical_stage", "")),
                     _container_requirements=container_requirements_data.get(dname),
+                    _runtime_release=data.get("runtime_release"),
                 )
                 entries.append(entry)
                 result.available_count += 1
@@ -1102,6 +1169,7 @@ def discover_models(
                 _package=package,
                 _checksum=expected_checksum,
                 _container_requirements=container_requirements_data.get(dname),
+                _runtime_release=data.get("runtime_release"),
             )
 
             entries.append(entry)

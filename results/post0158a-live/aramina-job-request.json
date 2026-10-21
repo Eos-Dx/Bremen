@@ -1,0 +1,9 @@
+{
+  "workflow_id": "aramina",
+  "model_id": "aramina_target_breast_risk_0_2_13-beta_f5e4a04cad11",
+  "source_id": "6cf3db99-14f1-46d4-86da-5f8b35c5edea",
+  "patient_id": "Nova_214",
+  "target_side": "left",
+  "analysis_author": "",
+  "prediction_comment": ""
+}
