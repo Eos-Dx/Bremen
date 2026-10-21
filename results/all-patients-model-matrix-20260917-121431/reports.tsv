@@ -1,0 +1,43 @@
+patient	workflow	target_side	outcome	report_available	report_status	report_schema_version	report_id	model_version	workflow_probability	workflow_threshold	workflow_decision	std_patient_id	std_patient_age	std_scan_date_time	std_operator_id	std_hardware_version	std_eoscan_version	std_model_method	std_sensitivity	std_specificity	std_probability	std_threshold
+Nova_101	bremen	bremen-paper-reference-v0-2-0	Authentication failed 	no																		
+Nova_101	aramina	left	API_ERROR	no	unavailable																	
+Nova_101	aramina	right	API_ERROR	no	unavailable																	
+Nova_101	bremen	bremen-paper-reference-v0-2-0	failed	no																		
+Nova_101	aramina	left	FAIL	no	unavailable																	
+Nova_101	aramina	right	FAIL	no	unavailable																	
+Nova_106	bremen	bremen-paper-reference-v0-2-0	completed	no																		
+Nova_106	aramina	left	PASS	yes	available	v0.1	62dcc323-ecd8-489a-bd85-e6b72c6a201e	0.2.13-beta	0.45625096898640377	0.24665932038818544	high	Nova_106	51	2026-02-10T11:16:20+00:00	backfill	v1.1.0		m2q_gated_target_case	0.8175	0.37630084054979734	0.45625096898640377	0.24665932038818544
+Nova_106	aramina	right	PASS	yes	available	v0.1	f4ca8c38-4754-4c6b-bddc-6d5d2baedf69	0.2.13-beta	0.687758954424412	0.24665932038818544	high	Nova_106	51	2026-02-10T11:16:20+00:00	backfill	v1.1.0		m2q_gated_target_case	0.8175	0.37630084054979734	0.687758954424412	0.24665932038818544
+Nova_214	bremen	bremen-paper-reference-v0-2-0	failed	no																		
+Nova_214	aramina	left	PASS	yes	available	v0.1	7dd8b4ae-ab2a-4508-bf85-8d9207c1f488	0.2.13-beta	0.869387073973647	0.24665932038818544	high	Nova_214	47	2025-05-14T12:55:46+00:00	backfill	v1.0.0		m2q_gated_target_case	0.8175	0.37630084054979734	0.869387073973647	0.24665932038818544
+Nova_214	aramina	right	PASS	yes	available	v0.1	b9b80a4f-f44d-4c1c-b021-6450c3344cb7	0.2.13-beta	0.8612790952306397	0.24665932038818544	high	Nova_214	47	2025-05-14T12:55:46+00:00	backfill	v1.0.0		m2q_gated_target_case	0.8175	0.37630084054979734	0.8612790952306397	0.24665932038818544
+Nova_227	bremen	bremen-paper-reference-v0-2-0	completed	no																		
+Nova_227	aramina	left	PASS	yes	available	v0.1	ff4ca5b0-3551-44e0-ba01-f0a4b3975dc6	0.2.13-beta	0.5347364048785286	0.24665932038818544	high	Nova_227	44	2025-05-28T10:19:55	backfill	v1.0.1		m2q_gated_target_case	0.8175	0.37630084054979734	0.5347364048785286	0.24665932038818544
+Nova_227	aramina	right	PASS	yes	available	v0.1	05f388ef-b822-4909-ab95-0a9b70858a56	0.2.13-beta	0.33870187787948913	0.24665932038818544	high	Nova_227	44	2025-05-28T10:19:55	backfill	v1.0.1		m2q_gated_target_case	0.8175	0.37630084054979734	0.33870187787948913	0.24665932038818544
+Nova_257	bremen	bremen-paper-reference-v0-2-0	completed	no																		
+Nova_257	aramina	left	PASS	yes	available	v0.1	e9a7df1d-cf6f-4d1f-aaed-30ff12767128	0.2.13-beta	0.9430773645281599	0.24665932038818544	high	Nova_257	49	2025-07-24T10:00:20	backfill	v1.0.1		m2q_gated_target_case	0.8175	0.37630084054979734	0.9430773645281599	0.24665932038818544
+Nova_257	aramina	right	PASS	yes	available	v0.1	49ecb984-adfa-4872-bde9-20fa97bbd944	0.2.13-beta	0.6192384708410977	0.24665932038818544	high	Nova_257	49	2025-07-24T10:00:20	backfill	v1.0.1		m2q_gated_target_case	0.8175	0.37630084054979734	0.6192384708410977	0.24665932038818544
+Nova_301	bremen	bremen-paper-reference-v0-2-0	failed	no																		
+Nova_301	aramina	left	PASS	yes	available	v0.1	948d5fcf-0692-4c34-954f-fd2ad7ff38a7	0.2.13-beta	0.2847710390893286	0.24665932038818544	high	Nova_301	54	2025-09-10T10:39:50+00:00	backfill	v1.0.1		m2q_gated_target_case	0.8175	0.37630084054979734	0.2847710390893286	0.24665932038818544
+Nova_301	aramina	right	PASS	yes	available	v0.1	89bd1e3d-2ecf-48ba-b218-78da8b167b55	0.2.13-beta	0.8503973266051779	0.24665932038818544	high	Nova_301	54	2025-09-10T10:39:50+00:00	backfill	v1.0.1		m2q_gated_target_case	0.8175	0.37630084054979734	0.8503973266051779	0.24665932038818544
+Nova_376	bremen	bremen-paper-reference-v0-2-0	failed	no																		
+Nova_376	aramina	left	FAIL	no	unavailable																	
+Nova_376	aramina	right	FAIL	no	unavailable																	
+Nova_378	bremen	bremen-paper-reference-v0-2-0	failed	no																		
+Nova_378	aramina	left	FAIL	no	unavailable																	
+Nova_378	aramina	right	FAIL	no	unavailable																	
+Nova_379	bremen	bremen-paper-reference-v0-2-0	completed	no																		
+Nova_379	aramina	left	FAIL	no	unavailable																	
+Nova_379	aramina	right	FAIL	no	unavailable																	
+Nova_383	bremen	bremen-paper-reference-v0-2-0	failed	no																		
+Nova_383	aramina	left	FAIL	no	unavailable																	
+Nova_383	aramina	right	FAIL	no	unavailable																	
+Nova_384	bremen	bremen-paper-reference-v0-2-0	failed	no																		
+Nova_384	aramina	left	FAIL	no	unavailable																	
+Nova_384	aramina	right	FAIL	no	unavailable																	
+Nova_402	bremen	bremen-paper-reference-v0-2-0	completed	no																		
+Nova_402	aramina	left	PASS	yes	available	v0.1	24cd01d3-ae3d-435b-b2b7-dd86c30b2184	0.2.13-beta	0.45843390106114235	0.24665932038818544	high	Nova_402	41	2026-03-11T14:07:57+00:00	backfill	v1.1.0		m2q_gated_target_case	0.8175	0.37630084054979734	0.45843390106114235	0.24665932038818544
+Nova_402	aramina	right	PASS	yes	available	v0.1	dac0ec05-16de-4905-9d99-3acd4eff7735	0.2.13-beta	0.42428465224481726	0.24665932038818544	high	Nova_402	41	2026-03-11T14:07:57+00:00	backfill	v1.1.0		m2q_gated_target_case	0.8175	0.37630084054979734	0.42428465224481726	0.24665932038818544
+Nova_420	bremen	bremen-paper-reference-v0-2-0	completed	no																		
+Nova_420	aramina	left	PASS	yes	available	v0.1	1b768ace-18d8-4d7b-bc90-2c658995d05e	0.2.13-beta	0.9308618666303329	0.24665932038818544	high	Nova_420	64	2026-04-15T13:20:29+00:00	backfill	v1.1.0		m2q_gated_target_case	0.8175	0.37630084054979734	0.9308618666303329	0.24665932038818544
+Nova_420	aramina	right	PASS	yes	available	v0.1	58129ac5-7a58-483c-9bbf-b3eacc6ce3b6	0.2.13-beta	0.9109158768328273	0.24665932038818544	high	Nova_420	64	2026-04-15T13:20:29+00:00	backfill	v1.1.0		m2q_gated_target_case	0.8175	0.37630084054979734	0.9109158768328273	0.24665932038818544

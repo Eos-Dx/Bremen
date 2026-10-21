@@ -90,8 +90,15 @@ def _make_manifest(
     threshold_version: str = "v0.1",
     threshold_value: float = 0.5,
     qc_criteria_version: str = "v0.1",
+    runtime_release: dict | None = None,
 ) -> bytes:
-    """Create a valid manifest JSON bytes."""
+    """Create a valid manifest JSON bytes.
+
+    ``runtime_release``, when provided, is the IR-02 additive catalog
+    extension dict (``{schema_version, release_id, manifest_key,
+    manifest_sha256}``). Omitted by default so every existing caller keeps
+    building a legacy manifest unchanged.
+    """
     manifest = {
         "model_id": model_id,
         "display_name": display_name,
@@ -105,6 +112,8 @@ def _make_manifest(
         "threshold_value": threshold_value,
         "qc_criteria_version": qc_criteria_version,
     }
+    if runtime_release is not None:
+        manifest["runtime_release"] = runtime_release
     return json.dumps(manifest).encode("utf-8")
 
 
@@ -116,8 +125,12 @@ def _make_aramina_manifest(
     model_checksum: str | None = None,
     feature_schema_version: str = "v0.1",
     clinical_stage: str = "research draft",
+    runtime_release: dict | None = None,
 ) -> bytes:
-    """Create a valid Aramina manifest JSON bytes."""
+    """Create a valid Aramina manifest JSON bytes.
+
+    ``runtime_release`` — see ``_make_manifest``; omitted by default.
+    """
     manifest = {
         "schema_version": "bremen.manifest.v1",
         "model_id": model_id,
@@ -131,7 +144,21 @@ def _make_aramina_manifest(
         "clinical_stage": clinical_stage,
         "provider_contract": "aramina_provider.v0.1",
     }
+    if runtime_release is not None:
+        manifest["runtime_release"] = runtime_release
     return json.dumps(manifest).encode("utf-8")
+
+
+def _make_valid_runtime_release(**overrides) -> dict:
+    """A valid IR-02 ``runtime_release`` catalog extension dict."""
+    data = {
+        "schema_version": "bremen.inference-release.v1",
+        "release_id": "bremen-paper-reference-v0-2-0-rel-20261021",
+        "manifest_key": "releases/bremen-paper-reference-v0-2-0/manifest.json",
+        "manifest_sha256": "c" * 64,
+    }
+    data.update(overrides)
+    return data
 
 
 def _make_synthetic_package(
@@ -2271,3 +2298,169 @@ class TestAraminaPrivateArtifactStaging:
         })
         result = discover_models("s3://bucket/catalog/", str(tmp_path), _s3_client=client)
         assert result.available_count == 1
+
+
+# ---------------------------------------------------------------------------
+# IR-02: additive, optional runtime_release catalog extension
+# ---------------------------------------------------------------------------
+
+
+class TestRuntimeReleaseCatalogExtension:
+    """Tests #7-#10 of the IR-02 coder task's required test coverage:
+    legacy manifests unchanged, valid extension accepted, malformed
+    extension rejected fail-closed, and the extension's private fields
+    (manifest_key, manifest_sha256) never reach a public catalog response.
+    """
+
+    # --- 7. Legacy catalog manifest unchanged ---
+
+    def test_legacy_bremen_manifest_without_extension_unchanged(self, tmp_path):
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(model_checksum=checksum)  # no runtime_release
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models("s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3)
+        assert result.catalog_status == "available"
+        assert result.available_count == 1
+        assert result.rejected_count == 0
+        assert result.entries[0].get_runtime_release() is None
+
+    def test_legacy_aramina_manifest_without_extension_unchanged(self, tmp_path):
+        content = b"legacy-aramina-artifact"
+        manifest = _make_aramina_manifest(model_checksum=hashlib.sha256(content).hexdigest())
+        s3 = _make_s3_client({
+            "catalog/a/manifest.json": manifest,
+            "catalog/a/model.joblib": content,
+        })
+        result = discover_models("s3://bucket/catalog/", str(tmp_path), _s3_client=s3)
+        assert result.available_count == 1
+        assert result.entries[0].get_runtime_release() is None
+
+    # --- 8. Valid runtime_release catalog extension ---
+
+    def test_valid_runtime_release_accepted_on_bremen_manifest(self, tmp_path):
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        extension = _make_valid_runtime_release()
+        manifest = _make_manifest(model_checksum=checksum, runtime_release=extension)
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models("s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3)
+        assert result.catalog_status == "available"
+        assert result.available_count == 1
+        assert result.entries[0].get_runtime_release() == extension
+
+    def test_valid_runtime_release_accepted_on_aramina_manifest(self, tmp_path):
+        content = b"aramina-artifact-with-release"
+        extension = _make_valid_runtime_release(
+            release_id="aramina-target-breast-risk-0-2-13-rel-20261021",
+        )
+        manifest = _make_aramina_manifest(
+            model_checksum=hashlib.sha256(content).hexdigest(), runtime_release=extension,
+        )
+        s3 = _make_s3_client({
+            "catalog/a/manifest.json": manifest,
+            "catalog/a/model.joblib": content,
+        })
+        result = discover_models("s3://bucket/catalog/", str(tmp_path), _s3_client=s3)
+        assert result.available_count == 1
+        assert result.entries[0].get_runtime_release() == extension
+
+    def test_runtime_release_extension_is_independent_per_model(self, tmp_path):
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        ext_a = _make_valid_runtime_release(release_id="model-a-rel-1")
+        s3 = _make_s3_client({
+            "models/a/manifest.json": _make_manifest(
+                model_id="model-a", display_name="Model A", model_checksum=checksum,
+                runtime_release=ext_a,
+            ),
+            "models/a/model.joblib": pkg_bytes,
+            "models/b/manifest.json": _make_manifest(
+                model_id="model-b", display_name="Model B", model_checksum=checksum,
+            ),
+            "models/b/model.joblib": pkg_bytes,
+        })
+        result = discover_models("s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3)
+        assert result.available_count == 2
+        entries = {e.model_id: e for e in result.entries}
+        assert entries["model-a"].get_runtime_release() == ext_a
+        assert entries["model-b"].get_runtime_release() is None
+
+    # --- 9. Malformed runtime_release rejected (fail-closed) ---
+
+    @pytest.mark.parametrize(
+        "bad_extension",
+        [
+            {"schema_version": "bremen.inference-release.v1", "release_id": "r1"},  # missing fields
+            _make_valid_runtime_release(schema_version="bremen.inference-release.v2"),
+            _make_valid_runtime_release(release_id="Not Valid!"),
+            _make_valid_runtime_release(manifest_key="/absolute/manifest.json"),
+            _make_valid_runtime_release(manifest_key="releases/../escape/manifest.json"),
+            _make_valid_runtime_release(manifest_sha256="not-a-hash"),
+            _make_valid_runtime_release(manifest_sha256="A" * 64),
+            {**_make_valid_runtime_release(), "extra_field": "leak"},
+        ],
+    )
+    def test_malformed_runtime_release_rejects_whole_candidate(self, tmp_path, bad_extension):
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest = _make_manifest(model_checksum=checksum, runtime_release=bad_extension)
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models("s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3)
+        # Fail-closed: the whole candidate is rejected, not silently
+        # accepted without its extension.
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+
+    def test_runtime_release_must_be_object(self, tmp_path):
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        manifest_dict = json.loads(_make_manifest(model_checksum=checksum))
+        manifest_dict["runtime_release"] = "not-an-object"
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": json.dumps(manifest_dict).encode(),
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models("s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3)
+        assert result.available_count == 0
+        assert result.rejected_count == 1
+
+    # --- 10. runtime_release private fields never public ---
+
+    def test_runtime_release_not_in_to_safe_dict(self, tmp_path):
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        extension = _make_valid_runtime_release()
+        manifest = _make_manifest(model_checksum=checksum, runtime_release=extension)
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models("s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3)
+        safe = result.entries[0].to_safe_dict()
+        assert "runtime_release" not in safe
+        assert "manifest_key" not in safe
+        assert "manifest_sha256" not in safe
+        assert extension["manifest_key"] not in str(safe)
+        assert extension["manifest_sha256"] not in str(safe)
+
+    def test_runtime_release_not_in_to_dict_alias(self, tmp_path):
+        pkg_bytes = _make_synthetic_package()
+        checksum = hashlib.sha256(pkg_bytes).hexdigest()
+        extension = _make_valid_runtime_release()
+        manifest = _make_manifest(model_checksum=checksum, runtime_release=extension)
+        s3 = _make_s3_client({
+            "models/v1/manifest.json": manifest,
+            "models/v1/model.joblib": pkg_bytes,
+        })
+        result = discover_models("s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3)
+        assert "runtime_release" not in result.entries[0].to_dict()

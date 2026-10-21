@@ -1,0 +1,21 @@
+{
+  "report": {
+    "status": "unavailable",
+    "reason_code": "REPORT_NOT_AVAILABLE",
+    "failure": "Feature construction failed: raw_peak_gate_failed",
+    "failure_stage": "features",
+    "failure_reason_code": "raw_peak_gate_failed",
+    "failure_detail": "Feature construction failed: raw_peak_gate_failed",
+    "remediation": "Review the selected source and model configuration before retrying.",
+    "workflow_id": "bremen",
+    "model_id": "bremen-paper-reference-v0-2-0",
+    "model_version": "0.2.0-paper-reference",
+    "patient_id": "Nova_378",
+    "target_side": "",
+    "safe_details": {}
+  },
+  "job_id": "95ff2763-1a11-492e-a444-17e18939633d",
+  "workflow_id": "bremen",
+  "request_id": "922ab525-0d4f-4c7b-a28c-c3a9b4aa8a3e",
+  "technical_demo_only": true
+}

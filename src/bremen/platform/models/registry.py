@@ -47,12 +47,28 @@ class RegistryModelEntry:
     _container_requirements: dict[str, Any] | None = field(
         repr=False, compare=False, default=None
     )
+    # IR-02: additive, optional catalog extension (manifest's "runtime_release"
+    # block). Validated by bremen.platform.models.discovery against
+    # bremen.contracts.inference_release before an entry is ever constructed;
+    # this field only stores the already-validated dict. Internal use only —
+    # manifest_key / manifest_sha256 are never exposed through to_safe_dict()
+    # or any other public catalog response. Legacy manifests without this
+    # block leave it None and behave exactly as before.
+    _runtime_release: dict[str, Any] | None = field(
+        repr=False, compare=False, default=None
+    )
     scientifically_certified: bool = False
     technical_demo_only: bool = True
     availability: str = "available"
 
     def to_safe_dict(self) -> dict[str, Any]:
-        """Return safe public fields only. No private package data."""
+        """Return safe public fields only. No private package data.
+
+        Deliberately does not include ``_runtime_release`` (or its
+        ``manifest_key`` / ``manifest_sha256`` sub-fields) — the IR-02
+        catalog extension is internal-only, for later IR-04 release
+        resolution, never part of the public catalog response.
+        """
         return {
             "model_id": self.model_id,
             "display_name": self.display_name,
@@ -77,6 +93,17 @@ class RegistryModelEntry:
         if not isinstance(self._container_requirements, dict):
             return None
         return dict(self._container_requirements)
+
+    def get_runtime_release(self) -> dict[str, Any] | None:
+        """Return a copy of the private, already-validated IR-02
+        ``runtime_release`` catalog extension, if present.
+
+        Internal use only (future IR-04 release resolution); never
+        surfaced through ``to_safe_dict()`` / ``to_dict()``.
+        """
+        if not isinstance(self._runtime_release, dict):
+            return None
+        return dict(self._runtime_release)
 
 
 # ---------------------------------------------------------------------------
@@ -189,6 +216,13 @@ class ModelRegistry:
             return None
         return entry.get_container_requirements()
 
+    def get_runtime_release(self, model_id: str) -> dict[str, Any] | None:
+        """Return a copy of the private IR-02 ``runtime_release`` extension, if present."""
+        entry = self.get_entry(model_id)
+        if entry is None:
+            return None
+        return entry.get_runtime_release()
+
 
 # ---------------------------------------------------------------------------
 # Registry singleton — stored on bremen package for reload safety
@@ -243,6 +277,15 @@ def get_model_checksum(model_id: str) -> str | None:
 def get_model_container_requirements(model_id: str) -> dict[str, Any] | None:
     """Get private container requirements metadata for a specific model_id."""
     return get_registry().get_container_requirements(model_id)
+
+
+def get_model_runtime_release(model_id: str) -> dict[str, Any] | None:
+    """Get the private, already-validated IR-02 ``runtime_release`` catalog
+    extension for a specific model_id, if present. Internal use only
+    (future IR-04 release resolution); never exposed through any public
+    catalog response.
+    """
+    return get_registry().get_runtime_release(model_id)
 
 
 def reset_for_tests() -> None:

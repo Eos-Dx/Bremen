@@ -1,0 +1,7 @@
+{
+  "error": "standard_result_not_available",
+  "workflow_id": "bremen",
+  "job_id": "95ff2763-1a11-492e-a444-17e18939633d",
+  "workflow_status": "failed",
+  "failure_reason_code": "raw_peak_gate_failed"
+}

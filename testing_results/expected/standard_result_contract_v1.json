@@ -1,0 +1,23 @@
+{
+  "report_id": "<platform-generated UID>",
+  "created_at": "2026-09-04T19:48:36+02:00",
+  "analysis_author": "",
+  "prediction_comment": "",
+  "patient_id": "<patient id or contract absence value>",
+  "patient_age": null,
+  "scan_date_time": "",
+  "operator_id": "",
+  "hardware_version": "",
+  "eoscan_version": "",
+  "model_name": "<authoritative model name>",
+  "model_version": "<authoritative model version>",
+  "model_method": "<method; currently may equal model version>",
+  "model_metrics": {
+    "sensitivity": null,
+    "specificity": null
+  },
+  "threshold_value": 0.5,
+  "risk_probability": 0.5,
+  "target_class_risk_level": "high",
+  "specific_output": {}
+}

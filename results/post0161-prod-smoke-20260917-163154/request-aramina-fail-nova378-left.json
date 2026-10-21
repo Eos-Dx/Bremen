@@ -1,0 +1,9 @@
+{
+  "workflow_id": "aramina",
+  "model_id": "aramina_target_breast_risk_0_2_13-beta_f5e4a04cad11",
+  "source_id": "488893e7-b66f-4aae-a0bc-4476940447e3",
+  "patient_id": "Nova_378",
+  "target_side": "left",
+  "analysis_author": "PR0161 production smoke",
+  "prediction_comment": "Post-deploy Standard Result contract smoke"
+}

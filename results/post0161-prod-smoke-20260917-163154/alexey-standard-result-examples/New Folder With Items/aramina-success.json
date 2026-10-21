@@ -1,0 +1,27 @@
+{
+  "report_id": "9e62a544-a2f6-4549-b92d-0264bbb2d059",
+  "created_at": "2026-09-17T15:33:14+00:00",
+  "analysis_author": "PR0161 production smoke",
+  "prediction_comment": "Post-deploy Standard Result contract smoke",
+  "patient_id": "Nova_214",
+  "patient_age": 47,
+  "referring_physician": "",
+  "scan_date_time": "2025-05-14T12:55:46+00:00",
+  "operator_id": "backfill",
+  "hardware_version": "v1.0.0",
+  "eoscan_version": null,
+  "model_name": "aramina_target_breast_risk",
+  "model_version": "0.2.13-beta",
+  "model_method": "m2q_gated_target_case",
+  "model_metrics": {
+    "sensitivity": 0.8175,
+    "specificity": 0.37630084054979734
+  },
+  "threshold_value": 0.24665932038818544,
+  "risk_probability": 0.869387073973647,
+  "target_class_risk_level": "high",
+  "specific_output": {
+    "target_side": "left",
+    "mammography_suspicious_field": ""
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "job": {
+    "job_id": "95ff2763-1a11-492e-a444-17e18939633d",
+    "request_id": "e4aa6be4-a32d-4a44-b702-04d1b3542024",
+    "created_at": "2026-09-17T15:32:24.641881+00:00",
+    "started_at": "2026-09-17T15:32:24.642014+00:00",
+    "completed_at": "2026-09-17T15:32:47.240604+00:00",
+    "overall_status": "failed",
+    "input_summary": {
+      "container_id": "Nova_378.h5",
+      "workflow_id": "bremen",
+      "model_id": "bremen-paper-reference-v0-2-0",
+      "source_key": "d18a02b73787132e",
+      "patient_display_name": "Nova_378",
+      "target_side": "",
+      "analysis_author": "PR0161 production smoke",
+      "prediction_comment": "Post-deploy Standard Result contract smoke"
+    },
+    "normalization_summary": {
+      "measurement_count": null,
+      "layout": null
+    },
+    "requested_workflows": [
+      "bremen"
+    ],
+    "workflow_runs": {
+      "bremen": {
+        "workflow_id": "bremen",
+        "status": "failed",
+        "model_identity": {
+          "model_id": "bremen-paper-reference-v0-2-0",
+          "model_version": "0.2.0-paper-reference"
+        },
+        "readiness_snapshot": {},
+        "started_at": null,
+        "completed_at": null,
+        "duration_ms": null,
+        "result_summary": {},
+        "report_metadata": null,
+        "failure": "Feature construction failed: raw_peak_gate_failed"
+      }
+    },
+    "reports": {
+      "bremen": {
+        "report_id": "7c413ced-948a-44b6-8960-a33cf82bc04f",
+        "workflow_id": "bremen",
+        "report_schema_version": "v0.2",
+        "status": "unavailable",
+        "generated_at": "2026-09-17T15:32:47.240690+00:00",
+        "model_id": "bremen-paper-reference-v0-2-0",
+        "model_version": "0.2.0-paper-reference",
+        "scientifically_certified": false
+      }
+    },
+    "event_cursor": 0
+  },
+  "storage_mode": "ephemeral"
+}

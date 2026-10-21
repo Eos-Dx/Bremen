@@ -17,6 +17,7 @@ from bremen.platform.models.registry import (
     get_registry,
     get_model_entry,
     get_model_package,
+    get_model_runtime_release,
     reset_for_tests,
     build_legacy_registry,
     REASON_CATEGORIES,
@@ -34,6 +35,7 @@ def _make_entry(
     workflow_id: str = "bremen",
     availability: str = "available",
     package: dict | None = None,
+    runtime_release: dict | None = None,
 ) -> RegistryModelEntry:
     return RegistryModelEntry(
         model_id=model_id,
@@ -48,6 +50,7 @@ def _make_entry(
         scientifically_certified=False,
         technical_demo_only=True,
         availability=availability,
+        _runtime_release=runtime_release,
         _package=package or {},
         _checksum="a" * 64,
     )
@@ -533,3 +536,81 @@ class TestPR0087UnavailableEntry:
         assert reg.unavailable_count == 1
         assert len(reg.unavailable_entries) == 1
         assert reg.last_discovery_at == "2026-07-25T10:00:00+00:00"
+
+
+# ---------------------------------------------------------------------------
+# IR-02: additive, optional runtime_release catalog extension
+# ---------------------------------------------------------------------------
+
+
+class TestRuntimeReleaseExtension:
+    def teardown_method(self):
+        reset_for_tests()
+
+    def test_entry_without_extension_returns_none(self):
+        entry = _make_entry()
+        assert entry.get_runtime_release() is None
+
+    def test_entry_with_extension_returns_copy(self):
+        extension = {
+            "schema_version": "bremen.inference-release.v1",
+            "release_id": "bremen-paper-reference-v0-2-0-rel-1",
+            "manifest_key": "releases/r1/manifest.json",
+            "manifest_sha256": "c" * 64,
+        }
+        entry = _make_entry(runtime_release=extension)
+        returned = entry.get_runtime_release()
+        assert returned == extension
+        # Must be a defensive copy, not the same object.
+        returned["release_id"] = "mutated"
+        assert entry.get_runtime_release()["release_id"] == "bremen-paper-reference-v0-2-0-rel-1"
+
+    def test_extension_not_exposed_in_to_safe_dict(self):
+        extension = {
+            "schema_version": "bremen.inference-release.v1",
+            "release_id": "bremen-paper-reference-v0-2-0-rel-1",
+            "manifest_key": "releases/r1/manifest.json",
+            "manifest_sha256": "c" * 64,
+        }
+        entry = _make_entry(runtime_release=extension)
+        safe = entry.to_safe_dict()
+        assert "runtime_release" not in safe
+        assert "manifest_key" not in safe
+        assert "manifest_sha256" not in safe
+        assert extension["manifest_key"] not in str(safe)
+        assert extension["manifest_sha256"] not in str(safe)
+
+    def test_registry_get_runtime_release_for_model_id(self):
+        extension = {
+            "schema_version": "bremen.inference-release.v1",
+            "release_id": "r1",
+            "manifest_key": "releases/r1/manifest.json",
+            "manifest_sha256": "c" * 64,
+        }
+        entry = _make_entry(model_id="model-with-release", runtime_release=extension)
+        reg = ModelRegistry(entries=(entry,), catalog_status="available",
+                             candidate_count=1, available_count=1)
+        initialize_registry(reg)
+        assert get_model_runtime_release("model-with-release") == extension
+        assert get_model_runtime_release("unknown-model") is None
+
+    def test_registry_get_runtime_release_none_for_legacy_entry(self):
+        entry = _make_entry(model_id="legacy-model")
+        reg = ModelRegistry(entries=(entry,), catalog_status="available",
+                             candidate_count=1, available_count=1)
+        initialize_registry(reg)
+        assert get_model_runtime_release("legacy-model") is None
+
+    def test_default_build_legacy_registry_has_no_runtime_release(self, monkeypatch):
+        """build_legacy_registry() (no S3 catalog) never had this field in
+        its constructor call; legacy construction remains unaffected."""
+        import bremen
+        from bremen.platform.models.state import ModelState
+
+        pkg = {"portable_logreg": {"coef": [0.1] * 15, "intercept": 0.0, "threshold": 0.5}}
+        monkeypatch.setattr(ModelState, "get_model", staticmethod(lambda: pkg))
+        monkeypatch.setattr(ModelState, "is_ready", staticmethod(lambda: True))
+
+        reg = build_legacy_registry()
+        assert len(reg.entries) == 1
+        assert reg.entries[0].get_runtime_release() is None
