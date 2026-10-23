@@ -269,6 +269,44 @@ def _feature_order_hash(spec: VariantSpec) -> str:
     return _sha256_bytes(json.dumps(columns).encode("utf-8"))
 
 
+def _wheel_paths_by_hash(wheelhouse: Path | None) -> dict[str, Path]:
+    """Map every wheel SHA-256 in a local wheelhouse to its path."""
+    mapping: dict[str, Path] = {}
+    if wheelhouse is None:
+        return mapping
+    for wheel in sorted(wheelhouse.glob("*.whl")):
+        mapping[_sha256_file(wheel)] = wheel
+    return mapping
+
+
+def _copy_lock_wheels(
+    lock_text: str, source: Path | None, destination: Path,
+) -> list[Path]:
+    """Copy exactly the wheels referenced by a hash-locked file.
+
+    The lock is the authoritative closure; every referenced hash must exist
+    as a real wheel or assembly fails.  Returns the copied paths.
+    """
+    available = _wheel_paths_by_hash(source)
+    copied: list[Path] = []
+    seen: set[str] = set()
+    for line in lock_text.splitlines():
+        for digest in re.findall(r"--hash=sha256:([a-f0-9]{64})", line):
+            if digest in seen:
+                continue
+            wheel = available.get(digest)
+            if wheel is None:
+                raise ValueError(
+                    f"hash-locked wheel {digest} is not present in {source}"
+                )
+            seen.add(digest)
+            destination.mkdir(parents=True, exist_ok=True)
+            target = destination / wheel.name
+            shutil.copyfile(wheel, target)
+            copied.append(target)
+    return copied
+
+
 def _normalize_name(name: str) -> str:
     return re.sub(r"[-_.]+", "_", name).lower()
 
@@ -332,24 +370,36 @@ def _required_aux_tags(spec: VariantSpec) -> tuple[str, ...]:
 
 
 def _golden_files(
-    spec: VariantSpec, fixtures_root: Path | None,
-) -> dict[str, Any]:
+    spec: VariantSpec, fixtures_root: Path, release_root: Path,
+) -> tuple[dict[str, Any], list[Path]]:
+    """Copy every golden fixture into the release and describe the cases.
+
+    Golden inputs are part of the release closure: a missing fixture fails
+    assembly rather than producing a release that cannot be smoke-verified.
+    """
     cases = []
+    copied: list[Path] = []
     for case in _GOLDEN_CASES.get(spec.key, []):
         entry = dict(case)
-        fixture_sha = None
-        if fixtures_root is not None:
-            fixture_path = fixtures_root / case["fixture"]
-            if not fixture_path.is_file():
-                raise FileNotFoundError(f"golden fixture missing: {fixture_path}")
-            fixture_sha = _sha256_file(fixture_path)
-        entry["fixture_sha256"] = fixture_sha
+        fixture_path = fixtures_root / case["fixture"]
+        if not fixture_path.is_file():
+            raise FileNotFoundError(f"golden fixture missing: {fixture_path}")
+        relative = f"golden_tests/fixtures/{case['fixture']}"
+        target = release_root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(fixture_path, target)
+        copied.append(target)
+        entry["fixture_release_path"] = relative
+        entry["fixture_sha256"] = _sha256_file(target)
         cases.append(entry)
-    return {
-        "schema_version": _GOLDEN_SCHEMA,
-        "release_id": spec.release_id,
-        "cases": cases,
-    }
+    return (
+        {
+            "schema_version": _GOLDEN_SCHEMA,
+            "release_id": spec.release_id,
+            "cases": cases,
+        },
+        copied,
+    )
 
 
 def _file_ref(
@@ -434,6 +484,7 @@ def assemble_release(
     provenance_dir = release_root / "provenance"
     provenance_dir.mkdir(parents=True, exist_ok=True)
     aux_locks: dict[str, str] = {}
+    aux_wheels: dict[str, list[Path]] = {}
     aux_provenance: dict[str, dict[str, Any]] = {}
     aux_commits = dict(aux_source_commits or {})
     aux_wheelhouse_paths = dict(aux_wheelhouses or {})
@@ -447,7 +498,8 @@ def assemble_release(
         aux_provenance[tag] = record
         lock_name = f"aux-{tag}.lock"
         (release_root / "requirements").mkdir(parents=True, exist_ok=True)
-        (release_root / "requirements" / lock_name).write_text(
+        aux_lock_path = release_root / "requirements" / lock_name
+        aux_lock_path.write_text(
             _aux_lock(
                 executable,
                 Path(aux_wheelhouse_paths[tag]).resolve()
@@ -457,17 +509,38 @@ def assemble_release(
             encoding="utf-8",
         )
         aux_locks[tag] = lock_name
+        aux_wheels[tag] = _copy_lock_wheels(
+            aux_lock_path.read_text(encoding="utf-8"),
+            Path(aux_wheelhouse_paths[tag]).resolve()
+            if tag in aux_wheelhouse_paths else None,
+            release_root / "wheelhouse" / "aux" / tag,
+        )
 
     # Main lock (hash-locked when a local wheelhouse is supplied).
     main_requirements = tuple(PLUGIN_REQUIRES_DIST) + _MAIN_TRANSITIVE
     main_lock_path = release_root / "requirements" / "main.lock"
     main_lock_path.parent.mkdir(parents=True, exist_ok=True)
-    main_lock_path.write_text(
-        _lock_lines(main_requirements, wheelhouse_path), encoding="utf-8",
+    main_lock_text = _lock_lines(main_requirements, wheelhouse_path)
+    main_lock_path.write_text(main_lock_text, encoding="utf-8")
+    main_wheels = _copy_lock_wheels(
+        main_lock_text, wheelhouse_path, release_root / "wheelhouse" / "main",
     )
 
-    # Golden descriptors (fixtures are referenced, never copied).
-    golden = _golden_files(spec, fixtures_path)
+    # Golden fixtures are copied into the release so READY never depends on an
+    # external fixture directory.
+    if fixtures_path is None and _GOLDEN_CASES.get(spec.key):
+        raise RuntimeError("golden fixtures are required for this release")
+    if fixtures_path is not None:
+        golden, golden_copies = _golden_files(spec, fixtures_path, release_root)
+    else:
+        golden, golden_copies = (
+            {
+                "schema_version": _GOLDEN_SCHEMA,
+                "release_id": spec.release_id,
+                "cases": [],
+            },
+            [],
+        )
     _write_json(release_root / "golden_tests" / "cases.json", golden)
 
     # Release runtime config.
@@ -521,6 +594,8 @@ def assemble_release(
             tag: _sha256_file(release_root / "requirements" / name)
             for tag, name in aux_locks.items()
         },
+        "main_wheel_count": len(main_wheels),
+        "aux_wheel_counts": {tag: len(items) for tag, items in aux_wheels.items()},
         "aux_provenance": aux_provenance,
         "known_preprocessing_commits": KNOWN_PREPROCESSING_COMMITS,
         "hash_locked_main": wheelhouse_path is not None,
@@ -575,6 +650,26 @@ def assemble_release(
             )
         )
 
+    for wheel_path in main_wheels:
+        files.append(
+            _file_ref(
+                role="dependency_wheel",
+                relative_path=f"wheelhouse/main/{wheel_path.name}",
+                release_id=spec.release_id,
+                path=wheel_path,
+            )
+        )
+    for tag, wheels in aux_wheels.items():
+        for wheel_path in wheels:
+            files.append(
+                _file_ref(
+                    role="dependency_wheel_aux",
+                    relative_path=f"wheelhouse/aux/{tag}/{wheel_path.name}",
+                    release_id=spec.release_id,
+                    path=wheel_path,
+                )
+            )
+
     environments: dict[str, Any] = {
         "main": {
             "requirements_lock_sha256": _sha256_file(main_lock_path),
@@ -597,9 +692,17 @@ def assemble_release(
             role="golden_cases", relative_path="golden_tests/cases.json",
             release_id=spec.release_id,
             path=release_root / "golden_tests" / "cases.json",
-            require_size=False,
         )
     ]
+    for fixture_path in golden_copies:
+        golden_tests.append(
+            _file_ref(
+                role="golden_fixture",
+                relative_path=str(fixture_path.relative_to(release_root)),
+                release_id=spec.release_id,
+                path=fixture_path,
+            )
+        )
 
     manifest = {
         "schema_version": SCHEMA_ID,

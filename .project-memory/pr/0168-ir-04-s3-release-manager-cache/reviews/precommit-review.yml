@@ -1,0 +1,456 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: pass
+reviewer: precommit-review
+reviewed_at: "2026-10-23"
+head: 92c64e90b37ed55cbfa520759651bd19b11b078b
+branch: 0168-ir-04-s3-release-manager-cache
+
+BLOCKERS:
+  - id: IR04-RELEASE-CLOSURE-WHEELHOUSE
+    finding: >-
+      ReleaseCache accepts BREMEN_RELEASE_WHEELHOUSE and installs dependency
+      wheels from that external union directory. The IR-03 manifest declares
+      lock files but does not declare or fetch the matching wheel objects;
+      --require-hashes authenticates a selected wheel but does not bind the
+      dependency closure to this release. The normative contract requires the
+      plugin and pinned dependency closure to be release-bound.
+    evidence: "src/bremen/platform/models/release_cache.py:181-183,552-567; IMPLEMENTATION_REPORT.md:282-287"
+    required_fix: >-
+      Publish and fetch a release-declared wheelhouse/complete wheel closure,
+      verify every wheel against manifest digests before installation, and
+      install only those release-local wheels. Remove dependence on an
+      undeclared global union directory.
+  - id: IR04-GOLDEN-READY-GATE
+    finding: >-
+      READY can be written after requirements smoke when
+      BREMEN_RELEASE_GOLDEN_FIXTURES is unset. When configured, missing fixture
+      files are silently skipped, and successful golden predictions are checked
+      only for status rather than release-bound numeric output, threshold and
+      other expected result fields. The manifest currently binds only the
+      descriptor; required input fixtures are not guaranteed to be fetched.
+    evidence: "src/bremen/platform/models/release_cache.py:626-647,661-696; IMPLEMENTATION_REPORT.md:289-290"
+    required_fix: >-
+      Make every manifest golden case mandatory for READY, bind and download
+      its input/expected-output artifacts (including size and SHA-256), fail on
+      absent fixtures, execute each through the installed entrypoint, and
+      compare the complete expected result within explicit numeric tolerances.
+  - id: IR04-TRUSTED-BUCKET-BOUNDARY
+    finding: >-
+      The public ReleaseCache constructor accepts an arbitrary bucket string
+      from its caller. Only the catalog supplies the manifest key; there is no
+      trusted platform/catalog configuration object or allowlist preventing a
+      caller from selecting another bucket. This does not satisfy the required
+      source-authority boundary even though request-time keys are not exposed.
+    evidence: "src/bremen/platform/models/release_cache.py:162-180,377-381,443-448"
+    required_fix: >-
+      Inject a trusted, non-request-configured release source (or validate the
+      bucket against the platform release configuration) and keep bucket/key
+      selection outside public request data.
+  - id: IR04-SUBPROCESS-CREDENTIAL-ISOLATION
+    finding: >-
+      The scientific subprocess inherits the parent environment because
+      _run_command calls subprocess.run without an explicit restricted env.
+      AWS credentials and unrelated platform secrets can therefore be exposed
+      to the release worker, contrary to the supervisor security contract.
+    evidence: "src/bremen/platform/models/release_cache.py:859-864"
+    required_fix: >-
+      Construct an allowlisted subprocess environment that omits AWS credential
+      and platform-secret variables while retaining only required runtime
+      configuration.
+
+WARNINGS:
+  - id: IR04-RESOURCE-ADMISSION-UNDERCOUNT
+    finding: >-
+      _admit sums only refs with size_bytes and permits a configurable negative,
+      NaN or infinite free_space_factor. The v1 validator allows optional size
+      for golden refs, so disk/budget admission can undercount fetched content
+      or fail unclearly for pathological configuration.
+    evidence: "src/bremen/platform/models/release_cache.py:478-496; src/bremen/contracts/inference_release.py:250-256"
+    disposition: "Should be fixed with the closure/golden changes; currently contributes to unsafe admission but is secondary to the blockers above."
+  - id: IR04-EVICTION-PROTECTED-BUDGET
+    disposition: "Non-blocking and explicitly documented: eviction may remain above budget when all entries are protected; protected and partial entries are not deleted."
+  - id: IR04-POSIX-LOCKING
+    disposition: "Non-blocking for the declared deployment target; non-POSIX hosts fail closed with lock_unsupported."
+  - id: IR04-MATADOR-RAW
+    disposition: "Non-blocking inherited IR-03 limitation; no change in this PR."
+  - id: IR04-LIVE-AWS
+    disposition: "No live S3/App Runner evidence was run or claimed; this is a separate operational gate, not a local code-validation failure."
+
+FILES READ:
+  - AGENTS.md
+  - ROADMAP.md
+  - .project-memory/pr/ir-04/PLAN.md
+  - .project-memory/pr/0168-ir-04-s3-release-manager-cache/IMPLEMENTATION_REPORT.md
+  - .project-memory/pr/0168-ir-04-s3-release-manager-cache/CACHE_INSTALL_EVIDENCE.md
+  - docs/adr/0019-independent-inference-releases-app-runner.md
+  - docs/inference-releases/architecture-and-contract.md
+  - docs/inference-releases/operations.md
+  - docs/inference-releases/parity-and-rollout.md
+  - src/bremen/platform/models/release_cache.py
+  - src/bremen/contracts/inference_release.py
+  - tests/test_ir04_release_cache.py
+
+FILES WRITTEN:
+  - .project-memory/pr/0168-ir-04-s3-release-manager-cache/reviews/precommit-review.yml
+
+ACTUAL CHANGE RECONCILIATION:
+  status_before_review:
+    head: 92c64e90b37ed55cbfa520759651bd19b11b078b
+    branch: 0168-ir-04-s3-release-manager-cache
+    untracked:
+      - src/bremen/platform/models/release_cache.py
+      - tests/test_ir04_release_cache.py
+      - .project-memory/pr/0168-ir-04-s3-release-manager-cache/
+  implementation_files_reported:
+    - src/bremen/platform/models/release_cache.py
+    - tests/test_ir04_release_cache.py
+    - .project-memory/pr/0168-ir-04-s3-release-manager-cache/IMPLEMENTATION_REPORT.md
+    - .project-memory/pr/0168-ir-04-s3-release-manager-cache/CACHE_INSTALL_EVIDENCE.md
+  observed: >-
+    No tracked diff, staged files, source/test modifications outside the
+    reported untracked files, Docker/CI/infrastructure changes, or forbidden
+    artifacts were found. The report's statement that git diff --stat is empty
+    is explained by all implementation files being untracked.
+
+TRUSTED REFERENCE REVIEW:
+  result: partial
+  verified: >-
+    resolve accepts only the exact runtime_release field set, rejects malformed
+    digest/path/identity values, and no request payload selects a key or latest.
+    Manifest fetch errors are mapped without private exception text.
+  failed: >-
+    bucket authority is caller-supplied at construction and is not tied to a
+    trusted release-source configuration; see IR04-TRUSTED-BUCKET-BOUNDARY.
+
+MANIFEST TRUST REVIEW:
+  result: pass
+  details: >-
+    _fetch_manifest reads exact bytes, bounds size, hashes and compares the
+    catalog digest before _parse_manifest and validate_release_manifest are
+    called. Release, model and catalog version identity checks follow parsing.
+
+RELEASE CLOSURE REVIEW:
+  result: block
+  details: >-
+    Plugin/artifact/config/provenance/lock/descriptor objects are fetched from
+    manifest declarations and hash-checked. Dependency wheels are instead
+    resolved from an external union wheelhouse and are absent from the release
+    closure, so the required immutable dependency closure is not proven.
+
+GOLDEN READY GATE REVIEW:
+  result: block
+  details: >-
+    The descriptor is fetched and verified, but golden predict is conditional
+    on BREMEN_RELEASE_GOLDEN_FIXTURES. With no variable, install proceeds to
+    READY without a golden case. With it set, missing fixtures are continued
+    over and successful outputs are not compared to expected probability,
+    prediction or threshold. Local B2 cases confirm the expected fields exist;
+    the implementation does not enforce them.
+
+S3 FETCH REVIEW:
+  result: partial
+  details: >-
+    Declared object keys, relative paths, duplicate paths, SHA-256 and declared
+    sizes (when present) are checked; traversal and undeclared files are
+    rejected. Exact size is not required for optional golden refs, and source
+    bucket authority remains a blocker.
+
+COMPATIBILITY REVIEW:
+  result: pass
+  details: >-
+    Python implementation, major/minor, SOABI, OS, architecture and worker
+    protocol are checked before environment installation and no fallback is
+    used.
+
+CACHE ATOMICITY REVIEW:
+  result: pass
+  details: >-
+    Per-digest flock, staging cleanup, final-path venv creation and atomic
+    READY os.replace behavior are present. No ACTIVE routing is performed.
+
+CONCURRENCY REVIEW:
+  result: pass_with_boundary
+  details: >-
+    Unit coverage shows one same-digest install under concurrent callers.
+    protected_digests is explicit; IR-05 process tracking is correctly not
+    fabricated, but callers must protect running releases.
+
+OFFLINE INSTALL REVIEW:
+  result: partial
+  details: >-
+    Main and auxiliary locks use --no-index, --only-binary=:all: and
+    --require-hashes; the plugin wheel is hash-verified before installation.
+    The dependency source remains external and therefore fails release closure.
+
+RESOURCE ADMISSION REVIEW:
+  result: warning
+  details: >-
+    Admission occurs before release-object download and tests reject low disk
+    and over-budget declarations. Optional sizes and unvalidated
+    free_space_factor can undercount or mishandle pathological configuration.
+
+EVICTION REVIEW:
+  result: pass_with_warning
+  details: >-
+    Only digest-named READY entries are candidates, protected/partial entries
+    survive and LRU ordering is deterministic. Above-budget retention with all
+    candidates protected is documented.
+
+LEGACY COMPATIBILITY REVIEW:
+  result: pass
+  details: >-
+    Existing discovery, registry, model-ID duplicate protections and private
+    runtime_release behavior passed their regression tests; no activation or
+    legacy runtime selection was changed.
+
+SECURITY REVIEW:
+  result: block
+  details: >-
+    Subprocess invocation is argv-only with no shell and the platform does not
+    import plugin code. However, the child inherits the full parent environment
+    including potentially unnecessary AWS credentials, and trusted bucket
+    authority is not enforced.
+
+SIMPLICITY REVIEW:
+  result: pass
+  details: >-
+    A single focused module reuses the manifest validator and worker protocol;
+    no speculative service hierarchy was introduced. The correctness gaps are
+    contract omissions rather than needless abstraction.
+
+LOCAL END-TO-END REVIEW:
+  result: historical_evidence_only
+  details: >-
+    The committed evidence records a cold B2 install, READY, sklearn 1.9.0,
+    warm reuse, tamper rejection and probability 0.7726940329943811. An
+    independent rerun was attempted against /tmp/ir03/releases-final/b2 and
+    /tmp/ir04/wheelhouse-all, but the helper hung during its later corruption
+    scenario and was interrupted; no new result is claimed. The available
+    cases.json contains release-bound expected probability 0.7726940329943811
+    and threshold 0.3585907282566089.
+
+LIVE AWS STATUS: "LIVE_S3_EVIDENCE: NOT RUN - NO AUTHORIZED ACCESS"
+
+VALIDATION:
+  - command: "/tmp/bremen-ir01-exec-venv/bin/python -m compileall -q src tests"
+    exit_code: 0
+    result: pass
+  - command: "/tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_ir04_release_cache.py"
+    exit_code: 0
+    result: "32 passed in 0.35s"
+  - command: "/tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_s3_model_discovery.py tests/test_model_registry.py tests/test_inference_release_contract.py tests/test_worker_protocol_contract.py tests/test_ir04_release_cache.py"
+    exit_code: 0
+    result: "495 passed in 2.65s"
+  - command: "/tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_bremen_model_runtime_contract_v1.py tests/test_ir03_plugin_import_boundary.py tests/test_ir03_plugin_wheel.py tests/test_ir03_standalone_runtime.py"
+    exit_code: 0
+    result: "94 passed in 1.48s"
+  - command: "/tmp/bremen-ir01-exec-venv/bin/python -m pytest -q"
+    exit_code: 0
+    result: "4403 passed, 8 skipped, 40 warnings in 56.01s"
+  - command: "git diff --check"
+    exit_code: 0
+    result: pass
+  - command: "git status --short / git diff --stat / git diff"
+    result: >-
+      status contained only the two new implementation files and the PR0168
+      project-memory directory before this review; tracked diff and diff-stat
+      were empty because implementation files are untracked.
+
+PLAN COMPLIANCE:
+  result: partial
+  details: >-
+    The implementation covers digest-first fetch, compatibility, offline
+    installation, locks, READY, admission and eviction without legacy wiring,
+    but does not meet the plan's complete release closure and golden smoke
+    acceptance gates.
+
+BREMEN CONTRACT CHECK:
+  result: partial
+  details: >-
+    Scientific/runtime behavior and legacy catalog tests are unchanged, but
+    release readiness and subprocess secret isolation do not meet the normative
+    architecture contract.
+
+VALIDATION COMPLETENESS CHECK: "complete for requested local commands; live AWS not run"
+EVIDENCE COMPLETENESS CHECK: "historical local install evidence is explicit; independent rerun did not complete"
+DIFF COMPLETENESS CHECK: "complete for visible working tree; untracked implementation files inspected"
+BOUNDARY CONFIRMATIONS:
+  - "Implementation followed approved PLAN.md: not confirmed"
+  - "No review artifact written: not confirmed (this artifact is written)"
+  - "PLAN.md not modified: confirmed"
+  - "plan-review artifact not modified: confirmed"
+  - "Only PLAN.md-approved paths changed: confirmed"
+  - "Validation commands run and recorded: confirmed"
+  - "No git mutation commands run: confirmed"
+  - "No registry push or secrets introduced: confirmed"
+
+COMMIT READINESS: blocked
+NEXT REQUIRED ACTION: >-
+  Repair the four blockers: bind the complete dependency wheel closure to each
+  release, make release-bound golden fixtures and full expected-result checks
+  mandatory before READY, enforce trusted bucket/source configuration, and
+  scrub AWS/platform secrets from the scientific subprocess environment. Then
+  rerun the focused, regression and full validation suites and repeat review.
+
+REPEAT_REVIEW:
+  reviewed_at: "2026-10-23"
+  head: 92c64e90b37ed55cbfa520759651bd19b11b078b
+  branch: 0168-ir-04-s3-release-manager-cache
+  context: "Re-review after the four reported blocker fixes; prior findings remain above."
+  actual_change_reconciliation:
+    tracked_modified:
+      - src/bremen/release_build/assemble.py
+      - tests/test_ir03_plugin_wheel.py
+    untracked:
+      - src/bremen/platform/models/release_cache.py
+      - tests/test_ir04_release_cache.py
+      - .project-memory/pr/0168-ir-04-s3-release-manager-cache/
+    forbidden_changes: none_observed
+    report_accuracy: "Implementation report is stale: it still describes the old external wheelhouse/golden-fixture behavior, omits assemble.py and test_ir03_plugin_wheel.py, and reports old test counts."
+  blocker_resolution:
+    release_closure: resolved
+    golden_ready_gate: resolved
+    trusted_bucket: partial
+    subprocess_credential_isolation: resolved
+  release_closure_review:
+    result: pass
+    generated_releases:
+      a1: {manifest_sha256: "12c72fb463a216e16f0feee5ac1196bd293f8844401c3ee737dac66834d35491", main_wheels: 13, aux_wheels: 54, golden_fixtures: 2}
+      a2: {manifest_sha256: "ec77dfe981224f8fb3ad88aabe93a88e5d4dd7ac9e0a779bec8d0c5b102cf935", main_wheels: 13, aux_wheels: 54, golden_fixtures: 2}
+      b1: {manifest_sha256: "8f651fc100aceff22fda490b896c4f12569d77678b4a87ff8ca897c8cb7d0e13", main_wheels: 13, aux_wheels: 0, golden_fixtures: 3}
+      b2: {manifest_sha256: "6f6d5b863e0f9d419dd3bf1f9b3ee098b61d1ba493c34ee981db3280634e88e4", main_wheels: 13, aux_wheels: 54, golden_fixtures: 2}
+      b3: {manifest_sha256: "ea313396b4bbbef2bea3584ab1ca4f81bba309df4e7968189cb0011ead4f5d17", main_wheels: 13, aux_wheels: 54, golden_fixtures: 2}
+    independent_checks: "Recomputed every manifest digest. Every declared file, wheel and fixture existed locally with matching size and SHA-256. ReleaseCache uses only release-local wheelhouse paths and no longer reads BREMEN_RELEASE_WHEELHOUSE."
+  golden_ready_gate_review:
+    result: pass
+    details: "Assembly requires and embeds every configured fixture. Cache always invokes _smoke_golden; empty cases, missing/undeclared fixtures and failed full-field checks reject READY. Comparisons cover status, probability/risk_probability, threshold_applied/decision_threshold, prediction/target_class_risk_level, error code and safe_reason. B2 remains 0.7726940329943811 / 0.3585907282566089 / 1."
+  golden_fixture_safety:
+    result: pass
+    details: "Generated H5 fixtures are /tmp evidence only, untracked, and metadata uses release-relative paths without private source paths."
+  trusted_s3_configuration_review:
+    result: block
+    finding: "catalog_prefix is parsed and stored but never enforced against runtime_release.manifest_key. A trusted URI such as s3://bucket/approved/ still permits a reference to fetch releases/other/manifest.json in the same bucket."
+    evidence: "src/bremen/platform/models/release_cache.py:196-201,230-256,405-406; src/bremen/platform/models/discovery.py:184-211"
+    required_fix: "Require manifest_key to be within validated catalog_prefix before any S3 request and add an outside-prefix regression test."
+  subprocess_isolation_review:
+    result: pass
+    details: "_restricted_environment allowlists basic variables, sets PYTHONNOUSERSITE=1, and omits AWS_*, BOTO*, PYTHONPATH and platform credentials. venv, pip and entrypoint calls pass it; argv execution has no shell."
+  manifest_review:
+    result: pass
+    details: "Digest-first handling remains intact. Generated wheel and fixture refs are declared with size and SHA-256; fetched paths and duplicates are checked."
+  offline_install_review:
+    result: pass
+    details: "Main and auxiliary pip calls use release-local paths with --no-index, --only-binary=:all: and --require-hashes; no external wheelhouse participates."
+  cache_atomicity_review: pass
+  concurrency_review: "Digest lock, final-path venv, staging cleanup and atomic READY behavior remain; protected_digests is the explicit IR-05 boundary."
+  resource_admission_review: "All manifest refs require nonnegative integer sizes and free_space_factor is finite and positive; embedded wheels/fixtures are included."
+  eviction_review: "Protected, partial and installing entries remain safe; protected-over-budget retention is fail-safe."
+  legacy_compatibility_review: pass
+  scientific_parity_review: "Relevant IR-03/runtime/Aramina/Bremen tests passed; generated B2 metadata retains probability 0.7726940329943811, threshold 0.3585907282566089 and prediction 1. No scientific source or expected value changed."
+  security_review: "Subprocess isolation and artifact checks pass. The remaining security blocker is unenforced catalog prefix containment."
+  simplicity_review: pass
+  local_end_to_end_review: "Not completed independently: the prior helper was interrupted during its corruption scenario. Generated-release inspection and deterministic tests completed; no new cold-install claim is made."
+  live_aws_status: "LIVE_S3_EVIDENCE: NOT RUN - NO AUTHORIZED ACCESS"
+  warning_decisions:
+    embedded_release_size: non_blocking_release_bound_and_admitted
+    exact_float_golden_comparison: non_blocking_matches_frozen_json_contract
+    protected_cache_over_budget: non_blocking_fail_safe
+    posix_fcntl: non_blocking_fail_closed
+    matador_raw: non_blocking_preexisting_ir03_limitation
+    live_aws: non_blocking_for_local_commit_but_required_for_production_gate
+  validation_results:
+    compileall: {exit_code: 0, result: pass}
+    ir04: {exit_code: 0, result: "58 passed in 1.64s"}
+    ir03_plugin_wheel: {exit_code: 0, result: "13 passed in 0.69s"}
+    targeted_discovery_registry_contracts_worker_ir04: {exit_code: 0, result: "521 passed in 1.52s"}
+    runtime_aramina_bremen_parity_group: {exit_code: 0, result: "439 passed, 2 skipped in 3.28s"}
+    full_suite: {exit_code: 0, result: "4430 passed, 8 skipped, 40 warnings in 50.09s"}
+    git_diff_check: {exit_code: 0, result: pass}
+  final_verdict: BLOCKED
+  commit_readiness: blocked
+  next_required_action: "Enforce catalog_prefix containment, add the outside-prefix test, update IMPLEMENTATION_REPORT.md and CACHE_INSTALL_EVIDENCE.md to match the actual diff/current validation, then rerun review."
+
+FINAL_REPEAT_REVIEW:
+  reviewed_at: "2026-10-23"
+  head: 92c64e90b37ed55cbfa520759651bd19b11b078b
+  branch: 0168-ir-04-s3-release-manager-cache
+  verdict: pass
+  previous_blockers:
+    release_closure: resolved
+    golden_ready_gate: resolved
+    trusted_bucket: resolved
+    subprocess_credential_isolation: resolved
+    trusted_prefix_escape: resolved
+    stale_project_memory: resolved
+  files_reviewed:
+    - src/bremen/release_build/assemble.py
+    - src/bremen/platform/models/release_cache.py
+    - src/bremen/platform/models/discovery.py
+    - src/bremen/platform/models/registry.py
+    - src/bremen/contracts/inference_release.py
+    - tests/test_ir03_plugin_wheel.py
+    - tests/test_ir04_release_cache.py
+    - .project-memory/pr/0168-ir-04-s3-release-manager-cache/IMPLEMENTATION_REPORT.md
+    - .project-memory/pr/0168-ir-04-s3-release-manager-cache/CACHE_INSTALL_EVIDENCE.md
+    - .project-memory/pr/0168-ir-04-s3-release-manager-cache/RELEASE_CLOSURE_EVIDENCE.md
+  change_reconciliation:
+    expected_scope: "assemble.py, release_cache.py, test_ir03_plugin_wheel.py, test_ir04_release_cache.py and PR0168 project memory"
+    observed_scope: "exactly the expected source/test/project-memory files; no Docker, CI, infra, scientific or activation changes"
+    git_diff_check: pass
+  release_closure:
+    result: pass
+    details: "Five rebuilt manifests independently hash to the recorded values. Counts are A1 13/54/2, A2 13/54/2, B1 13/0/3, B2 13/54/2, B3 13/54/2. Every declared wheel/fixture exists with matching size and SHA-256; lock hashes resolve to release-local wheels; pip receives only release-local --find-links paths."
+  golden_ready_gate:
+    result: pass
+    details: "Golden fixtures and cases are release-bound, BREMEN_RELEASE_GOLDEN_FIXTURES is absent from implementation, every case runs before READY, missing/undeclared fixtures fail, and expected success/error fields are compared exactly. Requirements-only smoke cannot produce READY."
+  trusted_bucket:
+    result: pass
+    details: "ReleaseCache accepts catalog_uri, derives bucket/prefix through discovery._validate_catalog_uri, and has no caller bucket override or request-controlled source."
+  trusted_prefix:
+    result: pass
+    details: "Prefix containment is enforced before S3 access. catalog/releases/... and nested catalog/... keys pass; releases/..., catalog-evil/..., other/catalog/..., absolute and traversal keys fail. Root prefix permits safe keys."
+  subprocess_isolation:
+    result: pass
+    details: "venv, pip and scientific entrypoint calls use the allowlisted restricted environment with PYTHONNOUSERSITE=1; AWS_*, BOTO*, PYTHONPATH and seeded credentials are absent; argv execution has no shell."
+  project_memory_consistency:
+    result: pass
+    details: "Implementation report and cache evidence now list assemble.py/test changes, release-local wheels, embedded fixtures, mandatory golden gate, trusted bucket/prefix, restricted environment, current validation counts, five manifest hashes and live AWS status. No contradictory old external-wheelhouse or optional-golden claims remain."
+  manifest_closure_counts: "Independent recomputation matched all five recorded manifest SHA-256 values and expected closure counts."
+  offline_install: "Pass: --no-index --only-binary=:all: --require-hashes with release-local wheelhouses; no external wheelhouse or source build."
+  cache_atomicity: "Pass: digest-qualified paths, per-digest lock, staging cleanup, final-path venv, atomic last READY and safe reinstall on invalid marker."
+  concurrency: "Pass: existing same-digest convergence and protected-digest behavior remain covered; no IR-05 process tracking fabricated."
+  resource_admission: "Pass: every manifest ref has nonnegative integer size, full embedded closure is counted, factor is finite/positive, and budget/disk checks precede release-object fetch."
+  eviction: "Pass: protected, partial and installing entries are retained; protected-over-budget state is fail-safe."
+  legacy_compatibility: "Pass: discovery/registry/runtime_release privacy and legacy runtime tests unchanged; no ACTIVE routing."
+  scientific_parity: "Pass: BREMEN_IR03_RELEASES=/tmp/ir04/releases tests/test_ir03_parity.py: 21 passed; B2 frozen values remain probability 0.7726940329943811, threshold 0.3585907282566089, prediction 1."
+  security: "Pass for local scope: no plugin imports in platform, no arbitrary S3/request executable, no shell/pickle boundary, no binary artifacts or secrets committed."
+  simplicity: "Pass: existing assemble.py and one release_cache.py boundary; no factory/service/installer hierarchy or second registry."
+  live_aws_status: "NOT RUN - NO AUTHORIZED ACCESS"
+  warnings:
+    - "Embedded wheels/H5 fixtures increase release size; admission accounts for the full closure."
+    - "Exact float equality is intentional and matches frozen parity descriptors."
+    - "Protected entries may leave cache above budget; protected data is never deleted."
+    - "POSIX fcntl locking fails closed on unsupported hosts."
+    - "Live AWS/App Runner evidence remains a separate operational gate."
+  validation_results:
+    compileall: {exit_code: 0, result: pass}
+    ir04: {exit_code: 0, result: "65 passed in 1.60s"}
+    ir03_plugin_wheel: {exit_code: 0, result: "13 passed in 0.76s"}
+    targeted: {exit_code: 0, result: "528 passed in 1.49s"}
+    relevant_runtime: {exit_code: 0, result: "430 passed, 37 warnings in 26.40s"}
+    ir03_parity: {exit_code: 0, result: "21 passed in 23.95s"}
+    full_suite: {exit_code: 0, result: "4437 passed, 8 skipped, 40 warnings in 56.64s"}
+    git_diff_check: {exit_code: 0, result: pass}
+    note: "One initial command named a nonexistent test_ir03_plugin_standalone_runtime.py and exited 4; it was corrected to the repository's existing test files and the relevant suite passed."
+  blockers: []
+  commit_readiness: READY_FOR_COMMIT
+  exact_staging_files:
+    - src/bremen/release_build/assemble.py
+    - src/bremen/platform/models/release_cache.py
+    - tests/test_ir03_plugin_wheel.py
+    - tests/test_ir04_release_cache.py
+    - .project-memory/pr/0168-ir-04-s3-release-manager-cache/IMPLEMENTATION_REPORT.md
+    - .project-memory/pr/0168-ir-04-s3-release-manager-cache/CACHE_INSTALL_EVIDENCE.md
+    - .project-memory/pr/0168-ir-04-s3-release-manager-cache/RELEASE_CLOSURE_EVIDENCE.md
+    - .project-memory/pr/0168-ir-04-s3-release-manager-cache/reviews/precommit-review.yml
+  next_required_action: "Commit workflow may proceed; do not claim production readiness until live AWS/App Runner evidence is separately authorized and recorded."

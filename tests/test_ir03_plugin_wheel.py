@@ -240,6 +240,74 @@ def test_release_assembly_produces_valid_manifest(tmp_path, monkeypatch):
     assert any(ref.role == "provenance" for ref in validated.files)
     assert validated.golden_tests[0].relative_path == "golden_tests/cases.json"
 
+    # Dependency wheels are release-bound, declared and hash-verified.
+    wheel_refs = [ref for ref in validated.files if ref.role == "dependency_wheel"]
+    assert wheel_refs
+    for ref in wheel_refs:
+        path = release_dir / ref.relative_path
+        assert path.is_file()
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == ref.sha256
+        assert ref.size_bytes == path.stat().st_size
+
+
+def test_release_assembly_embeds_wheels_and_golden_fixtures(tmp_path, monkeypatch):
+    payload = b"synthetic-artifact-bytes"
+    artifact_dir, checksum = _synthetic_artifact(tmp_path, payload)
+    monkeypatch.setitem(VARIANTS, "synthetic", _synthetic_variant(checksum))
+    fixtures = tmp_path / "fixtures"
+    fixtures.mkdir()
+    (fixtures / "case.h5").write_bytes(b"fixture-bytes")
+    from bremen.release_build import assemble as assemble_module
+
+    monkeypatch.setitem(
+        assemble_module._GOLDEN_CASES,
+        "synthetic",
+        [
+            {
+                "case_id": "synthetic-case",
+                "fixture": "case.h5",
+                "expected": {
+                    "status": "ok",
+                    "probability": 0.5,
+                    "threshold_applied": 0.4,
+                    "prediction": 1,
+                },
+            }
+        ],
+    )
+
+    summary = assemble_release(
+        variant="synthetic",
+        artifact_dir=str(artifact_dir),
+        output_dir=str(tmp_path / "release"),
+        source_root=str(SRC),
+        wheelhouse=str(_fake_wheelhouse(tmp_path)),
+        fixtures_root=str(fixtures),
+        commit="a" * 40,
+        source_repository="https://example.invalid/synthetic",
+    )
+    release_dir = Path(summary["output_dir"])
+    manifest = json.loads((release_dir / "manifest.json").read_text())
+
+    wheel_refs = [ref for ref in manifest["files"] if ref["role"] == "dependency_wheel"]
+    assert wheel_refs
+    for ref in wheel_refs:
+        assert ref["relative_path"].startswith("wheelhouse/main/")
+        assert ref["size_bytes"] > 0
+        assert (release_dir / ref["relative_path"]).is_file()
+    golden_refs = [
+        ref for ref in manifest["golden_tests"] if ref["role"] == "golden_fixture"
+    ]
+    assert [ref["relative_path"] for ref in golden_refs] == [
+        "golden_tests/fixtures/case.h5"
+    ]
+    assert golden_refs[0]["size_bytes"] == len(b"fixture-bytes")
+    assert golden_refs[0]["sha256"] == hashlib.sha256(b"fixture-bytes").hexdigest()
+    cases = json.loads((release_dir / "golden_tests" / "cases.json").read_text())
+    assert cases["cases"][0]["fixture_release_path"] == (
+        "golden_tests/fixtures/case.h5"
+    )
+
 
 def test_release_assembly_rejects_tampered_artifact(tmp_path, monkeypatch):
     payload = b"synthetic-artifact-bytes"

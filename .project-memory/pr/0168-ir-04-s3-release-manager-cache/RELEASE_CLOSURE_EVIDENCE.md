@@ -1,0 +1,349 @@
+# RELEASE_CLOSURE_EVIDENCE.md — PR0168 review-fix pass
+
+Generated release directories are local evidence under `/tmp/ir04/releases`
+and are not committed. Every wheel and golden fixture below is declared in
+`manifest.files[]` / `manifest.golden_tests[]` with role, relative path,
+`s3_key`, `size_bytes` and `sha256`, and is fetched by `ReleaseCache`.
+
+## A1
+
+- manifest: `12c72fb463a216e16f0feee5ac1196bd293f8844401c3ee737dac66834d35491`
+- plugin wheel: `029af6c73238cd83d31f1dea31fa52cbbd69f4236e14ba317f076e04affa7e82`
+- artifact: `9bb911189af6e1bd954d21765cbc97c4a57fcf7884657c4b22518f280103e11d`
+- main wheels declared: 13
+- auxiliary wheels declared: 54
+- golden fixtures declared: 2
+
+  - main wheel: `wheelhouse/main/cloudpickle-3.1.2-py3-none-any.whl` size=22228 sha256=`9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a`
+  - main wheel: `wheelhouse/main/h5py-3.16.0-cp313-cp313-macosx_11_0_arm64.whl` size=3045837 sha256=`42108e93326c50c2810025aade9eac9d6827524cdccc7d4b75a546e5ab308edb`
+  - main wheel: `wheelhouse/main/joblib-1.6.0-py3-none-any.whl` size=306115 sha256=`3dbbf9f6e4b592a2357b854608e980fe6390d131d7a82f011a377ef2ebef7aba`
+  - main wheel: `wheelhouse/main/narwhals-2.27.1-py3-none-any.whl` size=483211 sha256=`d057df13f5852b8e157596e82eb5e955fad267425df5e420e0ee9863da483b31`
+  - main wheel: `wheelhouse/main/numpy-2.5.4-cp313-cp313-macosx_14_0_arm64.whl` size=5445803 sha256=`6d6a71b9d9a97c03633aa12565ef2825ffa036cc1d99cfd50dacf0f128af4fe2`
+  - main wheel: `wheelhouse/main/packaging-26.3-py3-none-any.whl` size=129956 sha256=`d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c`
+  - main wheel: `wheelhouse/main/pandas-3.0.6-cp313-cp313-macosx_11_0_arm64.whl` size=10064785 sha256=`60d81f9e1799b36f3739e7fff44d1fbb2e8fd5a271b3863e03de9715fccda0fa`
+  - main wheel: `wheelhouse/main/python_dateutil-2.9.0.post0-py2.py3-none-any.whl` size=229892 sha256=`a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427`
+  - main wheel: `wheelhouse/main/pyyaml-6.0.3-cp313-cp313-macosx_11_0_arm64.whl` size=173252 sha256=`2283a07e2c21a2aa78d9c4442724ec1eb15f5e42a723b99cb3d822d48f5f7ad1`
+  - main wheel: `wheelhouse/main/scikit_learn-1.9.0-cp313-cp313-macosx_12_0_arm64.whl` size=8228299 sha256=`5b934c45c252844a91d69fda3a34cff5e7307e1db10d77cb10a3980312c74713`
+  - main wheel: `wheelhouse/main/scipy-1.18.1-cp313-cp313-macosx_14_0_arm64.whl` size=20456846 sha256=`ea324d9dd34c38bfb9bec8ca4d1b407db97dbb74029f566b8e322b1b6fe56fe6`
+  - main wheel: `wheelhouse/main/six-1.17.0-py2.py3-none-any.whl` size=11050 sha256=`4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274`
+  - main wheel: `wheelhouse/main/threadpoolctl-3.7.0-py3-none-any.whl` size=26362 sha256=`cd8b60b5641b45c67bbf73c64c843235fc2d8a480c87389f52f5dbee893b86be`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/annotated_types-0.8.0-py3-none-any.whl` size=13427 sha256=`f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/anyio-4.15.1-py3-none-any.whl` size=132079 sha256=`6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/click-8.5.0-py3-none-any.whl` size=125251 sha256=`255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/cloudpickle-3.1.2-py3-none-any.whl` size=22228 sha256=`9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/contourpy-1.4.0-cp313-cp313-macosx_11_0_arm64.whl` size=285037 sha256=`196759a3e4db60e1546167e361090ebb6d199aa3aafc9e34ea17a5ac3b23e814`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/cycler-0.12.1-py3-none-any.whl` size=8321 sha256=`85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/docutils-0.23-py3-none-any.whl` size=634701 sha256=`25d013af9bf23bc1c7b2b093dff4208166c53a94786c9e447808335ef1185fea`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/fabio-2026.6.0-cp313-cp313-macosx_11_0_arm64.whl` size=970117 sha256=`959f34e764c7a962ed9eda19c3bc0fb8128b854471ad38c2ca0c3d8362fb3d9b`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/filelock-4.2.4-py3-none-any.whl` size=162475 sha256=`301241438c57936ef93f4243a94f2559022268bfcf9b375a9a72eb0f8db8358e`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/fonttools-4.67.0-cp313-cp313-macosx_10_13_universal2.whl` size=3106141 sha256=`8239e2ca24878715a19f061d065b5721e87da81d145e48b3418f771a469b5a24`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/h11-0.16.0-py3-none-any.whl` size=37515 sha256=`63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/h5py-3.16.0-cp313-cp313-macosx_11_0_arm64.whl` size=3045837 sha256=`42108e93326c50c2810025aade9eac9d6827524cdccc7d4b75a546e5ab308edb`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/hdf5plugin-7.1.0-py3-none-macosx_11_0_arm64.whl` size=6059333 sha256=`af2347557359a1f45e703e6465aa033336cc0f10dc8a3b4d5e11c7721cb1faa6`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/idna-3.20-py3-none-any.whl` size=69583 sha256=`ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/itsdangerous-2.2.0-py3-none-any.whl` size=16234 sha256=`c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/jedi-0.20.1-py2.py3-none-any.whl` size=4885980 sha256=`0fb16d86c4a4c73c37ba518c77419975e30fcc620658a8d14fbb5720cdd34142`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/joblib-1.6.0-py3-none-any.whl` size=306115 sha256=`3dbbf9f6e4b592a2357b854608e980fe6390d131d7a82f011a377ef2ebef7aba`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/kiwisolver-1.5.1-cp313-cp313-macosx_11_0_arm64.whl` size=64673 sha256=`77a4c8187a5948d7f8795adb765a3c7b553d07d86d88e43038fc32fc1fb9a3f3`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/loro-1.16.2-cp313-cp313-macosx_11_0_arm64.whl` size=3215484 sha256=`455771cfda2c84d08861ab64f0fb541d67e32193ac82a83a9dc8ea6e711e79ce`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/lxml-6.1.3-cp313-cp313-macosx_10_13_universal2.whl` size=8590357 sha256=`3a48093cdb058a93af842ede9703520e810b05dcd0fc6d7190a06376c3bfb6bd`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/marimo-0.25.2-py3-none-any.whl` size=39465510 sha256=`7acb7a433755c6d965c03e07725477ab63804f6667ba9e37e4da582f358018c7`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/markdown-3.11.2-py3-none-any.whl` size=114266 sha256=`f80390747a2a0ff2ba54da074ce4f862f72a6685f608cd2637b646a6d83993f5`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/matplotlib-3.11.2-cp313-cp313-macosx_11_0_arm64.whl` size=9306050 sha256=`2a8285cea8ef4d92aa041d1c33788bcae82248503300f93f1ca2136b9049452f`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/msgspec-0.22.0-cp313-cp313-macosx_11_0_arm64.whl` size=193097 sha256=`5aa24eb475d070ecbbe5b21080fc3ce4b0b76c60de25cfe0c9678d8fb44bb42f`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/narwhals-2.27.1-py3-none-any.whl` size=483211 sha256=`d057df13f5852b8e157596e82eb5e955fad267425df5e420e0ee9863da483b31`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/numexpr-2.14.2-cp313-cp313-macosx_11_0_arm64.whl` size=153509 sha256=`92b00c78664070e3af155c6be713a0a5d75d598647ce32a5609adb79a8f961d3`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/numpy-2.5.4-cp313-cp313-macosx_14_0_arm64.whl` size=5445803 sha256=`6d6a71b9d9a97c03633aa12565ef2825ffa036cc1d99cfd50dacf0f128af4fe2`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/packaging-26.3-py3-none-any.whl` size=129956 sha256=`d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pandas-3.0.6-cp313-cp313-macosx_11_0_arm64.whl` size=10064785 sha256=`60d81f9e1799b36f3739e7fff44d1fbb2e8fd5a271b3863e03de9715fccda0fa`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/parso-0.8.7-py2.py3-none-any.whl` size=107025 sha256=`a8926eb2a1b915486941fdbd31e86a4baf88fe8c210f25f2f35ecec5b574ca1c`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pillow-13.0.0-cp313-cp313-macosx_11_0_arm64.whl` size=4852187 sha256=`f11a3c1358bb3c68012a7b1f41b223c3db9f7bfde90b481df028cfe1c3363313`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl` size=129859 sha256=`1a7b04c10f32cc88ab39cbf606e117fd74721c831c98a27dc04578deb0c16979`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pydantic-2.14.1-py3-none-any.whl` size=488106 sha256=`9195d967ec791692a04438115466764fb8b9a27b31f14a760437694f40d6b454`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pydantic_core-2.50.1-cp313-cp313-macosx_11_0_arm64.whl` size=2024738 sha256=`0c003c3b7f49debb893d2d85ae099ac5959c9839e2f330fadb1fcdf7a6594482`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pyfai-2026.9.0-cp313-cp313-macosx_11_0_arm64.whl` size=5450823 sha256=`94702360c9f07df8960acc20699db6baee0918dd6ff8ae7a4ffea4c653dee320`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pygments-2.21.0-py3-none-any.whl` size=1250147 sha256=`2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pymdown_extensions-11.0.2-py3-none-any.whl` size=269929 sha256=`259910762019732caa1dfd76f3faa62c59f191d46573e80bcb1d13c0f675bbe5`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pyparsing-3.3.3-py3-none-any.whl` size=126420 sha256=`ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/python_dateutil-2.9.0.post0-py2.py3-none-any.whl` size=229892 sha256=`a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/python_multipart-0.0.32-py3-none-any.whl` size=30042 sha256=`ff6d3f776f16878c894e52e107296ffc890e913c611b1a4ec6c44e2821fe2e23`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pyyaml-6.0.3-cp313-cp313-macosx_11_0_arm64.whl` size=173252 sha256=`2283a07e2c21a2aa78d9c4442724ec1eb15f5e42a723b99cb3d822d48f5f7ad1`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pyzmq-27.2.0-cp312-abi3-macosx_10_15_universal2.whl` size=1431074 sha256=`591c8de5851c5ea372194469fe97587b97c3b641e9a70f31bb3474acbfde0241`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/scikit_learn-1.9.1-cp313-cp313-macosx_12_0_arm64.whl` size=8262364 sha256=`61cd968ab831a76d0ecbaf0347ab2270268716da28f94fd022497e3d6f205f13`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/scipy-1.18.1-cp313-cp313-macosx_14_0_arm64.whl` size=20456846 sha256=`ea324d9dd34c38bfb9bec8ca4d1b407db97dbb74029f566b8e322b1b6fe56fe6`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/silx-3.1.3-cp313-cp313-macosx_11_0_arm64.whl` size=4483342 sha256=`15faa9d9ecd8eae59bcc39866f5cfb3163def0ee1dd06a7c977b98243d4b2247`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/six-1.17.0-py2.py3-none-any.whl` size=11050 sha256=`4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/starlette-1.9.0-py3-none-any.whl` size=80335 sha256=`fd3f159936e882d06c1108f84688f7cda2cf85fc6a592a50edbd175e882c2ddc`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/threadpoolctl-3.7.0-py3-none-any.whl` size=26362 sha256=`cd8b60b5641b45c67bbf73c64c843235fc2d8a480c87389f52f5dbee893b86be`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/tomlkit-0.15.2-py3-none-any.whl` size=52225 sha256=`05562412163a3037b94497385fb7f9204c637bc605af7a48199e41cf2272f437`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/typing_extensions-4.16.0-py3-none-any.whl` size=45571 sha256=`481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/typing_inspection-0.4.4-py3-none-any.whl` size=14750 sha256=`65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/uvicorn-0.54.0-py3-none-any.whl` size=87427 sha256=`505bdb0f318731d45f1f712071fc781a8981f6847a31c902c9f5e652d4f67faf`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/websockets-17.3-cp313-cp313-macosx_11_0_arm64.whl` size=216185 sha256=`fe7a168d805c8a7bf1c2de55b7ab2bc958586bfd88d0e87235a92cac66b590a7`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/xrd_preprocessing-0.1.7b0-py3-none-any.whl` size=97438 sha256=`8e5631290a99719383425f13f09b876490a9373aca22d8808aa0535e2811ea1c`
+  - golden fixture: `golden_tests/fixtures/Nova_376.h5` size=9491937 sha256=`ffbc248f9093732736cef9e2090b6598ef36eaa4904af2ef99815cb241dec675`
+  - golden fixture: `golden_tests/fixtures/eoscloud-staging/cabce03d-f9c4-43db-91d1-aec20007ee18.h5` size=5110963 sha256=`f1da22b94fc443f8b5978d9f116307e78668aa9756364464b0627ed711ed8cff`
+
+## A2
+
+- manifest: `ec77dfe981224f8fb3ad88aabe93a88e5d4dd7ac9e0a779bec8d0c5b102cf935`
+- plugin wheel: `029af6c73238cd83d31f1dea31fa52cbbd69f4236e14ba317f076e04affa7e82`
+- artifact: `f5e4a04cad11d78ac1e057ede2eac9e2137a8a38f5f22d8ca408bb44c9447e8b`
+- main wheels declared: 13
+- auxiliary wheels declared: 54
+- golden fixtures declared: 2
+
+  - main wheel: `wheelhouse/main/cloudpickle-3.1.2-py3-none-any.whl` size=22228 sha256=`9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a`
+  - main wheel: `wheelhouse/main/h5py-3.16.0-cp313-cp313-macosx_11_0_arm64.whl` size=3045837 sha256=`42108e93326c50c2810025aade9eac9d6827524cdccc7d4b75a546e5ab308edb`
+  - main wheel: `wheelhouse/main/joblib-1.6.0-py3-none-any.whl` size=306115 sha256=`3dbbf9f6e4b592a2357b854608e980fe6390d131d7a82f011a377ef2ebef7aba`
+  - main wheel: `wheelhouse/main/narwhals-2.27.1-py3-none-any.whl` size=483211 sha256=`d057df13f5852b8e157596e82eb5e955fad267425df5e420e0ee9863da483b31`
+  - main wheel: `wheelhouse/main/numpy-2.5.4-cp313-cp313-macosx_14_0_arm64.whl` size=5445803 sha256=`6d6a71b9d9a97c03633aa12565ef2825ffa036cc1d99cfd50dacf0f128af4fe2`
+  - main wheel: `wheelhouse/main/packaging-26.3-py3-none-any.whl` size=129956 sha256=`d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c`
+  - main wheel: `wheelhouse/main/pandas-3.0.6-cp313-cp313-macosx_11_0_arm64.whl` size=10064785 sha256=`60d81f9e1799b36f3739e7fff44d1fbb2e8fd5a271b3863e03de9715fccda0fa`
+  - main wheel: `wheelhouse/main/python_dateutil-2.9.0.post0-py2.py3-none-any.whl` size=229892 sha256=`a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427`
+  - main wheel: `wheelhouse/main/pyyaml-6.0.3-cp313-cp313-macosx_11_0_arm64.whl` size=173252 sha256=`2283a07e2c21a2aa78d9c4442724ec1eb15f5e42a723b99cb3d822d48f5f7ad1`
+  - main wheel: `wheelhouse/main/scikit_learn-1.9.0-cp313-cp313-macosx_12_0_arm64.whl` size=8228299 sha256=`5b934c45c252844a91d69fda3a34cff5e7307e1db10d77cb10a3980312c74713`
+  - main wheel: `wheelhouse/main/scipy-1.18.1-cp313-cp313-macosx_14_0_arm64.whl` size=20456846 sha256=`ea324d9dd34c38bfb9bec8ca4d1b407db97dbb74029f566b8e322b1b6fe56fe6`
+  - main wheel: `wheelhouse/main/six-1.17.0-py2.py3-none-any.whl` size=11050 sha256=`4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274`
+  - main wheel: `wheelhouse/main/threadpoolctl-3.7.0-py3-none-any.whl` size=26362 sha256=`cd8b60b5641b45c67bbf73c64c843235fc2d8a480c87389f52f5dbee893b86be`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/annotated_types-0.8.0-py3-none-any.whl` size=13427 sha256=`f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/anyio-4.15.1-py3-none-any.whl` size=132079 sha256=`6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/click-8.5.0-py3-none-any.whl` size=125251 sha256=`255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/cloudpickle-3.1.2-py3-none-any.whl` size=22228 sha256=`9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/contourpy-1.4.0-cp313-cp313-macosx_11_0_arm64.whl` size=285037 sha256=`196759a3e4db60e1546167e361090ebb6d199aa3aafc9e34ea17a5ac3b23e814`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/cycler-0.12.1-py3-none-any.whl` size=8321 sha256=`85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/docutils-0.23-py3-none-any.whl` size=634701 sha256=`25d013af9bf23bc1c7b2b093dff4208166c53a94786c9e447808335ef1185fea`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/fabio-2026.6.0-cp313-cp313-macosx_11_0_arm64.whl` size=970117 sha256=`959f34e764c7a962ed9eda19c3bc0fb8128b854471ad38c2ca0c3d8362fb3d9b`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/filelock-4.2.4-py3-none-any.whl` size=162475 sha256=`301241438c57936ef93f4243a94f2559022268bfcf9b375a9a72eb0f8db8358e`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/fonttools-4.67.0-cp313-cp313-macosx_10_13_universal2.whl` size=3106141 sha256=`8239e2ca24878715a19f061d065b5721e87da81d145e48b3418f771a469b5a24`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/h11-0.16.0-py3-none-any.whl` size=37515 sha256=`63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/h5py-3.16.0-cp313-cp313-macosx_11_0_arm64.whl` size=3045837 sha256=`42108e93326c50c2810025aade9eac9d6827524cdccc7d4b75a546e5ab308edb`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/hdf5plugin-7.1.0-py3-none-macosx_11_0_arm64.whl` size=6059333 sha256=`af2347557359a1f45e703e6465aa033336cc0f10dc8a3b4d5e11c7721cb1faa6`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/idna-3.20-py3-none-any.whl` size=69583 sha256=`ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/itsdangerous-2.2.0-py3-none-any.whl` size=16234 sha256=`c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/jedi-0.20.1-py2.py3-none-any.whl` size=4885980 sha256=`0fb16d86c4a4c73c37ba518c77419975e30fcc620658a8d14fbb5720cdd34142`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/joblib-1.6.0-py3-none-any.whl` size=306115 sha256=`3dbbf9f6e4b592a2357b854608e980fe6390d131d7a82f011a377ef2ebef7aba`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/kiwisolver-1.5.1-cp313-cp313-macosx_11_0_arm64.whl` size=64673 sha256=`77a4c8187a5948d7f8795adb765a3c7b553d07d86d88e43038fc32fc1fb9a3f3`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/loro-1.16.2-cp313-cp313-macosx_11_0_arm64.whl` size=3215484 sha256=`455771cfda2c84d08861ab64f0fb541d67e32193ac82a83a9dc8ea6e711e79ce`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/lxml-6.1.3-cp313-cp313-macosx_10_13_universal2.whl` size=8590357 sha256=`3a48093cdb058a93af842ede9703520e810b05dcd0fc6d7190a06376c3bfb6bd`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/marimo-0.25.2-py3-none-any.whl` size=39465510 sha256=`7acb7a433755c6d965c03e07725477ab63804f6667ba9e37e4da582f358018c7`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/markdown-3.11.2-py3-none-any.whl` size=114266 sha256=`f80390747a2a0ff2ba54da074ce4f862f72a6685f608cd2637b646a6d83993f5`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/matplotlib-3.11.2-cp313-cp313-macosx_11_0_arm64.whl` size=9306050 sha256=`2a8285cea8ef4d92aa041d1c33788bcae82248503300f93f1ca2136b9049452f`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/msgspec-0.22.0-cp313-cp313-macosx_11_0_arm64.whl` size=193097 sha256=`5aa24eb475d070ecbbe5b21080fc3ce4b0b76c60de25cfe0c9678d8fb44bb42f`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/narwhals-2.27.1-py3-none-any.whl` size=483211 sha256=`d057df13f5852b8e157596e82eb5e955fad267425df5e420e0ee9863da483b31`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/numexpr-2.14.2-cp313-cp313-macosx_11_0_arm64.whl` size=153509 sha256=`92b00c78664070e3af155c6be713a0a5d75d598647ce32a5609adb79a8f961d3`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/numpy-2.5.4-cp313-cp313-macosx_14_0_arm64.whl` size=5445803 sha256=`6d6a71b9d9a97c03633aa12565ef2825ffa036cc1d99cfd50dacf0f128af4fe2`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/packaging-26.3-py3-none-any.whl` size=129956 sha256=`d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/pandas-3.0.6-cp313-cp313-macosx_11_0_arm64.whl` size=10064785 sha256=`60d81f9e1799b36f3739e7fff44d1fbb2e8fd5a271b3863e03de9715fccda0fa`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/parso-0.8.7-py2.py3-none-any.whl` size=107025 sha256=`a8926eb2a1b915486941fdbd31e86a4baf88fe8c210f25f2f35ecec5b574ca1c`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/pillow-13.0.0-cp313-cp313-macosx_11_0_arm64.whl` size=4852187 sha256=`f11a3c1358bb3c68012a7b1f41b223c3db9f7bfde90b481df028cfe1c3363313`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl` size=129859 sha256=`1a7b04c10f32cc88ab39cbf606e117fd74721c831c98a27dc04578deb0c16979`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/pydantic-2.14.1-py3-none-any.whl` size=488106 sha256=`9195d967ec791692a04438115466764fb8b9a27b31f14a760437694f40d6b454`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/pydantic_core-2.50.1-cp313-cp313-macosx_11_0_arm64.whl` size=2024738 sha256=`0c003c3b7f49debb893d2d85ae099ac5959c9839e2f330fadb1fcdf7a6594482`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/pyfai-2026.9.0-cp313-cp313-macosx_11_0_arm64.whl` size=5450823 sha256=`94702360c9f07df8960acc20699db6baee0918dd6ff8ae7a4ffea4c653dee320`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/pygments-2.21.0-py3-none-any.whl` size=1250147 sha256=`2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/pymdown_extensions-11.0.2-py3-none-any.whl` size=269929 sha256=`259910762019732caa1dfd76f3faa62c59f191d46573e80bcb1d13c0f675bbe5`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/pyparsing-3.3.3-py3-none-any.whl` size=126420 sha256=`ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/python_dateutil-2.9.0.post0-py2.py3-none-any.whl` size=229892 sha256=`a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/python_multipart-0.0.32-py3-none-any.whl` size=30042 sha256=`ff6d3f776f16878c894e52e107296ffc890e913c611b1a4ec6c44e2821fe2e23`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/pyyaml-6.0.3-cp313-cp313-macosx_11_0_arm64.whl` size=173252 sha256=`2283a07e2c21a2aa78d9c4442724ec1eb15f5e42a723b99cb3d822d48f5f7ad1`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/pyzmq-27.2.0-cp312-abi3-macosx_10_15_universal2.whl` size=1431074 sha256=`591c8de5851c5ea372194469fe97587b97c3b641e9a70f31bb3474acbfde0241`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/scikit_learn-1.9.1-cp313-cp313-macosx_12_0_arm64.whl` size=8262364 sha256=`61cd968ab831a76d0ecbaf0347ab2270268716da28f94fd022497e3d6f205f13`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/scipy-1.18.1-cp313-cp313-macosx_14_0_arm64.whl` size=20456846 sha256=`ea324d9dd34c38bfb9bec8ca4d1b407db97dbb74029f566b8e322b1b6fe56fe6`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/silx-3.1.3-cp313-cp313-macosx_11_0_arm64.whl` size=4483342 sha256=`15faa9d9ecd8eae59bcc39866f5cfb3163def0ee1dd06a7c977b98243d4b2247`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/six-1.17.0-py2.py3-none-any.whl` size=11050 sha256=`4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/starlette-1.9.0-py3-none-any.whl` size=80335 sha256=`fd3f159936e882d06c1108f84688f7cda2cf85fc6a592a50edbd175e882c2ddc`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/threadpoolctl-3.7.0-py3-none-any.whl` size=26362 sha256=`cd8b60b5641b45c67bbf73c64c843235fc2d8a480c87389f52f5dbee893b86be`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/tomlkit-0.15.2-py3-none-any.whl` size=52225 sha256=`05562412163a3037b94497385fb7f9204c637bc605af7a48199e41cf2272f437`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/typing_extensions-4.16.0-py3-none-any.whl` size=45571 sha256=`481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/typing_inspection-0.4.4-py3-none-any.whl` size=14750 sha256=`65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/uvicorn-0.54.0-py3-none-any.whl` size=87427 sha256=`505bdb0f318731d45f1f712071fc781a8981f6847a31c902c9f5e652d4f67faf`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/websockets-17.3-cp313-cp313-macosx_11_0_arm64.whl` size=216185 sha256=`fe7a168d805c8a7bf1c2de55b7ab2bc958586bfd88d0e87235a92cac66b590a7`
+  - aux wheel: `wheelhouse/aux/v0.1.9-beta/xrd_preprocessing-0.1.9b0-py3-none-any.whl` size=99697 sha256=`6cdb2540df3531734582299a2eccd701677f88bdd31c4cbb16d5f2e1e2d441a6`
+  - golden fixture: `golden_tests/fixtures/Nova_376.h5` size=9491937 sha256=`ffbc248f9093732736cef9e2090b6598ef36eaa4904af2ef99815cb241dec675`
+  - golden fixture: `golden_tests/fixtures/eoscloud-staging/cabce03d-f9c4-43db-91d1-aec20007ee18.h5` size=5110963 sha256=`f1da22b94fc443f8b5978d9f116307e78668aa9756364464b0627ed711ed8cff`
+
+## B1
+
+- manifest: `8f651fc100aceff22fda490b896c4f12569d77678b4a87ff8ca897c8cb7d0e13`
+- plugin wheel: `029af6c73238cd83d31f1dea31fa52cbbd69f4236e14ba317f076e04affa7e82`
+- artifact: `8ed0a7c52577c72725c052fbdd3a91b60d1f9eb3f02747fe6e4a7b82d712628e`
+- main wheels declared: 13
+- auxiliary wheels declared: 0
+- golden fixtures declared: 3
+
+  - main wheel: `wheelhouse/main/cloudpickle-3.1.2-py3-none-any.whl` size=22228 sha256=`9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a`
+  - main wheel: `wheelhouse/main/h5py-3.16.0-cp313-cp313-macosx_11_0_arm64.whl` size=3045837 sha256=`42108e93326c50c2810025aade9eac9d6827524cdccc7d4b75a546e5ab308edb`
+  - main wheel: `wheelhouse/main/joblib-1.6.0-py3-none-any.whl` size=306115 sha256=`3dbbf9f6e4b592a2357b854608e980fe6390d131d7a82f011a377ef2ebef7aba`
+  - main wheel: `wheelhouse/main/narwhals-2.27.1-py3-none-any.whl` size=483211 sha256=`d057df13f5852b8e157596e82eb5e955fad267425df5e420e0ee9863da483b31`
+  - main wheel: `wheelhouse/main/numpy-2.5.4-cp313-cp313-macosx_14_0_arm64.whl` size=5445803 sha256=`6d6a71b9d9a97c03633aa12565ef2825ffa036cc1d99cfd50dacf0f128af4fe2`
+  - main wheel: `wheelhouse/main/packaging-26.3-py3-none-any.whl` size=129956 sha256=`d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c`
+  - main wheel: `wheelhouse/main/pandas-3.0.6-cp313-cp313-macosx_11_0_arm64.whl` size=10064785 sha256=`60d81f9e1799b36f3739e7fff44d1fbb2e8fd5a271b3863e03de9715fccda0fa`
+  - main wheel: `wheelhouse/main/python_dateutil-2.9.0.post0-py2.py3-none-any.whl` size=229892 sha256=`a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427`
+  - main wheel: `wheelhouse/main/pyyaml-6.0.3-cp313-cp313-macosx_11_0_arm64.whl` size=173252 sha256=`2283a07e2c21a2aa78d9c4442724ec1eb15f5e42a723b99cb3d822d48f5f7ad1`
+  - main wheel: `wheelhouse/main/scikit_learn-1.9.0-cp313-cp313-macosx_12_0_arm64.whl` size=8228299 sha256=`5b934c45c252844a91d69fda3a34cff5e7307e1db10d77cb10a3980312c74713`
+  - main wheel: `wheelhouse/main/scipy-1.18.1-cp313-cp313-macosx_14_0_arm64.whl` size=20456846 sha256=`ea324d9dd34c38bfb9bec8ca4d1b407db97dbb74029f566b8e322b1b6fe56fe6`
+  - main wheel: `wheelhouse/main/six-1.17.0-py2.py3-none-any.whl` size=11050 sha256=`4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274`
+  - main wheel: `wheelhouse/main/threadpoolctl-3.7.0-py3-none-any.whl` size=26362 sha256=`cd8b60b5641b45c67bbf73c64c843235fc2d8a480c87389f52f5dbee893b86be`
+  - golden fixture: `golden_tests/fixtures/Nova_376.h5` size=9491937 sha256=`ffbc248f9093732736cef9e2090b6598ef36eaa4904af2ef99815cb241dec675`
+  - golden fixture: `golden_tests/fixtures/benign_one_patient.h5` size=9515227 sha256=`95a2ff8245f130930d8b8b35ed8e2ef3cdc9ffd955ec49708950d4c6abfdc303`
+  - golden fixture: `golden_tests/fixtures/cancer_one_patient.h5` size=7188555 sha256=`f09d6f5745afc3285a818e28b53261f84a8ece8d27926c1c439bf436bf6878b7`
+
+## B2
+
+- manifest: `6f6d5b863e0f9d419dd3bf1f9b3ee098b61d1ba493c34ee981db3280634e88e4`
+- plugin wheel: `029af6c73238cd83d31f1dea31fa52cbbd69f4236e14ba317f076e04affa7e82`
+- artifact: `65866f441a119cddeb965e5c414c9f87aafd46ec5fd7a866cf9f0fef408df3b0`
+- main wheels declared: 13
+- auxiliary wheels declared: 54
+- golden fixtures declared: 2
+
+  - main wheel: `wheelhouse/main/cloudpickle-3.1.2-py3-none-any.whl` size=22228 sha256=`9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a`
+  - main wheel: `wheelhouse/main/h5py-3.16.0-cp313-cp313-macosx_11_0_arm64.whl` size=3045837 sha256=`42108e93326c50c2810025aade9eac9d6827524cdccc7d4b75a546e5ab308edb`
+  - main wheel: `wheelhouse/main/joblib-1.6.0-py3-none-any.whl` size=306115 sha256=`3dbbf9f6e4b592a2357b854608e980fe6390d131d7a82f011a377ef2ebef7aba`
+  - main wheel: `wheelhouse/main/narwhals-2.27.1-py3-none-any.whl` size=483211 sha256=`d057df13f5852b8e157596e82eb5e955fad267425df5e420e0ee9863da483b31`
+  - main wheel: `wheelhouse/main/numpy-2.5.4-cp313-cp313-macosx_14_0_arm64.whl` size=5445803 sha256=`6d6a71b9d9a97c03633aa12565ef2825ffa036cc1d99cfd50dacf0f128af4fe2`
+  - main wheel: `wheelhouse/main/packaging-26.3-py3-none-any.whl` size=129956 sha256=`d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c`
+  - main wheel: `wheelhouse/main/pandas-3.0.6-cp313-cp313-macosx_11_0_arm64.whl` size=10064785 sha256=`60d81f9e1799b36f3739e7fff44d1fbb2e8fd5a271b3863e03de9715fccda0fa`
+  - main wheel: `wheelhouse/main/python_dateutil-2.9.0.post0-py2.py3-none-any.whl` size=229892 sha256=`a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427`
+  - main wheel: `wheelhouse/main/pyyaml-6.0.3-cp313-cp313-macosx_11_0_arm64.whl` size=173252 sha256=`2283a07e2c21a2aa78d9c4442724ec1eb15f5e42a723b99cb3d822d48f5f7ad1`
+  - main wheel: `wheelhouse/main/scikit_learn-1.9.0-cp313-cp313-macosx_12_0_arm64.whl` size=8228299 sha256=`5b934c45c252844a91d69fda3a34cff5e7307e1db10d77cb10a3980312c74713`
+  - main wheel: `wheelhouse/main/scipy-1.18.1-cp313-cp313-macosx_14_0_arm64.whl` size=20456846 sha256=`ea324d9dd34c38bfb9bec8ca4d1b407db97dbb74029f566b8e322b1b6fe56fe6`
+  - main wheel: `wheelhouse/main/six-1.17.0-py2.py3-none-any.whl` size=11050 sha256=`4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274`
+  - main wheel: `wheelhouse/main/threadpoolctl-3.7.0-py3-none-any.whl` size=26362 sha256=`cd8b60b5641b45c67bbf73c64c843235fc2d8a480c87389f52f5dbee893b86be`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/annotated_types-0.8.0-py3-none-any.whl` size=13427 sha256=`f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/anyio-4.15.1-py3-none-any.whl` size=132079 sha256=`6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/click-8.5.0-py3-none-any.whl` size=125251 sha256=`255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/cloudpickle-3.1.2-py3-none-any.whl` size=22228 sha256=`9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/contourpy-1.4.0-cp313-cp313-macosx_11_0_arm64.whl` size=285037 sha256=`196759a3e4db60e1546167e361090ebb6d199aa3aafc9e34ea17a5ac3b23e814`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/cycler-0.12.1-py3-none-any.whl` size=8321 sha256=`85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/docutils-0.23-py3-none-any.whl` size=634701 sha256=`25d013af9bf23bc1c7b2b093dff4208166c53a94786c9e447808335ef1185fea`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/fabio-2026.6.0-cp313-cp313-macosx_11_0_arm64.whl` size=970117 sha256=`959f34e764c7a962ed9eda19c3bc0fb8128b854471ad38c2ca0c3d8362fb3d9b`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/filelock-4.2.4-py3-none-any.whl` size=162475 sha256=`301241438c57936ef93f4243a94f2559022268bfcf9b375a9a72eb0f8db8358e`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/fonttools-4.67.0-cp313-cp313-macosx_10_13_universal2.whl` size=3106141 sha256=`8239e2ca24878715a19f061d065b5721e87da81d145e48b3418f771a469b5a24`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/h11-0.16.0-py3-none-any.whl` size=37515 sha256=`63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/h5py-3.16.0-cp313-cp313-macosx_11_0_arm64.whl` size=3045837 sha256=`42108e93326c50c2810025aade9eac9d6827524cdccc7d4b75a546e5ab308edb`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/hdf5plugin-7.1.0-py3-none-macosx_11_0_arm64.whl` size=6059333 sha256=`af2347557359a1f45e703e6465aa033336cc0f10dc8a3b4d5e11c7721cb1faa6`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/idna-3.20-py3-none-any.whl` size=69583 sha256=`ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/itsdangerous-2.2.0-py3-none-any.whl` size=16234 sha256=`c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/jedi-0.20.1-py2.py3-none-any.whl` size=4885980 sha256=`0fb16d86c4a4c73c37ba518c77419975e30fcc620658a8d14fbb5720cdd34142`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/joblib-1.6.0-py3-none-any.whl` size=306115 sha256=`3dbbf9f6e4b592a2357b854608e980fe6390d131d7a82f011a377ef2ebef7aba`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/kiwisolver-1.5.1-cp313-cp313-macosx_11_0_arm64.whl` size=64673 sha256=`77a4c8187a5948d7f8795adb765a3c7b553d07d86d88e43038fc32fc1fb9a3f3`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/loro-1.16.2-cp313-cp313-macosx_11_0_arm64.whl` size=3215484 sha256=`455771cfda2c84d08861ab64f0fb541d67e32193ac82a83a9dc8ea6e711e79ce`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/lxml-6.1.3-cp313-cp313-macosx_10_13_universal2.whl` size=8590357 sha256=`3a48093cdb058a93af842ede9703520e810b05dcd0fc6d7190a06376c3bfb6bd`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/marimo-0.25.2-py3-none-any.whl` size=39465510 sha256=`7acb7a433755c6d965c03e07725477ab63804f6667ba9e37e4da582f358018c7`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/markdown-3.11.2-py3-none-any.whl` size=114266 sha256=`f80390747a2a0ff2ba54da074ce4f862f72a6685f608cd2637b646a6d83993f5`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/matplotlib-3.11.2-cp313-cp313-macosx_11_0_arm64.whl` size=9306050 sha256=`2a8285cea8ef4d92aa041d1c33788bcae82248503300f93f1ca2136b9049452f`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/msgspec-0.22.0-cp313-cp313-macosx_11_0_arm64.whl` size=193097 sha256=`5aa24eb475d070ecbbe5b21080fc3ce4b0b76c60de25cfe0c9678d8fb44bb42f`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/narwhals-2.27.1-py3-none-any.whl` size=483211 sha256=`d057df13f5852b8e157596e82eb5e955fad267425df5e420e0ee9863da483b31`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/numexpr-2.14.2-cp313-cp313-macosx_11_0_arm64.whl` size=153509 sha256=`92b00c78664070e3af155c6be713a0a5d75d598647ce32a5609adb79a8f961d3`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/numpy-2.5.4-cp313-cp313-macosx_14_0_arm64.whl` size=5445803 sha256=`6d6a71b9d9a97c03633aa12565ef2825ffa036cc1d99cfd50dacf0f128af4fe2`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/packaging-26.3-py3-none-any.whl` size=129956 sha256=`d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pandas-3.0.6-cp313-cp313-macosx_11_0_arm64.whl` size=10064785 sha256=`60d81f9e1799b36f3739e7fff44d1fbb2e8fd5a271b3863e03de9715fccda0fa`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/parso-0.8.7-py2.py3-none-any.whl` size=107025 sha256=`a8926eb2a1b915486941fdbd31e86a4baf88fe8c210f25f2f35ecec5b574ca1c`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pillow-13.0.0-cp313-cp313-macosx_11_0_arm64.whl` size=4852187 sha256=`f11a3c1358bb3c68012a7b1f41b223c3db9f7bfde90b481df028cfe1c3363313`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl` size=129859 sha256=`1a7b04c10f32cc88ab39cbf606e117fd74721c831c98a27dc04578deb0c16979`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pydantic-2.14.1-py3-none-any.whl` size=488106 sha256=`9195d967ec791692a04438115466764fb8b9a27b31f14a760437694f40d6b454`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pydantic_core-2.50.1-cp313-cp313-macosx_11_0_arm64.whl` size=2024738 sha256=`0c003c3b7f49debb893d2d85ae099ac5959c9839e2f330fadb1fcdf7a6594482`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pyfai-2026.9.0-cp313-cp313-macosx_11_0_arm64.whl` size=5450823 sha256=`94702360c9f07df8960acc20699db6baee0918dd6ff8ae7a4ffea4c653dee320`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pygments-2.21.0-py3-none-any.whl` size=1250147 sha256=`2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pymdown_extensions-11.0.2-py3-none-any.whl` size=269929 sha256=`259910762019732caa1dfd76f3faa62c59f191d46573e80bcb1d13c0f675bbe5`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pyparsing-3.3.3-py3-none-any.whl` size=126420 sha256=`ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/python_dateutil-2.9.0.post0-py2.py3-none-any.whl` size=229892 sha256=`a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/python_multipart-0.0.32-py3-none-any.whl` size=30042 sha256=`ff6d3f776f16878c894e52e107296ffc890e913c611b1a4ec6c44e2821fe2e23`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pyyaml-6.0.3-cp313-cp313-macosx_11_0_arm64.whl` size=173252 sha256=`2283a07e2c21a2aa78d9c4442724ec1eb15f5e42a723b99cb3d822d48f5f7ad1`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pyzmq-27.2.0-cp312-abi3-macosx_10_15_universal2.whl` size=1431074 sha256=`591c8de5851c5ea372194469fe97587b97c3b641e9a70f31bb3474acbfde0241`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/scikit_learn-1.9.1-cp313-cp313-macosx_12_0_arm64.whl` size=8262364 sha256=`61cd968ab831a76d0ecbaf0347ab2270268716da28f94fd022497e3d6f205f13`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/scipy-1.18.1-cp313-cp313-macosx_14_0_arm64.whl` size=20456846 sha256=`ea324d9dd34c38bfb9bec8ca4d1b407db97dbb74029f566b8e322b1b6fe56fe6`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/silx-3.1.3-cp313-cp313-macosx_11_0_arm64.whl` size=4483342 sha256=`15faa9d9ecd8eae59bcc39866f5cfb3163def0ee1dd06a7c977b98243d4b2247`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/six-1.17.0-py2.py3-none-any.whl` size=11050 sha256=`4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/starlette-1.9.0-py3-none-any.whl` size=80335 sha256=`fd3f159936e882d06c1108f84688f7cda2cf85fc6a592a50edbd175e882c2ddc`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/threadpoolctl-3.7.0-py3-none-any.whl` size=26362 sha256=`cd8b60b5641b45c67bbf73c64c843235fc2d8a480c87389f52f5dbee893b86be`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/tomlkit-0.15.2-py3-none-any.whl` size=52225 sha256=`05562412163a3037b94497385fb7f9204c637bc605af7a48199e41cf2272f437`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/typing_extensions-4.16.0-py3-none-any.whl` size=45571 sha256=`481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/typing_inspection-0.4.4-py3-none-any.whl` size=14750 sha256=`65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/uvicorn-0.54.0-py3-none-any.whl` size=87427 sha256=`505bdb0f318731d45f1f712071fc781a8981f6847a31c902c9f5e652d4f67faf`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/websockets-17.3-cp313-cp313-macosx_11_0_arm64.whl` size=216185 sha256=`fe7a168d805c8a7bf1c2de55b7ab2bc958586bfd88d0e87235a92cac66b590a7`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/xrd_preprocessing-0.1.7b0-py3-none-any.whl` size=97438 sha256=`8e5631290a99719383425f13f09b876490a9373aca22d8808aa0535e2811ea1c`
+  - golden fixture: `golden_tests/fixtures/benign_one_patient.h5` size=9515227 sha256=`95a2ff8245f130930d8b8b35ed8e2ef3cdc9ffd955ec49708950d4c6abfdc303`
+  - golden fixture: `golden_tests/fixtures/cancer_one_patient.h5` size=7188555 sha256=`f09d6f5745afc3285a818e28b53261f84a8ece8d27926c1c439bf436bf6878b7`
+
+## B3
+
+- manifest: `ea313396b4bbbef2bea3584ab1ca4f81bba309df4e7968189cb0011ead4f5d17`
+- plugin wheel: `029af6c73238cd83d31f1dea31fa52cbbd69f4236e14ba317f076e04affa7e82`
+- artifact: `971b20baf299295ac744746c2b7e751ab3df81205f55b695ae516ad2114069d4`
+- main wheels declared: 13
+- auxiliary wheels declared: 54
+- golden fixtures declared: 2
+
+  - main wheel: `wheelhouse/main/cloudpickle-3.1.2-py3-none-any.whl` size=22228 sha256=`9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a`
+  - main wheel: `wheelhouse/main/h5py-3.16.0-cp313-cp313-macosx_11_0_arm64.whl` size=3045837 sha256=`42108e93326c50c2810025aade9eac9d6827524cdccc7d4b75a546e5ab308edb`
+  - main wheel: `wheelhouse/main/joblib-1.6.0-py3-none-any.whl` size=306115 sha256=`3dbbf9f6e4b592a2357b854608e980fe6390d131d7a82f011a377ef2ebef7aba`
+  - main wheel: `wheelhouse/main/narwhals-2.27.1-py3-none-any.whl` size=483211 sha256=`d057df13f5852b8e157596e82eb5e955fad267425df5e420e0ee9863da483b31`
+  - main wheel: `wheelhouse/main/numpy-2.5.4-cp313-cp313-macosx_14_0_arm64.whl` size=5445803 sha256=`6d6a71b9d9a97c03633aa12565ef2825ffa036cc1d99cfd50dacf0f128af4fe2`
+  - main wheel: `wheelhouse/main/packaging-26.3-py3-none-any.whl` size=129956 sha256=`d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c`
+  - main wheel: `wheelhouse/main/pandas-3.0.6-cp313-cp313-macosx_11_0_arm64.whl` size=10064785 sha256=`60d81f9e1799b36f3739e7fff44d1fbb2e8fd5a271b3863e03de9715fccda0fa`
+  - main wheel: `wheelhouse/main/python_dateutil-2.9.0.post0-py2.py3-none-any.whl` size=229892 sha256=`a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427`
+  - main wheel: `wheelhouse/main/pyyaml-6.0.3-cp313-cp313-macosx_11_0_arm64.whl` size=173252 sha256=`2283a07e2c21a2aa78d9c4442724ec1eb15f5e42a723b99cb3d822d48f5f7ad1`
+  - main wheel: `wheelhouse/main/scikit_learn-1.9.0-cp313-cp313-macosx_12_0_arm64.whl` size=8228299 sha256=`5b934c45c252844a91d69fda3a34cff5e7307e1db10d77cb10a3980312c74713`
+  - main wheel: `wheelhouse/main/scipy-1.18.1-cp313-cp313-macosx_14_0_arm64.whl` size=20456846 sha256=`ea324d9dd34c38bfb9bec8ca4d1b407db97dbb74029f566b8e322b1b6fe56fe6`
+  - main wheel: `wheelhouse/main/six-1.17.0-py2.py3-none-any.whl` size=11050 sha256=`4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274`
+  - main wheel: `wheelhouse/main/threadpoolctl-3.7.0-py3-none-any.whl` size=26362 sha256=`cd8b60b5641b45c67bbf73c64c843235fc2d8a480c87389f52f5dbee893b86be`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/annotated_types-0.8.0-py3-none-any.whl` size=13427 sha256=`f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/anyio-4.15.1-py3-none-any.whl` size=132079 sha256=`6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/click-8.5.0-py3-none-any.whl` size=125251 sha256=`255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/cloudpickle-3.1.2-py3-none-any.whl` size=22228 sha256=`9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/contourpy-1.4.0-cp313-cp313-macosx_11_0_arm64.whl` size=285037 sha256=`196759a3e4db60e1546167e361090ebb6d199aa3aafc9e34ea17a5ac3b23e814`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/cycler-0.12.1-py3-none-any.whl` size=8321 sha256=`85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/docutils-0.23-py3-none-any.whl` size=634701 sha256=`25d013af9bf23bc1c7b2b093dff4208166c53a94786c9e447808335ef1185fea`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/fabio-2026.6.0-cp313-cp313-macosx_11_0_arm64.whl` size=970117 sha256=`959f34e764c7a962ed9eda19c3bc0fb8128b854471ad38c2ca0c3d8362fb3d9b`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/filelock-4.2.4-py3-none-any.whl` size=162475 sha256=`301241438c57936ef93f4243a94f2559022268bfcf9b375a9a72eb0f8db8358e`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/fonttools-4.67.0-cp313-cp313-macosx_10_13_universal2.whl` size=3106141 sha256=`8239e2ca24878715a19f061d065b5721e87da81d145e48b3418f771a469b5a24`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/h11-0.16.0-py3-none-any.whl` size=37515 sha256=`63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/h5py-3.16.0-cp313-cp313-macosx_11_0_arm64.whl` size=3045837 sha256=`42108e93326c50c2810025aade9eac9d6827524cdccc7d4b75a546e5ab308edb`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/hdf5plugin-7.1.0-py3-none-macosx_11_0_arm64.whl` size=6059333 sha256=`af2347557359a1f45e703e6465aa033336cc0f10dc8a3b4d5e11c7721cb1faa6`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/idna-3.20-py3-none-any.whl` size=69583 sha256=`ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/itsdangerous-2.2.0-py3-none-any.whl` size=16234 sha256=`c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/jedi-0.20.1-py2.py3-none-any.whl` size=4885980 sha256=`0fb16d86c4a4c73c37ba518c77419975e30fcc620658a8d14fbb5720cdd34142`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/joblib-1.6.0-py3-none-any.whl` size=306115 sha256=`3dbbf9f6e4b592a2357b854608e980fe6390d131d7a82f011a377ef2ebef7aba`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/kiwisolver-1.5.1-cp313-cp313-macosx_11_0_arm64.whl` size=64673 sha256=`77a4c8187a5948d7f8795adb765a3c7b553d07d86d88e43038fc32fc1fb9a3f3`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/loro-1.16.2-cp313-cp313-macosx_11_0_arm64.whl` size=3215484 sha256=`455771cfda2c84d08861ab64f0fb541d67e32193ac82a83a9dc8ea6e711e79ce`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/lxml-6.1.3-cp313-cp313-macosx_10_13_universal2.whl` size=8590357 sha256=`3a48093cdb058a93af842ede9703520e810b05dcd0fc6d7190a06376c3bfb6bd`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/marimo-0.25.2-py3-none-any.whl` size=39465510 sha256=`7acb7a433755c6d965c03e07725477ab63804f6667ba9e37e4da582f358018c7`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/markdown-3.11.2-py3-none-any.whl` size=114266 sha256=`f80390747a2a0ff2ba54da074ce4f862f72a6685f608cd2637b646a6d83993f5`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/matplotlib-3.11.2-cp313-cp313-macosx_11_0_arm64.whl` size=9306050 sha256=`2a8285cea8ef4d92aa041d1c33788bcae82248503300f93f1ca2136b9049452f`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/msgspec-0.22.0-cp313-cp313-macosx_11_0_arm64.whl` size=193097 sha256=`5aa24eb475d070ecbbe5b21080fc3ce4b0b76c60de25cfe0c9678d8fb44bb42f`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/narwhals-2.27.1-py3-none-any.whl` size=483211 sha256=`d057df13f5852b8e157596e82eb5e955fad267425df5e420e0ee9863da483b31`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/numexpr-2.14.2-cp313-cp313-macosx_11_0_arm64.whl` size=153509 sha256=`92b00c78664070e3af155c6be713a0a5d75d598647ce32a5609adb79a8f961d3`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/numpy-2.5.4-cp313-cp313-macosx_14_0_arm64.whl` size=5445803 sha256=`6d6a71b9d9a97c03633aa12565ef2825ffa036cc1d99cfd50dacf0f128af4fe2`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/packaging-26.3-py3-none-any.whl` size=129956 sha256=`d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pandas-3.0.6-cp313-cp313-macosx_11_0_arm64.whl` size=10064785 sha256=`60d81f9e1799b36f3739e7fff44d1fbb2e8fd5a271b3863e03de9715fccda0fa`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/parso-0.8.7-py2.py3-none-any.whl` size=107025 sha256=`a8926eb2a1b915486941fdbd31e86a4baf88fe8c210f25f2f35ecec5b574ca1c`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pillow-13.0.0-cp313-cp313-macosx_11_0_arm64.whl` size=4852187 sha256=`f11a3c1358bb3c68012a7b1f41b223c3db9f7bfde90b481df028cfe1c3363313`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl` size=129859 sha256=`1a7b04c10f32cc88ab39cbf606e117fd74721c831c98a27dc04578deb0c16979`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pydantic-2.14.1-py3-none-any.whl` size=488106 sha256=`9195d967ec791692a04438115466764fb8b9a27b31f14a760437694f40d6b454`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pydantic_core-2.50.1-cp313-cp313-macosx_11_0_arm64.whl` size=2024738 sha256=`0c003c3b7f49debb893d2d85ae099ac5959c9839e2f330fadb1fcdf7a6594482`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pyfai-2026.9.0-cp313-cp313-macosx_11_0_arm64.whl` size=5450823 sha256=`94702360c9f07df8960acc20699db6baee0918dd6ff8ae7a4ffea4c653dee320`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pygments-2.21.0-py3-none-any.whl` size=1250147 sha256=`2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pymdown_extensions-11.0.2-py3-none-any.whl` size=269929 sha256=`259910762019732caa1dfd76f3faa62c59f191d46573e80bcb1d13c0f675bbe5`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pyparsing-3.3.3-py3-none-any.whl` size=126420 sha256=`ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/python_dateutil-2.9.0.post0-py2.py3-none-any.whl` size=229892 sha256=`a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/python_multipart-0.0.32-py3-none-any.whl` size=30042 sha256=`ff6d3f776f16878c894e52e107296ffc890e913c611b1a4ec6c44e2821fe2e23`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pyyaml-6.0.3-cp313-cp313-macosx_11_0_arm64.whl` size=173252 sha256=`2283a07e2c21a2aa78d9c4442724ec1eb15f5e42a723b99cb3d822d48f5f7ad1`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/pyzmq-27.2.0-cp312-abi3-macosx_10_15_universal2.whl` size=1431074 sha256=`591c8de5851c5ea372194469fe97587b97c3b641e9a70f31bb3474acbfde0241`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/scikit_learn-1.9.1-cp313-cp313-macosx_12_0_arm64.whl` size=8262364 sha256=`61cd968ab831a76d0ecbaf0347ab2270268716da28f94fd022497e3d6f205f13`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/scipy-1.18.1-cp313-cp313-macosx_14_0_arm64.whl` size=20456846 sha256=`ea324d9dd34c38bfb9bec8ca4d1b407db97dbb74029f566b8e322b1b6fe56fe6`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/silx-3.1.3-cp313-cp313-macosx_11_0_arm64.whl` size=4483342 sha256=`15faa9d9ecd8eae59bcc39866f5cfb3163def0ee1dd06a7c977b98243d4b2247`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/six-1.17.0-py2.py3-none-any.whl` size=11050 sha256=`4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/starlette-1.9.0-py3-none-any.whl` size=80335 sha256=`fd3f159936e882d06c1108f84688f7cda2cf85fc6a592a50edbd175e882c2ddc`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/threadpoolctl-3.7.0-py3-none-any.whl` size=26362 sha256=`cd8b60b5641b45c67bbf73c64c843235fc2d8a480c87389f52f5dbee893b86be`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/tomlkit-0.15.2-py3-none-any.whl` size=52225 sha256=`05562412163a3037b94497385fb7f9204c637bc605af7a48199e41cf2272f437`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/typing_extensions-4.16.0-py3-none-any.whl` size=45571 sha256=`481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/typing_inspection-0.4.4-py3-none-any.whl` size=14750 sha256=`65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/uvicorn-0.54.0-py3-none-any.whl` size=87427 sha256=`505bdb0f318731d45f1f712071fc781a8981f6847a31c902c9f5e652d4f67faf`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/websockets-17.3-cp313-cp313-macosx_11_0_arm64.whl` size=216185 sha256=`fe7a168d805c8a7bf1c2de55b7ab2bc958586bfd88d0e87235a92cac66b590a7`
+  - aux wheel: `wheelhouse/aux/v0.1.7-beta/xrd_preprocessing-0.1.7b0-py3-none-any.whl` size=97438 sha256=`8e5631290a99719383425f13f09b876490a9373aca22d8808aa0535e2811ea1c`
+  - golden fixture: `golden_tests/fixtures/atypical_one_patient.h5` size=9102429 sha256=`52e51f0eba35161a544c29fb67fc8f94d5322780c30a51aa96b19cd0b5107eb0`
+  - golden fixture: `golden_tests/fixtures/benign_one_patient.h5` size=9515227 sha256=`95a2ff8245f130930d8b8b35ed8e2ef3cdc9ffd955ec49708950d4c6abfdc303`
+
