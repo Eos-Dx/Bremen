@@ -1,0 +1,525 @@
+REVIEW ARTIFACT WRITTEN: yes
+VERDICT: block
+head: 2fc4e6b4d5bee299ad7dbd7445adc11495707b55
+branch: 0169-ir-05-supervised-subprocess-runtime
+reviewed_at: "2026-10-23"
+
+FILES REVIEWED:
+  - src/bremen/platform/runtime/subprocess_runtime.py
+  - src/bremen/platform/runtime/registry.py
+  - src/bremen/platform/runtime/executor.py
+  - src/bremen/platform/jobs/service.py
+  - src/bremen/platform/models/release_cache.py
+  - src/bremen/platform/models/registry.py
+  - src/bremen/contracts/worker_protocol.py
+  - src/bremen/contracts/model_runtime.py
+  - tests/test_ir05_subprocess_runtime.py
+  - .project-memory/pr/ir-05/PLAN.md
+  - .project-memory/pr/0169-ir-05-supervised-subprocess-runtime/IMPLEMENTATION_REPORT.md
+  - .project-memory/pr/0169-ir-05-supervised-subprocess-runtime/SUPERVISOR_EVIDENCE.md
+  - .project-memory/pr/0169-ir-05-supervised-subprocess-runtime/FIVE_RELEASE_PARITY.md
+
+CHANGE RECONCILIATION:
+  result: partial
+  observed: "Expected source scope only: subprocess_runtime.py, registry.py and additive worker_protocol.py plus tests/project memory. No executor/jobs/scientific/Docker/CI/IaC edits observed."
+  status_before_review: "M worker_protocol.py; M runtime/registry.py; untracked subprocess_runtime.py, test_ir05_subprocess_runtime.py and project memory."
+
+CANDIDATE ROUTE:
+  result: partial
+  details: "Allowlist parsing is exact, deterministic and disabled by default; runtime_release alone does not enable it. Registry wiring selects SubprocessRuntime only for opted-in entries."
+
+RELEASE CACHE INTEGRATION:
+  result: block
+  finding: >-
+    SubprocessRuntime._invoke calls ReleaseCache.install(), but the real
+    registry/executor candidate path is not proven to reach that call. More
+    seriously, registry construction calls runtime.model_ready(); this only
+    resolves a READY marker and does not install. When an opted-in release is
+    not already READY, executor.py returns workflow-unavailable before
+    SubprocessRuntime._invoke can call install. Focused tests use a fake cache
+    that is already ready and do not cover get_descriptor_for_model plus a
+    not-yet-installed catalog entry. Add an integration test and smallest
+    wiring fix proving the production candidate path obtains InstalledRelease
+    through ReleaseCache.install()/READY validation.
+
+LEGACY DEFAULT:
+  result: pass
+  details: "Unset/empty allowlist and runtime_release presence preserve legacy factory call shape; relevant registry, Aramina and job/report tests pass."
+
+NO FALLBACK:
+  result: pass
+  details: "Candidate failures remain mapped failures; subprocess_runtime has no legacy runtime fallback path."
+
+WORKER PROTOCOL CHANGE:
+  result: acceptable_additive
+  details: "decode_model_requirements is the inverse of the existing encoder, preserves the existing JSON shape, adds no fields and does not change validation/wire semantics. worker protocol suite passes."
+
+JOB STAGING:
+  result: pass
+  details: "Per-invocation 0700 directory, fixed request.json/input.h5/result.json names, copied input, symlink result rejection and finally cleanup are implemented."
+
+PROCESS SUPERVISION:
+  result: pass
+  details: "argv-only Popen, start_new_session, bounded timeout, process-group SIGTERM then SIGKILL, wait/reap and POSIX fail-closed behavior are covered by descendant cleanup tests."
+
+DIAGNOSTIC BOUNDING:
+  result: pass
+  details: "communicate(timeout=...) drains PIPEs while bounded diagnostics are truncated; stdout/stderr are not result channels."
+
+RESULT VALIDATION:
+  result: pass
+  details: "Result regular-file/size/JSON/protocol/identity/status/error checks and clean-exit requirement are enforced; malformed and nonzero-exit cases are tested."
+
+ERROR MAPPING:
+  result: partial
+  details: "All seven typed worker codes map deterministically to existing exception classes, but Aramina projection loses typed failure richness for candidate QC/INFERENCE failures."
+
+ARAMINA FAILURE CONTRACT:
+  result: block
+  finding: >-
+    _map_worker_error(QC_FAILED) returns ModelPreprocessingFailedError with a
+    safe_reason such as ARAMINA_UNSUPPORTED_INPUT:preprocessing_contract.
+    aramina_failure only preserves failure_stage and preprocessing_diagnostic
+    for AraminaWorkflowError; any other ModelRuntimeError becomes the generic
+    ARAMINA_EXECUTION_FAILED with no stage/diagnostic. Direct verification
+    produced ModelPreprocessingFailedError -> ARAMINA_EXECUTION_FAILED,
+    failure_stage=None, preprocessing_diagnostic=None. This changes the
+    externally visible candidate Aramina failure contract.
+  required_fix: "Preserve the existing AraminaWorkflowError code/stage/diagnostic projection for candidate typed failures, or add an explicit contract-preserving adapter with tests for INPUT_INVALID, QC_FAILED, INFERENCE_FAILED and infrastructure failure."
+
+CONCURRENCY:
+  result: pass
+  details: "Process-wide nonblocking semaphore limits one candidate invocation and is released in finally on success, timeout and protocol exceptions."
+
+SUBPROCESS ENVIRONMENT:
+  result: pass
+  details: "Restricted allowlist omits AWS_*, BOTO* and PYTHONPATH, sets PYTHONNOUSERSITE=1, and is passed to venv/pip/worker."
+
+PLUGIN IMPORT BOUNDARY:
+  result: pass
+  details: "Candidate supervisor has no ML plugin/model-package imports; plugin entrypoint is only an argv module string."
+
+AUTHORIZATION / BINDING:
+  result: pass
+  details: "Existing executor source checksum and Aramina patient binding remain before prediction; scientific QC remains in Worker."
+
+EVENT / REPORT COMPATIBILITY:
+  result: block
+  details: "Bremen uses existing projection, but the Aramina failure contract gap above means candidate failure reports/events are not equivalent to legacy behavior."
+
+FIVE-RELEASE PARITY:
+  result: partial
+  details: "Evidence covers actual supervisor -> release entrypoint -> file protocol for A1/A2/B1/B2/B3 and exact B2 values. InstalledRelease objects were constructed directly because local trees lack wheelhouse binaries; this is non-blocking only with a proven production ReleaseCache integration, which is currently missing."
+
+FAILURE-PATH EVIDENCE:
+  result: partial
+  details: "Focused tests cover typed errors, crash/malformed result, timeout, wrong identity and capacity. They do not prove the real registry candidate path with an uninstalled release or preserve Aramina rich failure projection."
+
+SECURITY:
+  result: partial
+  details: "No shell, arbitrary executable/module, plugin import, credential inheritance, unsafe pickle or raw path result acceptance. Release-cache integration and Aramina error contract remain blockers."
+
+SIMPLICITY: pass
+LIVE_AWS_APP_RUNNER_STATUS: "AWS NOT RUN - NO AUTHORIZED ACCESS; APP RUNNER NOT RUN"
+
+WARNING_DECISIONS:
+  direct_installed_release_parity: "non-blocking only as local evidence; it must not substitute for production ReleaseCache integration"
+  aramina_failure_richness: "BLOCKER, because public failure fields are lost"
+  tmp_scratch_data: "non-blocking; outside repository and explicitly documented"
+  additive_decoder: "non-blocking acceptable additive inverse codec"
+
+VALIDATION:
+  - command: "/tmp/bremen-ir01-exec-venv/bin/python -m compileall -q src tests"
+    exit_code: 0
+    result: pass
+  - command: "/tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_ir05_subprocess_runtime.py"
+    exit_code: 0
+    result: "36 passed in 3.36s"
+  - command: "/tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_worker_protocol_contract.py"
+    exit_code: 0
+    result: "250 passed in 0.10s"
+  - command: "/tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_model_registry.py tests/test_aramina_workflow_runtime.py tests/test_bremen_model_runtime_contract_v1.py tests/test_bremen_fastapi_jobs_report_parity.py tests/test_bremen_job_api_handler.py tests/test_bremen_report_ui.py"
+    exit_code: 0
+    result: "572 passed, 32 warnings in 3.21s"
+  - command: "/tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_ir04_release_cache.py tests/test_ir03_standalone_runtime.py tests/test_ir03_plugin_import_boundary.py tests/test_ir03_plugin_wheel.py"
+    exit_code: 0
+    result: "124 passed in 1.69s"
+  - command: "BREMEN_IR03_RELEASES=/tmp/ir04/releases /tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_ir03_parity.py"
+    exit_code: 0
+    result: "21 passed in 23.95s"
+  - command: "/tmp/bremen-ir01-exec-venv/bin/python -m pytest -q"
+    exit_code: 0
+    result: "4473 passed, 8 skipped, 40 warnings in 56.35s"
+  - command: "git diff --check"
+    exit_code: 0
+    result: pass
+  - command: "pytest command with nonexistent tests/test_bremen_runtime_registry.py and tests/test_bremen_runtime_executor.py"
+    exit_code: 4
+    result: "No tests ran; corrected command used repository-existing tests and passed 572 tests."
+
+BLOCKERS:
+  - "Production candidate path is not integration-tested and can be stopped by stale model_ready=False before ReleaseCache.install() runs for a non-READY opt-in release. Add the registry/executor/ReleaseCache integration test and fix the wiring."
+  - "Candidate Aramina failures lose existing public code/stage/preprocessing_diagnostic fields and project as ARAMINA_EXECUTION_FAILED. Preserve the legacy Aramina failure contract with the smallest adapter and regression tests."
+
+WARNINGS:
+  - "Five-release parity uses directly constructed InstalledRelease records because local release trees lack wheelhouse binaries; no live AWS/App Runner evidence exists."
+  - "Local /tmp scratch release and auxiliary environment data is outside the repository."
+  - "One initial validation command referenced nonexistent test filenames; the corrected repository test command passed."
+
+COMMIT READINESS: blocked
+NEXT REQUIRED ACTION: "Fix the two blockers, add integration and Aramina failure-contract tests, rerun all required validation, then repeat precommit review."
+
+FINAL_REPEAT_REVIEW:
+  review_type: "independent zero-trust repeat after reported blocker fixes"
+  reviewed_at: "2026-10-23"
+  verdict: BLOCKED
+  branch_verified: "0169-ir-05-supervised-subprocess-runtime"
+  head_verified: "2fc4e6b4d5bee299ad7dbd7445adc11495707b55"
+
+  actual_changed_files:
+    - src/bremen/contracts/worker_protocol.py
+    - src/bremen/ml_plugin/inference.py
+    - src/bremen/platform/reports/runtime_projection.py
+    - src/bremen/platform/runtime/registry.py
+    - src/bremen/platform/runtime/subprocess_runtime.py
+    - tests/test_ir03_standalone_runtime.py
+    - tests/test_ir05_subprocess_runtime.py
+    - .project-memory/pr/0169-ir-05-supervised-subprocess-runtime/IMPLEMENTATION_REPORT.md
+    - .project-memory/pr/0169-ir-05-supervised-subprocess-runtime/FIVE_RELEASE_PARITY.md
+    - .project-memory/pr/0169-ir-05-supervised-subprocess-runtime/SUPERVISOR_EVIDENCE.md
+    - .project-memory/pr/0169-ir-05-supervised-subprocess-runtime/reviews/precommit-review.yml
+  unrelated_untracked_preserved:
+    - .claude/
+
+  previous_blockers:
+    cold_cache_registry_executor:
+      status: PARTIALLY_ADDRESSED
+      finding: >-
+        SubprocessRuntime.model_ready() now gates on candidate enablement, so
+        a cold candidate is schedulable. However, no test exercises the real
+        get_descriptor_for_model -> executor -> SubprocessRuntime path with a
+        non-installed release and asserts ReleaseCache.install() is reached.
+        Existing evidence directly constructs InstalledRelease or uses a fake
+        cache. The required production integration proof is still absent.
+      required_action: >-
+        Add a registry/executor integration test with an allowlisted candidate,
+        empty/not-ready cache, and an install spy or real isolated cache; prove
+        install/READY validation occurs and that install failure is surfaced
+        without legacy fallback.
+    aramina_public_failure_contract:
+      status: BLOCKED
+      finding: >-
+        The real AraminaWorkflowError.preprocessing_diagnostic is
+        dict[str, str] | None. ml_plugin/inference.py only transports the
+        details field when that value is a non-empty string, so real
+        preprocessing diagnostics are dropped. runtime_projection.py also
+        reconstructs from any JSON-safe details mapping containing
+        failure_stage and accepts arbitrary preprocessing_diagnostic content;
+        typed candidate failures such as unsupported artifact/identity
+        mismatch still map to generic ARAMINA_EXECUTION_FAILED. The legacy
+        error, failure_stage and preprocessing_diagnostic contract is therefore
+        not preserved and the details boundary is not allowlisted at the
+        projection point.
+      required_action: >-
+        Define and enforce the exact safe Aramina details schema (including the
+        dict diagnostic shape and allowed keys/stages), emit it from the plugin,
+        validate it before projection, and add tests for INPUT_INVALID, QC_FAILED,
+        INFERENCE_FAILED and infrastructure/identity failures.
+
+  plugin_release_impact:
+    status: BLOCKED
+    finding: >-
+      plugin_package_files() includes bremen/ml_plugin/inference.py in every
+      standalone plugin wheel. That source file changed in this PR, but no
+      rebuilt plugin wheels, release manifests/checksums, or post-rebuild
+      five-release parity evidence are included. Existing parity evidence uses
+      directly constructed InstalledRelease records and cannot establish that
+      the current source change is represented by the released artifacts.
+    required_action: >-
+      Rebuild the affected plugin wheel/releases, update manifest and wheel
+      hashes and provenance, then rerun IR-03/IR-05 parity against those exact
+      artifacts before claiming release evidence.
+
+  verified_facts:
+    candidate_default: >-
+      Candidate route remains opt-in through the environment allowlist and is
+      disabled when unset; no automatic legacy fallback was observed.
+    process_supervision: >-
+      File staging, process-group supervision, bounded diagnostics, timeout,
+      result identity checks and cleanup remain implemented and covered.
+    protocol_details: >-
+      WorkerError.details is recursively JSON-safe and optional, but the
+      current generic mapping is broader than the required allowlisted Aramina
+      metadata contract.
+    parity: >-
+      Existing recorded B2 evidence reports probability
+      0.7726940329943811, threshold 0.3585907282566089 and prediction 1;
+      this review does not treat it as current-release proof after the plugin
+      source change.
+
+  validation:
+    - command: "/tmp/bremen-ir01-exec-venv/bin/python -m compileall -q src tests"
+      exit_code: 0
+      result: PASS
+    - command: "/tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_ir05_subprocess_runtime.py"
+      exit_code: 0
+      result: "39 passed in 3.36s"
+    - command: "/tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_worker_protocol_contract.py"
+      exit_code: 0
+      result: "250 passed in 0.10s"
+    - command: >-
+        /tmp/bremen-ir01-exec-venv/bin/python -m pytest -q
+        tests/test_model_registry.py tests/test_aramina_workflow_runtime.py
+        tests/test_bremen_model_runtime_contract_v1.py
+        tests/test_bremen_fastapi_jobs_report_parity.py
+        tests/test_bremen_job_api_handler.py tests/test_bremen_report_ui.py
+      exit_code: 0
+      result: "572 passed, 32 warnings in 3.21s"
+    - command: >-
+        /tmp/bremen-ir01-exec-venv/bin/python -m pytest -q
+        tests/test_ir04_release_cache.py tests/test_ir03_standalone_runtime.py
+        tests/test_ir03_plugin_import_boundary.py tests/test_ir03_plugin_wheel.py
+      exit_code: 0
+      result: "124 passed in 1.69s"
+    - command: >-
+        BREMEN_IR03_RELEASES=/tmp/ir04/releases
+        /tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_ir03_parity.py
+      exit_code: 0
+      result: "21 passed in 23.95s"
+    - command: "/tmp/bremen-ir01-exec-venv/bin/python -m pytest -q"
+      exit_code: 0
+      result: "4473 passed, 8 skipped, 40 warnings in 56.35s"
+    - command: "git diff --check"
+      exit_code: 0
+      result: PASS
+    - command: "plugin_package_files(Path('src')) includes bremen/ml_plugin/inference.py"
+      exit_code: 0
+      result: PASS
+    - command: "pytest command with nonexistent runtime registry/executor test paths"
+      exit_code: 4
+      result: "No tests ran; not treated as validation success."
+
+  security_compatibility:
+    status: BLOCKED
+    findings:
+      - >-
+        No shell interpolation, arbitrary executable selection, credential
+        inheritance or raw result-path acceptance was found in the reviewed
+        supervisor path.
+      - >-
+        Generic details mappings can be promoted to public Aramina diagnostic
+        fields without an explicit allowlist, so malformed or over-broad
+        Worker metadata is not contract-safe.
+      - >-
+        Existing scientific behavior was not intentionally changed, but the
+        changed plugin source invalidates old artifact-level parity evidence
+        until releases are rebuilt.
+
+  blockers:
+    - cold_cache_registry_executor
+    - aramina_public_failure_contract
+    - plugin_release_rebuild_and_current_artifact_parity
+  warnings:
+    - "No live AWS/App Runner execution was authorized or performed."
+    - "Parity evidence relies on local /tmp release trees and direct InstalledRelease construction."
+    - "Unrelated .claude/ remains untracked and untouched."
+  commit_readiness: BLOCKED
+  ir05_status: BLOCKED
+  next_required_action: >-
+    Repair the three blockers, add the missing cold-cache and failure-contract
+    regression tests, rebuild affected plugin releases and hashes, rerun exact
+    artifact parity and the full validation suite, then repeat this review.
+
+FINAL_REPEAT_REVIEW_V2:
+  review_type: "independent zero-trust repeat after all three blocker fixes"
+  reviewed_at: "2026-10-23"
+  verdict: READY_FOR_COMMIT
+  branch_verified: "0169-ir-05-supervised-subprocess-runtime"
+  head_verified: "2fc4e6b4d5bee299ad7dbd7445adc11495707b55"
+
+  previous_blockers:
+    cold_cache_registry_executor: CLOSED
+    aramina_structured_failure_contract: CLOSED
+    plugin_wheel_and_release_rebuild: CLOSED
+
+  change_reconciliation:
+    status: PASS
+    source_and_tests:
+      - src/bremen/platform/runtime/subprocess_runtime.py
+      - src/bremen/platform/runtime/registry.py
+      - src/bremen/platform/reports/runtime_projection.py
+      - src/bremen/contracts/worker_protocol.py
+      - src/bremen/ml_plugin/inference.py
+      - tests/test_ir05_subprocess_runtime.py
+      - tests/test_worker_protocol_contract.py
+      - tests/test_ir03_standalone_runtime.py
+    project_memory:
+      - .project-memory/pr/0169-ir-05-supervised-subprocess-runtime/IMPLEMENTATION_REPORT.md
+      - .project-memory/pr/0169-ir-05-supervised-subprocess-runtime/SUPERVISOR_EVIDENCE.md
+      - .project-memory/pr/0169-ir-05-supervised-subprocess-runtime/FIVE_RELEASE_PARITY.md
+      - .project-memory/pr/0169-ir-05-supervised-subprocess-runtime/reviews/precommit-review.yml
+    unrelated_untracked_preserved:
+      - .claude/
+    forbidden_changes_found: false
+
+  cold_cache_registry_executor_integration:
+    status: PASS
+    tests:
+      - test_cold_cache_candidate_execution_reaches_install
+      - test_cold_install_failure_fails_safely_without_legacy
+    evidence: >-
+      Tests exercise get_descriptor_for_model -> real candidate registry
+      factory -> executor -> SubprocessRuntime -> ReleaseCache.install(entry).
+      The cache begins without a READY marker; the exact catalog entry is
+      observed at install, the returned InstalledRelease reaches worker calls,
+      and the projected B2 result is completed with the exact golden triple.
+      Install failure is attempted once, spawns no Worker, avoids legacy
+      runtime, and does not use the early model-not-ready short-circuit.
+
+  candidate_readiness:
+    status: PASS
+    details: >-
+      model_ready means explicitly configured and eligible to attempt lazy
+      installation. The candidate remains disabled by default; runtime_release
+      alone does not enable it; registry construction does not eagerly install;
+      legacy factory behavior remains unchanged when the allowlist is absent.
+
+  no_fallback:
+    status: PASS
+    details: >-
+      Cold install failure, Worker errors, timeout and protocol errors remain
+      candidate failures. No BremenRuntime or AraminaRuntime fallback is used.
+
+  aramina_failure_contract:
+    status: PASS
+    details: >-
+      The plugin transports the allowlisted Aramina error code, failure stage,
+      and preprocessing_diagnostic as dict[str, str]. The projection validates
+      error code, stage, diagnostic keys and values before reconstructing the
+      established public WorkflowResult fields.
+
+  public_failure_parity:
+    status: PASS
+    cases:
+      - ARAMINA_INVALID_REQUEST
+      - ARAMINA_UNSUPPORTED_INPUT_target_side_contract
+      - ARAMINA_UNSUPPORTED_INPUT_preprocessing_contract
+      - ARAMINA_MODEL_IDENTITY_MISMATCH
+      - ARAMINA_UNSUPPORTED_ARTIFACT
+    details: >-
+      Unit parity tests and the local end-to-end A1 executor run show legacy
+      and candidate equality for error, failure_stage and
+      preprocessing_diagnostic. The preprocessing diagnostic remains a dict.
+
+  malformed_details_safety:
+    status: PASS
+    details: >-
+      Unknown keys/codes/stages, non-allowlisted diagnostic values and string
+      diagnostics produce ARAMINA_EXECUTION_FAILED with no public stage or
+      diagnostic.
+
+  worker_error_details_contract:
+    status: PASS
+    details: >-
+      Optional details preserves the bremen.worker.v1 identifier and old
+      payload shape when absent. Nested JSON-safe mappings round-trip; NaN,
+      Infinity, non-string keys, arbitrary objects, non-mappings and unknown
+      fields are rejected; result size limits remain covered.
+
+  plugin_wheel_rebuild:
+    status: PASS
+    wheel: bremen_ml_plugin-0.1.0-py3-none-any.whl
+    old_sha256: 029af6c73238cd83d31f1dea31fa52cbbd69f4236e14ba317f076e04affa7e82
+    new_sha256: f4c4bf1ee52b7002b49598a1d40200517469b97e9f8f6809761949595d23d626
+    independent_checks: >-
+      All five /tmp/ir05/releases plugin wheels have the new SHA and contain
+      the current bremen/ml_plugin/inference.py member.
+
+  rebuilt_release_hashes:
+    status: PASS
+    manifests:
+      a1: 02be0ce3117080bbbf998a81ffaeff993938aaeb6fd2cc98c93ee730f7532b4c
+      a2: 7ebd66806b7924202d68d7d74265784300b8dacc64b6df98bb8d4e2984fd4e49
+      b1: 678edd64ddb35a2ba26e92f9bd804ab350303e458b4d152a5a4498ab812bc8ad
+      b2: d6df5c67bee4c9beadecd75fa316883fdcbfed81532ccea298d14f0bdc312321
+      b3: 596f8e10c065ae8d7c99201274c8559e8d158bff2393f637d47e8755611887eb
+    closure_counts: "A1 13/54/2; A2 13/54/2; B1 13/0/3; B2 13/54/2; B3 13/54/2"
+    scientific_lock_changes: false
+
+  ir03_parity:
+    status: PASS
+    command: "BREMEN_IR03_RELEASES=/tmp/ir05/releases /tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_ir03_parity.py"
+    result: "21 passed in 23.62s"
+
+  ir05_five_release_supervisor_parity:
+    status: PASS
+    details: >-
+      Current /tmp/ir05/releases were installed through real ReleaseCache.install
+      and driven by real SubprocessRuntime/Worker processes. B2 equals
+      probability 0.7726940329943811, threshold 0.3585907282566089,
+      prediction 1; B1, B3, A1 and A2 match the recorded expected values.
+
+  typed_failure_evidence:
+    status: PASS
+    details: "B1/B2 raw_peak_gate_failed; B3 requires_exactly_3_left_3_right; A1 structured preprocessing failure."
+
+  ir04_regression:
+    status: PASS
+    result: "tests/test_ir04_release_cache.py included in combined run: 65 passed"
+
+  import_boundary:
+    status: PASS
+    details: "Supervisor remains neutral and does not import bremen.ml_plugin, model packages, BremenRuntime or AraminaRuntime."
+
+  process_security_regression:
+    status: PASS
+    details: >-
+      Process groups, timeout termination/reaping, semaphore release, shell-free
+      argv, restricted AWS/BOTO/PYTHONPATH environment, bounded diagnostics,
+      result.json authority, identity validation and cleanup remain covered.
+
+  project_memory_consistency:
+    status: PASS
+    details: >-
+      Reports identify /tmp/ir05/releases as the sole current evidence root,
+      supersede stale direct-InstalledRelease evidence, record current wheel
+      and manifest hashes, cold-cache tests, structured parity and current
+      validation counts.
+
+  validation:
+    - command: "/tmp/bremen-ir01-exec-venv/bin/python -m compileall -q src tests"
+      exit_code: 0
+      result: PASS
+    - command: "/tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_ir05_subprocess_runtime.py tests/test_worker_protocol_contract.py tests/test_ir04_release_cache.py"
+      exit_code: 0
+      result: "378 passed in 4.97s"
+    - command: "BREMEN_IR03_RELEASES=/tmp/ir05/releases /tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_ir03_parity.py"
+      exit_code: 0
+      result: "21 passed in 23.62s"
+    - command: "/tmp/bremen-ir01-exec-venv/bin/python -m pytest -q"
+      exit_code: 0
+      result: "4500 passed, 8 skipped, 40 warnings in 59.30s"
+    - command: "git diff --check"
+      exit_code: 0
+      result: PASS
+
+  live_aws_app_runner:
+    status: "NOT RUN - NO AUTHORIZED ACCESS"
+
+  warnings:
+    - "No live AWS/App Runner execution was performed; this is not an IR-06 production gate."
+    - "Release evidence uses local /tmp/ir05 artifacts and a deterministic local S3 stub."
+    - "Unrelated .claude/ remains untracked and untouched."
+
+  blockers: []
+  commit_readiness: READY_FOR_COMMIT
+  exact_staging_files:
+    - src/bremen/contracts/worker_protocol.py
+    - src/bremen/ml_plugin/inference.py
+    - src/bremen/platform/reports/runtime_projection.py
+    - src/bremen/platform/runtime/registry.py
+    - src/bremen/platform/runtime/subprocess_runtime.py
+    - tests/test_ir03_standalone_runtime.py
+    - tests/test_ir05_subprocess_runtime.py
+    - tests/test_worker_protocol_contract.py
+  next_required_action: "Stage only the listed implementation/test files and the intended IR-05 project-memory artifacts, then commit after owner review."

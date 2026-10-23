@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping
 
 from bremen.contracts.model_runtime import (
+    CONTRACT_VERSION,
     ModelMetadata,
     ModelMetrics,
     ModelRequirements,
@@ -70,6 +71,7 @@ __all__ = [
     "WorkerResult",
     "decode_model_input_payload",
     "decode_model_metadata",
+    "decode_model_requirements",
     "decode_model_metrics",
     "decode_model_validation",
     "decode_runtime_prediction",
@@ -157,7 +159,7 @@ _RESULT_ALLOWED_TOP_LEVEL = frozenset({
     "protocol", "request_id", "operation", "model_id", "release_digest",
     "status", "payload", "error",
 })
-_ERROR_ALLOWED_FIELDS = frozenset({"code", "safe_reason"})
+_ERROR_ALLOWED_FIELDS = frozenset({"code", "safe_reason", "details"})
 
 #: Review fix (IR02-PROTOCOL-MODELINPUT): the predict/validate payload must
 #: explicitly enumerate every transportable field of the existing
@@ -662,12 +664,14 @@ class WorkerError:
     """Required shape of ``result.json``'s ``error`` object for a failure.
 
     Exactly ``code`` (one of the seven allowed typed codes) and
-    ``safe_reason`` (a fixed safe string). Never a traceback, raw
-    exception, filesystem path, S3 key, token, or secret.
+    ``safe_reason`` (a fixed safe string). Optional ``details`` carries
+    structured JSON-safe metadata only (e.g., Aramina error attributes).
+    Never a traceback, raw exception, filesystem path, S3 key, token, or secret.
     """
 
     code: str
     safe_reason: str
+    details: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -708,7 +712,14 @@ def _validate_error_object(value: Any) -> WorkerError:
     safe_reason = value["safe_reason"]
     if not isinstance(safe_reason, str) or not safe_reason.strip():
         raise WorkerProtocolError("result.json error.safe_reason must be a non-empty string")
-    return WorkerError(code=code, safe_reason=safe_reason)
+    details = None
+    if "details" in value:
+        details = value["details"]
+        if not isinstance(details, Mapping):
+            raise WorkerProtocolError("result.json error.details must be a JSON object (if present)")
+        _require_string_keys(details, field_name="result.json error.details")
+        reject_non_json_safe(details, path="result.json error.details")
+    return WorkerError(code=code, safe_reason=safe_reason, details=details)
 
 
 def validate_worker_result(data: Mapping[str, Any]) -> WorkerResult:
@@ -833,7 +844,12 @@ def encode_worker_result(result: WorkerResult) -> str:
         error = result.error
         if not isinstance(error, WorkerError):
             raise WorkerProtocolError("WorkerResult status=error requires a WorkerError object")
-        data["error"] = {"code": error.code, "safe_reason": error.safe_reason}
+        error_payload: dict[str, Any] = {
+            "code": error.code, "safe_reason": error.safe_reason,
+        }
+        if error.details is not None:
+            error_payload["details"] = dict(error.details)
+        data["error"] = error_payload
     validate_worker_result(data)
     encoded = encode_json(data)
     validate_result_size(encoded)
@@ -927,6 +943,103 @@ def encode_model_requirements(value: ModelRequirements) -> dict[str, Any]:
     data = value.to_input_requirements()
     reject_non_json_safe(data)
     return data
+
+
+#: IR-05 addition (NOT a change to any existing function/shape): the Harness
+#: now needs the decode direction for ``ModelRequirements`` to reconstruct
+#: the dataclass from a Worker's ``requirements`` result payload — IR-02 only
+#: implemented the encode direction (the model package was the only producer
+#: of ``ModelRequirements`` before IR-05). This is purely additive: it
+#: consumes exactly the same shape ``encode_model_requirements``/
+#: ``ModelRequirements.to_input_requirements()`` produce, with the same
+#: strict, no-coercion validation style as every other ``decode_*`` function
+#: in this module. ``model_id`` and ``scientifically_certified`` are not part
+#: of that JSON shape (see ``to_input_requirements``) and default to their
+#: dataclass defaults ("" / False) here, exactly as they would for any other
+#: caller that only has the JSON view.
+def decode_model_requirements(data: Mapping[str, Any]) -> ModelRequirements:
+    if not isinstance(data, Mapping):
+        raise WorkerProtocolError("ModelRequirements payload must be a JSON object")
+    allowed = {
+        "contract_version", "workflow_id", "model_version", "feature_schema_version",
+        "measurement_sides", "total_measurements", "requires_target_side",
+        "allowed_target_sides", "request_fields", "optional_request_fields", "notes",
+    }
+    unknown = set(data) - allowed
+    if unknown:
+        raise WorkerProtocolError(
+            f"ModelRequirements payload has unsupported fields: {sorted(unknown)}"
+        )
+
+    def _str_field(key: str, *, default: str = "") -> str:
+        value = data.get(key, default)
+        if not isinstance(value, str) or isinstance(value, bool):
+            raise WorkerProtocolError(f"ModelRequirements.{key} must be a string")
+        return value
+
+    def _str_tuple(key: str) -> tuple[str, ...]:
+        raw = data.get(key, [])
+        if not isinstance(raw, (list, tuple)):
+            raise WorkerProtocolError(f"ModelRequirements.{key} must be an array")
+        for item in raw:
+            if not isinstance(item, str) or isinstance(item, bool):
+                raise WorkerProtocolError(f"ModelRequirements.{key} entries must be strings")
+        return tuple(raw)
+
+    contract_version = _str_field("contract_version", default=CONTRACT_VERSION)
+    workflow_id = _str_field("workflow_id")
+    model_version = _str_field("model_version")
+    feature_schema_version = _str_field("feature_schema_version")
+
+    measurement_sides_raw = data.get("measurement_sides", [])
+    if not isinstance(measurement_sides_raw, (list, tuple)):
+        raise WorkerProtocolError("ModelRequirements.measurement_sides must be an array")
+    measurement_sides: list[tuple[str, int]] = []
+    for item in measurement_sides_raw:
+        if not isinstance(item, Mapping) or set(item) != {"side", "required_count"}:
+            raise WorkerProtocolError(
+                "ModelRequirements.measurement_sides entries must have exactly "
+                "'side' and 'required_count'"
+            )
+        side = item["side"]
+        count = item["required_count"]
+        if not isinstance(side, str) or isinstance(side, bool) or not side:
+            raise WorkerProtocolError(
+                "ModelRequirements.measurement_sides.side must be a non-empty string"
+            )
+        if isinstance(count, bool) or not isinstance(count, int):
+            raise WorkerProtocolError(
+                "ModelRequirements.measurement_sides.required_count must be an integer"
+            )
+        measurement_sides.append((side, count))
+
+    total_measurements = data.get("total_measurements")
+    if total_measurements is not None and (
+        isinstance(total_measurements, bool) or not isinstance(total_measurements, int)
+    ):
+        raise WorkerProtocolError(
+            "ModelRequirements.total_measurements must be an integer or null"
+        )
+
+    requires_target_side = data.get("requires_target_side", False)
+    if not isinstance(requires_target_side, bool):
+        raise WorkerProtocolError("ModelRequirements.requires_target_side must be a boolean")
+
+    return ModelRequirements(
+        contract_version=contract_version,
+        workflow_id=workflow_id,
+        model_id="",
+        model_version=model_version,
+        feature_schema_version=feature_schema_version,
+        measurement_sides=tuple(measurement_sides),
+        total_measurements=total_measurements,
+        requires_target_side=requires_target_side,
+        allowed_target_sides=_str_tuple("allowed_target_sides"),
+        request_fields=_str_tuple("request_fields"),
+        optional_request_fields=_str_tuple("optional_request_fields"),
+        notes=_str_tuple("notes"),
+        scientifically_certified=False,
+    )
 
 
 def encode_model_validation(value: ModelValidation) -> dict[str, Any]:

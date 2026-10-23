@@ -9,7 +9,7 @@ implemented here.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from bremen.contracts.model_runtime import (
     ModelConfigurationRequiredError,
@@ -82,7 +82,10 @@ def runtime_for_requirements(spec: VariantSpec) -> Any:
 
 
 def _error_result(
-    request: WorkerRequest, code: str, safe_reason: str,
+    request: WorkerRequest,
+    code: str,
+    safe_reason: str,
+    details: dict[str, Any] | None = None,
 ) -> WorkerResult:
     return WorkerResult(
         protocol=request.protocol,
@@ -92,8 +95,43 @@ def _error_result(
         release_digest=request.release_digest,
         status=RESULT_STATUS_ERROR,
         payload=None,
-        error=WorkerError(code=code, safe_reason=safe_reason),
+        error=WorkerError(code=code, safe_reason=safe_reason, details=details),
     )
+
+
+def _error_details(exc: BaseException) -> dict[str, Any] | None:
+    """Extract safe structured details from Aramina errors for transport.
+
+    Returns only already-sanitized diagnostic fields. Never includes
+    traceback, exception text, paths, patient data, or artifact internals.
+    ``preprocessing_diagnostic`` is transported as the structured dict the
+    public Aramina contract defines — never coerced to a string.
+    """
+    try:
+        from bremen.model_packages.aramina_v0213.errors import AraminaWorkflowError
+    except Exception:  # pragma: no cover - defensive import guard
+        return None
+
+    if not isinstance(exc, AraminaWorkflowError):
+        return None
+
+    details: dict[str, Any] = {"aramina_error_code": exc.code}
+    if exc.code != "ARAMINA_UNSUPPORTED_INPUT":
+        return details
+
+    # ``stage`` is already normalized to the allowlisted failure vocabulary by
+    # ``AraminaWorkflowError``; only transport it when present.
+    stage = getattr(exc, "stage", None)
+    if isinstance(stage, str) and stage:
+        details["failure_stage"] = stage
+
+    diagnostic = getattr(exc, "preprocessing_diagnostic", None)
+    if isinstance(diagnostic, Mapping) and diagnostic:
+        # Already sanitized by the Aramina package's safe diagnostic helper;
+        # copy so the worker never shares mutable state with the exception.
+        details["preprocessing_diagnostic"] = dict(diagnostic)
+
+    return details
 
 
 def _safe_reason(exc: BaseException) -> str:
@@ -239,4 +277,9 @@ def execute_operation(
             error=None,
         )
     except Exception as exc:  # noqa: BLE001 -- fixed, safe boundary translation
-        return _error_result(request, _error_code(exc), _safe_reason(exc))
+        return _error_result(
+            request,
+            _error_code(exc),
+            _safe_reason(exc),
+            details=_error_details(exc),
+        )

@@ -1439,3 +1439,128 @@ class TestStagedInputContract:
         )
         assert request.operation == "requirements"
         assert "container_path" not in request.payload
+
+
+# ---------------------------------------------------------------------------
+# IR-05: WorkerError.details (structured JSON-safe failure metadata)
+# ---------------------------------------------------------------------------
+
+
+class TestWorkerErrorDetails:
+    """``details`` is optional, structured and recursively JSON-safe."""
+
+    def _error_result(self, details, *, safe_reason="fixed-safe-text") -> dict:
+        data = _valid_error_result_data()
+        error = {"code": "QC_FAILED", "safe_reason": safe_reason}
+        if details is not None:
+            error["details"] = details
+        data["error"] = error
+        return data
+
+    def test_error_without_details_round_trips_unchanged(self):
+        import json
+
+        result = validate_worker_result(self._error_result(None))
+        assert result.error.details is None
+        encoded = json.loads(encode_worker_result(result))
+        assert set(encoded["error"]) == {"code", "safe_reason"}
+
+    def test_nested_details_round_trip(self):
+        import json
+
+        details = {
+            "aramina_error_code": "ARAMINA_UNSUPPORTED_INPUT",
+            "failure_stage": "preprocessing_contract",
+            "preprocessing_diagnostic": {
+                "preprocessing_stage": "worker_pipeline_execution",
+                "preprocessing_exception_class": "ValueError",
+                "preprocessing_transformer": "H5PoniGeometryCalculatorTransformer",
+                "preprocessing_release": "v0.1.9-beta",
+                "preprocessing_reason_code":
+                    "ARAMINA_PREPROCESSING_PIPELINE_EXECUTION_FAILED",
+            },
+        }
+        first = validate_worker_result(self._error_result(details))
+        assert first.error.details == details
+        second = validate_worker_result(json.loads(encode_worker_result(first)))
+        assert second == first
+
+    def test_preprocessing_diagnostic_dict_round_trip(self):
+        diagnostic = {
+            "preprocessing_stage": "worker_pipeline_execution",
+            "preprocessing_exception_class": "ValueError",
+            "preprocessing_transformer": "H5PoniGeometryCalculatorTransformer",
+            "preprocessing_release": "v0.1.9-beta",
+            "preprocessing_reason_code":
+                "ARAMINA_PREPROCESSING_PIPELINE_EXECUTION_FAILED",
+        }
+        result = validate_worker_result(
+            self._error_result({"preprocessing_diagnostic": diagnostic})
+        )
+        assert result.error.details["preprocessing_diagnostic"] == diagnostic
+        assert isinstance(result.error.details["preprocessing_diagnostic"], dict)
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_details_rejected(self, bad):
+        with pytest.raises(WorkerProtocolError, match="Non-finite"):
+            validate_worker_result(self._error_result({"value": bad}))
+        with pytest.raises(WorkerProtocolError, match="Non-finite"):
+            encode_worker_result(
+                WorkerResult(
+                    protocol=PROTOCOL_ID,
+                    request_id="req-1",
+                    operation="predict",
+                    model_id="bremen-paper-reference-v0-2-0",
+                    release_digest=DIGEST,
+                    status=RESULT_STATUS_ERROR,
+                    error=WorkerError(
+                        code="QC_FAILED", safe_reason="x", details={"value": bad}
+                    ),
+                )
+            )
+
+    def test_non_string_key_details_rejected(self):
+        with pytest.raises(WorkerProtocolError, match="string keys"):
+            validate_worker_result(self._error_result({1: "x"}))
+
+    def test_arbitrary_object_details_rejected(self):
+        with pytest.raises(WorkerProtocolError, match="Non-JSON-safe"):
+            validate_worker_result(self._error_result({"obj": object()}))
+        with pytest.raises(WorkerProtocolError, match="Non-JSON-safe"):
+            validate_worker_result(
+                self._error_result({"nested": {"obj": object()}})
+            )
+
+    def test_unknown_error_field_rejected(self):
+        for extra in ("traceback", "path", "stdout"):
+            data = self._error_result({"failure_stage": "target_side_contract"})
+            data["error"][extra] = "leak"
+            with pytest.raises(WorkerProtocolError, match="unsupported fields"):
+                validate_worker_result(data)
+
+    def test_details_must_be_object(self):
+        data = self._error_result("not-an-object")
+        with pytest.raises(WorkerProtocolError, match="JSON object"):
+            validate_worker_result(data)
+
+    def test_existing_result_size_behaviour_unchanged(self):
+        from bremen.contracts.worker_protocol import (
+            MAX_RESULT_JSON_BYTES,
+            validate_result_size,
+        )
+
+        assert MAX_RESULT_JSON_BYTES == 1_048_576
+        with pytest.raises(WorkerProtocolError, match="exceeds"):
+            validate_result_size("x" * (MAX_RESULT_JSON_BYTES + 1))
+        oversized = WorkerResult(
+            protocol=PROTOCOL_ID,
+            request_id="req-1",
+            operation="predict",
+            model_id="bremen-paper-reference-v0-2-0",
+            release_digest=DIGEST,
+            status=RESULT_STATUS_OK,
+            payload={"blob": "x" * MAX_RESULT_JSON_BYTES},
+            error=None,
+        )
+        with pytest.raises(WorkerProtocolError, match="exceeds"):
+            encode_worker_result(oversized)
