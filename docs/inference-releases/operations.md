@@ -2,7 +2,12 @@
 
 ## Keep hosting stable
 
-AWS App Runner remains the execution host for IR-01–IR-07. No ECS or GPU infrastructure is provisioned. The HTTP request must use the existing asynchronous job pattern rather than wait for a long scientific run. The current job repository is process-local/in-memory; this roadmap does not promise durable jobs across restarts or cross-instance routing. IR-01 documents existing polling/routing behavior and IR-06 verifies it under the actual deployment topology. Do not silently introduce a distributed queue.
+AWS App Runner remains the execution host for IR-01–IR-08. No ECS or GPU infrastructure is provisioned. The HTTP request must use the existing asynchronous job pattern rather than wait for a long scientific run. The current job repository is process-local/in-memory; this roadmap does not promise durable jobs across restarts or cross-instance routing. IR-01 documents existing polling/routing behavior and IR-06 verifies it under the actual deployment topology. Do not silently introduce a distributed queue.
+
+IR-06 implementation is the catalog/runtime cutover: release-backed entries
+use the immutable release, cache, venv and supervised Worker path. App Runner
+parity, resource measurement and activation are separate operational rollout
+activities requiring operator authorization.
 
 AWS documents a 120-second total HTTP request timeout, a five-minute startup health window and 3 GB of ephemeral storage that also accommodates image storage. Local file persistence is not guaranteed. Verify these constraints against the actual deployment and current documentation at implementation time. Reference: https://docs.aws.amazon.com/apprunner/latest/dg/develop.html (reviewed 2026-10-20).
 

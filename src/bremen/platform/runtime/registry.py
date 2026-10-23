@@ -72,13 +72,17 @@ def bremen_descriptor(
     runtime=None,
 ):
     from bremen.platform.reports.execution_events import bremen_events
-    from bremen.model_packages.bremen_v01 import BremenRuntime
     from bremen.platform.reports.runtime_projection import (
         project_bremen,
         bremen_failure,
     )
 
-    runtime = runtime if runtime is not None else BremenRuntime(model_package)
+    if runtime is None:
+        from bremen.model_packages.bremen_v01 import BremenRuntime
+        runtime = BremenRuntime(model_package)
+        configured = getattr(runtime, "package", None) is not None
+    else:
+        configured = True
     return ModelDescriptor(
         "bremen",
         runtime,
@@ -93,22 +97,34 @@ def bremen_descriptor(
             else True
         ),
         legacy_input=not getattr(runtime, "requires_raw_container", False),
-        configured=getattr(runtime, "package", None) is not None,
+        configured=configured,
         telemetry=bremen_events,
     )
 
 
 def aramina_descriptor(*, entry, runtime=None):
-    from bremen.model_packages.aramina_v0213 import AraminaRuntime
-    from bremen.model_packages.aramina_v0213.errors import AraminaWorkflowError
     from bremen.platform.reports.runtime_projection import (
         project_aramina,
         aramina_failure,
     )
 
+    if runtime is None:
+        from bremen.model_packages.aramina_v0213 import AraminaRuntime
+        from bremen.model_packages.aramina_v0213.errors import AraminaWorkflowError
+        runtime = AraminaRuntime(entry=entry)
+        binding_failure = lambda: AraminaWorkflowError(
+            "ARAMINA_UNSUPPORTED_INPUT", "h5_patient_contract"
+        )
+    else:
+        def binding_failure():
+            from bremen.model_packages.aramina_v0213.errors import AraminaWorkflowError
+            return AraminaWorkflowError(
+                "ARAMINA_UNSUPPORTED_INPUT", "h5_patient_contract"
+            )
+
     return ModelDescriptor(
         "aramina",
-        runtime if runtime is not None else AraminaRuntime(entry=entry),
+        runtime,
         project_aramina,
         aramina_failure,
         model_id=entry.model_id,
@@ -117,29 +133,23 @@ def aramina_descriptor(*, entry, runtime=None):
         legacy_input=True,
         bind_patient=True,
         failure_event_reason=True,
-        binding_failure=lambda: AraminaWorkflowError(
-            "ARAMINA_UNSUPPORTED_INPUT", "h5_patient_contract"
-        ),
+        binding_failure=binding_failure,
     )
 
 
 def _candidate_runtime_for(entry):
-    """IR-05: return a ``SubprocessRuntime`` for ``entry`` only when the
-    candidate route is explicitly enabled for this exact model_id (platform
-    configuration) and the entry carries a valid ``runtime_release``.
-    Otherwise ``None`` — callers fall back to building the legacy in-process
-    runtime exactly as before (zero behavior change by default).
+    """Return a ``SubprocessRuntime`` when the entry carries a validated
+    ``runtime_release``. Otherwise return ``None`` so legacy entries retain
+    their existing in-process runtime.
 
     Lazily imported so merely importing this registry module never pulls in
     subprocess/release-cache machinery; this module itself never imports ML
     plugin code either way.
     """
-    from bremen.platform.runtime.subprocess_runtime import (
-        SubprocessRuntime,
-        is_candidate_enabled_for,
-    )
+    from bremen.platform.runtime.subprocess_runtime import SubprocessRuntime
 
-    if not is_candidate_enabled_for(entry):
+    getter = getattr(entry, "get_runtime_release", None)
+    if not callable(getter) or not getter():
         return None
     return SubprocessRuntime(entry=entry)
 

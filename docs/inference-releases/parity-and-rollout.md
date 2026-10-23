@@ -55,7 +55,7 @@ Each run records fixture hash/reference, baseline identity, candidate release di
 
 ## Local and service verification
 
-IR-03 verifies all five releases independently of the application with network package fetching disabled. IR-05 adds protocol, timeout, crash, malformed-event, concurrency and cleanup tests. IR-06 repeats scientific parity on App Runner with the same immutable releases and representative resource conditions, including cold installation, cache hit, cache eviction, restart, missing S3 object and checksum failure.
+IR-03 verifies all five releases independently of the application with network package fetching disabled. IR-05 adds protocol, timeout, crash, malformed-event, concurrency and cleanup tests. IR-06 cuts catalog-backed entries over to the same immutable release path and verifies local route parity; App Runner repetition, cold installation, cache hit, cache eviction, restart, missing S3 object and checksum failure remain separately authorized operational rollout work.
 
 For comparison runs, keep the old route authoritative. Prefer sequential paired runs to avoid doubling peak memory. Candidate results must not create duplicate reports, external writes or user-visible decisions. Do not mirror production data without the existing authorization/data-handling controls. A shadow result is evidence only.
 
@@ -65,4 +65,4 @@ Activate one exact catalog identity at a time after its evidence is reviewed, mo
 
 Retain the old application image, compatible catalog manifest versions, artifacts and configuration until the agreed observation window ends. Before cleanup, demonstrate how to restore the prior image AND catalog/configuration; pointer rollback alone is insufficient if the current image has removed legacy code. Workers already running must retain their pinned release; do not mutate their environment. A failed candidate request does not automatically rerun on a different implementation.
 
-IR-07 is blocked until all five identities pass and the rollback procedure is tested in an authorized environment. Removal of obsolete environment variables must not remove information needed to restore the previous deployment. Production rollout/rollback actions follow existing operator authorization; this documentation does not perform or approve them.
+IR-08 (legacy inference cleanup, formerly numbered IR-07) is blocked until IR-07 (external XRD feature-library integration) is accepted, all five identities pass, and the rollback procedure is tested in an authorized environment. Removal of obsolete environment variables must not remove information needed to restore the previous deployment. Production rollout/rollback actions follow existing operator authorization; this documentation does not perform or approve them.
