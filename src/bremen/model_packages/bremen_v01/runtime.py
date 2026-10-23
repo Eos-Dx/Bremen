@@ -39,6 +39,52 @@ from . import manifest
 from .features import (
     FEATURE_COLS, BremenFeatureError, build_bremen_features, validate_bremen_shape,
 )
+
+# IR-07: release-backed Worker execution computes Bremen's 15 features
+# through the standalone xrd_inference_features wheel bound into that
+# release's own venv — never a Bremen/App Runner application dependency.
+# Selection is explicit and release-scoped: the Worker process sets
+# ``BREMEN_FEATURE_LIBRARY_BACKEND`` (``ml_plugin.release.
+# apply_feature_library_backend``) only when that release's manifest declared
+# a ``feature_library`` block; this module checks that one environment
+# variable at call time rather than relying on whether the package happens to
+# be importable, so unrelated processes/tests that import
+# ``xrd_inference_features`` for other reasons (e.g. differential parity
+# tests) can never silently change this runtime's behavior. The legacy
+# in-process path (the variable unset) keeps using the embedded ``.features``
+# module above, unchanged, until IR-08. No monkeypatching, no sys.path
+# mutation, no import hooks.
+import os as _os
+
+_FEATURE_LIBRARY_BACKEND_ENV = "BREMEN_FEATURE_LIBRARY_BACKEND"
+
+
+def _use_external_feature_backend() -> bool:
+    return _os.environ.get(_FEATURE_LIBRARY_BACKEND_ENV) == "xrd_inference_features"
+
+
+def _compute_bremen_features(measurements) -> dict[str, float]:
+    if _use_external_feature_backend():
+        from xrd_inference_features import bremen_contract as _xrd  # noqa: PLC0415
+
+        try:
+            return _xrd.build_bremen_features(measurements)
+        except _xrd.BremenFeatureError as exc:
+            raise BremenFeatureError(str(exc)) from None
+    return build_bremen_features(measurements)
+
+
+def _compute_bremen_features_from_frame(frame) -> dict[str, float]:
+    if _use_external_feature_backend():
+        from xrd_inference_features import bremen_contract as _xrd  # noqa: PLC0415
+
+        try:
+            return _xrd.build_bremen_features_from_frame(frame)
+        except _xrd.BremenFeatureError as exc:
+            raise BremenFeatureError(str(exc)) from None
+    from .features import build_bremen_features_from_frame  # noqa: PLC0415
+
+    return build_bremen_features_from_frame(frame)
 from bremen.model_packages.bremen_v01.predictor import (
     adapt_model_package, predict_proba_portable, validate_portable_logreg_model,
 )
@@ -159,7 +205,7 @@ class BremenRuntime:
     def build_features(self, measurements) -> BremenFeatures:
         self.validate_input(measurements)
         self.validate_measurements(measurements)
-        values = build_bremen_features(measurements)
+        values = _compute_bremen_features(measurements)
         return BremenFeatures(self.feature_names, tuple(values.values()))
 
     # ---- Scoring (frozen PR0152 portable inference) ----
@@ -336,10 +382,9 @@ class BremenRuntime:
         if not isinstance(config_yaml, str) or not config_yaml.strip():
             raise BremenRuntimeError("model_not_ready")
         from .preprocessing import preprocess_bremen  # noqa: PLC0415
-        from .features import build_bremen_features_from_frame  # noqa: PLC0415
 
         frame = preprocess_bremen(input.container_path, config_yaml)
-        values = build_bremen_features_from_frame(frame)
+        values = _compute_bremen_features_from_frame(frame)
         features = BremenFeatures(
             self.feature_names,
             tuple(values[name] for name in self.feature_names),

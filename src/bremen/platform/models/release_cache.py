@@ -554,6 +554,15 @@ class ReleaseCache:
         self._pip_install_wheel(
             main_python, os.path.join(release_dir, plugin_wheel)
         )
+        # IR-07: the standalone XRD feature-library wheel, when the manifest
+        # declares one, is installed the same way as the plugin wheel —
+        # release-owned, not pip-resolved, not a shared/global install.
+        # Absent on pre-IR-07 manifests, which remain valid without it.
+        feature_library_wheel = _role_path_optional(manifest, "feature_library_wheel")
+        if feature_library_wheel is not None:
+            self._pip_install_wheel(
+                main_python, os.path.join(release_dir, feature_library_wheel)
+            )
 
         for name, spec in manifest["environments"].items():
             if name == "main":
@@ -690,7 +699,9 @@ class ReleaseCache:
             _restricted_environment(),
         )
         if getattr(completed, "returncode", 1) != 0:
-            raise ReleaseCacheError("offline_install_failed", "plugin_wheel")
+            raise ReleaseCacheError(
+                "offline_install_failed", os.path.basename(wheel_path)
+            )
 
     @staticmethod
     def _validate_runtime_configuration(
@@ -956,6 +967,20 @@ def _role_path(
         if ref["role"] == role:
             return ref["relative_path"]
     raise ReleaseCacheError("invalid_runtime_configuration", role)
+
+
+def _role_path_optional(
+    manifest: Mapping[str, Any], role: str, collection: str = "files",
+) -> str | None:
+    """Like ``_role_path``, but ``None`` when the role is absent.
+
+    Used for additive/optional manifest roles (e.g. IR-07's
+    ``feature_library_wheel``) that pre-existing manifests never declare.
+    """
+    for ref in manifest[collection]:
+        if ref["role"] == role:
+            return ref["relative_path"]
+    return None
 
 
 def _tree_size(path: str) -> int:

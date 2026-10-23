@@ -37,6 +37,11 @@ from bremen.release_build.provenance import (
     KNOWN_PREPROCESSING_COMMITS,
 )
 from bremen.release_build.wheel import PLUGIN_REQUIRES_DIST, build_plugin_wheel
+from bremen.release_build.feature_wheel import (
+    FEATURE_LIBRARY_DISTRIBUTION,
+    FEATURE_LIBRARY_VERSION,
+    build_feature_library_wheel,
+)
 
 __all__ = ["assemble_release", "main"]
 
@@ -257,16 +262,74 @@ def _artifact_config_hash(spec: VariantSpec, artifact_path: Path) -> str:
     return _sha256_bytes(config_yaml.encode("utf-8"))
 
 
+#: Default Aramina symmetry contract when an artifact declares none, mirroring
+#: the identical runtime default in
+#: ``bremen.model_packages.aramina_v0213.inference`` (``model_info.get(
+#: "symmetry_feature_contract", "aramina_sk_symmetry_v0_1")``).
+_ARAMINA_DEFAULT_SYMMETRY_CONTRACT = "aramina_sk_symmetry_v0_1"
+
+
 def _feature_order_hash(spec: VariantSpec) -> str:
+    """Authoritative feature-order hash, derived from the external
+    ``xrd_inference_features`` library contract (IR-07) — never from the
+    embedded Bremen/Aramina scientific modules for release-backed releases.
+    """
     if spec.runtime_kind == "aramina":
         from bremen.model_packages.aramina_v0213 import manifest as aramina_manifest
 
-        columns = list(aramina_manifest.FINAL_FEATURE_COLUMNS)
-    else:
-        from bremen.model_packages.bremen_v01.features import FEATURE_COLS
+        # FINAL_FEATURE_COLUMNS is the model-level column contract (CORE4 +
+        # symmetry_available + non-symmetry columns); it is not itself owned
+        # by the feature library, but its CORE4 subset must trace to it.
+        from xrd_inference_features.aramina_symmetry import CORE4 as library_core4
 
-        columns = list(FEATURE_COLS)
+        columns = list(aramina_manifest.FINAL_FEATURE_COLUMNS)
+        if tuple(c for c in columns if c in library_core4) != library_core4:
+            raise ValueError(
+                f"{spec.key}: FINAL_FEATURE_COLUMNS CORE4 subset diverges from "
+                "the xrd_inference_features library contract"
+            )
+    else:
+        from xrd_inference_features.bremen_contract import FEATURE_COLS as columns_library
+
+        columns = list(columns_library)
     return _sha256_bytes(json.dumps(columns).encode("utf-8"))
+
+
+def _feature_library_contract(spec: VariantSpec, artifact_path: Path) -> str:
+    """Resolve the exact feature contract this release binds.
+
+    For Bremen there is exactly one frozen contract. For Aramina the
+    contract is artifact-declared (``models[name]["symmetry_feature_contract"]``,
+    same field ``aramina_v0213.inference`` reads at request time) — this
+    reads the same checksum-verified artifact bytes already bound to this
+    release, so build-time and runtime always agree. Never guessed/hardcoded
+    per variant key.
+    """
+    if spec.runtime_kind != "aramina":
+        from xrd_inference_features.bremen_contract import CONTRACT_ID
+
+        return CONTRACT_ID
+
+    from bremen.model_packages.aramina_v0213.artifact_compat import (
+        ensure_compatibility_bridge,
+    )
+    from bremen.model_packages_bridge import load_staged_artifact
+
+    ensure_compatibility_bridge()
+    package = load_staged_artifact(str(artifact_path), spec.artifact_checksum)
+    models = package.get("models") if isinstance(package, dict) else None
+    if not isinstance(models, dict) or not models:
+        raise ValueError(f"{spec.key}: artifact has no 'models' block to resolve symmetry contract")
+    contracts = {
+        info.get("symmetry_feature_contract", _ARAMINA_DEFAULT_SYMMETRY_CONTRACT)
+        for info in models.values()
+        if isinstance(info, dict)
+    }
+    if len(contracts) != 1:
+        raise ValueError(
+            f"{spec.key}: artifact declares ambiguous symmetry contracts: {sorted(contracts)}"
+        )
+    return next(iter(contracts))
 
 
 def _wheel_paths_by_hash(wheelhouse: Path | None) -> dict[str, Path]:
@@ -467,6 +530,14 @@ def assemble_release(
         plugin_dir, source_root=source_root,
     )
 
+    # Standalone XRD feature-library wheel (IR-07, deterministic). Built and
+    # bound independently by every call to assemble_release; never a shared
+    # global install. Treated like the plugin wheel: installed directly by
+    # ReleaseCache (no --require-hashes main.lock entry), not pip-resolved.
+    feature_library_dir = release_root / "feature_library"
+    feature_wheel = build_feature_library_wheel(feature_library_dir)
+    feature_contract = _feature_library_contract(spec, artifact_path)
+
     # Artifact + configs.
     model_dir = release_root / "model"
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -574,6 +645,7 @@ def assemble_release(
             "model_version": spec.model_version,
         },
         "preprocessing_environment": preprocessing_environment,
+        "feature_library_backend": FEATURE_LIBRARY_DISTRIBUTION.replace("-", "_"),
     }
     _write_json(release_root / "configs" / "runtime.json", runtime_config)
 
@@ -586,6 +658,10 @@ def assemble_release(
         "plugin_distribution": PLUGIN_DISTRIBUTION,
         "plugin_version": PLUGIN_VERSION,
         "plugin_wheel_sha256": wheel.sha256,
+        "feature_library_distribution": FEATURE_LIBRARY_DISTRIBUTION,
+        "feature_library_version": FEATURE_LIBRARY_VERSION,
+        "feature_library_contract": feature_contract,
+        "feature_library_wheel_sha256": feature_wheel.sha256,
         "artifact_sha256": spec.artifact_checksum,
         "artifact_filename": spec.artifact_filename,
         "artifact_manifest": artifact_manifest,
@@ -609,6 +685,11 @@ def assemble_release(
         _file_ref(
             role="plugin_wheel", relative_path=f"plugin/{wheel.path.name}",
             release_id=spec.release_id, path=wheel.path,
+        ),
+        _file_ref(
+            role="feature_library_wheel",
+            relative_path=f"feature_library/{feature_wheel.path.name}",
+            release_id=spec.release_id, path=feature_wheel.path,
         ),
         _file_ref(
             role="model_artifact",
@@ -737,6 +818,13 @@ def assemble_release(
             "build_id": f"ir03-{spec.key}-{commit_value[:12]}",
             "provenance_reference": "provenance/build.json",
         },
+        "feature_library": {
+            "distribution": FEATURE_LIBRARY_DISTRIBUTION,
+            "version": FEATURE_LIBRARY_VERSION,
+            "contract": feature_contract,
+            "wheel_filename": feature_wheel.path.name,
+            "wheel_sha256": feature_wheel.sha256,
+        },
     }
     validate_release_manifest(manifest)
     manifest_sha = _write_json(release_root / "manifest.json", manifest)
@@ -750,6 +838,14 @@ def assemble_release(
             "filename": wheel.path.name,
             "sha256": wheel.sha256,
             "size_bytes": wheel.size_bytes,
+        },
+        "feature_library_wheel": {
+            "distribution": FEATURE_LIBRARY_DISTRIBUTION,
+            "version": FEATURE_LIBRARY_VERSION,
+            "contract": feature_contract,
+            "filename": feature_wheel.path.name,
+            "sha256": feature_wheel.sha256,
+            "size_bytes": feature_wheel.size_bytes,
         },
         "artifact_sha256": spec.artifact_checksum,
         "model_id": spec.model_id,

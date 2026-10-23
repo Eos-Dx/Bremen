@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "xrd-inference-features"
+version = "0.1.0"
+description = "Standalone XRD scientific feature computation for Bremen/Aramina inference releases. Research decision support requiring radiologist review; not for autonomous diagnosis."
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+authors = [{ name = "EOS" }]
+dependencies = [
+  "numpy==2.5.4",
+  "pandas==3.0.6",
+  "scipy==1.18.1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/xrd_inference_features"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

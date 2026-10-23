@@ -37,6 +37,7 @@ __all__ = [
     "ReleaseBuild",
     "ReleaseCompatibility",
     "ReleaseEntrypoint",
+    "ReleaseFeatureLibrary",
     "ReleaseFileRef",
     "ReleaseModelIdentity",
     "ReleaseScientificMetadata",
@@ -66,7 +67,13 @@ _REQUIRED_TOP_LEVEL_FIELDS = (
     "golden_tests",
     "build",
 )
-_ALLOWED_TOP_LEVEL_FIELDS = frozenset(_REQUIRED_TOP_LEVEL_FIELDS)
+#: ``feature_library`` (IR-07) is additive and optional: a manifest built
+#: before IR-07 has no such block and remains valid; a manifest that declares
+#: one must satisfy ``_validate_feature_library`` below.
+_ALLOWED_TOP_LEVEL_FIELDS = frozenset(_REQUIRED_TOP_LEVEL_FIELDS) | {"feature_library"}
+
+_VERSION_PATTERN = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
+_WHEEL_FILENAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.whl$")
 
 
 class InferenceReleaseContractError(ValueError):
@@ -143,6 +150,20 @@ class ReleaseScientificMetadata:
 
 
 @dataclass(frozen=True)
+class ReleaseFeatureLibrary:
+    """``feature_library`` block (IR-07, optional/additive): the exact
+    standalone XRD feature-library wheel this release binds, release-bound
+    rather than globally installed.
+    """
+
+    distribution: str
+    version: str
+    contract: str
+    wheel_filename: str
+    wheel_sha256: str
+
+
+@dataclass(frozen=True)
 class ReleaseBuild:
     """``build`` block: source repository and full commit, build identity
     and provenance reference.
@@ -168,6 +189,7 @@ class InferenceReleaseManifest:
     scientific_metadata: ReleaseScientificMetadata
     golden_tests: tuple[ReleaseFileRef, ...]
     build: ReleaseBuild
+    feature_library: ReleaseFeatureLibrary | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -429,6 +451,73 @@ def _validate_scientific_metadata(data: Any) -> ReleaseScientificMetadata:
     )
 
 
+def _validate_feature_library(
+    data: Any, *, files: Sequence[ReleaseFileRef],
+) -> ReleaseFeatureLibrary:
+    body = _require_dict(data, field_name="feature_library")
+    allowed = {"distribution", "version", "contract", "wheel_filename", "wheel_sha256"}
+    extra = set(body) - allowed
+    if extra:
+        raise InferenceReleaseContractError(
+            f"feature_library has unsupported fields: {sorted(extra)}"
+        )
+    distribution = _require_identity(
+        body.get("distribution"), field_name="feature_library.distribution"
+    )
+    version = body.get("version")
+    if not isinstance(version, str) or not _VERSION_PATTERN.match(version):
+        raise InferenceReleaseContractError(
+            f"feature_library.version must be a MAJOR.MINOR.PATCH string: {version!r}"
+        )
+    contract = _require_identity(body.get("contract"), field_name="feature_library.contract")
+    wheel_filename = body.get("wheel_filename")
+    if (
+        not isinstance(wheel_filename, str)
+        or not _WHEEL_FILENAME_PATTERN.match(wheel_filename)
+        or "/" in wheel_filename
+        or "\\" in wheel_filename
+        or ".." in wheel_filename
+    ):
+        raise InferenceReleaseContractError(
+            f"feature_library.wheel_filename must be a plain '*.whl' basename: {wheel_filename!r}"
+        )
+    wheel_sha256 = _require_sha256(
+        body.get("wheel_sha256"), field_name="feature_library.wheel_sha256"
+    )
+
+    wheel_refs = [ref for ref in files if ref.role == "feature_library_wheel"]
+    if not wheel_refs:
+        raise InferenceReleaseContractError(
+            "feature_library is declared but no files[] entry has "
+            "role='feature_library_wheel'"
+        )
+    if len(wheel_refs) > 1:
+        raise InferenceReleaseContractError(
+            "feature_library requires exactly one files[] entry with "
+            "role='feature_library_wheel'; found multiple/ambiguous entries"
+        )
+    wheel_ref = wheel_refs[0]
+    if wheel_ref.relative_path.rsplit("/", 1)[-1] != wheel_filename:
+        raise InferenceReleaseContractError(
+            "feature_library.wheel_filename does not match the "
+            f"feature_library_wheel files[] entry: {wheel_filename!r} != "
+            f"{wheel_ref.relative_path!r}"
+        )
+    if wheel_ref.sha256 != wheel_sha256:
+        raise InferenceReleaseContractError(
+            "feature_library.wheel_sha256 does not match the "
+            "feature_library_wheel files[] entry's sha256"
+        )
+
+    return ReleaseFeatureLibrary(
+        distribution=distribution,
+        version=version,
+        contract=contract,
+        wheel_filename=wheel_filename,
+        wheel_sha256=wheel_sha256,
+    )
+
+
 def _validate_build(data: Any) -> ReleaseBuild:
     body = _require_dict(data, field_name="build")
     allowed = {"source_repository", "commit", "build_id", "provenance_reference"}
@@ -492,6 +581,10 @@ def validate_release_manifest(data: Mapping[str, Any]) -> InferenceReleaseManife
 
     _validate_no_duplicate_paths(files, golden_tests)
 
+    feature_library: ReleaseFeatureLibrary | None = None
+    if "feature_library" in data:
+        feature_library = _validate_feature_library(data["feature_library"], files=files)
+
     return InferenceReleaseManifest(
         schema_version=schema_version,
         release_id=release_id,
@@ -503,4 +596,5 @@ def validate_release_manifest(data: Mapping[str, Any]) -> InferenceReleaseManife
         scientific_metadata=scientific_metadata,
         golden_tests=golden_tests,
         build=build,
+        feature_library=feature_library,
     )

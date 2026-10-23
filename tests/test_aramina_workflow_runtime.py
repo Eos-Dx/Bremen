@@ -272,12 +272,22 @@ def test_no_external_dependency_or_execution_configuration():
     # PR0139 permits only the opt-in private diagnostic switch. PR0156 moved
     # the diagnostics to the package (trace.py) and pipeline (inference.py), so
     # the env-call invariant is now enforced across those authoritative files.
+    # IR-07 adds exactly one more deliberately-reviewed env surface in
+    # inference.py: BREMEN_FEATURE_LIBRARY_BACKEND, the release-scoped
+    # external-feature-backend selector set only by
+    # ``ml_plugin.release.apply_feature_library_backend`` inside a release
+    # Worker process (see that module and bremen_v01.runtime's identical
+    # seam) — never a general-purpose configuration surface.
+    allowed_env_vars = {
+        "BREMEN_ARAMINA_DEBUG_TRACE",
+        "BREMEN_FEATURE_LIBRARY_BACKEND",
+    }
     for path in (package_dir / "trace.py", package_dir / "inference.py"):
         env_calls = [node for node in ast.walk(ast.parse(path.read_text()))
                      if isinstance(node, ast.Call)
                      and ast.unparse(node.func) == "os.environ.get"]
         assert env_calls
-        assert all(ast.literal_eval(node.args[0]) == "BREMEN_ARAMINA_DEBUG_TRACE"
+        assert all(ast.literal_eval(node.args[0]) in allowed_env_vars
                    for node in env_calls)
 
 
