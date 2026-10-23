@@ -632,21 +632,16 @@ class TestLegacyDefault:
         )()
         assert sr.is_candidate_enabled_for(entry) is False
 
-    def test_registry_factories_omit_runtime_kwarg_when_candidate_disabled(self, monkeypatch):
-        """The existing byte-for-byte construction-call regression test
-        (tests/test_aramina_workflow_runtime.py::test_bremen_construction_unchanged)
-        already proves this at the ``bremen_descriptor`` call-shape level;
-        this test additionally proves ``_candidate_runtime_for`` itself
-        returns None (so no caller can be tempted to pass a non-None
-        runtime) when the candidate route is disabled.
-        """
+    def test_registry_factories_select_release_runtime_without_candidate_allowlist(self, monkeypatch):
+        """IR-06 makes a validated runtime_release authoritative."""
         monkeypatch.delenv(sr.ENV_CANDIDATE_MODELS, raising=False)
+        monkeypatch.setenv("BREMEN_MODEL_CATALOG_URI", "s3://bucket/catalog/")
         from bremen.platform.runtime.registry import _candidate_runtime_for
 
         entry = type(
             "Entry", (), {"model_id": MODEL_ID, "get_runtime_release": lambda self: {"x": 1}},
         )()
-        assert _candidate_runtime_for(entry) is None
+        assert _candidate_runtime_for(entry).__class__.__name__ == "SubprocessRuntime"
 
     def test_candidate_failure_does_not_trigger_legacy_fallback(self, tmp_path, monkeypatch):
         """A candidate failure must surface as a mapped failure, never

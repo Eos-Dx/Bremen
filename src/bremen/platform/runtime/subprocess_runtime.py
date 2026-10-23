@@ -25,10 +25,9 @@ The plugin itself is only ever reached as a string in an ``argv`` list
 (``python -m bremen.ml_plugin.entrypoint ...``), spawned as a child process —
 never imported into this process.
 
-Candidate route (disabled by default): see ``is_candidate_enabled_for``.
-Nothing here changes behavior for a model unless that model's id is listed in
-``BREMEN_CANDIDATE_SUBPROCESS_MODELS`` (platform configuration, not user
-request data) *and* its catalog entry carries a valid ``runtime_release``.
+Release-backed route: a validated ``runtime_release`` is authoritative. The
+legacy candidate allowlist remains only as a compatibility helper for older
+IR-05 callers and must not control release-backed routing.
 """
 
 from __future__ import annotations
@@ -245,8 +244,7 @@ class SubprocessRuntime:
     # -- ModelRuntime protocol -------------------------------------------
 
     def model_ready(self) -> bool:
-        """For candidate runtime: return True if candidate is enabled (may
-        attempt installation), False otherwise.
+        """Return True when the catalog selected this release runtime.
 
         This is NOT "release is already on disk" but "runtime is configured
         and may attempt installation". The actual cache-warm check happens
@@ -257,7 +255,8 @@ class SubprocessRuntime:
         call will then attempt ReleaseCache.install() and fail with a clear
         error if the release is truly unavailable (not just uncached).
         """
-        return is_candidate_enabled_for(self._entry)
+        getter = getattr(self._entry, "get_runtime_release", None)
+        return callable(getter) and bool(getter())
 
     def model_requirements(self) -> ModelRequirements:
         result = self._invoke(operation="requirements", model_input=None)

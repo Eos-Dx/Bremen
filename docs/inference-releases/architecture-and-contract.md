@@ -82,6 +82,64 @@ Initial target is at most one scientific invocation per instance, subject to IR-
 
 Installation uses an interprocess lock per release digest. Verify all files before use; install wheels (the ML plugin wheel and its pinned dependency closure) offline with hashes and no source builds. Build a venv at its final digest-qualified path: moving a built venv may break absolute interpreter paths. Run the release's golden tests as the smoke check gating the PUBLISHED→VERIFIED and VERIFIED→READY transitions; write a READY marker only after installation and smoke validation pass — interrupted installations are never executable. Evict only unreferenced inactive releases under a disk budget. Never evict a running worker's environment. No public endpoint may choose arbitrary S3 keys or install arbitrary packages.
 
+## Feature library architecture (to implement in IR-07)
+
+Status: target design for IR-07, added 2026-10-23. Not implemented by this documentation change. This section documents the target dependency direction only; it changes no scientific definitions.
+
+The XRD inference feature computation must be separated from Bremen into its own standalone, independently versioned Python wheel before legacy cleanup (IR-08) proceeds. Target dependency direction:
+
+```text
+Bremen Harness
+    -> Model Release
+        -> ML plugin wheel
+        -> XRD feature-library wheel
+        -> model artifact
+        -> pinned dependencies
+        -> golden tests
+```
+
+The feature library is **not** globally installed into the Bremen/App Runner runtime. Each Model Release independently binds the exact feature-library wheel it needs (filename, version and SHA-256 recorded in that release's manifest, consistent with `scientific_metadata` above) and installs it into that release's own venv. Different releases may use the same wheel SHA, different wheel versions, or different frozen scientific contracts — but none may depend on a mutable or shared runtime installation.
+
+### The 15 frozen Bremen feature functions
+
+The exact names and this exact order are part of the model contract and MUST NOT change under extraction:
+
+```text
+weightedrms1
+sigma_l1
+sigma_r1
+mahalanobis1
+weightedrms2
+sigma_l2
+sigma_r2
+mahalanobis2
+peak14_intensity
+mean_peak_value_raw
+wasserstein_distance_muLR
+cosine_distance_full_q2
+wasserstein_distance_full_q2
+meanrms1
+meanrms2
+```
+
+### Scientific contracts remain distinct
+
+IR-07 does not unify computation modes. At minimum the feature library preserves, as separate frozen contracts:
+
+- **Bremen v0.1 contract** — existing v0.1 ROI/normalization/pairing semantics.
+- **Bremen v0.2 contract** — existing v0.2 ROI/normalization/pairing semantics.
+- **Aramina** — consumes its existing frozen feature subset/derived values only; Aramina must not be forced to consume all 15 Bremen features.
+
+No silent unification of ROI, normalization or pairing behavior across contracts.
+
+### Ownership
+
+| Owner | Responsibility |
+|---|---|
+| Platform/Bremen | Harness, catalog routing, ReleaseCache, venv installation, Worker supervision, protocol, report projection |
+| Feature library | Reusable XRD feature computation, frozen scientific feature contracts, feature schema/order validation, unit/golden tests |
+| ML plugin | Selecting the contract/version, model-specific preprocessing orchestration, model artifact loading, inference/postprocessing |
+
 ## Final architectural acceptance
 
 The design is accepted for this roadmap block only if a new, conforming Model Release — manifest, artifacts, ML plugin wheel, pinned dependencies, provenance and golden tests — can be published and carried through VERIFIED → READY → ACTIVE without rebuilding the Bremen application image and without changing any Harness code. Onboarding model six (or later) is an operational/catalog action bounded by the contracts in this document, not a platform source change.

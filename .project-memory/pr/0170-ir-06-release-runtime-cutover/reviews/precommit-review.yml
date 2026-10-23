@@ -1,0 +1,204 @@
+verdict: READY FOR COMMIT
+review_type: precommit-review
+reviewed_at: 2026-10-23
+branch: 0170-ir-06-apprunner-parity-activation
+pr: 0170-ir-06-release-runtime-cutover
+
+files_reviewed:
+  implementation:
+    - src/bremen/platform/models/discovery.py
+    - src/bremen/platform/runtime/registry.py
+    - src/bremen/platform/runtime/subprocess_runtime.py
+  tests:
+    - tests/test_s3_model_discovery.py
+    - tests/test_ir05_subprocess_runtime.py
+    - tests/test_ir06_release_cutover.py
+  documentation:
+    - ROADMAP.md
+    - docs/inference-releases/architecture-and-contract.md
+    - docs/inference-releases/implementation-plan.md
+    - docs/inference-releases/operations.md
+    - docs/inference-releases/parity-and-rollout.md
+  project_memory:
+    - .project-memory/pr/0170-ir-06-release-runtime-cutover/IMPLEMENTATION_REPORT.md
+    - .project-memory/pr/0170-ir-06-release-runtime-cutover/CUTOVER_EVIDENCE.md
+    - .project-memory/pr/0170-ir-06-release-runtime-cutover/FIVE_RELEASE_PARITY.md
+    - .project-memory/pr/0170-ir-06-release-runtime-cutover/reviews/precommit-review.yml
+
+change_reconciliation:
+  stale_apprunner_audit_memory: removed
+  unrelated_files: none_seen
+  infrastructure_changes: none
+  scientific_algorithm_changes: none_seen
+  threshold_or_feature_changes: none_seen
+  exact_untracked_scope:
+    - tests/test_ir06_release_cutover.py
+    - .project-memory/pr/0170-ir-06-release-runtime-cutover/
+
+discovery_cutover:
+  status: PASS
+  evidence: >-
+    runtime_release entries are accepted before legacy artifact handling;
+    discovery does not stage, checksum, deserialize, adapt, or create a legacy
+    artifact path. Release verification remains in ReleaseCache.install().
+
+manifest_only_release_discovery:
+  status: PASS
+  evidence: >-
+    The manifest-only fake-S3 test discovers an available RegistryModelEntry,
+    preserves runtime_release, leaves _artifact_path empty, and fails if the
+    legacy staging helper is called.
+
+legacy_compatibility:
+  status: PASS
+  evidence: >-
+    Existing discovery and legacy Bremen/Aramina tests pass. The migration
+    rule is runtime_release present => release route; absent => legacy route.
+
+routing_authority:
+  status: PASS
+  evidence: >-
+    Runtime registry selects SubprocessRuntime from a validated runtime_release
+    without BREMEN_CANDIDATE_SUBPROCESS_MODELS. The old helper remains only as
+    compatibility surface and is not consulted by registry routing.
+
+descriptor_import_boundary:
+  status: PASS
+  evidence: >-
+    Explicit runtime descriptors do not import or instantiate legacy runtime
+    classes. Dynamic subprocess tests prove the behavior.
+
+discovery_import_boundary:
+  status: PASS
+  evidence: >-
+    The top-level scientific import was removed; the legacy adapter/decision
+    imports are inside the legacy branch. Dynamic import test passes with the
+    repository source path.
+
+registry_entry_semantics:
+  status: PASS
+  evidence: >-
+    Release entries retain private runtime_release, use an empty legacy package
+    and empty artifact path, remain configured/ready, and do not expose private
+    release metadata through safe serialization.
+
+s3_release_path:
+  status: PASS
+  evidence: >-
+    No downloader, installer, cache, or resolver was added. SubprocessRuntime
+    continues to call ReleaseCache.install(entry), which owns trusted catalog
+    resolution, verification, offline installation, and READY state.
+
+venv_execution:
+  status: PASS
+  evidence: >-
+    Worker argv uses InstalledRelease.main_python, the digest-qualified release
+    environment executable. Existing IR-05 supervision tests cover the launch
+    boundary; no request-provided executable or PATH lookup is used.
+
+parent_scientific_boundary:
+  status: PASS
+  evidence: >-
+    Dynamic import tests and the existing supervisor import-boundary coverage
+    keep plugin/model scientific execution in the child release process.
+
+no_fallback:
+  status: PASS
+  evidence: >-
+    Existing IR-05 install-failure, timeout, protocol, crash, and failure tests
+    preserve direct release-route failure with no legacy retry.
+
+five_model_cutover:
+  status: PASS
+  evidence: >-
+    Seven cutover tests route all five exact model IDs without the candidate
+    allowlist. Five-release parity independently passes 21 cases; B2 retains
+    probability 0.7726940329943811, threshold 0.3585907282566089, prediction 1.
+
+aramina_failure_regression:
+  status: PASS
+  evidence: >-
+    IR-05 structured failure tests remain included; preprocessing_diagnostic,
+    failure_stage, malformed-details rejection, and projection behavior remain
+    covered.
+
+discovery_safety:
+  status: PASS
+  evidence: >-
+    Discovery suite passes duplicate handling, malformed runtime_release,
+    invalid manifests, safe serialization, candidate limits, checksums,
+    Aramina validation, and unknown workflow/artifact cases.
+
+roadmap_consistency:
+  status: PASS
+  evidence: >-
+    ROADMAP.md now consistently describes IR-01 through IR-08, including the
+    amended IR-07 feature-library step and IR-08 cleanup step.
+
+ir07_feature_library_definition:
+  status: PASS
+  evidence: >-
+    Active roadmap and architecture docs define a standalone versioned wheel,
+    exact 15 names/order, release-bound filename/version/SHA, per-release venv,
+    no global Harness install/import, distinct Bremen v0.1/v0.2 and Aramina
+    contracts, and no forced semantic unification. IR-07 is documented only.
+
+ir08_cleanup_definition:
+  status: PASS
+  evidence: >-
+    IR-08 is explicitly after IR-07 and postpones removal of embedded science,
+    feature code, legacy dependencies/configuration, and legacy discovery until
+    consumer audit and rollback evidence exist.
+
+project_memory_consistency:
+  status: PASS
+  evidence: >-
+    Memory describes release-runtime cutover, explicitly says live AWS/App
+    Runner is not part of this pass, records local validation, and names IR-07
+    as the next architecture step. Obsolete App Runner audit memory is absent.
+
+simplicity:
+  status: PASS
+  evidence: >-
+    Changes reuse RegistryModelEntry, runtime registry, ReleaseCache,
+    SubprocessRuntime, and the existing worker protocol. No second registry,
+    installer, cache, routing framework, or infrastructure layer was added.
+
+validation:
+  compileall: PASS
+  focused_cutover_discovery_registry_ir05: "223 passed"
+  relevant_ir03_ir04_worker: "613 passed"
+  five_release_parity: "21 passed"
+  full_suite: "4508 passed, 8 skipped, 40 warnings"
+  git_diff_check: PASS
+  ruff: unavailable
+
+warnings:
+  - >-
+    No live AWS/App Runner validation was performed or claimed; this review is
+    local implementation evidence only.
+  - >-
+    The current repository uses InstalledRelease.main_python as the field name
+    for the release venv executable; it is the required executable boundary.
+
+blockers: []
+
+commit_readiness: READY_FOR_COMMIT
+exact_staging_files:
+  - ROADMAP.md
+  - docs/inference-releases/architecture-and-contract.md
+  - docs/inference-releases/implementation-plan.md
+  - docs/inference-releases/operations.md
+  - docs/inference-releases/parity-and-rollout.md
+  - src/bremen/platform/models/discovery.py
+  - src/bremen/platform/runtime/registry.py
+  - src/bremen/platform/runtime/subprocess_runtime.py
+  - tests/test_ir05_subprocess_runtime.py
+  - tests/test_s3_model_discovery.py
+  - tests/test_ir06_release_cutover.py
+  - .project-memory/pr/0170-ir-06-release-runtime-cutover/IMPLEMENTATION_REPORT.md
+  - .project-memory/pr/0170-ir-06-release-runtime-cutover/CUTOVER_EVIDENCE.md
+  - .project-memory/pr/0170-ir-06-release-runtime-cutover/FIVE_RELEASE_PARITY.md
+  - .project-memory/pr/0170-ir-06-release-runtime-cutover/reviews/precommit-review.yml
+next_required_action: >-
+  Human owner may stage the exact files listed above and commit after review.

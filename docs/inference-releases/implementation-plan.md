@@ -1,6 +1,6 @@
-# Seven-PR implementation plan
+# Eight-PR implementation plan
 
-Status: planned; none executed by this documentation bundle. These are seven implementation PRs after the documentation adoption PR. Logical IR IDs are stable; actual repository PR numbers are assigned later. Every implementation PR must include its own approved PLAN, independent reviews required by project_contract.yml, evidence and rollback notes. This document is not an approval artifact.
+Status: planned; none executed by this documentation bundle. These are eight implementation PRs after the documentation adoption PR (amended 2026-10-23 to insert IR-07, External XRD feature-library integration, before the former IR-07 cleanup PR, now renumbered IR-08). Logical IR IDs are stable; actual repository PR numbers are assigned later. Every implementation PR must include its own approved PLAN, independent reviews required by project_contract.yml, evidence and rollback notes. This document is not an approval artifact.
 
 Scope rule: preserve the verified scientific behavior of each of five exact variants. If access, identity, resource feasibility or parity is unresolved, mark the gate blocked rather than guessing. Do not mark a family complete on behalf of all its variants.
 
@@ -68,22 +68,34 @@ Scope rule: preserve the verified scientific behavior of each of five exact vari
 
 **Entry:** Requires local parity and resource gates. Operator authorization required for deployment/activation.
 
-**Work:** Deploy candidate-capable image in authorized environment, run sequential paired comparisons with legacy authoritative, verify cold/warm/restart/failure behavior and diagnostics, then carry each release through VERIFIED → READY → ACTIVE, activating exact model identities one at a time after review.
+**Work:** Cut catalog entries carrying `runtime_release` over to the authoritative release path: manifest-only discovery, lazy `ReleaseCache.install()`, offline wheelhouse/venv installation, supervised `bremen.worker.v1` execution, and existing result projection. Preserve legacy discovery/runtime only for entries without `runtime_release`; verify all five release-backed routes locally before a separately authorized operational rollout.
 
-**Gate:** Each of five has App Runner parity evidence, resource/cost measurements, reviewed activation and rollback record. No duplicate reports. Existing job/polling behavior documented and tested under actual service topology.
+**Gate:** Each of five executes through the release-backed route without the candidate allowlist, with no legacy artifact load/import in the parent, no automatic fallback, preserved public contracts, and local parity evidence. App Runner parity, resource/cost measurements, activation and rollback remain operational rollout work and are not claimed by this implementation PR.
 
-**Rollback:** Restore pinned old catalog configuration and compatible image as needed; retain artifacts and old config. Do not mutate active workers.
+**Rollback:** Restore the previous compatible catalog configuration and image; do not retry an individual failed request through legacy inference.
 
 [Detailed PR brief](../../.project-memory/pr/ir-06/PLAN.md).
 
-## IR-07: Cleanup after all-five cutover
+## IR-07: External XRD feature-library integration
 
-**Entry:** Requires all five activated and accepted plus rollback rehearsal and agreed observation window.
+**Entry:** Requires IR-06 cutover accepted. Must happen before legacy cleanup (IR-08).
 
-**Work:** Audit all consumers, remove migrated embedded inference dependencies and obsolete interpreter/model variables, slim runtime image where safe, retain training requirements and independent tools. Update operations and active memory with final release mapping and measured limits.
+**Work:** Extract all 15 Bremen XRD feature functions (`weightedrms1`, `sigma_l1`, `sigma_r1`, `mahalanobis1`, `weightedrms2`, `sigma_l2`, `sigma_r2`, `mahalanobis2`, `peak14_intensity`, `mean_peak_value_raw`, `wasserstein_distance_muLR`, `cosine_distance_full_q2`, `wasserstein_distance_full_q2`, `meanrms1`, `meanrms2`, in this exact frozen order) into a standalone, independently versioned Python package. Each Model Release binds a pinned feature-library wheel (filename, version and SHA-256 release-bound in the manifest) and installs it into its own release-owned virtual environment; the feature library is never globally installed into the Bremen/App Runner runtime, and different releases may pin different wheel versions or the same SHA. The ML plugin consumes the feature-library package; the Bremen Harness does not import feature/scientific implementation. See [Feature library architecture](architecture-and-contract.md#feature-library-architecture-to-implement-in-ir-07) for the dependency direction, ownership split and preserved scientific contracts. Do not change scientific definitions in this PR.
 
-**Gate:** Fresh image passes all-five parity and service contract checks. Consumer audit shows no broken training/CLI/source/auth paths. Rollback image, manifests, config and artifacts retained and restorable. No ECS resources introduced.
+**Gate:** All 15 feature functions live in the standalone package; Harness has no feature/scientific import; ML plugin consumes the package; every Model Release manifest carries a pinned, release-bound feature-library wheel (filename/version/SHA-256) installed into that release's own venv; B1/B2/B3 exact feature names/order remain frozen; Aramina consumes only its required frozen subset/contract (not forced onto all 15 Bremen features); Bremen v0.1 and v0.2 scientific semantics remain distinct with no silent unification of ROI/normalization/pairing behavior; all five model outputs retain existing parity; adding a future conforming model does not require a Bremen rebuild.
+
+**Rollback:** Releases keep their previously installed feature-library wheel version; no shared/mutable runtime installation to roll back.
+
+[Detailed PR brief](../../.project-memory/pr/ir-07/PLAN.md).
+
+## IR-08: Legacy inference cleanup after all-five cutover
+
+**Entry:** Requires IR-07 accepted (feature library externalized and release-bound) in addition to all five activated and accepted plus rollback rehearsal and agreed observation window.
+
+**Work:** Audit all consumers, remove migrated embedded inference dependencies, feature/scientific code and obsolete interpreter/model variables now that each release owns its ML plugin and feature-library wheel, slim runtime image where safe, retain training requirements and independent tools. Remove legacy artifact loading/discovery when no longer consumed. Update operations and active memory with final release mapping and measured limits.
+
+**Gate:** All five models use release-owned ML plugin and release-owned feature library. Fresh image passes all-five parity and service contract checks. Consumer audit shows no broken training/CLI/source/auth paths. Rollback image, manifests, config and artifacts retained and restorable. No ECS resources introduced.
 
 **Rollback:** Redeploy retained previous image and its catalog/config; pointer-only rollback is not sufficient after legacy code removal.
 
-[Detailed PR brief](../../.project-memory/pr/ir-07/PLAN.md).
+[Detailed PR brief](../../.project-memory/pr/ir-08/PLAN.md).

@@ -2,7 +2,7 @@
 
 Rebaseline: 2026-10-20. Status: proposed documentation baseline; implementation gates are NOT completed.
 
-This document becomes the authoritative execution sequence when the documentation PR is merged. Merging it does not authorize production deployment or certify model equivalence. Logical IDs IR-01–IR-07 are not GitHub PR numbers; allocate repository PR numbers when work starts.
+This document becomes the authoritative execution sequence when the documentation PR is merged. Merging it does not authorize production deployment or certify model equivalence. Logical IDs IR-01–IR-08 are not GitHub PR numbers; allocate repository PR numbers when work starts.
 
 ## Objective and scope
 
@@ -31,16 +31,21 @@ The latest mention of “OpenResty” is interpreted as referring to the existin
 | IR-03 | Standalone inference wheels and reproducible release builds | All five run outside the Bremen application with offline dependencies and parity evidence |
 | IR-04 | S3 release installation and bounded local cache | Verified, race-safe installation; legacy discovery still works; no activation |
 | IR-05 | Supervised subprocess runtime integration | Candidate route disabled by default; lifecycle/error/concurrency tests pass |
-| IR-06 | Per-model App Runner verification and controlled activation | Each of five has environment-specific parity and reviewed activation evidence |
-| IR-07 | Remove obsolete dependencies/configuration | All five cut over; consumer audit clean; rollback demonstrably available |
+| IR-06 | Release-runtime cutover and per-model operational rollout | Each of five routes through its immutable release locally; App Runner parity/activation remains separately authorized operational work |
+| IR-07 | External XRD feature-library integration | All 15 Bremen XRD feature functions live in a standalone versioned Python wheel, release-bound (not globally installed); Harness does not import feature/scientific implementation; B1/B2/B3 feature names/order frozen; Bremen v0.1/v0.2 and Aramina scientific contracts remain distinct; all five outputs retain existing parity |
+| IR-08 | Legacy inference cleanup | All five models use release-owned ML plugin + release-owned feature library; obsolete embedded scientific/feature code and model-specific runtime dependencies/config removed where safe; consumer audit clean; rollback demonstrably available |
 
 Each PR depends on the preceding gate. Stop at failed gates and record evidence; do not silently weaken acceptance criteria. A gate requiring deployment/artifact access stays pending until that evidence exists. Existing project-contract plan-review and precommit-review requirements still apply; this bundle provides no reviewer approvals.
 
 ## Contract terminology and final acceptance (2026-10-20 rebaseline)
 
-IR-01 through IR-07 and their order are unchanged by this rebaseline. The architecture is now described using the Harness/Model Runner/common Worker (platform-owned) versus ML plugin (ML-team-owned) terminology in [ADR 0019](docs/adr/0019-independent-inference-releases-app-runner.md) and [architecture-and-contract.md](docs/inference-releases/architecture-and-contract.md); the Worker protocol is file-based (`request.json` + `input.h5` -> `result.json`), not stdin/stdout JSON Lines; and each release carries an explicit PUBLISHED → VERIFIED → READY → ACTIVE lifecycle. Final architectural acceptance for this block: a new conforming Model Release can be published and activated without rebuilding Bremen or changing Harness code. V2 persistent workers and V3 OCI-packaged releases are documented in ADR 0019 as optional future directions, not current implementation tasks.
+IR-01 through IR-06 and their order are unchanged by this rebaseline. The architecture is now described using the Harness/Model Runner/common Worker (platform-owned) versus ML plugin (ML-team-owned) terminology in [ADR 0019](docs/adr/0019-independent-inference-releases-app-runner.md) and [architecture-and-contract.md](docs/inference-releases/architecture-and-contract.md); the Worker protocol is file-based (`request.json` + `input.h5` -> `result.json`), not stdin/stdout JSON Lines; and each release carries an explicit PUBLISHED → VERIFIED → READY → ACTIVE lifecycle. Final architectural acceptance for this block: a new conforming Model Release can be published and activated without rebuilding Bremen or changing Harness code. V2 persistent workers and V3 OCI-packaged releases are documented in ADR 0019 as optional future directions, not current implementation tasks.
 
-## Non-goals for all seven PRs
+## Sequence amendment (2026-10-23)
+
+The future sequence after IR-06 is amended: the former IR-07 ("Remove obsolete dependencies/configuration") is renumbered to IR-08 and now follows a new IR-07 ("External XRD feature-library integration"), inserted because feature computation must be separated from Bremen into its own versioned wheel before legacy cleanup proceeds. IR-01 through IR-06 are unchanged by this amendment. See [implementation-plan.md](docs/inference-releases/implementation-plan.md) and [architecture-and-contract.md](docs/inference-releases/architecture-and-contract.md) for the full IR-07/IR-08 definitions and the feature-library architecture.
+
+## Non-goals for all eight PRs
 
 No ECS migration, ECS Terraform/CloudFormation, GPU fleet, queue redesign, new model mathematics, feature standardization, retraining, threshold changes, or mandatory MLflow serving adoption. Existing experiment tracking is preserved. Framework-neutral model contracts and scientific invariants remain binding.
 

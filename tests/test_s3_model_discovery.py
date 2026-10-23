@@ -2355,6 +2355,21 @@ class TestRuntimeReleaseCatalogExtension:
         assert result.available_count == 1
         assert result.entries[0].get_runtime_release() == extension
 
+    def test_release_backed_manifest_only_skips_legacy_artifact(self, tmp_path, monkeypatch):
+        """IR-06: runtime_release is executable without a sibling joblib."""
+        extension = _make_valid_runtime_release()
+        manifest = _make_manifest(runtime_release=extension)
+        s3 = _make_s3_client({"models/v1/manifest.json": manifest})
+        monkeypatch.setattr(
+            "bremen.platform.models.discovery._stage_and_load_artifact",
+            lambda *args, **kwargs: pytest.fail("legacy artifact must not be staged"),
+        )
+        result = discover_models("s3://bucket/models/", staging_dir=str(tmp_path), _s3_client=s3)
+        assert result.catalog_status == "available"
+        assert result.available_count == 1
+        assert result.entries[0].get_runtime_release() == extension
+        assert result.entries[0]._artifact_path == ""
+
     def test_valid_runtime_release_accepted_on_aramina_manifest(self, tmp_path):
         content = b"aramina-artifact-with-release"
         extension = _make_valid_runtime_release(

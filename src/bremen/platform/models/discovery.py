@@ -28,7 +28,6 @@ from bremen.platform.models.registry import (
     CatalogUnavailableEntry,
     RegistryModelEntry,
 )
-from bremen.model_packages.bremen_v01.predictor import adapt_model_package  # noqa: PLC0415
 from bremen.contracts.inference_release import SCHEMA_ID as _RUNTIME_RELEASE_SCHEMA_ID
 
 _log = logging.getLogger(__name__)
@@ -533,25 +532,27 @@ def _validate_aramina_discovery_fields(data: dict[str, Any]) -> dict[str, Any]:
     if not model_version:
         raise ValueError("Aramina manifest missing model_version")
 
-    model_filename = str(data.get("model_filename", "")).strip()
-    if not model_filename:
-        raise ValueError("Aramina manifest missing model_filename")
+    # Legacy artifact identity is required only while discovery owns the
+    # sibling joblib. A release-backed entry gets its artifact identity from
+    # the immutable runtime-release manifest and may be manifest-only here.
+    if "runtime_release" not in data:
+        model_filename = str(data.get("model_filename", "")).strip()
+        if not model_filename:
+            raise ValueError("Aramina manifest missing model_filename")
 
-    # Validate model_filename is a safe basename — no path traversal
-    if ".." in model_filename or "/" in model_filename or "\\" in model_filename:
-        raise ValueError("Aramina model_filename contains path traversal characters")
+        if ".." in model_filename or "/" in model_filename or "\\" in model_filename:
+            raise ValueError("Aramina model_filename contains path traversal characters")
 
-    model_checksum = str(data.get("model_checksum", "")).strip()
-    if not model_checksum:
-        raise ValueError("Aramina manifest missing model_checksum")
+        model_checksum = str(data.get("model_checksum", "")).strip()
+        if not model_checksum:
+            raise ValueError("Aramina manifest missing model_checksum")
 
-    # Validate checksum is exactly 64-char lowercase SHA256 hex
-    import re as _re  # noqa: PLC0415
-    if not _re.fullmatch(r"[a-f0-9]{64}", model_checksum):
-        raise ValueError(
-            f"Aramina model_checksum must be 64-char lowercase hex SHA256, "
-            f"got {model_checksum[:8]}..."
-        )
+        import re as _re  # noqa: PLC0415
+        if not _re.fullmatch(r"[a-f0-9]{64}", model_checksum):
+            raise ValueError(
+                f"Aramina model_checksum must be 64-char lowercase SHA256, "
+                f"got {model_checksum[:8]}..."
+            )
 
     fs_version = str(data.get("feature_schema_version", "")).strip()
     if not fs_version:
@@ -942,7 +943,7 @@ def discover_models(
             artifact_type_raw = str(data.get("artifact_type", "portable_logreg"))
             is_aramina = artifact_type_raw == _ARAMINA_ARTIFACT_TYPE
 
-            if not is_aramina:
+            if not is_aramina and "runtime_release" not in data:
                 # Call the existing Bremen-only base manifest validator
                 from bremen.model_package import validate_model_manifest  # noqa: PLC0415
                 validate_model_manifest(data)
@@ -1047,10 +1048,6 @@ def discover_models(
     result.unavailable_count = len(result.unavailable_entries)
 
     # ---- Phase 3: Process unique candidates through full pipeline ----
-    from bremen.model_packages.bremen_v01.decision import (  # noqa: PLC0415
-        DECISION_POLICY_ID,
-        DECISION_POLICY_VERSION,
-    )
 
     entries: list[RegistryModelEntry] = []
     pkg_dir_map = {d.name: d for d in pkg_dirs}
@@ -1064,7 +1061,42 @@ def discover_models(
         display_name = str(data["display_name"]).strip()
         workflow_id = str(data["workflow_id"])
 
-        # If no .joblib artifact but valid identity, create identified disabled
+        # A release-backed entry is manifest-only at this boundary. Its
+        # scientific artifact is owned by the immutable runtime release and is
+        # fetched/verified lazily by ReleaseCache.install().
+        runtime_release = data.get("runtime_release")
+        if isinstance(runtime_release, dict):
+            model_version = str(data.get("model_version", "unknown"))
+            feature_schema_version = str(data.get("feature_schema_version", "v0.1"))
+            entry = RegistryModelEntry(
+                model_id=model_id,
+                display_name=display_name,
+                workflow_id=workflow_id,
+                model_version=model_version,
+                artifact_type=str(data.get("artifact_type", "portable_logreg")),
+                feature_schema_version=feature_schema_version,
+                decision_policy_id=str(data.get("decision_policy_id", "")),
+                decision_policy_version=str(data.get("decision_policy_version", "")),
+                technical_ready=True,
+                scientifically_certified=False,
+                technical_demo_only=True,
+                availability="available",
+                _package={},
+                _checksum=str(data.get("model_checksum", "")),
+                _artifact_path="",
+                _clinical_stage=str(data.get("clinical_stage", "")),
+                _container_requirements=container_requirements_data.get(dname),
+                _runtime_release=runtime_release,
+            )
+            entries.append(entry)
+            result.available_count += 1
+            _log.info(
+                "bremen.catalog.candidate.accepted\tmodel_id=%s\ttype=runtime_release",
+                model_id,
+            )
+            continue
+
+        # Legacy entries still require the sibling artifact.
         if pkg_dir is None or not pkg_dir.has_joblib:
             entry = CatalogUnavailableEntry(
                 kind="identified",
@@ -1134,6 +1166,15 @@ def discover_models(
             # Stage and load artifact
             package = _stage_and_load_artifact(
                 _s3_client, bucket, artifact_key, expected_checksum, staging_dir,
+            )
+
+            # Legacy-only scientific import and package adaptation.
+            from bremen.model_packages.bremen_v01.predictor import (  # noqa: PLC0415
+                adapt_model_package,
+            )
+            from bremen.model_packages.bremen_v01.decision import (  # noqa: PLC0415
+                DECISION_POLICY_ID,
+                DECISION_POLICY_VERSION,
             )
 
             # Adapt real package layout to runtime-expected format
