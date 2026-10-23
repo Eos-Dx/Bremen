@@ -297,7 +297,9 @@ class TestErrorMapping:
         assert result.status == "error"
         assert result.error.code == "PROTOCOL_ERROR"
         assert result.error.safe_reason == "release_directory_missing"
-        assert set(vars(result.error)) == {"code", "safe_reason"}
+        # IR-05: details field is optional and present but None in legacy path
+        assert set(vars(result.error)) == {"code", "safe_reason", "details"}
+        assert result.error.details is None
 
     def test_error_identity_matches_request(self, tmp_path):
         release, _ = _make_release(tmp_path, "b2")

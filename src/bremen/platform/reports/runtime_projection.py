@@ -1,6 +1,8 @@
 """Transport model-owned values into frozen public workflow envelopes."""
 
 import uuid
+from typing import Any, Mapping
+
 from bremen.contracts.execution import WorkflowResult
 from bremen.contracts.model_runtime import (
     RuntimePrediction,
@@ -87,6 +89,60 @@ def bremen_failure(exc):
     return WorkflowResult("bremen", "failed", error=message)
 
 
+def _aramina_error_from_details(details: Any):
+    """Rebuild an allowlisted ``AraminaWorkflowError`` from Worker details.
+
+    IR-05: a candidate Worker transport carries only JSON-safe, already
+    sanitized fields.  Anything outside the existing public vocabulary is
+    rejected here so malformed details can never reach a public projection.
+    """
+    from bremen.model_packages.aramina_v0213.errors import (
+        FAILURE_STAGES,
+        AraminaWorkflowError,
+        _SAFE_FAILURES,
+    )
+
+    allowed = {"aramina_error_code", "failure_stage", "preprocessing_diagnostic"}
+    if not isinstance(details, Mapping) or set(details) - allowed:
+        return None
+    code = details.get("aramina_error_code")
+    if not isinstance(code, str) or code not in _SAFE_FAILURES:
+        return None
+
+    stage = None
+    diagnostic = None
+    if code == "ARAMINA_UNSUPPORTED_INPUT":
+        raw_stage = details.get("failure_stage")
+        if raw_stage is not None:
+            if not isinstance(raw_stage, str) or raw_stage not in FAILURE_STAGES:
+                return None
+            stage = raw_stage
+        raw_diagnostic = details.get("preprocessing_diagnostic")
+        if raw_diagnostic is not None:
+            from bremen.model_packages.aramina_v0213.preprocessing import (  # noqa: PLC0415
+                safe_preprocessing_diagnostic,
+            )
+
+            if not isinstance(raw_diagnostic, Mapping):
+                return None
+            candidate = dict(raw_diagnostic)
+            if any(
+                not isinstance(key, str) or not isinstance(value, str)
+                for key, value in candidate.items()
+            ):
+                return None
+            sanitized = safe_preprocessing_diagnostic(
+                candidate, candidate.get("preprocessing_release", "")
+            )
+            if sanitized != candidate:
+                return None
+            diagnostic = sanitized
+
+    return AraminaWorkflowError(
+        code, stage=stage, preprocessing_diagnostic=diagnostic
+    )
+
+
 def aramina_failure(exc):
     from bremen.model_packages.aramina_v0213.errors import (
         AraminaWorkflowError,
@@ -95,8 +151,17 @@ def aramina_failure(exc):
 
     if isinstance(exc, ModelInputInvalidError):
         exc = AraminaWorkflowError("ARAMINA_INVALID_REQUEST")
+
+    # IR-05 candidate path: reconstruct the allowlisted Aramina failure from
+    # transported Worker details.  Details outside the existing public
+    # vocabulary are ignored, so malformed/arbitrary payloads can never
+    # become public fields.
+    if not isinstance(exc, AraminaWorkflowError):
+        exc = _aramina_error_from_details(getattr(exc, "details", None))
+
     if not isinstance(exc, AraminaWorkflowError):
         return WorkflowResult("aramina", "failed", error="ARAMINA_EXECUTION_FAILED")
+
     unsupported = exc.code == "ARAMINA_UNSUPPORTED_INPUT"
     return WorkflowResult(
         "aramina",

@@ -98,7 +98,7 @@ def bremen_descriptor(
     )
 
 
-def aramina_descriptor(*, entry):
+def aramina_descriptor(*, entry, runtime=None):
     from bremen.model_packages.aramina_v0213 import AraminaRuntime
     from bremen.model_packages.aramina_v0213.errors import AraminaWorkflowError
     from bremen.platform.reports.runtime_projection import (
@@ -108,7 +108,7 @@ def aramina_descriptor(*, entry):
 
     return ModelDescriptor(
         "aramina",
-        AraminaRuntime(entry=entry),
+        runtime if runtime is not None else AraminaRuntime(entry=entry),
         project_aramina,
         aramina_failure,
         model_id=entry.model_id,
@@ -123,19 +123,55 @@ def aramina_descriptor(*, entry):
     )
 
 
+def _candidate_runtime_for(entry):
+    """IR-05: return a ``SubprocessRuntime`` for ``entry`` only when the
+    candidate route is explicitly enabled for this exact model_id (platform
+    configuration) and the entry carries a valid ``runtime_release``.
+    Otherwise ``None`` — callers fall back to building the legacy in-process
+    runtime exactly as before (zero behavior change by default).
+
+    Lazily imported so merely importing this registry module never pulls in
+    subprocess/release-cache machinery; this module itself never imports ML
+    plugin code either way.
+    """
+    from bremen.platform.runtime.subprocess_runtime import (
+        SubprocessRuntime,
+        is_candidate_enabled_for,
+    )
+
+    if not is_candidate_enabled_for(entry):
+        return None
+    return SubprocessRuntime(entry=entry)
+
+
 def _bremen_entry(entry):
-    return bremen_descriptor(
+    candidate_runtime = _candidate_runtime_for(entry)
+    kwargs: dict[str, Any] = dict(
         model_package=entry._package,
         model_checksum=entry._checksum,
         model_version=entry.model_version,
         model_id=entry.model_id,
     )
+    if candidate_runtime is not None:
+        # Only passed when the candidate route is actually enabled, so the
+        # legacy/default construction call shape is byte-for-byte unchanged
+        # (HARD RULE: no deployment changes behavior merely because
+        # runtime_release exists).
+        kwargs["runtime"] = candidate_runtime
+    return bremen_descriptor(**kwargs)
+
+
+def _aramina_entry(entry):
+    candidate_runtime = _candidate_runtime_for(entry)
+    if candidate_runtime is not None:
+        return aramina_descriptor(entry=entry, runtime=candidate_runtime)
+    return aramina_descriptor(entry=entry)
 
 
 # Registration is the only place that knows package identity.
 _FACTORIES: dict[str, Callable[[Any], ModelDescriptor]] = {
     "bremen": _bremen_entry,
-    "aramina": lambda entry: aramina_descriptor(entry=entry),
+    "aramina": _aramina_entry,
 }
 
 
