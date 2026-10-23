@@ -42,6 +42,7 @@ from bremen.ml_plugin.errors import (
 )
 from bremen.ml_plugin.release import (
     ReleaseConfig,
+    apply_feature_library_backend,
     apply_preprocessing_environment,
     load_release_config,
 )
@@ -229,6 +230,7 @@ def execute_operation(
         spec = variant_spec(config.variant)
         _verify_release_binding(request, spec, config)
         apply_preprocessing_environment(config)
+        apply_feature_library_backend(config)
 
         if request.operation == "requirements":
             runtime = runtime_for_requirements(spec)

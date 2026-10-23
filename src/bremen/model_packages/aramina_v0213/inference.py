@@ -37,6 +37,32 @@ from bremen.model_packages.aramina_v0213.errors import AraminaWorkflowError
 from bremen.model_packages.aramina_v0213.trace import _debug_checkpoint, _debug_stage
 from bremen.model_packages_bridge import load_staged_artifact as _load_staged_artifact
 
+# IR-07: release-backed Worker execution computes Aramina's CORE4 symmetry
+# features through the standalone xrd_inference_features wheel bound into
+# that release's own venv — never a shared/global dependency. Same explicit,
+# release-scoped ``BREMEN_FEATURE_LIBRARY_BACKEND`` environment-variable seam
+# as ``bremen_v01.runtime`` (see its comment for why this is checked at call
+# time rather than via import-presence duck typing): the legacy in-process
+# path (the variable unset) keeps using the embedded ``symmetry`` module
+# unchanged until IR-08. The literal name is inlined (not a module constant)
+# to match this file's reviewed env-call allowlist invariant
+# (``test_no_external_dependency_or_execution_configuration``).
+
+
+def _use_external_feature_backend() -> bool:
+    return os.environ.get("BREMEN_FEATURE_LIBRARY_BACKEND") == "xrd_inference_features"
+
+
+def _compute_symmetry_features(dataframe, target_side: str, contract: str) -> dict[str, float]:
+    if _use_external_feature_backend():
+        from xrd_inference_features import aramina_symmetry as _xrd  # noqa: PLC0415
+
+        return _xrd.symmetry_features(dataframe, target_side, contract)
+    from bremen.model_packages.aramina_v0213.symmetry import symmetry_features  # noqa: PLC0415
+
+    return symmetry_features(dataframe, target_side, contract)
+
+
 # Contract identifiers from the manifest (names preserved for verbatim bodies).
 ARTIFACT_TYPE = manifest.ARTIFACT_TYPE
 _ARTIFACT_KIND = manifest.ARTIFACT_KIND
@@ -438,9 +464,8 @@ def _run_local_artifact(
 
         # Step 3: Compute symmetry features
         with _debug_stage("symmetry_features", "execution"):
-            from bremen.model_packages.aramina_v0213.symmetry import symmetry_features
             try:
-                sym_features = symmetry_features(
+                sym_features = _compute_symmetry_features(
                     features_data["dataframe"], request_json["target_side"],
                     model_info.get("symmetry_feature_contract", "aramina_sk_symmetry_v0_1"),
                 )

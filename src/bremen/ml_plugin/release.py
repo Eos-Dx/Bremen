@@ -28,7 +28,9 @@ from bremen.ml_plugin.errors import PluginReleaseError
 __all__ = [
     "ALLOWED_PREPROCESSING_ENV_VARS",
     "AUX_ENV_ROOT_ENV",
+    "FEATURE_LIBRARY_BACKEND_ENV",
     "ReleaseConfig",
+    "apply_feature_library_backend",
     "apply_preprocessing_environment",
     "load_release_config",
     "manifest_digest",
@@ -54,6 +56,15 @@ ALLOWED_PREPROCESSING_ENV_VARS = frozenset({
     "BREMEN_ARAMINA_PREPROCESS_PROVENANCE",
 })
 
+#: IR-07: set only inside the release Worker process, only when this
+#: release's manifest declares a ``feature_library`` block, to select the
+#: standalone xrd_inference_features backend at the scientific runtime
+#: boundary (``bremen_v01.runtime`` / ``aramina_v0213.inference``). Never set
+#: for legacy (pre-IR-07) releases or the in-process legacy execution path,
+#: which keeps computing features through the embedded modules unchanged.
+FEATURE_LIBRARY_BACKEND_ENV = "BREMEN_FEATURE_LIBRARY_BACKEND"
+_ALLOWED_FEATURE_LIBRARY_BACKENDS = frozenset({"xrd_inference_features"})
+
 
 @dataclass(frozen=True)
 class ReleaseConfig:
@@ -64,6 +75,7 @@ class ReleaseConfig:
     artifact_sha256: str
     preprocessing_environment: Mapping[str, str] = field(default_factory=dict)
     manifest_sha256: str = ""
+    feature_library_backend: str = ""
 
     @property
     def artifact_path(self) -> str:
@@ -143,6 +155,13 @@ def load_release_config(release_dir: str) -> ReleaseConfig:
             raise PluginReleaseError("runtime_config_invalid")
         environment[key] = value
 
+    feature_library_backend = data.get("feature_library_backend", "")
+    if feature_library_backend and (
+        not isinstance(feature_library_backend, str)
+        or feature_library_backend not in _ALLOWED_FEATURE_LIBRARY_BACKENDS
+    ):
+        raise PluginReleaseError("unsupported_feature_library_backend")
+
     return ReleaseConfig(
         release_dir=os.path.realpath(release_dir),
         release_id=release_id,
@@ -151,6 +170,7 @@ def load_release_config(release_dir: str) -> ReleaseConfig:
         artifact_sha256=sha256,
         preprocessing_environment=environment,
         manifest_sha256=manifest_digest(release_dir),
+        feature_library_backend=feature_library_backend or "",
     )
 
 
@@ -196,3 +216,17 @@ def apply_preprocessing_environment(config: ReleaseConfig) -> None:
             )
             continue
         raise PluginReleaseError("preprocessing_reference_must_be_release_relative")
+
+
+def apply_feature_library_backend(config: ReleaseConfig) -> None:
+    """Select the external feature backend for this Worker process only.
+
+    Sets ``BREMEN_FEATURE_LIBRARY_BACKEND`` exactly when this release's
+    manifest declared a ``feature_library`` block; a release built before
+    IR-07 has ``feature_library_backend == ""`` and this is a no-op, so the
+    scientific runtime boundary keeps using the embedded implementation
+    unchanged. No other process state is touched.
+    """
+    if not config.feature_library_backend:
+        return
+    os.environ[FEATURE_LIBRARY_BACKEND_ENV] = config.feature_library_backend

@@ -403,3 +403,127 @@ class TestImportBoundary:
         import bremen.contracts.inference_release as mod
 
         assert mod.SCHEMA_ID == "bremen.inference-release.v1"
+
+
+# ---------------------------------------------------------------------------
+# 23. feature_library (IR-07, additive/optional)
+# ---------------------------------------------------------------------------
+
+
+def _feature_library_wheel_ref(**overrides: Any) -> dict[str, Any]:
+    ref = {
+        "role": "feature_library_wheel",
+        "relative_path": "wheels/xrd_inference_features-0.1.0-py3-none-any.whl",
+        "s3_key": "releases/r1/wheels/xrd_inference_features-0.1.0-py3-none-any.whl",
+        "sha256": "e" * 64,
+        "size_bytes": 300,
+    }
+    ref.update(overrides)
+    return ref
+
+
+def _manifest_with_feature_library(**overrides: Any) -> dict[str, Any]:
+    feature_library = {
+        "distribution": "xrd-inference-features",
+        "version": "0.1.0",
+        "contract": "bremen_feature_schema_v0.1",
+        "wheel_filename": "xrd_inference_features-0.1.0-py3-none-any.whl",
+        "wheel_sha256": "e" * 64,
+    }
+    feature_library.update(overrides.pop("feature_library", {}))
+    manifest = _valid_manifest(
+        files=[*_valid_manifest()["files"], _feature_library_wheel_ref()],
+        feature_library=feature_library,
+    )
+    manifest.update(overrides)
+    return manifest
+
+
+class TestFeatureLibrary:
+    def test_manifest_without_feature_library_still_valid(self):
+        """Old (pre-IR-07) manifests remain valid with no feature_library block."""
+        validated = validate_release_manifest(_valid_manifest())
+        assert validated.feature_library is None
+
+    def test_valid_feature_library_parses(self):
+        validated = validate_release_manifest(_manifest_with_feature_library())
+        assert validated.feature_library is not None
+        assert validated.feature_library.distribution == "xrd-inference-features"
+        assert validated.feature_library.version == "0.1.0"
+        assert validated.feature_library.contract == "bremen_feature_schema_v0.1"
+        assert validated.feature_library.wheel_filename == (
+            "xrd_inference_features-0.1.0-py3-none-any.whl"
+        )
+        assert validated.feature_library.wheel_sha256 == "e" * 64
+
+    def test_malformed_distribution_rejected(self):
+        with pytest.raises(InferenceReleaseContractError):
+            validate_release_manifest(
+                _manifest_with_feature_library(feature_library={"distribution": "Not Valid!"})
+            )
+
+    def test_malformed_version_rejected(self):
+        with pytest.raises(InferenceReleaseContractError):
+            validate_release_manifest(
+                _manifest_with_feature_library(feature_library={"version": "0.1"})
+            )
+
+    def test_malformed_contract_rejected(self):
+        with pytest.raises(InferenceReleaseContractError):
+            validate_release_manifest(
+                _manifest_with_feature_library(feature_library={"contract": "Not Valid!"})
+            )
+
+    def test_invalid_sha256_rejected(self):
+        with pytest.raises(InferenceReleaseContractError):
+            validate_release_manifest(
+                _manifest_with_feature_library(feature_library={"wheel_sha256": "not-a-sha"})
+            )
+
+    def test_unsafe_wheel_filename_rejected(self):
+        for unsafe in ("../escape.whl", "/abs/path.whl", "a/b.whl", "not-a-wheel.txt"):
+            with pytest.raises(InferenceReleaseContractError):
+                validate_release_manifest(
+                    _manifest_with_feature_library(feature_library={"wheel_filename": unsafe})
+                )
+
+    def test_missing_declared_wheel_file_ref_rejected(self):
+        """feature_library declared but no files[] entry has the matching role."""
+        manifest = _valid_manifest(
+            feature_library={
+                "distribution": "xrd-inference-features",
+                "version": "0.1.0",
+                "contract": "bremen_feature_schema_v0.1",
+                "wheel_filename": "xrd_inference_features-0.1.0-py3-none-any.whl",
+                "wheel_sha256": "e" * 64,
+            }
+        )
+        with pytest.raises(InferenceReleaseContractError):
+            validate_release_manifest(manifest)
+
+    def test_duplicate_feature_wheel_roles_rejected(self):
+        manifest = _manifest_with_feature_library()
+        manifest["files"] = [
+            *manifest["files"],
+            _feature_library_wheel_ref(relative_path="wheels/other.whl"),
+        ]
+        with pytest.raises(InferenceReleaseContractError):
+            validate_release_manifest(manifest)
+
+    def test_sha_mismatch_between_block_and_file_ref_rejected(self):
+        manifest = _manifest_with_feature_library()
+        manifest["feature_library"]["wheel_sha256"] = "f" * 64
+        with pytest.raises(InferenceReleaseContractError):
+            validate_release_manifest(manifest)
+
+    def test_filename_mismatch_between_block_and_file_ref_rejected(self):
+        manifest = _manifest_with_feature_library()
+        manifest["feature_library"]["wheel_filename"] = "different.whl"
+        with pytest.raises(InferenceReleaseContractError):
+            validate_release_manifest(manifest)
+
+    def test_unsupported_field_rejected(self):
+        manifest = _manifest_with_feature_library()
+        manifest["feature_library"]["extra"] = "nope"
+        with pytest.raises(InferenceReleaseContractError):
+            validate_release_manifest(manifest)

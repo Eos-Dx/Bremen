@@ -1,0 +1,129 @@
+status: valid
+verdict: "READY FOR COMMIT"
+head: 5bb4210e8eeb506cf3e4992f4f5a72e813fff4a7
+branch: "0171-ir-07-xrd-feature-library"
+blockers: []
+warnings:
+  - "ruff check . could not be run because ruff is not installed in the available environment; compileall, git diff --check, targeted tests, and the full pytest suite passed."
+changed_files:
+  - .project-memory/pr/ir-07/PLAN.md
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/PLAN.md
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/IMPLEMENTATION_REPORT.md
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/FEATURE_CONTRACTS.md
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/WHEEL_EVIDENCE.md
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/FIVE_RELEASE_PARITY.md
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/_five_release_parity_result.json
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/_scratch_five_release_parity.py
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/_scratch_install_proof.py
+  - packages/xrd-inference-features/README.md
+  - packages/xrd-inference-features/pyproject.toml
+  - packages/xrd-inference-features/src/xrd_inference_features/__init__.py
+  - packages/xrd-inference-features/src/xrd_inference_features/aramina_symmetry.py
+  - packages/xrd-inference-features/src/xrd_inference_features/bremen_contract.py
+  - packages/xrd-inference-features/tests/test_aramina_symmetry.py
+  - packages/xrd-inference-features/tests/test_bremen_contract.py
+  - src/bremen/contracts/inference_release.py
+  - src/bremen/ml_plugin/inference.py
+  - src/bremen/ml_plugin/release.py
+  - src/bremen/model_packages/aramina_v0213/inference.py
+  - src/bremen/model_packages/bremen_v01/runtime.py
+  - src/bremen/platform/models/release_cache.py
+  - src/bremen/release_build/assemble.py
+  - src/bremen/release_build/feature_wheel.py
+  - tests/test_aramina_workflow_runtime.py
+  - tests/test_inference_release_contract.py
+  - tests/test_ir07_feature_library_parity.py
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/reviews/precommit-review.yml
+working_tree_state: "Dirty with the implementation/evidence files above; no staged files. Review artifact is the only file written by this review."
+scope_control:
+  branch_matches: true
+  no_aws_or_infrastructure_changes: true
+  no_credentials_or_real_data_artifacts: true
+  no_ir08_cleanup: true
+  no_review_implementation_edits: true
+  diff_check_clean: true
+  compileall_passed: true
+  feature_library_outside_root_dependencies: true
+  root_dependency_list_unchanged: true
+  parent_import_boundary_preserved: true
+scientific_contracts:
+  bremen_feature_order_exact: true
+  differential_parity_exact_rtol_0_atol_0: true
+  aramina_v01_v02_distinct: true
+  aramina_core4_and_symmetry_available: true
+  contract_mapping_verified: "A1/A2 aramina_sk_symmetry_v0_2; B1/B2/B3 bremen_feature_schema_v0.1."
+  feature_order_hash_comes_from_external_library: true
+release_binding:
+  feature_wheel_distribution: "xrd-inference-features"
+  feature_wheel_sha256: "75498c315990dbe26e591c13c9cb64f06eb9b4139f57608bba4b8576db84a72d"
+  plugin_wheel_sha256: "67ed55226d7c8088f013a11aa9723f8bc0b3b346053e2f0000403563b196efae"
+  manifest_feature_library_role_validation: true
+  release_cache_installs_feature_wheel_in_release_venv: true
+  backend_selection_is_explicit_and_worker_scoped: true
+  five_release_ready_parity_evidence_present: true
+  b2_exact_hard_gate_present: true
+validation:
+  - command: "git branch --show-current"
+    exit_code: 0
+    output: "0171-ir-07-xrd-feature-library"
+  - command: "git diff --check"
+    exit_code: 0
+    output: "clean"
+  - command: "/tmp/bremen-ir01-exec-venv/bin/python -m compileall -q src tests packages/xrd-inference-features/src"
+    exit_code: 0
+    output: "passed"
+  - command: "/tmp/bremen-ir01-exec-venv/bin/python -m pytest -q tests/test_ir07_feature_library_parity.py tests/test_inference_release_contract.py"
+    exit_code: 0
+    output: "73 passed"
+  - command: "packages/xrd-inference-features/.venv-standalone/bin/python -m pytest -q"
+    exit_code: 0
+    output: "15 passed"
+  - command: "/tmp/bremen-ir01-exec-venv/bin/python -m pytest -q"
+    exit_code: 0
+    output: "4536 passed, 8 skipped, 40 warnings"
+  - command: "PYTHONPATH=src /tmp/bremen-ir01-exec-venv/bin/python -c 'from bremen.release_build.feature_wheel import build_feature_library_wheel; ...'"
+    exit_code: 0
+    output: "feature wheel sha256 75498c315990dbe26e591c13c9cb64f06eb9b4139f57608bba4b8576db84a72d, 9695 bytes"
+  - command: "PYTHONPATH=src /tmp/bremen-ir01-exec-venv/bin/python -c 'from bremen.release_build.wheel import build_plugin_wheel; ...'"
+    exit_code: 0
+    output: "plugin wheel sha256 67ed55226d7c8088f013a11aa9723f8bc0b3b346053e2f0000403563b196efae, 115993 bytes"
+  - command: "ruff check ."
+    exit_code: 127
+    output: "ruff: command not found (warning only; tool unavailable)"
+fresh_venv_import_proof:
+  environment: "/tmp/ir07-review-venv"
+  import_path: "/tmp/ir07-review-venv/lib/python3.13/site-packages/xrd_inference_features/__init__.py"
+  bremen_checkout_on_sys_path: false
+  note: "Wheel was installed into a fresh venv with no Bremen checkout path; standalone tests also passed in the isolated package venv."
+required_files_to_stage:
+  - .project-memory/pr/ir-07/PLAN.md
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/PLAN.md
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/IMPLEMENTATION_REPORT.md
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/FEATURE_CONTRACTS.md
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/WHEEL_EVIDENCE.md
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/FIVE_RELEASE_PARITY.md
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/_five_release_parity_result.json
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/_scratch_five_release_parity.py
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/_scratch_install_proof.py
+  - packages/xrd-inference-features/README.md
+  - packages/xrd-inference-features/pyproject.toml
+  - packages/xrd-inference-features/src/xrd_inference_features/__init__.py
+  - packages/xrd-inference-features/src/xrd_inference_features/aramina_symmetry.py
+  - packages/xrd-inference-features/src/xrd_inference_features/bremen_contract.py
+  - packages/xrd-inference-features/tests/test_aramina_symmetry.py
+  - packages/xrd-inference-features/tests/test_bremen_contract.py
+  - src/bremen/contracts/inference_release.py
+  - src/bremen/ml_plugin/inference.py
+  - src/bremen/ml_plugin/release.py
+  - src/bremen/model_packages/aramina_v0213/inference.py
+  - src/bremen/model_packages/bremen_v01/runtime.py
+  - src/bremen/platform/models/release_cache.py
+  - src/bremen/release_build/assemble.py
+  - src/bremen/release_build/feature_wheel.py
+  - tests/test_aramina_workflow_runtime.py
+  - tests/test_inference_release_contract.py
+  - tests/test_ir07_feature_library_parity.py
+  - .project-memory/pr/0171-ir-07-xrd-feature-library/reviews/precommit-review.yml
+files_to_exclude:
+  - "Any file outside the listed implementation/evidence files and this review artifact"
+review_only_boundary: true

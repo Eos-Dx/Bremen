@@ -1,0 +1,62 @@
+{
+  "a1": {
+    "status": "READY",
+    "release_id": "aramina-target-breast-risk-0-2-12-beta-9bb9111",
+    "manifest_sha256": "94a0033b64fd8e664cbd515607cf5d03f3820b9f9ebc0125edcecd5bf2984498",
+    "feature_library": {
+      "contract": "aramina_sk_symmetry_v0_2",
+      "distribution": "xrd-inference-features",
+      "version": "0.1.0",
+      "wheel_filename": "xrd_inference_features-0.1.0-py3-none-any.whl",
+      "wheel_sha256": "75498c315990dbe26e591c13c9cb64f06eb9b4139f57608bba4b8576db84a72d"
+    }
+  },
+  "a2": {
+    "status": "READY",
+    "release_id": "aramina-target-breast-risk-0-2-13-beta-f5e4a04",
+    "manifest_sha256": "2126e2c325003b014a80db7d927d31285ff71b03afa172dd0dd7c3b9ee8025df",
+    "feature_library": {
+      "contract": "aramina_sk_symmetry_v0_2",
+      "distribution": "xrd-inference-features",
+      "version": "0.1.0",
+      "wheel_filename": "xrd_inference_features-0.1.0-py3-none-any.whl",
+      "wheel_sha256": "75498c315990dbe26e591c13c9cb64f06eb9b4139f57608bba4b8576db84a72d"
+    }
+  },
+  "b1": {
+    "status": "READY",
+    "release_id": "bremen-mri-triage-logreg-v0-1",
+    "manifest_sha256": "b9169e1766c3ffb56561c5668af0c2f264a363ec6493f893e35e48c8b2b59088",
+    "feature_library": {
+      "contract": "bremen_feature_schema_v0.1",
+      "distribution": "xrd-inference-features",
+      "version": "0.1.0",
+      "wheel_filename": "xrd_inference_features-0.1.0-py3-none-any.whl",
+      "wheel_sha256": "75498c315990dbe26e591c13c9cb64f06eb9b4139f57608bba4b8576db84a72d"
+    }
+  },
+  "b2": {
+    "status": "READY",
+    "release_id": "bremen-paper-reference-v0-2-0",
+    "manifest_sha256": "c384a27f21d98d78025360ed77c4db5eb72f1cf9b007a549b52591c7a56a69a2",
+    "feature_library": {
+      "contract": "bremen_feature_schema_v0.1",
+      "distribution": "xrd-inference-features",
+      "version": "0.1.0",
+      "wheel_filename": "xrd_inference_features-0.1.0-py3-none-any.whl",
+      "wheel_sha256": "75498c315990dbe26e591c13c9cb64f06eb9b4139f57608bba4b8576db84a72d"
+    }
+  },
+  "b3": {
+    "status": "READY",
+    "release_id": "bremen-v0-2-0-symmetry-candidate",
+    "manifest_sha256": "940c41427b2d7b4bba6d39c4e1905dd5d661ce8273a261205e3db8a65fb1d9a3",
+    "feature_library": {
+      "contract": "bremen_feature_schema_v0.1",
+      "distribution": "xrd-inference-features",
+      "version": "0.1.0",
+      "wheel_filename": "xrd_inference_features-0.1.0-py3-none-any.whl",
+      "wheel_sha256": "75498c315990dbe26e591c13c9cb64f06eb9b4139f57608bba4b8576db84a72d"
+    }
+  }
+}
