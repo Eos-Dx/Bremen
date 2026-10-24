@@ -55,6 +55,7 @@ from bremen.contracts.worker_protocol import PROTOCOL_ID
 
 __all__ = [
     "DEFAULT_MAX_CACHE_BYTES",
+    "GOLDEN_PROBABILITY_ABS_TOLERANCE",
     "InstalledRelease",
     "ReleaseCache",
     "ReleaseCacheError",
@@ -74,6 +75,12 @@ DEFAULT_MAX_CACHE_BYTES = 8 * 1024**3
 INSTALL_BUDGET_FACTOR = 3.0  # venv + wheels expand beyond the declared bytes
 INSTALL_TIMEOUT_SECONDS = 1800
 SMOKE_TIMEOUT_SECONDS = 600
+
+#: Cross-platform BLAS/LAPACK drift affects only the continuous probability
+#: output, at ~1e-15 absolute magnitude (observed max 4.7e-15 across the five
+#: Linux releases vs their macOS-frozen golden values).  Thresholds,
+#: classifications and typed errors remain exact and are never tolerated.
+GOLDEN_PROBABILITY_ABS_TOLERANCE = 1e-12
 
 _DIGEST_PATTERN = re.compile(r"^[a-f0-9]{64}$")
 _AUX_REF_PATTERN = re.compile(r"^@aux/([A-Za-z0-9][A-Za-z0-9._-]{0,63})$")
@@ -1056,7 +1063,6 @@ def _verify_golden_case(
 
     payload = (result.get("payload") or {}).get("result") or {}
     for field in (
-        "probability", "risk_probability",
         "threshold_applied", "decision_threshold",
         "prediction", "target_class_risk_level",
     ):
@@ -1064,3 +1070,24 @@ def _verify_golden_case(
             continue
         if payload.get(field) != expected[field]:
             raise ReleaseCacheError("smoke_failed", case_id)
+    # Continuous probability output may drift across BLAS/LAPACK platforms;
+    # only these two fields use the narrow absolute tolerance.
+    for field in ("probability", "risk_probability"):
+        if field not in expected:
+            continue
+        if not _golden_probability_matches(payload.get(field), expected[field]):
+            raise ReleaseCacheError("smoke_failed", case_id)
+
+
+def _golden_probability_matches(actual: Any, expected: Any) -> bool:
+    """Narrow absolute comparison for golden probability fields only.
+
+    Rejects booleans, non-numeric values, NaN and infinity.  A non-numeric
+    expected value can never match.
+    """
+    for value in (actual, expected):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return False
+        if not _math.isfinite(float(value)):
+            return False
+    return abs(float(actual) - float(expected)) <= GOLDEN_PROBABILITY_ABS_TOLERANCE

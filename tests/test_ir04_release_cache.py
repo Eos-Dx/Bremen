@@ -1256,3 +1256,209 @@ def test_runtime_release_stays_private_in_catalog_entry(tmp_path):
     assert "runtime_release" not in safe
     assert "manifest_key" not in json.dumps(safe)
     assert entry.get_runtime_release()["manifest_sha256"] == _sha(manifest_bytes)
+
+
+# ---------------------------------------------------------------------------
+# Cross-platform golden probability tolerance (PR0174)
+# ---------------------------------------------------------------------------
+
+
+class TestGoldenProbabilityTolerance:
+    """Only continuous probability fields may use the narrow absolute
+    tolerance; every discrete/contract field stays exact."""
+
+    def _install_with(self, tmp_path, runner_result=None, runner_error=None, **expected):
+        s3, manifest_bytes, document = _manifest_with_cases([_case(**expected)])
+        runner = FakeRunner(
+            golden_result=runner_result, golden_error=runner_error,
+        )
+        cache = make_cache(tmp_path, s3, runner)
+        return cache, document, manifest_bytes
+
+    def test_exact_probability_still_passes(self, tmp_path):
+        cache, document, manifest_bytes = self._install_with(
+            tmp_path,
+            runner_result={
+                "probability": GOLDEN_EXPECTED["probability"],
+                "threshold_applied": GOLDEN_EXPECTED["threshold_applied"],
+                "prediction": 1,
+            },
+        )
+        installed = cache.install(make_entry(document, manifest_bytes))
+        assert cache.read_ready(installed.manifest_sha256) is not None
+
+    def test_observed_darwin_linux_probability_pair_passes(self, tmp_path):
+        """The real B2 pair: Darwin 0.7726940329943811 vs Linux 0.7726940329943845."""
+        cache, document, manifest_bytes = self._install_with(
+            tmp_path,
+            runner_result={
+                "probability": 0.7726940329943845,
+                "threshold_applied": 0.3585907282566089,
+                "prediction": 1,
+            },
+            probability=0.7726940329943811,
+            threshold_applied=0.3585907282566089,
+            prediction=1,
+        )
+        installed = cache.install(make_entry(document, manifest_bytes))
+        assert cache.read_ready(installed.manifest_sha256) is not None
+
+    def test_difference_within_tolerance_passes(self, tmp_path):
+        expected = 0.7726940329943811
+        cache, document, manifest_bytes = self._install_with(
+            tmp_path,
+            runner_result={
+                "probability": expected + 5e-13,
+                "threshold_applied": GOLDEN_EXPECTED["threshold_applied"],
+                "prediction": 1,
+            },
+            probability=expected,
+        )
+        assert cache.read_ready(
+            cache.install(make_entry(document, manifest_bytes)).manifest_sha256
+        ) is not None
+
+    def test_difference_above_tolerance_fails(self, tmp_path):
+        expected = 0.7726940329943811
+        cache, document, manifest_bytes = self._install_with(
+            tmp_path,
+            runner_result={
+                "probability": expected + 2e-12,
+                "threshold_applied": GOLDEN_EXPECTED["threshold_applied"],
+                "prediction": 1,
+            },
+            probability=expected,
+        )
+        with pytest.raises(ReleaseCacheError, match="smoke_failed"):
+            cache.install(make_entry(document, manifest_bytes))
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_probability_fails(self, tmp_path, bad):
+        cache, document, manifest_bytes = self._install_with(
+            tmp_path,
+            runner_result={
+                "probability": bad,
+                "threshold_applied": GOLDEN_EXPECTED["threshold_applied"],
+                "prediction": 1,
+            },
+        )
+        with pytest.raises(ReleaseCacheError, match="smoke_failed"):
+            cache.install(make_entry(document, manifest_bytes))
+
+    @pytest.mark.parametrize("bad", ["0.77", None, True, [0.77]])
+    def test_non_numeric_probability_fails(self, tmp_path, bad):
+        cache, document, manifest_bytes = self._install_with(
+            tmp_path,
+            runner_result={
+                "probability": bad,
+                "threshold_applied": GOLDEN_EXPECTED["threshold_applied"],
+                "prediction": 1,
+            },
+        )
+        with pytest.raises(ReleaseCacheError, match="smoke_failed"):
+            cache.install(make_entry(document, manifest_bytes))
+
+    def test_tiny_threshold_drift_still_fails(self, tmp_path):
+        cache, document, manifest_bytes = self._install_with(
+            tmp_path,
+            runner_result={
+                "probability": GOLDEN_EXPECTED["probability"],
+                "threshold_applied": GOLDEN_EXPECTED["threshold_applied"] + 1e-15,
+                "prediction": 1,
+            },
+        )
+        with pytest.raises(ReleaseCacheError, match="smoke_failed"):
+            cache.install(make_entry(document, manifest_bytes))
+
+    def test_prediction_mismatch_still_fails(self, tmp_path):
+        cache, document, manifest_bytes = self._install_with(
+            tmp_path,
+            runner_result={
+                "probability": GOLDEN_EXPECTED["probability"],
+                "threshold_applied": GOLDEN_EXPECTED["threshold_applied"],
+                "prediction": 0,
+            },
+        )
+        with pytest.raises(ReleaseCacheError, match="smoke_failed"):
+            cache.install(make_entry(document, manifest_bytes))
+
+    def test_target_class_mismatch_still_fails(self, tmp_path):
+        expected = {
+            "status": "ok",
+            "risk_probability": 0.8693870739736473,
+            "decision_threshold": 0.24665932038818544,
+            "target_class_risk_level": 1,
+        }
+        s3, manifest_bytes, document = _manifest_with_cases([_case(**expected)])
+        runner = FakeRunner(
+            golden_result={
+                "risk_probability": 0.869387073973647,
+                "decision_threshold": 0.24665932038818544,
+                "target_class_risk_level": 0,
+            }
+        )
+        cache = make_cache(tmp_path, s3, runner)
+        with pytest.raises(ReleaseCacheError, match="smoke_failed"):
+            cache.install(make_entry(document, manifest_bytes))
+
+    def test_error_code_mismatch_still_fails(self, tmp_path):
+        expected = {
+            "status": "error",
+            "error_code": "QC_FAILED",
+            "safe_reason": "raw_peak_gate_failed",
+        }
+        s3, manifest_bytes, document = _manifest_with_cases([_case(**expected)])
+        runner = FakeRunner(
+            golden_error={"code": "INPUT_INVALID", "safe_reason": "raw_peak_gate_failed"}
+        )
+        cache = make_cache(tmp_path, s3, runner)
+        with pytest.raises(ReleaseCacheError, match="smoke_failed"):
+            cache.install(make_entry(document, manifest_bytes))
+
+    def test_safe_reason_mismatch_still_fails(self, tmp_path):
+        expected = {
+            "status": "error",
+            "error_code": "QC_FAILED",
+            "safe_reason": "raw_peak_gate_failed",
+        }
+        s3, manifest_bytes, document = _manifest_with_cases([_case(**expected)])
+        runner = FakeRunner(
+            golden_error={"code": "QC_FAILED", "safe_reason": "other_reason"}
+        )
+        cache = make_cache(tmp_path, s3, runner)
+        with pytest.raises(ReleaseCacheError, match="smoke_failed"):
+            cache.install(make_entry(document, manifest_bytes))
+
+    def test_linux_risk_probability_drift_passes(self, tmp_path):
+        """A1 Linux risk_probability differs in the last digits only."""
+        expected = {
+            "status": "ok",
+            "risk_probability": 0.8693870739736473,
+            "decision_threshold": 0.24665932038818544,
+            "target_class_risk_level": 1,
+        }
+        case = {
+            "case_id": "a1-linux-drift",
+            "fixture": "benign_one_patient.h5",
+            "fixture_release_path": "golden_tests/fixtures/benign_one_patient.h5",
+            "expected": expected,
+        }
+        s3, manifest_bytes, document = _manifest_with_cases([case])
+        runner = FakeRunner(
+            golden_result={
+                "risk_probability": 0.869387073973647,
+                "decision_threshold": 0.24665932038818544,
+                "target_class_risk_level": 1,
+            }
+        )
+        cache = make_cache(tmp_path, s3, runner)
+        installed = cache.install(make_entry(document, manifest_bytes))
+        assert cache.read_ready(installed.manifest_sha256) is not None
+
+
+def test_golden_tolerance_is_narrow_and_documented():
+    from bremen.platform.models.release_cache import (
+        GOLDEN_PROBABILITY_ABS_TOLERANCE,
+    )
+
+    assert GOLDEN_PROBABILITY_ABS_TOLERANCE == 1e-12
