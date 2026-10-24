@@ -1,0 +1,6 @@
+{
+  "schema_version": "bremen.inference-release.v1",
+  "release_id": "bremen-mri-triage-logreg-v0-1",
+  "manifest_key": "releases/bremen-mri-triage-logreg-v0-1/manifest.json",
+  "manifest_sha256": "b9169e1766c3ffb56561c5668af0c2f264a363ec6493f893e35e48c8b2b59088"
+}
